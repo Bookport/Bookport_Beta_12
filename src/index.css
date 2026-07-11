@@ -1,0 +1,148 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Calibri", "Candara", "Segoe UI", system-ui, sans-serif;
+  
+  --color-brand-green-pure: #109F44;
+  --color-brand-green-bright: #16B551;
+  --color-brand-green-light: #22C55E;
+  --color-brand-green-soft: #4ADD75;
+  --color-brand-green-mint: #6EE79C;
+  --color-brand-green-dark: #0C7E35;
+  --color-brand-green-deep: #0A6C2D;
+  --color-brand-green-shade: #085B24;
+  
+  --color-bg-pure: #FFFFFF;
+  --color-bg-light: #FAFAFA;
+  --color-bg-soft: #F5F7F8;
+  --color-bg-base: #EFF2F3;
+  
+  --color-text-main: #1F2328;
+  --color-text-dark: #2B3137;
+  --color-text-sec: #555E68;
+  --color-text-muted: #737C86;
+}
+
+@layer utilities {
+  /* Volumetric 3D Glass effects */
+  .volumetric-glass-ring {
+    position: relative;
+    border-radius: 50%;
+    background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.1) 40%, rgba(255, 255, 255, 0.0) 70%);
+    box-shadow: 
+      inset 0 10px 20px rgba(255, 255, 255, 0.8),
+      inset 0 -10px 20px rgba(0, 0, 0, 0.05),
+      inset 10px 0 15px rgba(255, 255, 255, 0.5),
+      inset -10px 0 15px rgba(0, 0, 0, 0.05),
+      0 12px 30px rgba(13, 177, 75, 0.08),
+      0 4px 12px rgba(0, 0, 0, 0.03);
+    backdrop-filter: blur(8px);
+  }
+
+  /* Premium Volumetric Button Click & Fill */
+  .volumetric-btn {
+    position: relative;
+    background: linear-gradient(180deg, #22C55E 0%, #16B551 45%, #109F44 100%);
+    box-shadow: 
+      0 1px 0 rgba(255, 255, 255, 0.4) inset,
+      0 4px 15px rgb(16 181 81 / 35%),
+      0 12px 24px -4px rgb(16 181 81 / 20%),
+      0 -2px 0 rgba(8, 91, 36, 0.4) inset;
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .volumetric-btn::before {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 8%;
+    right: 8%;
+    height: 35%;
+    border-radius: 100px;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.6) 0%, rgba(255, 255, 255, 0.05) 100%);
+    pointer-events: none;
+  }
+
+  .volumetric-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 
+      0 1px 0 rgba(255, 255, 255, 0.5) inset,
+      0 6px 20px rgb(16 181 81 / 45%),
+      0 16px 28px -2px rgb(16 181 81 / 25%),
+      0 -2px 0 rgba(8, 91, 36, 0.5) inset;
+  }
+
+  .volumetric-btn:active {
+    transform: translateY(1px);
+    box-shadow: 
+      0 1px 0 rgba(255, 255, 255, 0.2) inset,
+      0 2px 8px rgb(16 181 81 / 30%),
+      0 -1px 0 rgba(8, 91, 36, 0.3) inset;
+  }
+
+  /* Navigation tab glass buttons */
+  .nav-btn-green {
+    background: linear-gradient(135deg, #22C55E 0%, #109F44 100%);
+    box-shadow: 
+      0 1px 0 rgba(255, 255, 255, 0.3) inset,
+      0 4px 12px rgba(16, 181, 81, 0.35),
+      0 -2px 0 rgba(8, 91, 36, 0.4) inset;
+  }
+}
+
+/* Custom continuous bubbles animations */
+@keyframes bubble-rise {
+  0% {
+    transform: translateY(105%) scale(0.6);
+    opacity: 0;
+  }
+  15% {
+    opacity: 0.7;
+    transform: translateY(80%) scale(1);
+  }
+  50% {
+    opacity: 0.9;
+  }
+  85% {
+    opacity: 0.5;
+  }
+  100% {
+    transform: translateY(-5%) scale(0.7);
+    opacity: 0;
+  }
+}
+
+.animate-bubble-slow {
+  animation: bubble-rise 7s infinite linear;
+}
+
+.animate-bubble-medium {
+  animation: bubble-rise 5s infinite linear;
+}
+
+.animate-bubble-fast {
+  animation: bubble-rise 3.5s infinite linear;
+}
+
+/* Thin custom scrollbar for desktop */
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: #d1d5db transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 5px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 8px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: #a1a1aa;
+}

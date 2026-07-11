@@ -1,0 +1,6 @@
+{
+  "name": "Всё дело в еде!",
+  "description": "Приложение «Всё дело в еде!» — Добро пожаловать, Личные данные, Здоровье и цели, Моя страница, Пищеварение, Мой день, Анна на связи.",
+  "requestFramePermissions": ["camera", "microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

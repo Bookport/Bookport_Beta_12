@@ -1,0 +1,13 @@
+node_modules/
+build/
+dist/
+coverage/
+.DS_Store
+*.log
+.env*
+!.env.example
+*.webp:Zone.Identifier
+achives/
+backgro/
+bookport-server.exe
+Bookport_9.0_portable.zip

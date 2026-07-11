@@ -1,0 +1,223 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id               String   @id
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  name              String?
+  gender            String?
+  age               Int?
+  height            Float?
+  weight            Float?
+  systolic          Int?
+  diastolic         Int?
+  initialAge        Int?
+  initialHeight     Float?
+  initialWeight     Float?
+  initialSystolic   Int?
+  initialDiastolic  Int?
+  hasSavedSettings  Boolean  @default(false)
+  chronicConditions String?
+  healthGoals       String?
+
+  dailyMetrics        DailyMetric[]
+  dailyRatings        DailyRating[]
+  recipeProgress      RecipeProgress[]
+  savedDishes         SavedDish[]
+  diaryEntries        DiaryEntry[]
+  shoppingItems       ShoppingItem[]
+  purchases           Purchase[]
+  annaChats           AnnaChat[]
+  annaOverlayMessages AnnaOverlayMessage[]
+  userAchievements    UserAchievement[]
+}
+
+model DailyMetric {
+  id              String   @id @default(uuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id])
+  date            DateTime @default(now())
+  dayIndex        Int
+
+  waterMl         Int      @default(0)
+  sleepMinutes    Int      @default(0)
+  mealCount       Int      @default(0)
+  habitsDone      Int      @default(0)
+  activityMinutes Int      @default(0)
+  digestionLog    String?
+  movementLog     String?
+  measurements    String?
+
+  @@unique([userId, date])
+}
+
+model DailyRating {
+  id           String   @id @default(uuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id])
+  date         DateTime @default(now())
+  wellbeing    Int
+  energy       Int
+  lightness    Int
+  wellbeingLog String?  // JSON array of {time, val}
+  energyLog    String?
+  lightnessLog String?
+
+  @@unique([userId, date])
+}
+
+model BookRecipe {
+  type            String
+  id              Int
+  technicalName   String
+  emotionalName   String?
+  week            String?
+  page            Int?
+  day             Int?
+  timeOfDay       String?
+
+  ingredients     String
+  instructions    String
+  kbju            String
+
+  progress  RecipeProgress[]
+
+  @@id([type, id])
+}
+
+model RecipeProgress {
+  id              String   @id @default(uuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id])
+  bookRecipeType  String
+  bookRecipeId    Int
+  bookRecipe      BookRecipe @relation(fields: [bookRecipeType, bookRecipeId], references: [type, id])
+  status          String     @default("base")
+  note            String?
+  tags            String?
+  dayIndex        Int?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  @@unique([userId, bookRecipeType, bookRecipeId])
+}
+
+model SavedDish {
+  id              String   @id @default(uuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id])
+  name            String
+  image           String?
+  category        String
+  tag             String?
+  createdAt       DateTime @default(now())
+  isFavorite      Boolean  @default(false)
+  dayIndex        Int?
+
+  isBookRecipe    Boolean  @default(false)
+  bookRecipeType  String?
+  bookRecipeId    Int?
+  sourceType      String?
+  ingredients     String?
+  calories        Int?
+  protein         String?
+  fiber           String?
+  fat             String?
+  annaTip         String?
+  annaComment     String?
+  isNew           Boolean  @default(true)
+}
+
+model DiaryEntry {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  dayIndex  Int
+  createdAt DateTime @default(now())
+
+  note      String?
+  mood      String?
+  photo     String?
+  tags      String?
+  time      String?
+}
+
+model ShoppingItem {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  name      String
+  category  String?
+  checked   Boolean  @default(false)
+  dayIndex  Int?
+  createdAt DateTime @default(now())
+}
+
+model Purchase {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  name      String
+  category  String
+  status    String   @default("pending")
+  dayIndex  Int?
+  createdAt DateTime @default(now())
+}
+
+model AnnaChat {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  message   String
+  reply     String?
+  screen    String?
+  dayIndex  Int?
+  createdAt DateTime @default(now())
+}
+
+model AnnaOverlayMessage {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  sender    String
+  text      String
+  time      String?
+  dayIndex  Int?
+  createdAt DateTime @default(now())
+}
+
+model Achievement {
+  id               String   @id
+  name             String
+  category         String
+  type             String
+  rarity           String
+  xp               Int
+  descriptionMale  String
+  descriptionFemale String
+  image            String
+  isSecret         Boolean  @default(false)
+
+  userAchievements UserAchievement[]
+}
+
+model UserAchievement {
+  id            String    @id @default(uuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id])
+  achievementId String
+  achievement   Achievement @relation(fields: [achievementId], references: [id])
+  unlocked      Boolean   @default(false)
+  unlockedAt    DateTime?
+  xp            Int       @default(0)
+
+  @@unique([userId, achievementId])
+}
