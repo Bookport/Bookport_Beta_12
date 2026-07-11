@@ -246,7 +246,7 @@ export default function ScalesTab({
                 Физический энергозаряд
               </span>
               <span className="font-mono text-slate-800 font-extrabold">
-                {activityLogs.length} / 5 ({energyPct}%)
+                {energyPct}%
               </span>
             </div>
             
@@ -270,9 +270,9 @@ export default function ScalesTab({
               <div className="absolute top-[2px] inset-x-2.5 h-[3px] bg-white/35 rounded-full filter blur-[0.1px] pointer-events-none" />
               <div className="absolute bottom-[2px] inset-x-2.5 h-[2px] bg-white/10 rounded-full pointer-events-none" />
             </div>
-            {activityLogs.length > 0 && (
+            {(activityLogs || []).length > 0 && (
               <div className="mt-2 pt-2 border-t border-slate-100 flex flex-wrap gap-2">
-                {activityLogs.map((log, i) => (
+                {(activityLogs || []).map((log: any, i: number) => (
                   <span key={i} className="text-[10px] bg-amber-50 text-amber-700 font-bold px-2 py-0.5 rounded-md border border-amber-100 flex items-center gap-1">
                     🏃 {log.activityType} ({Math.round(log.durationSeconds / 60)} мин) <span className="text-[8px] text-amber-500/80 font-mono ml-1">{log.timeString || ''}</span>
                   </span>
@@ -327,51 +327,6 @@ export default function ScalesTab({
                         animate={{ height: `${(log.val / 5) * 100}%` }} 
                         transition={{ duration: 0.6, ease: "easeOut" }}
                         className="w-full bg-emerald-400 rounded-t-md" 
-                      />
-                    </div>
-                    <span className="text-[8px] text-slate-400 font-mono leading-none">{log.time}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Slider 2: Физическая энергия */}
-        <div className="mb-4">
-          <div className="flex justify-between items-center mb-1.5 text-[12.5px] font-bold text-slate-700 font-sans">
-            <span>⚡ Физический тонус и сила</span>
-            <span className="font-mono text-[13px] text-amber-600 font-extrabold">{ratingEnergy} из 5</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            {[1, 2, 3, 4, 5].map((val) => (
-              <button
-                key={val}
-                type="button"
-                onClick={() => { setActiveRating(p => ({...p, energy: val})); handleRatingChange("energy", val); }}
-                className={`flex-1 py-1.5 font-sans font-bold text-[13px] rounded-xl border transition-all cursor-pointer ${
-                  activeRating["energy"] === val
-                    ? "bg-amber-500 border-amber-550 text-white shadow-xs font-extrabold"
-                    : "bg-white text-slate-600 border-slate-200/60 hover:bg-slate-50"
-                }`}
-              >
-                {val}
-              </button>
-            ))}
-          </div>
-          {energyLog && energyLog.length > 0 && (
-            <div className="mt-3 bg-white border border-amber-50/50 rounded-xl p-3 shadow-sm">
-              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">График состояния (Физический тонус)</span>
-              <div className="flex items-end gap-2.5 h-16 overflow-x-auto no-scrollbar">
-                {energyLog.map((log, i) => (
-                  <div key={i} className="flex flex-col items-center justify-end h-full gap-1 min-w-[28px]">
-                    <span className="text-[10px] font-black text-amber-600 leading-none">{log.val}</span>
-                    <div className="w-5 bg-amber-50 rounded-t-md relative flex items-end overflow-hidden" style={{ height: '40px' }}>
-                      <motion.div 
-                        initial={{ height: 0 }} 
-                        animate={{ height: `${(log.val / 5) * 100}%` }} 
-                        transition={{ duration: 0.6, ease: "easeOut" }}
-                        className="w-full bg-amber-400 rounded-t-md" 
                       />
                     </div>
                     <span className="text-[8px] text-slate-400 font-mono leading-none">{log.time}</span>

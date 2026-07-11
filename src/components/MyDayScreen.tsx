@@ -138,7 +138,17 @@ export default function MyDayScreen({
   const [dbMetric, setDbMetric] = useState<any>(null);
   useEffect(() => {
     api<any>("/api/user/state-now?dayIndex=" + currentDayIndex)
-      .then((d) => setDbMetric(d?.dailyMetric || null))
+      .then((d) => {
+        setDbMetric(d?.dailyMetric || null);
+        if (d?.dailyMetric?.movementLog) {
+          try {
+            const parsed = JSON.parse(d.dailyMetric.movementLog);
+            setMovementLogs(prev => ({ ...prev, [currentDayIndex]: parsed }));
+          } catch (e) {
+            console.error("Failed to parse movementLog:", e);
+          }
+        }
+      })
       .catch(() => {});
   }, [currentDayIndex]);
 

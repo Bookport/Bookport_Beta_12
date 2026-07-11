@@ -42,7 +42,7 @@ export const clientLogger = {
       status: meta?.status,
       deviceId: getDeviceId(),
     };
-    if (process.env.NODE_ENV !== "production") console.log(`[CLIENT] ${message}`, meta || "");
+    if (import.meta.env.MODE !== "production") console.log(`[CLIENT] ${message}`, meta || "");
   },
 
   warn: (message: string, meta?: { source?: string; url?: string; status?: number }) => {

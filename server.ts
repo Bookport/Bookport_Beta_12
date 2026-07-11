@@ -1222,6 +1222,10 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
           sleepMinutes: dailyMetric.sleepMinutes,
           mealCount: dailyMetric.mealCount,
           habitsDone: dailyMetric.habitsDone,
+          activityMinutes: dailyMetric.activityMinutes,
+          movementLog: dailyMetric.movementLog,
+          digestionLog: dailyMetric.digestionLog,
+          measurements: dailyMetric.measurements,
         } : null,
         dailyRating: dailyRating ? {
           wellbeing: dailyRating.wellbeing,
@@ -1244,6 +1248,22 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
     if (!req.userId) return res.status(400).json({ error: "Missing device ID" });
     try {
       const { date, dayIndex, waterMl, sleepMinutes, mealCount, habitsDone, activityMinutes, digestionLog, movementLog, measurements } = req.body;
+      
+      // Fetch existing record
+      const existing = await prisma.dailyMetric.findUnique({
+        where: { userId_date: { userId: req.userId, date: new Date(date) } }
+      });
+      
+      // Merge logic for logs
+      const currentMovementLog = existing?.movementLog ? JSON.parse(existing.movementLog) : [];
+      const newMovementLog = movementLog ? [...currentMovementLog, ...movementLog] : currentMovementLog;
+      
+      const currentDigestionLog = existing?.digestionLog ? JSON.parse(existing.digestionLog) : [];
+      const newDigestionLog = digestionLog ? [...currentDigestionLog, ...digestionLog] : currentDigestionLog;
+      
+      const currentMeasurements = existing?.measurements ? JSON.parse(existing.measurements) : [];
+      const newMeasurements = measurements ? [...currentMeasurements, ...measurements] : currentMeasurements;
+
       const record = await prisma.dailyMetric.upsert({
         where: { userId_date: { userId: req.userId, date: new Date(date) } },
         update: {
@@ -1253,9 +1273,9 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
           mealCount: mealCount ?? undefined,
           habitsDone: habitsDone ?? undefined,
           activityMinutes: activityMinutes ?? undefined,
-          digestionLog: digestionLog ? JSON.stringify(digestionLog) : undefined,
-          movementLog: movementLog ? JSON.stringify(movementLog) : undefined,
-          measurements: measurements ? JSON.stringify(measurements) : undefined,
+          digestionLog: JSON.stringify(newDigestionLog),
+          movementLog: JSON.stringify(newMovementLog),
+          measurements: JSON.stringify(newMeasurements),
         },
         create: {
           userId: req.userId,
@@ -1266,9 +1286,9 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
           mealCount: mealCount ?? 0,
           habitsDone: habitsDone ?? 0,
           activityMinutes: activityMinutes ?? 0,
-          digestionLog: digestionLog ? JSON.stringify(digestionLog) : undefined,
-          movementLog: movementLog ? JSON.stringify(movementLog) : undefined,
-          measurements: measurements ? JSON.stringify(measurements) : undefined,
+          digestionLog: JSON.stringify(newDigestionLog),
+          movementLog: JSON.stringify(newMovementLog),
+          measurements: JSON.stringify(newMeasurements),
         },
       });
       res.json({ ok: true, id: record.id });

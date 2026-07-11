@@ -11,3 +11,7 @@ achives/
 backgro/
 bookport-server.exe
 Bookport_9.0_portable.zip
+
+server.pid
+server_dev.log
+server.log

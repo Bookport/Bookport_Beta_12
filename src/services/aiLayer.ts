@@ -104,7 +104,7 @@ export interface AppControlAction {
 
 export const AISystemConfig = {
   // Configurable Active Provider Option
-  currentProvider: (process.env.AI_PROVIDER as "studio" | "server" | "hybrid") || "studio",
+  currentProvider: (import.meta.env.VITE_AI_PROVIDER as "studio" | "server" | "hybrid") || "studio",
 
   // 1. Anna Character Profile & System Instructions
   AnnaCharacter: {

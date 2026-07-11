@@ -140,7 +140,7 @@ export default function StateNowScreen({
   const energyLog = apiStateNowData?.dailyRating?.energyLog || [];
   const lightnessLog = apiStateNowData?.dailyRating?.lightnessLog || [];
   
-  const activityLogs = apiStateNowData?.dailyMetric?.movementLog ? JSON.parse(apiStateNowData.dailyMetric.movementLog) : [];
+  const activityLogs = apiStateNowData?.dailyMetric?.movementLog ? (typeof apiStateNowData.dailyMetric.movementLog === 'string' ? JSON.parse(apiStateNowData.dailyMetric.movementLog) : apiStateNowData.dailyMetric.movementLog) : [];
   const effSavedDishes = savedDishes.length ? savedDishes : (apiStateNowData?.savedDishes || []);
   const effHabitsDone = SystemKeysStore.calculateKeysForDay(currentDayIndex || 1, effSavedDishes, effWater).closedCount;
   const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Moscow" });
@@ -435,7 +435,7 @@ export default function StateNowScreen({
   const sleepPct = Math.min(100, Math.round((effSleep / sleepTarget) * 100));
   const mealsPct = Math.min(100, Math.round((effMealCount / mealsTarget) * 100));
   const habitsPct = Math.min(100, Math.round((effHabitsDone / habitsTarget) * 100));
-  const energyPct = Math.min(100, activityLogs.length * 20); // 1 div = 20%
+  const energyPct = Math.min(100, Math.round(((activityLogs || []).reduce((acc: number, log: any) => acc + (log.durationSeconds || 0), 0) / 60 / 30) * 100)); // % of 30 mins
   const zenPct = effRatingWellbeing * 20;
   const lightnessPct = effRatingLightness * 20;
 
