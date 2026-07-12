@@ -362,8 +362,39 @@ export class DailyNutritionStore {
         if (rawCarb < rawFiber) rawCarb = Math.round(rawFiber + 10);
       }
 
-      // Format ingredients lists
-      const rawIngs = dish.ingredients || [];
+      // Format ingredients lists — support book recipes saved without ingredients
+      let rawIngs = dish.ingredients || [];
+      if ((!rawIngs || rawIngs.length === 0) && dish.isBookRecipe && dish.bookRecipeRef) {
+        const RECIPES_KEY_MAP: Record<string, string> = {
+          breakfast: "breakfast",
+          lunch: "lunch",
+          dinner: "dinner",
+          must_have: "mustHave",
+          compliment: "compliments",
+          recipe_of_day: "recipeOfDay",
+          drinks: "drinks",
+        };
+        const refType = dish.bookRecipeRef.type;
+        const refId = dish.bookRecipeRef.id;
+        const recipesKey = RECIPES_KEY_MAP[refType];
+        if (recipesKey && refId != null) {
+          const recipeList = (recipes as any)[recipesKey];
+          if (recipeList) {
+            const recipeDef = recipeList.find((r: any) => r.id === refId || r.day === refId);
+            if (recipeDef?.ingredients) {
+              rawIngs = recipeDef.ingredients
+                .split(",")
+                .map((i: string) => i.trim())
+                .filter(Boolean)
+                .map((ingName: string) => ({
+                  name: ingName.charAt(0).toUpperCase() + ingName.slice(1),
+                  weight: String(Math.round(parseWeightGrams(ingName))) + " г",
+                  status: getFoodProfile(ingName).defaultStatus,
+                }));
+            }
+          }
+        }
+      }
       const mappedIngs: NormalizedIngredient[] = rawIngs.map((i: any) => {
         const weightNum = parseWeightGrams(i.weight);
         const profile = getFoodProfile(i.name);

@@ -52,6 +52,7 @@ model DailyMetric {
   mealCount       Int      @default(0)
   habitsDone      Int      @default(0)
   activityMinutes Int      @default(0)
+  waterEntries    String?
   digestionLog    String?
   movementLog     String?
   measurements    String?

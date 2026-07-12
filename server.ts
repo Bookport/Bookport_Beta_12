@@ -1223,6 +1223,7 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
           mealCount: dailyMetric.mealCount,
           habitsDone: dailyMetric.habitsDone,
           activityMinutes: dailyMetric.activityMinutes,
+          waterEntries: dailyMetric.waterEntries,
           movementLog: dailyMetric.movementLog,
           digestionLog: dailyMetric.digestionLog,
           measurements: dailyMetric.measurements,
@@ -1247,7 +1248,7 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
   app.post("/api/metrics/daily", async (req, res) => {
     if (!req.userId) return res.status(400).json({ error: "Missing device ID" });
     try {
-      const { date, dayIndex, waterMl, sleepMinutes, mealCount, habitsDone, activityMinutes, digestionLog, movementLog, measurements } = req.body;
+      const { date, dayIndex, waterMl, sleepMinutes, mealCount, habitsDone, activityMinutes, waterEntries, digestionLog, movementLog, measurements } = req.body;
       
       // Fetch existing record
       const existing = await prisma.dailyMetric.findUnique({
@@ -1255,6 +1256,9 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
       });
       
       // Merge logic for logs
+      const currentWaterEntries = existing?.waterEntries ? JSON.parse(existing.waterEntries) : [];
+      const newWaterEntries = waterEntries ? [...currentWaterEntries, ...waterEntries] : currentWaterEntries;
+      
       const currentMovementLog = existing?.movementLog ? JSON.parse(existing.movementLog) : [];
       const newMovementLog = movementLog ? [...currentMovementLog, ...movementLog] : currentMovementLog;
       
@@ -1273,6 +1277,7 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
           mealCount: mealCount ?? undefined,
           habitsDone: habitsDone ?? undefined,
           activityMinutes: activityMinutes ?? undefined,
+          waterEntries: JSON.stringify(newWaterEntries),
           digestionLog: JSON.stringify(newDigestionLog),
           movementLog: JSON.stringify(newMovementLog),
           measurements: JSON.stringify(newMeasurements),
@@ -1286,6 +1291,7 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
           mealCount: mealCount ?? 0,
           habitsDone: habitsDone ?? 0,
           activityMinutes: activityMinutes ?? 0,
+          waterEntries: JSON.stringify(newWaterEntries),
           digestionLog: JSON.stringify(newDigestionLog),
           movementLog: JSON.stringify(newMovementLog),
           measurements: JSON.stringify(newMeasurements),

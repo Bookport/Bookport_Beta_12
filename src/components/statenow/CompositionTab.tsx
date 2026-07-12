@@ -71,7 +71,7 @@ export default function CompositionTab({
       <div className="bg-white rounded-[32px] border border-gray-100 shadow-[0_8px_24px_rgba(43,49,55,0.02)] p-5 text-left">
         <div className="flex items-center justify-between mb-2">
           <h2 className="text-[14px] font-black text-slate-850 tracking-tight uppercase flex items-center gap-1.5 select-none font-sans">
-            <span className="text-emerald-500">⚖️</span> Вес сырья за день
+            <span className="text-emerald-500">⚖️</span> Состав и вес сырья за день
           </h2>
           <span className="text-[10px] uppercase font-mono font-black text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full">
             Всего: {totalMass} г
@@ -147,9 +147,9 @@ export default function CompositionTab({
                     </div>
                     
                     <div className="flex gap-1.5 mt-1.5 text-[9.5px] font-semibold text-slate-500">
-                      <span>Б: <strong className="text-slate-700">{dish.protein} г</strong></span>
-                      <span>Ж: <strong className="text-slate-700">{dish.fat} г</strong></span>
-                      <span>У: <strong className="text-emerald-600">{dish.fiber} г</strong></span>
+                      <span>Б: <strong className="text-slate-700">{String(dish.protein).replace(/ г$/, "")} г</strong></span>
+                      <span>Ж: <strong className="text-slate-700">{String(dish.fat).replace(/ г$/, "")} г</strong></span>
+                      <span>У: <strong className="text-emerald-600">{String(dish.fiber).replace(/ г$/, "")} г</strong></span>
                     </div>
                   </div>
                 </div>
@@ -194,9 +194,9 @@ export default function CompositionTab({
                       </div>
                       
                       <div className="flex gap-1.5 mt-1.5 text-[9.5px] font-semibold text-slate-500">
-                        <span>Б: <strong className="text-slate-700">{dish.protein || 0} г</strong></span>
-                        <span>Ж: <strong className="text-slate-700">{dish.fat || 0} г</strong></span>
-                        <span>У: <strong className="text-emerald-600">{dish.fiber || 0} г</strong></span>
+                        <span>Б: <strong className="text-slate-700">{String(dish.protein || 0).replace(/ г$/, "")} г</strong></span>
+                        <span>Ж: <strong className="text-slate-700">{String(dish.fat || 0).replace(/ г$/, "")} г</strong></span>
+                        <span>У: <strong className="text-emerald-600">{String(dish.fiber || 0).replace(/ г$/, "")} г</strong></span>
                       </div>
                     </div>
                   </div>

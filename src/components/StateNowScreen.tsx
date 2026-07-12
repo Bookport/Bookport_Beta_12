@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { ChevronLeft, Sparkles, Droplet, Moon, Apple, Zap, Activity, Compass, Heart, Brain, Info, CheckCircle, TrendingUp, TrendingDown, BarChart3, Scale, Flame, Utensils } from "lucide-react";
 import { useAppStore } from "../store/useAppStore";
@@ -94,6 +94,8 @@ export default function StateNowScreen({
   const [annaSelectedQuestion, setAnnaSelectedQuestion] = useState<string | null>(null);
   const [annaOverlayAnswer, setAnnaOverlayAnswer] = useState<string>("");
   const [isAnnaThinking, setIsAnnaThinking] = useState(false);
+
+  const neutralizationNoted = useRef(false);
 
   // ── API data fetch for StateNow ──
   const [apiStateNowData, setApiStateNowData] = useState<any>(null);
@@ -424,9 +426,22 @@ export default function StateNowScreen({
   // Core target definitions
   const effWeight = apiStateNowData?.profile?.weight || weight || 70;
   const waterTarget = Math.round(effWeight * 30);
-  const sleepTarget = 480; // 8 hours in minutes
+  const sleepTarget = 480;
   const mealsTarget = 4;
-  const habitsTarget = 20; // 20 keys module
+  const habitsTarget = 20;
+
+  // Time-aware water expectations
+  const WAKE_HOUR = 7;
+  const BED_HOUR = 23;
+  const TOTAL_AWAKE_HOURS = BED_HOUR - WAKE_HOUR;
+  const currentHour = new Date().getHours();
+  const currentMinute = new Date().getMinutes();
+  const nowMinutes = currentHour * 60 + currentMinute;
+  const awakeMinutesToday = Math.max(0, Math.min(nowMinutes - WAKE_HOUR * 60, TOTAL_AWAKE_HOURS * 60));
+  const hoursAwake = Math.max(1, awakeMinutesToday / 60);
+  const expectedWaterByNow = Math.round(waterTarget * (hoursAwake / TOTAL_AWAKE_HOURS));
+  const remainingMinutes = Math.max(0, BED_HOUR * 60 - nowMinutes);
+  const isAheadOnWater = effWater >= expectedWaterByNow;
 
   const effMealCount = cookedBookDishes.length + todayCustomDishes.length;
 
@@ -436,6 +451,7 @@ export default function StateNowScreen({
   const mealsPct = Math.min(100, Math.round((effMealCount / mealsTarget) * 100));
   const habitsPct = Math.min(100, Math.round((effHabitsDone / habitsTarget) * 100));
   const energyPct = Math.min(100, Math.round(((activityLogs || []).reduce((acc: number, log: any) => acc + (log.durationSeconds || 0), 0) / 60 / 30) * 100)); // % of 30 mins
+  const activityMinutes = Math.round((energyPct / 100) * 30);
   const zenPct = effRatingWellbeing * 20;
   const lightnessPct = effRatingLightness * 20;
 
@@ -582,15 +598,35 @@ export default function StateNowScreen({
     const greeting = effUserName ? `${effUserName}, ` : "";
 
     if (tabId === "balance") {
-      return getAnnaAnalysis();
+      const hasRed = aggregatedIngredients.some(i => i.status === "red");
+      const hasGreenNeutralizer = aggregatedIngredients.some(i =>
+        i.status === "green" && ["шпинат","брокколи","яблоко","лён","льнян","чиа","зелень","салат","капуст","сельдерей","петруш","укроп","кинз"].some(kw => i.name.toLowerCase().includes(kw))
+      );
+      const analysis = getAnnaAnalysis();
+      if (hasRed && hasGreenNeutralizer && !neutralizationNoted.current) {
+        neutralizationNoted.current = true;
+        return "Отлично! Нейтрализация вредного ингредиента произведена. Баланс восстановлен.\n\n" + analysis;
+      }
+      return analysis;
     }
 
     if (tabId === "scales") {
       let waterText = "";
-      if (waterPct < 50) {
-        waterText = `заметен дефицит гидратации клеток (${effWater} мл от нормы ${waterTarget} мл). Вода — это транспорт питательных веществ и главный очиститель почек от избытка белкового азота.`;
+      if (isAheadOnWater) {
+        if (remainingMinutes < 120 && effWater < waterTarget) {
+          waterText = `выпито ${effWater} мл из ${waterTarget} мл. До сна осталось меньше 2 часов, постарайся уложиться в норму, но не пей за час до отхода ко сну.`;
+        } else {
+          waterText = `водный баланс в отличном состоянии (${effWater} мл). Ты опережаешь график — к этому часу ожидалось ${expectedWaterByNow} мл.`;
+        }
       } else {
-        waterText = `водный баланс в отличном состоянии (${effWater} мл). Это поддерживает оптимальную реологию крови и разгружает сердечную мышцу.`;
+        if (remainingMinutes < 120) {
+          const need = waterTarget - effWater;
+          waterText = `выпито ${effWater} мл из ${waterTarget} мл, осталось ${need} мл. До сна меньше 2 часов — постарайся уложиться, но без фанатизма перед сном.`;
+        } else {
+          const deficitNow = expectedWaterByNow - effWater;
+          const paceNeeded = Math.ceil((waterTarget - effWater) / Math.max(1, remainingMinutes / 60));
+          waterText = `заметен дефицит гидратации клеток: выпито ${effWater} мл при ожидаемых ${expectedWaterByNow} мл к этому часу (отставание ${deficitNow} мл). Чтобы уложиться в норму ${waterTarget} мл, рекомендуется темп ~${paceNeeded} мл/ч.`;
+        }
       }
 
       let sleepText = "";
@@ -859,6 +895,21 @@ export default function StateNowScreen({
   };
 
   const waterLogData = (() => {
+    // Primary source: DB
+    if (apiStateNowData?.dailyMetric?.waterEntries) {
+      try {
+        const entries = typeof apiStateNowData.dailyMetric.waterEntries === 'string'
+          ? JSON.parse(apiStateNowData.dailyMetric.waterEntries)
+          : apiStateNowData.dailyMetric.waterEntries;
+        if (entries?.length > 0) {
+          return {
+            lastWaterTimestamp: entries[entries.length - 1].timestamp,
+            todayWaterEntries: entries.map((e: any) => ({ amount: e.amount, timestamp: e.timestamp, time: e.time })),
+          };
+        }
+      } catch {}
+    }
+    // Fallback: localStorage cache
     try {
       const raw = localStorage.getItem('wfpb_daily_water_entries_v3');
       if (!raw) return { lastWaterTimestamp: undefined, todayWaterEntries: undefined };
@@ -877,6 +928,7 @@ export default function StateNowScreen({
   const recommendedAction = getRecommendedNextStep({
     water: effWater,
     waterPct,
+    waterTarget,
     sleep: effSleep,
     sleepPct,
     mealCount: effMealCount,
@@ -893,6 +945,7 @@ export default function StateNowScreen({
     selectedChronic: effSelectedChronic,
     totalFiber,
     totalCalories,
+    activityMinutes,
     ...waterLogData,
   });
 

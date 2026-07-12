@@ -44,6 +44,26 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import { getCategoryColor } from "./utils/categoryColors";
 import { resolveGeneralAvatar, resolveAvatarByState } from "./utils/annaAvatarResolver";
 import { getBookMacros } from "./utils/bookMacros";
+import {
+  BREAKFAST_RECIPES,
+  LUNCH_RECIPES,
+  DINNER_RECIPES,
+  MUST_HAVE_RECIPES,
+  COMPLIMENTS_RECIPES,
+  RECIPE_OF_DAY_RECIPES,
+  DRINKS_RECIPES,
+} from "./components/BookRecipesScreen";
+import { getFoodProfile, parseWeightGrams } from "./services/DailyNutritionStore";
+
+const RECIPE_TYPE_TO_ARRAY: Record<string, any[]> = {
+  breakfast: BREAKFAST_RECIPES,
+  lunch: LUNCH_RECIPES,
+  dinner: DINNER_RECIPES,
+  must_have: MUST_HAVE_RECIPES,
+  compliment: COMPLIMENTS_RECIPES,
+  recipe_of_day: RECIPE_OF_DAY_RECIPES,
+  drinks: DRINKS_RECIPES,
+};
 
 function getAnnaBubbleStyle(currentScreen: string) {
   switch (currentScreen) {
@@ -906,6 +926,31 @@ export default function App() {
                 sourceType === "compliment" ? "Комплименты" : "";
     const macros = ref?.type && ref?.id != null ? getBookMacros(ref.type, ref.id) : null;
     const generatedId = `book_${sourceType}_${Date.now()}`;
+
+    // Parse ingredients from the recipe definition
+    let parsedIngredients: { name: string; weight: string; status: "green" | "yellow" | "red" }[] = [];
+    if (ref?.type && ref?.id != null) {
+      const recipeArray = RECIPE_TYPE_TO_ARRAY[ref.type];
+      if (recipeArray) {
+        const recipeDef = recipeArray.find((r: any) => r.id === ref.id || r.day === ref.id);
+        if (recipeDef?.ingredients) {
+          parsedIngredients = recipeDef.ingredients
+            .split(",")
+            .map((i: string) => i.trim())
+            .filter(Boolean)
+            .map((ingName: string) => {
+              const weightNum = parseWeightGrams(ingName);
+              const profile = getFoodProfile(ingName);
+              return {
+                name: ingName.charAt(0).toUpperCase() + ingName.slice(1),
+                weight: String(Math.round(weightNum)) + " г",
+                status: profile.defaultStatus,
+              };
+            });
+        }
+      }
+    }
+
     const newDish: SavedDish = {
       id: generatedId,
       name,
@@ -919,7 +964,7 @@ export default function App() {
       protein: macros?.protein ?? "",
       fiber: macros?.fiber ?? "",
       fat: macros?.fat ?? "",
-      ingredients: [],
+      ingredients: parsedIngredients,
       annaTip: "",
       isBookRecipe: true,
       bookRecipeRef: ref,
@@ -939,7 +984,7 @@ export default function App() {
         bookRecipeType: ref?.type || null,
         bookRecipeId: ref?.id || null,
         sourceType: ref?.type || null,
-        ingredients: [],
+        ingredients: parsedIngredients,
         calories: newDish.calories,
         protein: newDish.protein,
         fiber: newDish.fiber,

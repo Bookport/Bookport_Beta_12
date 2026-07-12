@@ -148,6 +148,25 @@ export default function MyDayScreen({
             console.error("Failed to parse movementLog:", e);
           }
         }
+        // Load water entries from DB (source of truth), sync localStorage cache
+        let dbWaterEntries: any[] = [];
+        if (d?.dailyMetric?.waterEntries) {
+          try {
+            dbWaterEntries = typeof d.dailyMetric.waterEntries === 'string'
+              ? JSON.parse(d.dailyMetric.waterEntries)
+              : d.dailyMetric.waterEntries;
+          } catch (e) {
+            console.error("Failed to parse waterEntries:", e);
+          }
+        }
+        setWaterLogs(prev => ({ ...prev, [currentDayIndex]: dbWaterEntries }));
+        // Sync localStorage cache with DB data
+        try {
+          const raw = localStorage.getItem('wfpb_daily_water_entries_v3');
+          const allLogs = raw ? JSON.parse(raw) : {};
+          allLogs[currentDayIndex] = dbWaterEntries;
+          localStorage.setItem('wfpb_daily_water_entries_v3', JSON.stringify(allLogs));
+        } catch {}
       })
       .catch(() => {});
   }, [currentDayIndex]);
@@ -1143,43 +1162,6 @@ export default function MyDayScreen({
     });
   };
 
-  // Pre-populate historical water logs for past days of the course
-  useEffect(() => {
-    if (waterLogs && Object.keys(waterLogs).length > 0) return;
-    let initialLogs: Record<number, WaterLogEntry[]> = {};
-    try {
-      const raw = localStorage.getItem('wfpb_daily_water_entries_v3');
-      if (raw) initialLogs = JSON.parse(raw);
-    } catch {}
-
-    const normBase = (weight || 65) * 30;
-    for (let day = 1; day < currentDayIndex; day++) {
-      if (initialLogs[day]) continue;
-      const success = Math.random() > 0.35;
-      const totalAmount = success 
-        ? normBase + (Math.floor(Math.random() * 4) * 100 - 100) 
-        : normBase * 0.6 + (Math.floor(Math.random() * 3) * 100);
-      const count = 3 + Math.floor(Math.random() * 3);
-      const dayEntries: WaterLogEntry[] = [];
-      let accumulated = 0;
-      for (let i = 0; i < count; i++) {
-        const amt = i === count - 1 
-          ? Math.max(100, Math.round(totalAmount - accumulated)) 
-          : Math.round((totalAmount / count) + (Math.floor(Math.random() * 5) * 20 - 50));
-        accumulated += amt;
-        dayEntries.push({
-          id: `hist-${day}-${i}`,
-          amount: amt,
-          time: `${8 + Math.floor(i * 3)}:${10 + Math.floor(Math.random() * 45)}`,
-          timestamp: Date.now() - (currentDayIndex - day) * 24 * 60 * 60 * 1000
-        });
-      }
-      initialLogs[day] = dayEntries;
-    }
-    setWaterLogs(initialLogs);
-    localStorage.setItem('wfpb_daily_water_entries_v3', JSON.stringify(initialLogs));
-  }, [currentDayIndex, weight]);
-
   // Sync today's sum to primary upper state
   useEffect(() => {
     const todayEntries = waterLogs[currentDayIndex] || [];
@@ -1382,13 +1364,14 @@ export default function MyDayScreen({
     const sum = updatedLogs[currentDayIndex].reduce((acc, e) => acc + e.amount, 0);
     setWater(sum);
 
-    // Persist water metric to DB (fire-and-forget)
+    // Persist water entries to DB (fire-and-forget)
     api("/api/metrics/daily", {
       method: "POST",
       body: {
         date: new Date().toISOString().split("T")[0],
         dayIndex: currentDayIndex,
         waterMl: sum,
+        waterEntries: [newEntry],
       },
     }).catch(() => {});
 

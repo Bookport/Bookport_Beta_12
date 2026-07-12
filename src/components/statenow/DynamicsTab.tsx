@@ -17,7 +17,7 @@ import {
   AlertCircle,
   Key
 } from "lucide-react";
-import { motion, AnimatePresence } from "motion/react";
+import { motion } from "motion/react";
 import AnnaTabSpoiler from "./AnnaTabSpoiler";
 import { NextStepRecommendation } from "../../utils/nextStepEngine";
 import { SystemKeysStore, SystemKeyProgress } from "../../services/SystemKeysStore";
@@ -93,12 +93,8 @@ export default function DynamicsTab({
   const [selectedKeyId, setSelectedKeyId] = useState<string>("legumes");
   const [keysTrigger, setKeysTrigger] = useState<number>(0);
   
-  // Interactive simulator states unique to the "Dynamics" pulse tab
-  const [dayConfirmedStart, setDayConfirmedStart] = useState<boolean>(sleep > 0);
-  const [breathingDone, setBreathingDone] = useState<boolean>(false);
+  // Interactive simulator states
   const [movementDone, setMovementDone] = useState<boolean>(habitsDone > 1);
-  const [dayEndedSleep, setDayEndedSleep] = useState<boolean>(false);
-  const [systemAlertMessage, setSystemAlertMessage] = useState<string | null>(null);
 
   // Load and calculate 20 system keys in real-time
   useEffect(() => {
@@ -115,13 +111,11 @@ export default function DynamicsTab({
       const newChecked = !targetKey.optimalDone;
       SystemKeysStore.updateManualKey(currentDayIndex, keyId, false, { checked: newChecked });
       setKeysTrigger(prev => prev + 1);
-      triggerNotification(`${targetKey.emoji} Ключ «${targetKey.name}»: ${newChecked ? "Выполнен!" : "Отметка снята"}`);
     } else {
       const isOptimal = targetKey.totalGrams >= targetKey.portionSizeInGrams * targetKey.optimum;
       const newGrams = isOptimal ? 0 : targetKey.portionSizeInGrams * targetKey.optimum;
       SystemKeysStore.updateManualKey(currentDayIndex, keyId, true, { manualGrams: newGrams });
       setKeysTrigger(prev => prev + 1);
-      triggerNotification(`${targetKey.emoji} Ключ «${targetKey.name}»: ${!isOptimal ? "Выполнен!" : "Отметка снята"}`);
     }
   };
 
@@ -135,15 +129,11 @@ export default function DynamicsTab({
 
     SystemKeysStore.updateManualKey(currentDayIndex, keyId, true, { manualGrams: newManual });
     setKeysTrigger(prev => prev + 1);
-    triggerNotification(`${targetKey.emoji} Объём ключа «${targetKey.name}»: ${newManual + targetKey.autoGrams} г.`);
   };
 
-  // Sync state if props change slightly, while respecting user's interactive overrides
+  // Sync state if props change slightly
   useEffect(() => {
-    if (sleep > 0) {
-      setLocalSleep(sleep);
-      setDayConfirmedStart(true);
-    }
+    if (sleep > 0) setLocalSleep(sleep);
   }, [sleep]);
 
   useEffect(() => {
@@ -152,13 +142,14 @@ export default function DynamicsTab({
 
   // Derived wellness conditions
   const hasBreakfast = localCooked.some(d => d.category === "Завтраки") || localCooked.some(d => d.name.toLowerCase().includes("завтрак"));
-  const hasLunch = localCooked.some(d => d.category === "Супы и Салаты" || d.category === "Вторые блюда") || localCooked.some(d => d.name.toLowerCase().includes("обед"));
+  const hasLunch = localCooked.some(d => d.category === "Супы и Салаты" || d.category === "Вторые блюда" || d.category === "Основные блюда") || localCooked.some(d => d.name.toLowerCase().includes("обед"));
+  const hasDinner = localCooked.some(d => d.category === "Основные блюда") || localCooked.some(d => d.name.toLowerCase().includes("ужин"));
 
   // Calculate dynamic physiological metrics for the "System Pulse" panel
   const calculatePulseMetrics = () => {
-    let score = 30; // base score if alive
-    if (dayConfirmedStart) score += 15;
-    if (localSleep >= 420) score += 15; // 7+ hours
+    let score = 30;
+    if (localSleep > 0) score += 15;
+    if (localSleep >= 420) score += 15;
     else if (localSleep > 0) score += 8;
     
     // Water metric (target 1500)
@@ -167,10 +158,10 @@ export default function DynamicsTab({
     // Nutrition
     if (hasBreakfast) score += 10;
     if (hasLunch) score += 10;
+    if (hasDinner) score += 10;
     
     // Daily active status
     if (movementDone) score += 10;
-    if (breathingDone) score += 10;
 
     // Keys of the system completion bonus (up to +15 pts)
     const activeKeysCount = keysProgress.filter(k => k.optimalDone).length;
@@ -212,14 +203,6 @@ export default function DynamicsTab({
 
   const pulse = calculatePulseMetrics();
 
-  // Show a temporary system notification on actions to emphasize full-stack interactivity
-  const triggerNotification = (msg: string) => {
-    setSystemAlertMessage(msg);
-    setTimeout(() => {
-      setSystemAlertMessage(null);
-    }, 4500);
-  };
-
   // Compile the interactive timeline nodes representing the circadian flow of the day
   const timelineItems = [
     {
@@ -227,19 +210,17 @@ export default function DynamicsTab({
       time: "07:30",
       categoryLabel: "Старт Дня",
       title: "Выход из ночной нейрогормональной фазы",
-      description: dayConfirmedStart
-        ? `Пробуждение подтверждено. Запущен обратный отсчет циркадного ритма. Восстановительный сон: ${localSleep > 0 ? Math.round(localSleep / 60) + " ч." : "время зафиксировано."}`
+      description: localSleep > 0
+        ? `Пробуждение подтверждено. Запущен обратный отсчет циркадного ритма. Восстановительный сон: ${Math.round(localSleep / 60)} ч.`
         : "Система ожидает подтверждения пробуждения. Режим сна не закрыт, данные вчерашнего периода в режиме ожидания.",
-      status: dayConfirmedStart 
+      status: localSleep > 0
         ? (localSleep >= 420 ? "green" : "orange") 
         : "waiting" as const,
-      type: dayConfirmedStart ? "actual" as const : "recommendation" as const,
+      type: localSleep > 0 ? "actual" as const : "recommendation" as const,
       interpretationText: "Момент фиксации подъема запускает выброс утреннего кортизола, настраивая ритм сосудов на 16 часов вперед.",
       actionButtonLabel: "Подтвердить пробуждение",
       onExecute: () => {
-        setDayConfirmedStart(true);
-        if (localSleep === 0) setLocalSleep(480); // default to 8 hrs
-        triggerNotification("🌅 День успешно начат! Циркадный таймер оптимизирует выработку дневного кортизола.");
+        if (localSleep === 0) setLocalSleep(480);
       }
     },
     {
@@ -256,7 +237,6 @@ export default function DynamicsTab({
       actionButtonLabel: "Выпить 250 мл воды",
       onExecute: () => {
         setLocalWater(prev => Math.max(250, prev + 250));
-        triggerNotification("💧 Клеточный баланс: плазма крови разжижена, почки плавно запущены.");
       }
     },
     {
@@ -274,7 +254,6 @@ export default function DynamicsTab({
       onExecute: () => {
         const dish = { id: "dyn_breakfast", name: "Зеленая гречка с авокадо и томатами", category: "Завтраки" };
         setLocalCooked(prev => [dish, ...prev]);
-        triggerNotification("🥣 Завтрак записан! Клетки получили ценную клетчатку и растительный белок.");
       }
     },
     {
@@ -292,7 +271,6 @@ export default function DynamicsTab({
       onExecute: () => {
         setMovementDone(true);
         setLocalHabitsDone(prev => Math.min(habitsTarget, prev + 1));
-        triggerNotification("🏃‍♂️ Венозная помпа запущена. Лимфодренажный эффект снизил общее сопротивление сосудов.");
       }
     },
     {
@@ -301,7 +279,7 @@ export default function DynamicsTab({
       categoryLabel: "Питание • Обед",
       title: "Антиоксидантный обеденный импульс",
       description: hasLunch
-        ? `Внесен омолаживающий обед с высокой концентрацией клетчатки: «${localCooked.find(d => d.category === "Супы и Салаты" || d.category === "Вторые блюда")?.name || "Чечевичный суп-пюре со шпинатом"}».`
+        ? `Внесен омолаживающий обед с высокой концентрацией клетчатки: «${localCooked.find(d => d.category === "Супы и Салаты" || d.category === "Вторые блюда" || d.category === "Основные блюда")?.name || "Чечевичный суп-пюре со шпинатом"}».`
         : "Обед не верифицирован. Ожидается сытная, но легкая порция овощей, богатых нитратами для расширения сосудов.",
       status: hasLunch ? "green" : "waiting" as const,
       type: hasLunch ? "actual" as const : "recommendation" as const,
@@ -310,7 +288,23 @@ export default function DynamicsTab({
       onExecute: () => {
         const dish = { id: "dyn_lunch", name: "Теплый нутовый салат с брокколи и зеленью", category: "Вторые блюда" };
         setLocalCooked(prev => [...prev, dish]);
-        triggerNotification("🥗 Обед подтвержден. Запущена мягкая стимуляция синтеза естественного оксида азота.");
+      }
+    },
+    {
+      id: "dinner",
+      time: "19:00",
+      categoryLabel: "Питание • Ужин",
+      title: "Вечерний регенеративный приём",
+      description: hasDinner
+        ? `Зафиксирован ужин: «${localCooked.find(d => d.category === "Основные блюда")?.name || "Тёплый салат из киноа с овощами"}».`
+        : "Ужин ещё не зафиксирован. Для запуска ночной глимфатической очистки мозга рекомендуется лёгкий приём за 3-4 часа до сна.",
+      status: hasDinner ? "green" : "waiting" as const,
+      type: hasDinner ? "actual" as const : "recommendation" as const,
+      interpretationText: "Умеренный ужин без перегрузки ЖКТ обеспечивает плавный вход в парасимпатическую фазу и глубокий сон с детоксикацией.",
+      actionButtonLabel: "Записать вечернее блюдо",
+      onExecute: () => {
+        const dish = { id: "dyn_dinner", name: "Тушёные овощи с нутом и зеленью", category: "Основные блюда" };
+        setLocalCooked(prev => [...prev, dish]);
       }
     },
     {
@@ -318,17 +312,10 @@ export default function DynamicsTab({
       time: "17:00",
       categoryLabel: "Восстановление • Покой",
       title: "Вагусный ритуал замедления",
-      description: breathingDone
-        ? "Проведено глубокое респираторное замедление (дыхание в ритме 6-2-7). Симпатический тонус снижен."
-        : "Ближе к вечеру накапливается психологическая нагрузка. Рекомендуется 5 минут дыхания по квадрату.",
-      status: breathingDone ? "green" : "waiting" as const,
-      type: breathingDone ? "actual" as const : "recommendation" as const,
+      description: "Ближе к вечеру накапливается психологическая нагрузка. Рекомендуется 5 минут дыхания по квадрату.",
+      status: "waiting" as const,
+      type: "recommendation" as const,
       interpretationText: "Раздражение блуждающего нерва (вагуса) замедляет пульс, успокаивает надпочечники и снижает тонус артерий.",
-      actionButtonLabel: "Сделать дыхательную паузу",
-      onExecute: () => {
-        setBreathingDone(true);
-        triggerNotification("💨 Парасимпатическая система активирована. Стресс-индекс снижен на 15%.");
-      }
     },
     {
       id: "assessment",
@@ -346,7 +333,6 @@ export default function DynamicsTab({
         setLocalEnergy(4);
         setLocalWellbeing(5);
         setLocalLightness(5);
-        triggerNotification("📝 Самочувствие сохранено. Модель обновила прогностические маркеры на завтра.");
       }
     },
     {
@@ -354,17 +340,10 @@ export default function DynamicsTab({
       time: "22:30",
       categoryLabel: "Конец Цикла",
       title: "Переход к секреции мелатонина",
-      description: dayEndedSleep
-        ? "Суточный круг успешно завершен и зафиксирован в системе. Оптимальный период для полной релаксации органов и регенерации."
-        : "Подготовка к отходу ко сну. Пора убрать синие экраны, приглушить свет и активировать ночной режим для идеальной выработки мелатонина.",
-      status: dayEndedSleep ? "green" : "waiting" as const,
+      description: "Подготовка к отходу ко сну. Пора убрать синие экраны, приглушить свет и активировать ночной режим для идеальной выработки мелатонина.",
+      status: "waiting" as const,
       type: "recommendation" as const,
       interpretationText: "Мелатонин является сильнейшим антиоксидантом нервной системы. Засыпание до 23:00 бережет сосуды мозга от раннего старения.",
-      actionButtonLabel: "Закрыть день и уйти в сон",
-      onExecute: () => {
-        setDayEndedSleep(true);
-        triggerNotification("🌙 Спокойной ночи! Ночной цикл запущен. Системы переходят в фазу глубокой детоксикации.");
-      }
     }
   ];
 
@@ -389,26 +368,6 @@ export default function DynamicsTab({
           recommendedAction={recommendedAction}
         />
       )}
-
-      {/* Floating Interactive Toast Feedback */}
-      <AnimatePresence>
-        {systemAlertMessage && (
-          <motion.div
-            initial={{ opacity: 0, y: 20, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95, y: -10 }}
-            className="fixed bottom-20 left-4 right-4 md:left-auto md:right-6 md:w-96 bg-[#111827] text-[#F9FAFB] text-[12.5px] p-4 rounded-2xl shadow-xl border border-gray-800 flex items-start gap-2.5 z-50 font-sans"
-          >
-            <div className="bg-emerald-500/10 p-1.5 rounded-lg text-emerald-400 mt-0.5 shrink-0">
-              <Sparkles className="w-4 h-4" />
-            </div>
-            <div>
-              <p className="font-extrabold text-[13px] text-emerald-300">Резонанс Системы</p>
-              <p className="text-gray-300 font-medium mt-0.5 leading-relaxed">{systemAlertMessage}</p>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* 1. CENTRAL MODULE "SYSTEM PULSE" PANELS */}
       <div className="bg-[#FAF9F5] rounded-[30px] border border-[#F2EDE4]/80 p-5 md:p-6 text-left relative overflow-hidden shadow-[0_8px_30px_rgba(243,238,230,0.35)] transition-all duration-300">
@@ -499,20 +458,20 @@ export default function DynamicsTab({
 
               <div className="text-center p-2 rounded-xl bg-white/50 border border-[#F2ECE0]/50 shadow-3xs">
                 <div className="flex justify-center mb-1 text-slate-400">
-                  <Flame className={`w-4 h-4 ${hasBreakfast && hasLunch ? "text-amber-500" : "text-slate-400"}`} />
+                  <Flame className={`w-4 h-4 ${hasBreakfast || hasLunch || hasDinner ? "text-amber-500" : "text-slate-400"}`} />
                 </div>
                 <div className="text-[11px] font-black text-slate-800 font-mono leading-none">
-                  {[hasBreakfast, hasLunch].filter(Boolean).length} / 2
+                  {[hasBreakfast, hasLunch, hasDinner].filter(Boolean).length} / 3
                 </div>
                 <div className="text-[8.5px] uppercase text-slate-400/90 font-bold tracking-wider mt-1 leading-none">Питание</div>
               </div>
 
               <div className="text-center p-2 rounded-xl bg-white/50 border border-[#F2ECE0]/50 shadow-3xs">
                 <div className="flex justify-center mb-1 text-slate-400">
-                  <Activity className={`w-4 h-4 ${movementDone ? "text-emerald-500 animate-pulse" : "text-slate-400"}`} />
+                  <Activity className={`w-4 h-4 ${localHabitsDone > 2 ? "text-emerald-500 animate-pulse" : "text-slate-400"}`} />
                 </div>
                 <div className="text-[11px] font-black text-slate-800 font-mono leading-none">
-                  {movementDone ? "Активен" : "Покой"}
+                  {localHabitsDone > 2 ? "Активен" : "Покой"}
                 </div>
                 <div className="text-[8.5px] uppercase text-slate-400/90 font-bold tracking-wider mt-1 leading-none">Движение</div>
               </div>

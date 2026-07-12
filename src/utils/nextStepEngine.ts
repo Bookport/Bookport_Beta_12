@@ -3,6 +3,7 @@ import { NormalizedIngredient } from "../services/DailyNutritionStore";
 export interface NextStepInput {
   water: number;
   waterPct: number;
+  waterTarget: number;
   sleep: number;
   sleepPct: number;
   mealCount: number;
@@ -21,6 +22,7 @@ export interface NextStepInput {
   totalCalories: number;
   lastWaterTimestamp?: number;
   todayWaterEntries?: { amount: number; timestamp: number }[];
+  activityMinutes?: number;
 }
 
 export interface NextStepRecommendation {
@@ -40,6 +42,7 @@ export function getRecommendedNextStep(input: NextStepInput): NextStepRecommenda
   const {
     water,
     waterPct,
+    waterTarget,
     sleep,
     sleepPct,
     mealCount,
@@ -56,6 +59,7 @@ export function getRecommendedNextStep(input: NextStepInput): NextStepRecommenda
     selectedChronic = [],
     totalFiber = 0,
     totalCalories = 0,
+    activityMinutes = 0,
   } = input;
 
   const notesTextLower = dayNotes.map(n => (n.text || "").toLowerCase()).join(" ");
@@ -69,30 +73,43 @@ export function getRecommendedNextStep(input: NextStepInput): NextStepRecommenda
   const redIngredients = aggregatedIngredients.filter(ing => ing.status === "red");
   const yellowIngredients = aggregatedIngredients.filter(ing => ing.status === "yellow");
 
-  const waterTarget = 2500
-  const WAKING_HOURS = 16
+  // Detect if the user already consumed neutralizing leafy greens / fibers
+  const hasNeutralizingLeafy = (ings: { name: string; status: string }[]): boolean => {
+    const neutralizerKeywords = ["шпинат", "брокколи", "яблоко", "лён", "льнян", "чиа", "зелень", "салат", "капуст", "сельдерей", "петруш", "укроп", "кинз"];
+    return ings.some(ing =>
+      ing.status === "green" && neutralizerKeywords.some(kw => ing.name.toLowerCase().includes(kw))
+    );
+  };
+
   const GLASS_ML = 250
   const MAX_GAP_HOURS = 2
+  const WAKE_HOUR = 7
+  const BED_HOUR = 23
+  const TOTAL_AWAKE_HOURS = BED_HOUR - WAKE_HOUR
+
+  const currentHour = new Date().getHours()
+  const currentMinute = new Date().getMinutes()
+  const nowMinutes = currentHour * 60 + currentMinute
+  const wakeMinutes = WAKE_HOUR * 60
+  const bedMinutes = BED_HOUR * 60
+  const awakeMinutesToday = Math.max(1, Math.min(nowMinutes - wakeMinutes, bedMinutes - wakeMinutes))
+  const remainingMinutes = Math.max(0, bedMinutes - nowMinutes)
 
   const hoursSinceLastDrink = (() => {
     if (!input.lastWaterTimestamp) return 99
     return (Date.now() - input.lastWaterTimestamp) / (1000 * 60 * 60)
   })()
 
-  const hoursAwake = (() => {
-    if (!input.todayWaterEntries || input.todayWaterEntries.length === 0) {
-      const currentHour = new Date().getHours()
-      return Math.max(1, currentHour - 7)
-    }
-    const firstEntry = input.todayWaterEntries[0]
-    const wakeHour = new Date(firstEntry.timestamp).getHours()
-    const now = new Date()
-    const awake = (now.getTime() - new Date(now.getFullYear(), now.getMonth(), now.getDate(), wakeHour).getTime()) / (1000 * 60 * 60)
-    return Math.max(1, Math.min(WAKING_HOURS, awake))
-  })()
+  const hoursAwake = Math.max(1, awakeMinutesToday / 60)
 
-  const expectedWaterByNow = Math.round(waterTarget * (hoursAwake / WAKING_HOURS))
+  // Expected water volume by this time (linear projection across waking hours)
+  const expectedWaterByNow = Math.round(waterTarget * (hoursAwake / TOTAL_AWAKE_HOURS))
   const waterDeficit = expectedWaterByNow - water
+
+  // Projection to end of day: if user continues at same pace
+  const paceMlPerHour = water / hoursAwake
+  const projectedToBed = Math.round(water + paceMlPerHour * (remainingMinutes / 60))
+  const projectedDeficit = waterTarget - projectedToBed
 
   // ==========================================
   // LEVEL 1: CRITICAL DEFICITS (Highest Priority)
@@ -115,37 +132,56 @@ export function getRecommendedNextStep(input: NextStepInput): NextStepRecommenda
   const isOverdueByTime = hoursSinceLastDrink > MAX_GAP_HOURS && water < waterTarget
 
   if (isOverdueByVolume || isOverdueByTime) {
-    if (water < 800 || (waterDeficit >= 1000 && hoursSinceLastDrink > 3)) {
+    if (projectedDeficit > 0 && hoursSinceLastDrink > 1.5) {
+      const neededPace = Math.max(0, Math.ceil((waterTarget - water) / Math.max(1, remainingMinutes / 60)))
       return {
-        title: "Клеточная гидратация",
-        desc: `Уровень чистой влаги критически низок (${water} мл из ${expectedWaterByNow} мл ожидаемых к этому часу). Прошло ${Math.round(hoursSinceLastDrink)} ч. с последнего стакана. Это сгущает лимфу и затрудняет работу капилляров почек. Сделай паузу и выпей стакан (250 мл) тёплой структурированной воды прямо сейчас.`,
+        title: "Ритм гидратации",
+        desc: `Выпито ${water} мл из ${waterTarget} мл. До вечера осталось ${Math.round(remainingMinutes / 60)} ч. При текущем темпе к 23:00 будет ~${projectedToBed} мл, нехватка ${projectedDeficit} мл. Рекомендуемый темп: ~${neededPace} мл/ч. Выпей стакан прямо сейчас.`,
         icon: "💧",
         btnText: "Добавить 250 мл воды",
         actionType: "water",
-        reasoning: `Ваш организм функционирует в условиях водного дефицита (${water} мл вместо ${expectedWaterByNow} мл ожидаемых к этому часу дня). Прошло ${Math.round(hoursSinceLastDrink)} ч. без поступления влаги. Полноценная клеточная перфузия падает, эритроциты склеиваются, замедляя перенос кислорода. Тёплая чистая вода без газа мгновенно впитается и оживит водно-солевой насос клеток.`
+        reasoning: `К этому часу ожидалось ~${expectedWaterByNow} мл воды, выпито ${water} мл. Отставание ${Math.max(0, waterDeficit)} мл. Если не увеличить темп, к вечеру дефицит составит ${projectedDeficit} мл, что приведёт к сгущению лимфы и замедлению фильтрации почек.`
+      };
+    } else {
+      return {
+        title: "Накопление клеточной влаги",
+        desc: `Баланс гидратации ниже ожидаемого к этому часу (${water} мл из ${expectedWaterByNow} мл), последний приём воды был ${Math.round(hoursSinceLastDrink)} ч. назад. Выпей стакан чистой воды, чтобы облегчить фильтрацию лимфы.`,
+        icon: "🥛",
+        btnText: "Добавить 250 мл воды",
+        actionType: "water",
+        reasoning: `С каждым часом почки фильтруют около 5 литров крови. Сейчас ${water} мл при ожидаемых ${expectedWaterByNow} мл к этому времени — отставание на ${Math.max(0, waterDeficit)} мл. Поддерживая водно-солевое равновесие мелкими порциями воды, вы предохраняете клетки крови от склеивания и регулируете тонус стенок средних сосудов.`
       };
     }
+  }
+
+  // 2b. On track but close to bed — remind to finish
+  if (remainingMinutes < 120 && water < waterTarget) {
+    const need = waterTarget - water
     return {
-      title: "Накопление клеточной влаги",
-      desc: `Баланс гидратации ниже ожидаемого к этому часу (${water} мл из ${expectedWaterByNow} мл), последний приём воды был ${Math.round(hoursSinceLastDrink)} ч. назад. Выпей стакан чистой воды, чтобы облегчить фильтрацию лимфы.`,
-      icon: "🥛",
-      btnText: "Добавить 250 мл воды",
+      title: "Вечерняя влага",
+      desc: `День близится к завершению. Осталось выпить ${need} мл до нормы ${waterTarget} мл. Постарайся уложиться до сна, но не пей за час до отхода ко сну, чтобы не нарушить циркадный ритм.`,
+      icon: "🌙",
+      btnText: "Добавить воду",
       actionType: "water",
-      reasoning: `С каждым часом почки фильтруют около 5 литров крови. Сейчас ${water} мл при ожидаемых ${expectedWaterByNow} мл к этому времени — отставание на ${Math.max(0, waterDeficit)} мл. Поддерживая водно-солевое равновесие мелкими порциями воды, вы предохраняете клетки крови от склеивания и регулируете тонус стенок средних сосудов.`
+      reasoning: `Перед сном важно завершить водный баланс, но избыток жидкости за час до сна создаёт нагрузку на почки в ночную фазу, нарушая выработку антидиуретического гормона и ухудшая качество сна.`
     };
   }
 
   // 3. Unfriendly / Non-WFPB (Red status) components detected
   if (redIngredients.length > 0) {
     const badNames = redIngredients.slice(0, 2).map(i => i.name.toLowerCase()).join(" и ");
-    return {
-      title: "Нейтрализация волокнами",
-      desc: `В текущем рационе замечена нагрузка (${badNames}). Сделай следующий приём пищи максимально цельным и богатым клетчаткой (добавь шпинат или ложку льна), чтобы связать и вывести простые гликотоксины.`,
-      icon: "🍃",
-      btnText: "Выбрать зелёный рецепт",
-      actionType: "book-recipes",
-      reasoning: `Обнаружены вещества, не соответствующие строгому оздоровительному WFPB-стандарту (${badNames}). Рафинированные сахара или насыщенные жиры повреждают тонкий эндотелий сосудов и провоцируют гликемические качели. Мягкая нейтрализация органическими волокнами шпината, брокколи или пектином яблока замедляет всасывание вредных элементов и защищает ваши почки.`
-    };
+    if (hasNeutralizingLeafy(aggregatedIngredients)) {
+      // neutralized — skip, let engine fall through to next priority
+    } else {
+      return {
+        title: "Нейтрализация волокнами",
+        desc: `В текущем рационе замечена нагрузка (${badNames}). Сделай следующий приём пищи максимально цельным и богатым клетчаткой (добавь шпинат или ложку льна), чтобы связать и вывести простые гликотоксины.`,
+        icon: "🍃",
+        btnText: "Выбрать зелёный рецепт",
+        actionType: "book-recipes",
+        reasoning: `Обнаружены вещества, не соответствующие строгому оздоровительному WFPB-стандарту (${badNames}). Рафинированные сахара или насыщенные жиры повреждают тонкий эндотелий сосудов и провоцируют гликемические качели. Мягкая нейтрализация органическими волокнами шпината, брокколи или пектином яблока замедляет всасывание вредных элементов и защищает ваши почки.`
+      };
+    }
   }
 
   // 4. Low light feel or Heavy stomach reported in notes or ratingLightness
@@ -188,15 +224,50 @@ export function getRecommendedNextStep(input: NextStepInput): NextStepRecommenda
   // LEVEL 2: CONSTRAINTS & ROAD BLOCKS (Moderate)
   // ==========================================
 
+  // 7a. Evening micro-boost (habits OK but few ingredients logged)
+  if (habitsPct >= 60 && currentHour >= 19 && aggregatedIngredients.length < 8) {
+    return {
+      title: "Вечерний микро-буст",
+      desc: `Ключи системы в порядке (${habitsDone}/20), но сырьевой профиль дня собран всего из ${aggregatedIngredients.length} компонентов. Добавь горсть зелени или ложку семян к ужину, чтобы закрыть микронутриентную карту дня.`,
+      icon: "🌱",
+      btnText: "Выбрать зелёный рецепт",
+      actionType: "book-recipes",
+      reasoning: `При хорошей активности по ключам системы (${habitsDone}/20) недостаток сырья (${aggregatedIngredients.length} ингредиентов) означает, что часть микронутриентов остаётся незакрытой. Даже небольшая порция листовой зелени или семян чиа насытит вечернюю плазму полифенолами, подготовит сосуды к ночному восстановлению и закрепит пользу дневных привычек.`
+    };
+  }
+
+  // 7b. Ingredient diversity — ate several dishes but all same ingredient types
+  if (mealCount >= 2 && aggregatedIngredients.filter(i => i.status === "green").length < 5) {
+    return {
+      title: "Сырьевое разнообразие",
+      desc: `За день приготовлено ${mealCount} блюд, но использовано только ${aggregatedIngredients.filter(i => i.status === "green").length} видов зелёного сырья. Постарайся включить в следующий приём овощ из новой группы — бобовые, крестоцветные или листовую зелень.`,
+      icon: "🥗",
+      btnText: "Открыть книгу рецептов",
+      actionType: "book-recipes",
+      reasoning: `Два и более приготовленных блюда при малом разнообразии ингредиентов (< 5) — признак повторения одного и того же сырья. Разные группы растений кормят разные штаммы кишечной микробиоты. Добавление новой категории (бобовые, капустные, листовая зелень) расширяет спектр короткоцепочечных жирных кислот и укрепляет иммунный барьер слизистой.`
+    };
+  }
+
   // 7. Low habits count
-  if (habitsDone < 3 || habitsPct < 60) {
+  if (habitsPct < 60) {
+    const hasMoved = (activityMinutes || 0) > 0;
+    if (hasMoved) {
+      return {
+        title: "Ключи системы: фокус на рацион",
+        desc: `Разминка выполнена! Из 20 ключей системы закрыто ${habitsDone}. Добавь в рацион недостающие группы — бобовые, зелень, цельные злаки или отметь действия (без масла, без соли).`,
+        icon: "🥗",
+        btnText: "Перейти к книге рецептов",
+        actionType: "book-recipes",
+        reasoning: `Физическая активность (${activityMinutes} мин) уже запустила лимфодренаж и оксигенацию тканей. Теперь организму нужно сырьё для восстановления: недостающие продуктовые группы (${habitsDone}/20) обеспечивают клетки строительным материалом. Приоритет — бобовые, листовая зелень и цельные злаки.`
+      };
+    }
     return {
       title: "Клеточный импульс",
-      desc: `Сегодня выполнено всего ${habitsDone} из 4 ключевых микро-привычек. Сделай короткую разминку или просто отметь свой биологический импульс, чтобы укрепить нейронный контур здоровья.`,
+      desc: `Из 20 ключей системы закрыто ${habitsDone}. Начни с короткой разминки, чтобы запустить лимфоток, а затем добавь в рацион недостающие группы — бобовые, зелень, цельные злаки.`,
       icon: "⚡",
-      btnText: "Перейти к привычкам",
+      btnText: "Перейти к ключам системы",
       actionType: "habits",
-      reasoning: `Каждое выполненное простое действие оздоровительного проекта (${habitsDone}/4) закрепляет гормональную дугу удовлетворения через выработку дофамина. Это снижает вечернюю тягу к простым стимуляторам и поддерживает ритмичность внутренних биологических часов.`
+      reasoning: `Низкий процент закрытых ключей (${habitsDone}/20) сигнализирует о незавершённом сырьевом профиле и пропущенных действиях. Короткая разминка взбодрит лимфу и подготовит тело к приёму пищи, богатой недостающими группами. Каждое выполненное действие закрепляет нейронный контур здоровья.`
     };
   }
 
@@ -228,7 +299,31 @@ export function getRecommendedNextStep(input: NextStepInput): NextStepRecommenda
   // LEVEL 3: PERFORMANCE AMPLIFIERS (High state)
   // ==========================================
 
-  // 11. Everything is going great (integralScore >= 75%)
+  // 11. Evening grounding (late hour + low lightness)
+  if (currentHour >= 20 && ratingLightness <= 3) {
+    return {
+      title: "Вечернее заземление",
+      desc: "Час поздний, а лёгкость в теле на умеренном уровне. Сделай тёплый травяной настой, приглуши свет и дай блуждающему нерву сигнал к переходу в парасимпатический режим.",
+      icon: "🌙",
+      btnText: "Записать самочувствие",
+      actionType: "diary",
+      reasoning: `Время ${currentHour}:00 при лёгкости ${ratingLightness}/5 — нервная система может не успеть переключиться на ночное восстановление. Тёплое питьё без кофеина и снижение световой стимуляции активируют парасимпатический контур, снижая ночной кортизол и улучшая качество регенерации.`
+    };
+  }
+
+  // 12. Delicate recovery (sleep 4-6 hours but other metrics ok)
+  if (sleep >= 240 && sleep < 360 && waterPct >= 80) {
+    return {
+      title: "Деликатное восстановление",
+      desc: `Ночной сон составил ${Math.round(sleep / 60)} ч — ниже оптимума, но водный баланс в порядке. Сделай короткую дыхательную паузу 4-7-8, чтобы компенсировать остаточное напряжение и запустить клеточную регенерацию.`,
+      icon: "🧘",
+      btnText: "Сделать паузу",
+      actionType: "habits",
+      reasoning: `Сон ${Math.round(sleep / 60)} часов при ${Math.round(waterPct)}% гидратации — организм не обезвожен, но ночного ремонта было недостаточно. Дыхательная техника 4-7-8 стимулирует блуждающий нерв, снижает пульс и помогает клеткам переключиться в анаболический режим, частично компенсируя нехватку глубоких фаз сна.`
+    };
+  }
+
+  // 13. Everything is going great (integralScore >= 75%)
   if (integralScore >= 75) {
     return {
       title: "Антиоксидантный купол",
