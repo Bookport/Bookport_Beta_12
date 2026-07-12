@@ -99,6 +99,7 @@ export default function StateNowScreen({
 
   // ── API data fetch for StateNow ──
   const [apiStateNowData, setApiStateNowData] = useState<any>(null);
+  const [measurementHistory, setMeasurementHistory] = useState<any[]>([]);
   const [breakfastState, setBreakfastState] = useState<Record<number, any>>({});
   const [lunchState, setLunchState] = useState<Record<number, any>>({});
   const [dinnerState, setDinnerState] = useState<Record<number, any>>({});
@@ -109,9 +110,13 @@ export default function StateNowScreen({
 
   useEffect(() => {
     const dayIdx = currentDayIndex || 1;
-    api<any>("/api/user/state-now?dayIndex=" + dayIdx)
-      .then(data => {
+    Promise.all([
+      api<any>("/api/user/state-now?dayIndex=" + dayIdx),
+      api<any[]>("/api/metrics/daily")
+    ])
+      .then(([data, historyData]) => {
         setApiStateNowData(data);
+        setMeasurementHistory(historyData || []);
         const rp = data.recipeProgress || [];
         const byType = (type: string) =>
           Object.fromEntries(
@@ -150,10 +155,21 @@ export default function StateNowScreen({
   const effRatingWellbeing = apiStateNowData?.dailyRating?.wellbeing ?? ratingWellbeing;
   const effRatingEnergy = apiStateNowData?.dailyRating?.energy ?? ratingEnergy;
   const effRatingLightness = apiStateNowData?.dailyRating?.lightness ?? ratingLightness;
-  const effSystolic = apiStateNowData?.profile?.systolic;
-  const effDiastolic = apiStateNowData?.profile?.diastolic;
   const effInitialWeight = apiStateNowData?.profile?.initialWeight;
   const effInitialSystolic = apiStateNowData?.profile?.initialSystolic;
+  
+  // Extract all valid measurements from history, sorted by timestamp
+  const allMeasurements = measurementHistory
+    .flatMap(d => d.measurements || [])
+    .filter(m => m && m.timestamp)
+    .sort((a: any, b: any) => a.timestamp - b.timestamp);
+
+  const latestMeas = allMeasurements.length > 0 ? allMeasurements[allMeasurements.length - 1] : null;
+  const prevMeas = allMeasurements.length > 1 ? allMeasurements[allMeasurements.length - 2] : null;
+
+  const effWeight = latestMeas?.weight ?? apiStateNowData?.profile?.weight ?? weight;
+  const effSystolic = latestMeas?.systolic ?? apiStateNowData?.profile?.systolic;
+  const effDiastolic = latestMeas?.diastolic ?? apiStateNowData?.profile?.diastolic;
   
   const wellbeingLog = apiStateNowData?.dailyRating?.wellbeingLog || [];
   const energyLog = apiStateNowData?.dailyRating?.energyLog || [];
@@ -441,8 +457,7 @@ export default function StateNowScreen({
   const aggregatedIngredients = dbData.aggregatedIngredients;
 
   // Core target definitions
-  const effWeight = apiStateNowData?.profile?.weight || weight || 70;
-  const waterTarget = Math.round(effWeight * 30);
+  const waterTarget = Math.round((effWeight || 70) * 30);
   const sleepTarget = 480;
   const mealsTarget = 4;
   const habitsTarget = 20;
@@ -591,12 +606,19 @@ export default function StateNowScreen({
     let measurementParagraph = "";
     if (effWeight > 0) {
       let weightTrend = "";
-      if (effInitialWeight && effInitialWeight > 0 && Math.abs(effWeight - effInitialWeight) > 0.5) {
+      
+      if (latestMeas?.weight && prevMeas?.weight && Math.abs(latestMeas.weight - prevMeas.weight) >= 0.1) {
+        const diff = latestMeas.weight - prevMeas.weight;
+        weightTrend = diff < 0
+          ? `Со времени прошлого замера ваш вес снизился на ${Math.abs(diff).toFixed(1)} кг! `
+          : `Со времени прошлого замера ваш вес увеличился на ${diff.toFixed(1)} кг. `;
+      } else if (effInitialWeight && effInitialWeight > 0 && Math.abs(effWeight - effInitialWeight) > 0.5) {
         const diff = effWeight - effInitialWeight;
         weightTrend = diff < 0
           ? `Отлично, вы снизили вес на ${Math.abs(diff).toFixed(1)} кг относительно стартовой отметки. `
           : `Ваш вес вырос на ${diff.toFixed(1)} кг относительно стартовой отметки. `;
       }
+      
       const bpInfo = (effSystolic && effDiastolic)
         ? `Артериальное давление держится в пределах ${effSystolic}/${effDiastolic} мм рт. ст. `
         : "";
