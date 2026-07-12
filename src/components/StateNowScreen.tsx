@@ -128,6 +128,19 @@ export default function StateNowScreen({
       .catch(() => {});
   }, [currentDayIndex]);
 
+  const handleWakeConfirm = (minutes: number) => {
+    const todayStr = new Date().toLocaleDateString("en-CA");
+    api("/api/metrics/daily", {
+      method: "POST",
+      body: { date: todayStr, dayIndex: currentDayIndex, sleepMinutes: minutes },
+    }).then(() => {
+      const dayIdx = currentDayIndex || 1;
+      api<any>("/api/user/state-now?dayIndex=" + dayIdx).then(data => {
+        setApiStateNowData(data);
+      });
+    }).catch(() => {});
+  };
+
   // ── Effective values: props take precedence, API data is fallback ──
   const effWater = apiStateNowData?.dailyMetric?.waterMl ?? water;
   const effSleep = apiStateNowData?.dailyMetric?.sleepMinutes ?? sleep;
@@ -603,6 +616,10 @@ export default function StateNowScreen({
         i.status === "green" && ["шпинат","брокколи","яблоко","лён","льнян","чиа","зелень","салат","капуст","сельдерей","петруш","укроп","кинз"].some(kw => i.name.toLowerCase().includes(kw))
       );
       const analysis = getAnnaAnalysis();
+      if (hasRed && !hasGreenNeutralizer) {
+        const badNames = aggregatedIngredients.filter(i => i.status === "red").slice(0, 2).map(i => i.name.toLowerCase()).join(" и ");
+        return `⚠️ Внимание! В рационе обнаружены нежелательные компоненты: ${badNames}. Рекомендуется нейтрализовать их зелёными волокнами (шпинат, брокколи, лён).\n\n` + analysis;
+      }
       if (hasRed && hasGreenNeutralizer && !neutralizationNoted.current) {
         neutralizationNoted.current = true;
         return "Отлично! Нейтрализация вредного ингредиента произведена. Баланс восстановлен.\n\n" + analysis;
@@ -940,13 +957,13 @@ export default function StateNowScreen({
     ratingEnergy: effRatingEnergy,
     ratingLightness: effRatingLightness,
     currentDayIndex,
-    aggregatedIngredients,
     dayNotes: dayNotes[currentDayIndex] || [],
     selectedChronic: effSelectedChronic,
     totalFiber,
     totalCalories,
     activityMinutes,
     ...waterLogData,
+    aggregatedIngredients,
   });
 
   const triggerNotification = (msg: string) => {
@@ -1238,7 +1255,7 @@ export default function StateNowScreen({
             <BalanceTab
               key="balance"
               tabId={activeTab}
-              getAnnaAnalysis={getAnnaAnalysis}
+               getAnnaAnalysis={() => getAnnaAnalysisForTab("balance")}
               integralScore={integralScore}
               sleepPct={sleepPct}
               waterPct={waterPct}
@@ -1335,6 +1352,7 @@ export default function StateNowScreen({
           {activeTab === "dynamics" && (
             <DynamicsTab
               key="dynamics"
+              onWakeConfirm={handleWakeConfirm}
               sleep={effSleep}
               water={effWater}
               ratingEnergy={effRatingEnergy}

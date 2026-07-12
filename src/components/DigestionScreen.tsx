@@ -25,7 +25,6 @@ export interface DigestionLogEntry {
   comfort: "easy" | "normal" | "uncomfortable";
   note?: string;
   linkedMeal?: string;
-  hoursSinceLastMeal?: number;
 }
 
 interface DigestionScreenProps {
@@ -39,6 +38,8 @@ interface DigestionScreenProps {
   setDigestionLogs?: React.Dispatch<React.SetStateAction<Record<number, DigestionLogEntry[]>>>;
   meals?: { id: string; name: string; checked: boolean }[];
   water?: number;
+  totalFiber?: number;
+  aggregatedIngredients?: { name: string; weight: number; status: string }[];
   screen?: string;
   onOpenCalendar?: () => void;
 }
@@ -194,6 +195,8 @@ export default function DigestionScreen({
   setDigestionLogs,
   meals = [],
   water = 0,
+  totalFiber = 0,
+  aggregatedIngredients = [],
 }: DigestionScreenProps) {
   const setScreen = useAppStore((s) => s.setScreen);
   const onBack = propsOnBack || (() => setScreen("my-day"));
@@ -225,19 +228,7 @@ export default function DigestionScreen({
   };
 
   // Local fallback state if digestionLogs/setDigestionLogs are not provided (e.g. from App.tsx route)
-  const [localLogs, setLocalLogs] = useState<Record<number, DigestionLogEntry[]>>({
-    1: [
-      { id: "d-seed-1", dayIndex: 1, timestamp: Date.now() - 3 * 86450000, timeString: "08:15", bristolType: 4, comfort: "easy", note: "Отличная реакция сутра, легко", linkedMeal: "Завтрак (Зелёный смузи)" },
-      { id: "d-seed-2", dayIndex: 1, timestamp: Date.now() - 3 * 86450000, timeString: "14:45", bristolType: 3, comfort: "normal", note: "Связь со спелым авокадо", linkedMeal: "Обед (Салат с нутом и авокадо)" }
-    ],
-    2: [
-      { id: "d-seed-3", dayIndex: 2, timestamp: Date.now() - 2 * 86450000, timeString: "08:30", bristolType: 4, comfort: "easy", note: "Овсянка без соли сработала идеально", linkedMeal: "Завтрак (Зелёный смузи)" }
-    ],
-    3: [
-      { id: "d-seed-4", dayIndex: 3, timestamp: Date.now() - 1 * 86450000, timeString: "08:00", bristolType: 4, comfort: "easy", note: "Ощущение лёгкости и чистоты" },
-      { id: "d-seed-5", dayIndex: 3, timestamp: Date.now() - 1 * 86450000, timeString: "18:20", bristolType: 2, comfort: "uncomfortable", note: "Вздутие, возможно мало воды", linkedMeal: "Обед (Салат с нутом и авокадо)" }
-    ]
-  });
+  const [localLogs, setLocalLogs] = useState<Record<number, DigestionLogEntry[]>>({});
 
   const currentLogsMap = (digestionLogs && typeof digestionLogs === "object") ? digestionLogs : (localLogs || {});
   const currentSetLogs = setDigestionLogs || setLocalLogs;
@@ -347,7 +338,9 @@ export default function DigestionScreen({
         dayIndex: currentDayIndex,
         digestionLog: [newEntry],
       },
-    }).catch(() => {});
+    }).catch(() => {
+      console.warn("Failed to save digestion log to DB");
+    });
 
     // Sync to dayNotes calendar
     if (newNote.trim()) {
@@ -715,6 +708,8 @@ export default function DigestionScreen({
 
               const noteText = lastLog.note || "";
 
+              const topGreenIngredients = aggregatedIngredients.filter(i => i.status === "green").slice(0, 3).map(i => i.name.toLowerCase()).join(", ");
+
               return (
                 <div className="space-y-2">
                   {isIdeal && (
@@ -748,6 +743,19 @@ export default function DigestionScreen({
                       кишечника обновится, заселив полезные бактерии, питающиеся растительными волокнами, и газы уйдут.
                     </p>
                   )}
+
+                  {totalFiber > 0 && (
+                    <p>
+                      🌾 За день накоплено <strong>{totalFiber} г клетчатки</strong>. {totalFiber >= 25 ? "Отличный объём для комфортного транзита и питания микрофлоры." : totalFiber >= 10 ? "Хорошая база — добавь к ужину порцию бобовых или зелени, чтобы достичь терапевтического уровня." : "Старайся добавлять в каждый приём пищи бобовые, цельные злаки и листовую зелень для мягкого и регулярного очищения кишечника."}
+                    </p>
+                  )}
+
+                  {topGreenIngredients && (
+                    <p>
+                      🥬 В рационе преобладают: <strong>{topGreenIngredients}</strong>. Это богатый источник пребиотиков и полифенолов, поддерживающих рост благородной микрофлоры.
+                    </p>
+                  )}
+
 
                   <p className="text-[12px] text-amber-900 border-t border-amber-300/30 pt-2 mt-2 leading-snug">
                     🌻 <strong>Важно:</strong> Всегда слушайте своё тело. Мы не занимаемся диагностикой заболеваний, а бережно восстанавливаем естественный ритм организма чистым, природным WFPB рационом.
@@ -850,8 +858,12 @@ export default function DigestionScreen({
 
               <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
                 <span className="text-[11px] font-bold text-slate-400 block mb-0.5 uppercase">Клетчатка (WFPB)</span>
-                <span className="text-[12px] font-extrabold text-emerald-600 block">🥗 Отличный уровень</span>
-                <span className="text-[10px] text-slate-400 leading-tight block mt-0.5">Адаптация микрофлоры 88%</span>
+                <span className="text-[12px] font-extrabold text-emerald-600 block">
+                  {totalFiber >= 25 ? "🥗 Отличный уровень" : totalFiber > 0 ? "⚡ Средний уровень" : "⏳ Нет данных"}
+                </span>
+                <span className="text-[10px] text-slate-400 leading-tight block mt-0.5">
+                  {totalFiber > 0 ? `${totalFiber} г из 35 г` : "Добавьте бобовые и зелень"}
+                </span>
               </div>
 
               <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
@@ -869,9 +881,9 @@ export default function DigestionScreen({
           </div>
         </div>
 
-        {/* PROTOTYPE PERSISTENCE BACKUP WARNING CARD */}
+        {/* DATA PERSISTENCE INFO */}
         <div className="bg-slate-100/50 rounded-2xl p-3 border border-slate-200/50 text-[11px] text-slate-500 leading-snug font-medium text-left mb-6.5">
-          ℹ️ Все отмеченные замеры и пищеварительные симптомы сохраняются локально в вашем браузере. Вы можете возвращаться сюда в любое время, накопленная статистика ЖКТ будет обновляться по мере ведения дневника.
+          ℹ️ Все записи о пищеварении сохраняются в вашем дневнике. Статистика ЖКТ обновляется по мере добавления новых данных.
         </div>
 
         {/* Back and Confirm buttons row */}

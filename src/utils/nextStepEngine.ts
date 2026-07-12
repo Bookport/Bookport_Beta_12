@@ -127,7 +127,24 @@ export function getRecommendedNextStep(input: NextStepInput): NextStepRecommenda
     };
   }
 
-  // 2. Time-Aware Hydration Deficit
+  // 2. Unfriendly / Non-WFPB (Red status) components detected
+  if (redIngredients.length > 0) {
+    const badNames = redIngredients.slice(0, 2).map(i => i.name.toLowerCase()).join(" и ");
+    if (hasNeutralizingLeafy(aggregatedIngredients)) {
+      // neutralized — skip, let engine fall through to next priority
+    } else {
+      return {
+        title: "Нейтрализация волокнами",
+        desc: `В текущем рационе замечена нагрузка (${badNames}). Сделай следующий приём пищи максимально цельным и богатым клетчаткой (добавь шпинат или ложку льна), чтобы связать и вывести простые гликотоксины.`,
+        icon: "🍃",
+        btnText: "Выбрать зелёный рецепт",
+        actionType: "book-recipes",
+        reasoning: `Обнаружены вещества, не соответствующие строгому оздоровительному WFPB-стандарту (${badNames}). Рафинированные сахара или насыщенные жиры повреждают тонкий эндотелий сосудов и провоцируют гликемические качели. Мягкая нейтрализация органическими волокнами шпината, брокколи или пектином яблока замедляет всасывание вредных элементов и защищает ваши почки.`
+      };
+    }
+  }
+
+  // 3. Time-Aware Hydration Deficit
   const isOverdueByVolume = waterDeficit >= GLASS_ML
   const isOverdueByTime = hoursSinceLastDrink > MAX_GAP_HOURS && water < waterTarget
 
@@ -154,7 +171,7 @@ export function getRecommendedNextStep(input: NextStepInput): NextStepRecommenda
     }
   }
 
-  // 2b. On track but close to bed — remind to finish
+  // 3b. On track but close to bed — remind to finish
   if (remainingMinutes < 120 && water < waterTarget) {
     const need = waterTarget - water
     return {
@@ -165,23 +182,6 @@ export function getRecommendedNextStep(input: NextStepInput): NextStepRecommenda
       actionType: "water",
       reasoning: `Перед сном важно завершить водный баланс, но избыток жидкости за час до сна создаёт нагрузку на почки в ночную фазу, нарушая выработку антидиуретического гормона и ухудшая качество сна.`
     };
-  }
-
-  // 3. Unfriendly / Non-WFPB (Red status) components detected
-  if (redIngredients.length > 0) {
-    const badNames = redIngredients.slice(0, 2).map(i => i.name.toLowerCase()).join(" и ");
-    if (hasNeutralizingLeafy(aggregatedIngredients)) {
-      // neutralized — skip, let engine fall through to next priority
-    } else {
-      return {
-        title: "Нейтрализация волокнами",
-        desc: `В текущем рационе замечена нагрузка (${badNames}). Сделай следующий приём пищи максимально цельным и богатым клетчаткой (добавь шпинат или ложку льна), чтобы связать и вывести простые гликотоксины.`,
-        icon: "🍃",
-        btnText: "Выбрать зелёный рецепт",
-        actionType: "book-recipes",
-        reasoning: `Обнаружены вещества, не соответствующие строгому оздоровительному WFPB-стандарту (${badNames}). Рафинированные сахара или насыщенные жиры повреждают тонкий эндотелий сосудов и провоцируют гликемические качели. Мягкая нейтрализация органическими волокнами шпината, брокколи или пектином яблока замедляет всасывание вредных элементов и защищает ваши почки.`
-      };
-    }
   }
 
   // 4. Low light feel or Heavy stomach reported in notes or ratingLightness

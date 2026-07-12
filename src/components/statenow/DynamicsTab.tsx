@@ -63,6 +63,7 @@ interface DynamicsTabProps {
   recommendedAction?: NextStepRecommendation;
   currentDayIndex?: number;
   savedDishes?: any[];
+  onWakeConfirm?: (minutes: number) => void;
 }
 
 export default function DynamicsTab({
@@ -75,6 +76,7 @@ export default function DynamicsTab({
   habitsTarget,
   cookedBookDishes,
   annaAnalysisText,
+  onWakeConfirm,
   recommendedAction,
   currentDayIndex = 1,
   savedDishes = [],
@@ -220,7 +222,10 @@ export default function DynamicsTab({
       interpretationText: "Момент фиксации подъема запускает выброс утреннего кортизола, настраивая ритм сосудов на 16 часов вперед.",
       actionButtonLabel: "Подтвердить пробуждение",
       onExecute: () => {
-        if (localSleep === 0) setLocalSleep(480);
+        if (localSleep === 0) {
+          setLocalSleep(480);
+          onWakeConfirm?.(480);
+        }
       }
     },
     {

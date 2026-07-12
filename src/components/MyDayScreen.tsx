@@ -36,6 +36,16 @@ import purchasesImg from "../assets/images/buttons/покупки.webp";
 import diaryImg from "../assets/images/buttons/дневник.webp";
 import stateNowImg from "../assets/images/buttons/состояние сейчас.webp";
 import logoSprout from "../assets/images/buttons/logo.webp";
+import { DailyNutritionStore } from "../services/DailyNutritionStore";
+import { 
+  BREAKFAST_RECIPES, 
+  LUNCH_RECIPES, 
+  DINNER_RECIPES, 
+  MUST_HAVE_RECIPES, 
+  COMPLIMENTS_RECIPES, 
+  RECIPE_OF_DAY_RECIPES, 
+  DRINKS_RECIPES 
+} from "./BookRecipesScreen";
 
 const annaAvatarSrc = resolveAvatar({ toneGroup: 'positive', intent: 'success' }).src;
 import BottomBar from "./BottomBar";
@@ -148,6 +158,16 @@ export default function MyDayScreen({
             console.error("Failed to parse movementLog:", e);
           }
         }
+        if (d?.dailyMetric?.digestionLog) {
+          try {
+            const parsed = typeof d.dailyMetric.digestionLog === 'string'
+              ? JSON.parse(d.dailyMetric.digestionLog)
+              : d.dailyMetric.digestionLog;
+            setDigestionLogs(prev => ({ ...prev, [currentDayIndex]: parsed }));
+          } catch (e) {
+            console.error("Failed to parse digestionLog:", e);
+          }
+        }
         // Load water entries from DB (source of truth), sync localStorage cache
         let dbWaterEntries: any[] = [];
         if (d?.dailyMetric?.waterEntries) {
@@ -183,6 +203,31 @@ export default function MyDayScreen({
   }, [currentDayIndex, effSavedDishes, effWater, recipeStates]);
 
   const habitsDone = systemKeysResult.closedCount;
+
+  // Compute nutrition data for DigestionScreen
+  const digestionNutritionData = useMemo(() => {
+    const mealState = {
+      breakfast: (recipeStates as any)['breakfast'] || {},
+      lunch: (recipeStates as any)['lunch'] || {},
+      dinner: (recipeStates as any)['dinner'] || {},
+      mustHave: (recipeStates as any)['must_have'] || {},
+      compliments: (recipeStates as any)['compliment'] || {},
+      recipeOfDay: (recipeStates as any)['recipe_of_day'] || {},
+      drinks: (recipeStates as any)['drinks'] || {},
+    };
+    const mealRecipes = {
+      breakfast: BREAKFAST_RECIPES,
+      lunch: LUNCH_RECIPES,
+      dinner: DINNER_RECIPES,
+      mustHave: MUST_HAVE_RECIPES,
+      compliments: COMPLIMENTS_RECIPES,
+      recipeOfDay: RECIPE_OF_DAY_RECIPES,
+      drinks: DRINKS_RECIPES,
+    };
+    return DailyNutritionStore.getDailyNutrition(effSavedDishes, currentDayIndex, mealState, mealRecipes);
+  }, [currentDayIndex, effSavedDishes, recipeStates]);
+  const totalFiber = digestionNutritionData.totalFiber;
+  const aggregatedIngredients = digestionNutritionData.aggregatedIngredients;
   const [meals, setMeals] = useState([{ id: "breakfast", name: "Завтрак", checked: false }, { id: "lunch", name: "Обед", checked: false }, { id: "dinner", name: "Ужин", checked: false }, { id: "snack", name: "Перекус", checked: false }]);
   const [habits, setHabits] = useState([{ id: "no_sugar", name: "Без сахара", done: false }, { id: "no_salt", name: "Без соли", done: false }, { id: "greens", name: "Зелень", done: false }, { id: "active", name: "Активность", done: false }]);
   const selectedChronic = profile.chronicConditions || [];
@@ -351,19 +396,7 @@ export default function MyDayScreen({
   const measurementsIsLongPressedRef = React.useRef<boolean>(false);
 
   // --- DIGESTION MODULE STATE ---
-  const [digestionLogs, setDigestionLogs] = useState<Record<number, DigestionLogEntry[]>>({
-    1: [
-      { id: "d-seed-1", dayIndex: 1, timestamp: Date.now() - 3 * 86450000, timeString: "08:15", bristolType: 4, comfort: "easy", note: "Отличная реакция сутра, легко", linkedMeal: "Завтрак (Зелёный смузи)" },
-      { id: "d-seed-2", dayIndex: 1, timestamp: Date.now() - 3 * 86450000, timeString: "14:45", bristolType: 3, comfort: "normal", note: "Связь со спелым авокадо", linkedMeal: "Обед (Салат с нутом и авокадо)" }
-    ],
-    2: [
-      { id: "d-seed-3", dayIndex: 2, timestamp: Date.now() - 2 * 86450000, timeString: "08:30", bristolType: 4, comfort: "easy", note: "Овсянка без соли сработала идеально", linkedMeal: "Завтрак (Зелёный смузи)" }
-    ],
-    3: [
-      { id: "d-seed-4", dayIndex: 3, timestamp: Date.now() - 1 * 86450000, timeString: "08:00", bristolType: 4, comfort: "easy", note: "Ощущение лёгкости и чистоты" },
-      { id: "d-seed-5", dayIndex: 3, timestamp: Date.now() - 1 * 86450000, timeString: "18:20", bristolType: 2, comfort: "uncomfortable", note: "Вздутие, возможно мало воды", linkedMeal: "Обед (Салат с нутом и авокадо)" }
-    ]
-  });
+  const [digestionLogs, setDigestionLogs] = useState<Record<number, DigestionLogEntry[]>>({});
 
   const [showDigestionDetails, setShowDigestionDetails] = useState(false);
   const [showFastDigestion, setShowFastDigestion] = useState(false);
@@ -1083,7 +1116,9 @@ export default function MyDayScreen({
         dayIndex: currentDayIndex,
         digestionLog: [newLogEntry],
       },
-    }).catch(() => {});
+    }).catch(() => {
+      console.warn("Failed to save digestion log to DB");
+    });
 
     // Automatically sync notes to physical calendar notes
     if (fastDigestionNote.trim()) {
@@ -1821,6 +1856,8 @@ export default function MyDayScreen({
         setDigestionLogs={setDigestionLogs}
         meals={meals}
         water={water}
+        totalFiber={totalFiber}
+        aggregatedIngredients={aggregatedIngredients}
       />
     );
   }
