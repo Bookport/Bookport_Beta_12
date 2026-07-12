@@ -150,6 +150,10 @@ export default function StateNowScreen({
   const effRatingWellbeing = apiStateNowData?.dailyRating?.wellbeing ?? ratingWellbeing;
   const effRatingEnergy = apiStateNowData?.dailyRating?.energy ?? ratingEnergy;
   const effRatingLightness = apiStateNowData?.dailyRating?.lightness ?? ratingLightness;
+  const effSystolic = apiStateNowData?.profile?.systolic;
+  const effDiastolic = apiStateNowData?.profile?.diastolic;
+  const effInitialWeight = apiStateNowData?.profile?.initialWeight;
+  const effInitialSystolic = apiStateNowData?.profile?.initialSystolic;
   
   const wellbeingLog = apiStateNowData?.dailyRating?.wellbeingLog || [];
   const energyLog = apiStateNowData?.dailyRating?.energyLog || [];
@@ -584,6 +588,21 @@ export default function StateNowScreen({
       }
     }
 
+    let measurementParagraph = "";
+    if (effWeight > 0) {
+      let weightTrend = "";
+      if (effInitialWeight && effInitialWeight > 0 && Math.abs(effWeight - effInitialWeight) > 0.5) {
+        const diff = effWeight - effInitialWeight;
+        weightTrend = diff < 0
+          ? `Отлично, вы снизили вес на ${Math.abs(diff).toFixed(1)} кг относительно стартовой отметки. `
+          : `Ваш вес вырос на ${diff.toFixed(1)} кг относительно стартовой отметки. `;
+      }
+      const bpInfo = (effSystolic && effDiastolic)
+        ? `Артериальное давление держится в пределах ${effSystolic}/${effDiastolic} мм рт. ст. `
+        : "";
+      measurementParagraph = `По замерам сегодня: масса тела составляет ${effWeight} кг. ${bpInfo}${weightTrend}`;
+    }
+
     let contextParagraph = "";
     const notesArr = dayNotes[currentDayIndex] || [];
     if (notesArr.length > 0) {
@@ -604,7 +623,7 @@ export default function StateNowScreen({
       waterAdvice = `Ваш водный баланс в безупречном тонусе (${effWater} мл), лимфоток и детоксикация идут полным ходом! `;
     }
 
-    return `${greeting}рада подвести для вас целостный биоэнергетический итог дня.\n\n${foodParagraph}${progressParagraph}${microsParagraph}${chronicParagraph}${contextParagraph}${waterAdvice}Желаю вам прекрасного самочувствия. Какой наш индивидуальный следующий шаг?`;
+    return `${greeting}рада подвести для вас целостный биоэнергетический итог дня.\n\n${foodParagraph}${progressParagraph}${microsParagraph}${chronicParagraph}${measurementParagraph}${contextParagraph}${waterAdvice}Желаю вам прекрасного самочувствия. Какой наш индивидуальный следующий шаг?`;
   };
 
   const getAnnaAnalysisForTab = (tabId: string) => {

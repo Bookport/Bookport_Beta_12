@@ -187,6 +187,17 @@ export default function MyDayScreen({
           allLogs[currentDayIndex] = dbWaterEntries;
           localStorage.setItem('wfpb_daily_water_entries_v3', JSON.stringify(allLogs));
         } catch {}
+        // Load measurements from DB (source of truth for historical analytics)
+        if (d?.dailyMetric?.measurements) {
+          try {
+            const parsed = typeof d.dailyMetric.measurements === 'string'
+              ? JSON.parse(d.dailyMetric.measurements)
+              : d.dailyMetric.measurements;
+            setMeasurementLogs(prev => ({ ...prev, [currentDayIndex]: parsed }));
+          } catch (e) {
+            console.error("Failed to parse measurements:", e);
+          }
+        }
       })
       .catch(() => {});
   }, [currentDayIndex]);
@@ -899,14 +910,16 @@ export default function MyDayScreen({
       }
       measurementsClickTimeoutRef.current = window.setTimeout(() => {
         // Single Click: quick measurement modal
-        // reset form to sensible defaults before triggering
+        // Prefill from the latest measurement across all days, fall back to profile
+        const allEntries = Object.values(measurementLogs).flat();
+        const lastEntry = allEntries.length > 0 ? allEntries.reduce((a, b) => a.timestamp > b.timestamp ? a : b) : null;
         setFastEnergy("");
         setFastMood("");
         setFastWellbeing("");
-        setFastPulse(68);
-        setFastWeight(weight);
-        setFastSystolic(systolic);
-        setFastDiastolic(diastolic);
+        setFastPulse(lastEntry?.pulse ?? 68);
+        setFastWeight(lastEntry?.weight ?? weight);
+        setFastSystolic(lastEntry?.systolic ?? systolic);
+        setFastDiastolic(lastEntry?.diastolic ?? diastolic);
         setShowFastMeasurements(true);
       }, 220);
     }
