@@ -276,7 +276,7 @@ export default function MyPageScreen(props: MyPageScreenProps) {
                 className="text-[16px] sm:text-[18px] font-bold text-brand-green-bright flex items-center gap-1 leading-none"
                 style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}
               >
-                День 3 из 28 🍃
+                День {currentDayIndex} из 28 🍃
               </span>
             </div>
           </div>

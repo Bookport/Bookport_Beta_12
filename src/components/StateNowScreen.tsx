@@ -51,6 +51,7 @@ interface StateNowScreenProps {
   savedDishes?: SavedDish[];
   setWater?: React.Dispatch<React.SetStateAction<number>>;
   setScreen?: (screen: any) => void;
+  isReadOnly?: boolean;
 }
 
 export default function StateNowScreen({
@@ -76,6 +77,7 @@ export default function StateNowScreen({
   savedDishes = [],
   setWater,
   setScreen: propsSetScreen,
+  isReadOnly = false,
 }: StateNowScreenProps) {
   const storeScreen = useAppStore((s) => s.setScreen);
   const onBack = propsOnBack || (() => storeScreen("my-day"));
@@ -1100,6 +1102,15 @@ export default function StateNowScreen({
             🧘
           </div>
         </div>
+
+        {isReadOnly && (
+          <div className="mx-1 mb-4 py-2 px-4 rounded-xl bg-amber-50 border border-amber-200 flex items-center gap-2">
+            <span className="text-amber-600 text-[13px] font-bold">📋</span>
+            <span className="text-amber-800 text-[12px] font-semibold">
+              Просмотр данных дня {currentDayIndex} — изменения недоступны
+            </span>
+          </div>
+        )}
 
         {/* Short timestamp tag */}
         <div className="flex items-center justify-center gap-1.5 mb-5 select-none font-mono">

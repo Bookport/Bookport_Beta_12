@@ -112,6 +112,7 @@ interface MyDayScreenProps {
   setRatingEnergy?: React.Dispatch<React.SetStateAction<number>>;
   ratingLightness?: number;
   setRatingLightness?: React.Dispatch<React.SetStateAction<number>>;
+  isReadOnly?: boolean;
 }
 
 const VESSEL_BUBBLES = [
@@ -133,6 +134,7 @@ export default function MyDayScreen({
   onOpenCalendar,
   water: propsWater,
   savedDishes: propsSavedDishes,
+  isReadOnly = false,
 }: MyDayScreenProps) {
   const setScreen = useAppStore((s) => s.setScreen);
   const screen = useAppStore((s) => s.screen);

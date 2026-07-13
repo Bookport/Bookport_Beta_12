@@ -31,7 +31,6 @@ import {
   initializeAchievementSystem,
   ingestAchievementEvent,
   getUnlockedAchievementIds,
-  setCourseStartTimestamp,
   isGodModeEnabled,
   AchievementOverlay,
   MyRewardsScreen,
@@ -431,7 +430,12 @@ export default function App() {
 
   const [mixerConfig, setMixerConfig] = useState<MixerConfig | null>(null);
 
-  const [currentDayIndex, setCurrentDayIndex] = useState<number>(3); // Day 1 to 28
+  const [currentDayIndex, setCurrentDayIndex] = useState<number>(1);
+  const [viewingDayIndex, setViewingDayIndex] = useState<number | null>(null);
+
+  const activeDayIndex = viewingDayIndex ?? currentDayIndex;
+  const isReadOnly = viewingDayIndex !== null && viewingDayIndex < currentDayIndex;
+
   const [dayNotes, setDayNotes] = useState<Record<number, { text: string; time: string; [key: string]: any }[]>>({});
   const isCalendarOpen = useAppStore((s) => s.isCalendarOpen);
   const setCalendarOpen = useAppStore((s) => s.setCalendarOpen);
@@ -446,6 +450,10 @@ export default function App() {
     // Load all persisted data from server in one request
     (async () => {
       try {
+        // Init course day from server (auto-advances based on calendar date)
+        const initData = await api<any>("/api/user/init");
+        setCurrentDayIndex(initData.currentDayIndex);
+
         const data = await api<any>("/api/user/data");
         console.log("[Init] profile:", data.profile?.name || "—", "dishes:", data.savedDishes?.length, "diary:", data.diary?.length, "progress:", data.recipeProgress?.length);
 
@@ -1147,7 +1155,7 @@ export default function App() {
             >
               <MyPageScreen 
                 onBack={() => setScreen("settings")} 
-                onOpenMyDay={() => { setCourseStartTimestamp(); setScreen("my-day"); setTimeout(() => ingestAchievementEvent({ type: 'course:started' }), 5000); }}
+                onOpenMyDay={() => { setScreen("my-day"); setTimeout(() => ingestAchievementEvent({ type: 'course:started' }), 5000); }}
                 dayNotes={dayNotes}
                 currentDayIndex={currentDayIndex}
                 screen={screen}
@@ -1166,7 +1174,7 @@ export default function App() {
               <DigestionScreen 
                 dayNotes={dayNotes}
                 setDayNotes={setDayNotes}
-                currentDayIndex={currentDayIndex}
+                currentDayIndex={activeDayIndex}
               />
             </motion.div>
           ) : screen === "habits-twenty" ? (
@@ -1181,7 +1189,7 @@ export default function App() {
               <HabitsTwentyScreen 
                 dayNotes={dayNotes}
                 setDayNotes={setDayNotes}
-                currentDayIndex={currentDayIndex}
+                currentDayIndex={activeDayIndex}
                 savedDishes={savedDishes}
                 water={water}
                 setWater={setWater}
@@ -1211,7 +1219,7 @@ export default function App() {
                   setCurrentMealImage(imgBase64);
                   if (ingredients) setScreen("check-composition");
                 }}
-                currentDayIndex={currentDayIndex}
+                currentDayIndex={activeDayIndex}
               />
             </motion.div>
           ) : screen === "check-composition" ? (
@@ -1229,7 +1237,7 @@ export default function App() {
                   setCustomMealIngredients(cards);
                   setScreen("dish-analysis");
                 }}
-                currentDayIndex={currentDayIndex}
+                currentDayIndex={activeDayIndex}
               />
             </motion.div>
           ) : screen === "dish-analysis" ? (
@@ -1355,7 +1363,7 @@ export default function App() {
                     .catch(() => {});
                 }}
                 onCancel={() => { setScreen("my-day"); }}
-                currentDayIndex={currentDayIndex}
+                currentDayIndex={activeDayIndex}
               />
             </motion.div>
           ) : screen === "my-dishes" ? (
@@ -1383,7 +1391,7 @@ export default function App() {
               className="flex-1 flex flex-col"
             >
               <FromWhatIsScreen 
-                currentDayIndex={currentDayIndex}
+                currentDayIndex={activeDayIndex}
                 onConfirmRecipe={(ingredients) => {
                   setCustomMealIngredients(ingredients);
                   setCurrentMealImage(null);
@@ -1403,7 +1411,7 @@ export default function App() {
               <BookRecipesScreen 
                 dayNotes={dayNotes}
                 setDayNotes={setDayNotes}
-                currentDayIndex={currentDayIndex}
+                currentDayIndex={activeDayIndex}
                 onSaveBookRecipe={handleSaveBookRecipe}
               />
             </motion.div>
@@ -1417,7 +1425,7 @@ export default function App() {
               className="flex-1 flex flex-col"
             >
               <MyPurchasesScreen 
-                currentDayIndex={currentDayIndex}
+                currentDayIndex={activeDayIndex}
               />
             </motion.div>
           ) : screen === "diary" ? (
@@ -1432,7 +1440,7 @@ export default function App() {
               <MyDiaryScreen 
                 dayNotes={dayNotes}
                 setDayNotes={setDayNotes}
-                currentDayIndex={currentDayIndex}
+                currentDayIndex={activeDayIndex}
               />
             </motion.div>
           ) : screen === "anna" ? (
@@ -1458,9 +1466,10 @@ export default function App() {
               <StateNowScreen 
                 dayNotes={dayNotes}
                 setDayNotes={setDayNotes}
-                currentDayIndex={currentDayIndex}
+                currentDayIndex={activeDayIndex}
                 savedDishes={savedDishes}
                 weight={initialWeight}
+                isReadOnly={isReadOnly}
               />
             </motion.div>
           ) : screen === "rewards" ? (
@@ -1485,7 +1494,7 @@ export default function App() {
             >
               <SettingsScreen 
                 onBack={() => setScreen("my-day")}
-                currentDayIndex={currentDayIndex}
+                currentDayIndex={activeDayIndex}
               />
             </motion.div>
           ) : (
@@ -1500,11 +1509,12 @@ export default function App() {
               <MyDayScreen 
                 dayNotes={dayNotes}
                 setDayNotes={setDayNotes}
-                currentDayIndex={currentDayIndex}
+                currentDayIndex={activeDayIndex}
                 setCurrentDayIndex={setCurrentDayIndex}
                 onOpenCalendar={() => setCalendarOpen(true)}
                 savedDishes={savedDishes}
                 water={water}
+                isReadOnly={isReadOnly}
               />
             </motion.div>
           )}
@@ -1693,11 +1703,12 @@ export default function App() {
 
         <CalendarOverlay 
           isOpen={isCalendarOpen}
-          onClose={() => setCalendarOpen(false)}
+          onClose={() => { setCalendarOpen(false); setViewingDayIndex(null); }}
           dayNotes={dayNotes}
           setDayNotes={setDayNotes}
           currentDayIndex={currentDayIndex}
-          setCurrentDayIndex={setCurrentDayIndex}
+          viewingDayIndex={viewingDayIndex}
+          setViewingDayIndex={setViewingDayIndex}
           recordClick={(pts) => setClickCount(prev => prev + (pts || 1))}
         />
 

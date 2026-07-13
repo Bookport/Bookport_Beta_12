@@ -1070,6 +1070,62 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
     }
   });
 
+  // ── Init: GET /api/user/init ──
+  // Auto-advances currentDayIndex based on calendar date, called once on app mount
+  app.get("/api/user/init", async (req, res) => {
+    if (!req.userId) return res.status(400).json({ error: "Missing device ID" });
+    try {
+      const user = await prisma.user.findUnique({ where: { id: req.userId } });
+      if (!user) return res.status(404).json({ error: "User not found" });
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      let courseStartDate = user.courseStartDate;
+      let currentDayIndex = user.currentDayIndex || 1;
+      let lastActiveDate = user.lastActiveDate;
+
+      if (!courseStartDate) {
+        courseStartDate = today;
+        currentDayIndex = 1;
+        lastActiveDate = today;
+      } else if (lastActiveDate) {
+        const lastActive = new Date(lastActiveDate);
+        lastActive.setHours(0, 0, 0, 0);
+        if (today.getTime() > lastActive.getTime()) {
+          currentDayIndex = Math.min((currentDayIndex || 1) + 1, 28);
+          lastActiveDate = today;
+        }
+      }
+
+      await prisma.user.update({
+        where: { id: req.userId },
+        data: { courseStartDate, currentDayIndex, lastActiveDate },
+      });
+
+      res.json({
+        currentDayIndex,
+        courseStartDate: courseStartDate?.toISOString() || null,
+        lastActiveDate: lastActiveDate?.toISOString() || null,
+        profile: {
+          name: user.name,
+          gender: user.gender,
+          weight: user.weight,
+          systolic: user.systolic,
+          diastolic: user.diastolic,
+          initialWeight: user.initialWeight,
+          initialSystolic: user.initialSystolic,
+          initialDiastolic: user.initialDiastolic,
+          chronicConditions: user.chronicConditions ? JSON.parse(user.chronicConditions) : [],
+          healthGoals: user.healthGoals ? JSON.parse(user.healthGoals) : [],
+        },
+      });
+    } catch (err: any) {
+      console.error("[Init] error:", err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // ── CRUD: User Profile ──
   // POST /api/user/profile — save or update the user's profile data
   app.post("/api/user/profile", async (req, res) => {
@@ -1198,6 +1254,8 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
       ]);
 
       res.json({
+        currentDayIndex: user?.currentDayIndex || 1,
+        courseStartDate: user?.courseStartDate?.toISOString() || null,
         profile: user ? {
           name: user.name,
           gender: user.gender,

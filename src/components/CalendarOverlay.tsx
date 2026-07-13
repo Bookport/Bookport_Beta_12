@@ -9,7 +9,8 @@ interface CalendarOverlayProps {
   dayNotes: Record<number, { text: string; time: string; source?: string; tags?: string[]; isVoice?: boolean }[]>;
   setDayNotes: React.Dispatch<React.SetStateAction<Record<number, { text: string; time: string; source?: string; tags?: string[]; isVoice?: boolean }[]>>>;
   currentDayIndex: number;
-  setCurrentDayIndex: (dayNum: number) => void;
+  viewingDayIndex: number | null;
+  setViewingDayIndex: (day: number | null) => void;
   recordClick: (pts?: number) => void;
 }
 
@@ -19,7 +20,8 @@ export default function CalendarOverlay({
   dayNotes,
   setDayNotes,
   currentDayIndex,
-  setCurrentDayIndex,
+  viewingDayIndex,
+  setViewingDayIndex,
   recordClick
 }: CalendarOverlayProps) {
   const [editingDay, setEditingDay] = useState<number | null>(null);
@@ -119,12 +121,13 @@ export default function CalendarOverlay({
               </button>
             </div>
 
-            {/* 28 Days Grid */}
+            {/* Days Grid — only past and current days */}
             <div className="grid grid-cols-7 gap-1.5 mb-4">
-              {Array.from({ length: 28 }).map((_, i) => {
+              {Array.from({ length: currentDayIndex }).map((_, i) => {
                 const dayNum = i + 1;
                 const hasNote = dayNotes[dayNum]?.length > 0;
                 const isCurrent = dayNum === currentDayIndex;
+                const isViewing = viewingDayIndex === dayNum;
                 const noteColors = hasNote ? getNoteDayColor(dayNum) : null;
                 
                 return (
@@ -133,11 +136,12 @@ export default function CalendarOverlay({
                     type="button"
                     onClick={() => {
                       recordClick();
-                      setCurrentDayIndex(dayNum);
                       setEditingDay(dayNum);
                     }}
                     className={`h-[42px] rounded-xl text-[14px] sm:text-[15px] font-bold transition-all flex flex-col items-center justify-center relative cursor-pointer active:scale-95 ${
-                      isCurrent 
+                      isViewing 
+                        ? "ring-2 ring-amber-400/60 scale-105 shadow-md" 
+                        : isCurrent 
                         ? "ring-2 ring-brand-green-bright/60 scale-105 shadow-md" 
                         : ""
                     } ${
@@ -150,6 +154,9 @@ export default function CalendarOverlay({
                     <span>{dayNum}</span>
                     {isCurrent && (
                       <div className="w-1.5 h-1.5 rounded-full bg-brand-green-bright absolute bottom-0.5" />
+                    )}
+                    {isViewing && !isCurrent && (
+                      <div className="w-1.5 h-1.5 rounded-full bg-amber-400 absolute bottom-0.5" />
                     )}
                   </button>
                 );
@@ -233,7 +240,7 @@ export default function CalendarOverlay({
                           return updated;
                         });
                       }
-                      setCurrentDayIndex(editingDay);
+                      setViewingDayIndex(editingDay === currentDayIndex ? null : editingDay);
                       setEditingDay(null);
                     }}
                     className="flex-1 h-11 rounded-xl bg-linear-to-b from-[#22C55E] to-[#109F44] text-white font-bold text-[14px] sm:text-[15px] flex items-center justify-center shadow-xs cursor-pointer active:scale-95"
@@ -245,19 +252,25 @@ export default function CalendarOverlay({
               </motion.div>
             )}
 
-            {/* Cycle notes feed for the current day index */}
+            {/* Cycle notes feed for the active day */}
             <div className="mt-4 border-t border-gray-100 pt-3 text-left">
               <span className="text-[13px] font-bold text-text-muted block mb-1.5">
-                Хронология заметок за День {currentDayIndex}
+                Хронология заметок за День {editingDay ?? viewingDayIndex ?? currentDayIndex}
               </span>
               
-              {!dayNotes[currentDayIndex] || dayNotes[currentDayIndex].length === 0 ? (
-                <span className="text-[11.5px] text-text-muted mt-1 italic block">
-                  У этого дня ещё нет заметок. Выберите день из сетки, чтобы добавить запись.
-                </span>
-              ) : (
-                <div className="flex flex-col gap-2 max-h-[165px] overflow-y-auto pr-1">
-                  {dayNotes[currentDayIndex].map((noteItem, nIdx) => {
+              {(() => {
+                const feedDay = editingDay ?? viewingDayIndex ?? currentDayIndex;
+                const feedNotes = dayNotes[feedDay] || [];
+                if (feedNotes.length === 0) {
+                  return (
+                    <span className="text-[11.5px] text-text-muted mt-1 italic block">
+                      У этого дня ещё нет заметок. Выберите день из сетки, чтобы добавить запись.
+                    </span>
+                  );
+                }
+                return (
+                  <div className="flex flex-col gap-2 max-h-[165px] overflow-y-auto pr-1">
+                    {feedNotes.map((noteItem, nIdx) => {
                     const meta = (() => {
                       switch (noteItem.source) {
                         case "water":
@@ -323,7 +336,8 @@ export default function CalendarOverlay({
                     );
                   })}
                 </div>
-              )}
+              );
+            })()}
             </div>
 
           </motion.div>
