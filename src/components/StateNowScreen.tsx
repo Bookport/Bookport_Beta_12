@@ -110,6 +110,36 @@ export default function StateNowScreen({
   const [recipeOfDayState, setRecipeOfDayState] = useState<Record<number, any>>({});
   const [drinksState, setDrinksState] = useState<Record<number, any>>({});
 
+  // ── Saved Anna analysis snapshot (load from DB for past days, save for current day) ──
+  const [savedAnnaText, setSavedAnnaText] = useState<string | null>(null);
+  const savedAnnaDayRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (!currentDayIndex) return;
+    if (isReadOnly) {
+      api<{ text: string | null }>("/api/anna-analysis?dayIndex=" + currentDayIndex)
+        .then(data => setSavedAnnaText(data.text || null))
+        .catch(() => setSavedAnnaText(null));
+    } else {
+      setSavedAnnaText(null);
+      savedAnnaDayRef.current = null;
+    }
+  }, [currentDayIndex, isReadOnly]);
+
+  useEffect(() => {
+    if (isReadOnly || !currentDayIndex) return;
+    if (savedAnnaDayRef.current === currentDayIndex) return;
+    const timer = setTimeout(() => {
+      const text = getAnnaAnalysis();
+      savedAnnaDayRef.current = currentDayIndex;
+      api("/api/anna-analysis/save", {
+        method: "POST",
+        body: { dayIndex: currentDayIndex, analysisText: text },
+      }).catch(() => {});
+    }, 4000);
+    return () => clearTimeout(timer);
+  }, [currentDayIndex]);
+
   useEffect(() => {
     const dayIdx = currentDayIndex || 1;
     Promise.all([
@@ -557,7 +587,7 @@ export default function StateNowScreen({
   const statusObj = getStatusInfo(integralScore);
 
   // Dynamic holistic synthesis from AI Expert curator Anna
-  const getAnnaAnalysis = () => {
+  function getAnnaAnalysis() {
     const greeting = effUserName ? `${effUserName}, ` : "Приветствую! ";
     const totalDishes = cookedBookDishes.length + todayCustomDishes.length;
     
@@ -648,7 +678,7 @@ export default function StateNowScreen({
     }
 
     return `${greeting}рада подвести для вас целостный биоэнергетический итог дня.\n\n${foodParagraph}${progressParagraph}${microsParagraph}${chronicParagraph}${measurementParagraph}${contextParagraph}${waterAdvice}Желаю вам прекрасного самочувствия. Какой наш индивидуальный следующий шаг?`;
-  };
+  }
 
   const getAnnaAnalysisForTab = (tabId: string) => {
     const greeting = effUserName ? `${effUserName}, ` : "";
@@ -797,6 +827,11 @@ export default function StateNowScreen({
     return getAnnaAnalysis();
   };
 
+  const getDisplayedAnalysis = (tabId: string) => {
+    if (savedAnnaText && isReadOnly) return savedAnnaText;
+    return getAnnaAnalysisForTab(tabId);
+  };
+
   const getTabRussianName = (tabId: string) => {
     switch (tabId) {
       case "balance": return "Баланс";
@@ -869,7 +904,7 @@ export default function StateNowScreen({
       if (qKey === "why_next_step") {
         answer = `${greeting}система предложила тебе шаг **«${recommendedAction.title}»** (${recommendedAction.desc}) по очень конкретной причине:\n\n${recommendedAction.reasoning}\n\nЯ абсолютно поддерживаю этот выбор, так как он точечно закрывает дефицит ресурсов твоего организма прямо сейчас!`;
       } else if (qKey === "general_analysis") {
-        answer = getAnnaAnalysisForTab(activeTab);
+        answer = getDisplayedAnalysis(activeTab);
       }
       
       // Balance tab detailed
@@ -1307,7 +1342,7 @@ export default function StateNowScreen({
             <BalanceTab
               key="balance"
               tabId={activeTab}
-               getAnnaAnalysis={() => getAnnaAnalysisForTab("balance")}
+               getAnnaAnalysis={() => getDisplayedAnalysis("balance")}
               integralScore={integralScore}
               sleepPct={sleepPct}
               waterPct={waterPct}
@@ -1353,7 +1388,7 @@ export default function StateNowScreen({
               todayTotalBookMenuCount={todayTotalBookMenuCount}
               totalCookedBookRecipesCount={totalCookedBookRecipesCount}
               handleRatingChange={handleRatingChange}
-              annaAnalysisText={getAnnaAnalysisForTab("scales")}
+              annaAnalysisText={getDisplayedAnalysis("scales")}
               recommendedAction={recommendedAction}
             />
           )}
@@ -1366,7 +1401,7 @@ export default function StateNowScreen({
               totalFat={totalFat}
               totalCarbohydrates={totalCarbohydrates}
               totalFiber={totalFiber}
-              annaAnalysisText={getAnnaAnalysisForTab("kbju")}
+              annaAnalysisText={getDisplayedAnalysis("kbju")}
               recommendedAction={recommendedAction}
             />
           )}
@@ -1385,7 +1420,7 @@ export default function StateNowScreen({
               dayPotassium={dayPotassium}
               dayLysine={dayLysine}
               daySelenium={daySelenium}
-              annaAnalysisText={getAnnaAnalysisForTab("micro")}
+              annaAnalysisText={getDisplayedAnalysis("micro")}
               recommendedAction={recommendedAction}
             />
           )}
@@ -1396,7 +1431,7 @@ export default function StateNowScreen({
               aggregatedIngredients={aggregatedIngredients}
               cookedBookDishes={cookedBookDishes}
               todayCustomDishes={todayCustomDishes}
-              annaAnalysisText={getAnnaAnalysisForTab("composition")}
+              annaAnalysisText={getDisplayedAnalysis("composition")}
               recommendedAction={recommendedAction}
             />
           )}
@@ -1413,7 +1448,7 @@ export default function StateNowScreen({
               habitsDone={effHabitsDone}
               habitsTarget={habitsTarget}
               cookedBookDishes={cookedBookDishes}
-              annaAnalysisText={getAnnaAnalysisForTab("dynamics")}
+              annaAnalysisText={getDisplayedAnalysis("dynamics")}
               recommendedAction={recommendedAction}
               currentDayIndex={currentDayIndex}
               savedDishes={effSavedDishes}

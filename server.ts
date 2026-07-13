@@ -1662,6 +1662,40 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
     }
   });
 
+  // ── Save Anna daily analysis snapshot ──
+  app.post("/api/anna-analysis/save", async (req, res) => {
+    if (!req.userId) return res.status(400).json({ error: "Missing device ID" });
+    try {
+      const { dayIndex, analysisText } = req.body;
+      if (!dayIndex || !analysisText) return res.status(400).json({ error: "Missing dayIndex or analysisText" });
+      await prisma.annaOverlayMessage.deleteMany({
+        where: { userId: req.userId, dayIndex, sender: "anna_analysis" },
+      });
+      const msg = await prisma.annaOverlayMessage.create({
+        data: { userId: req.userId, sender: "anna_analysis", text: analysisText, dayIndex, time: new Date().toISOString() },
+      });
+      res.json({ ok: true, id: msg.id });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ── Load Anna daily analysis snapshot ──
+  app.get("/api/anna-analysis", async (req, res) => {
+    if (!req.userId) return res.status(400).json({ error: "Missing device ID" });
+    try {
+      const dayIndex = parseInt(req.query.dayIndex as string);
+      if (!dayIndex) return res.status(400).json({ error: "Missing dayIndex" });
+      const msg = await prisma.annaOverlayMessage.findFirst({
+        where: { userId: req.userId, dayIndex, sender: "anna_analysis" },
+        orderBy: { createdAt: "desc" },
+      });
+      res.json({ text: msg?.text || null });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // ── Achievement Check Endpoint ──
   // Client sends events, server evaluates conditions and returns newly unlocked achievements
   app.post("/api/achievements/check", async (req, res) => {
