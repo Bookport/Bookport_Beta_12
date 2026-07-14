@@ -33,6 +33,9 @@ model User {
   ritualTime        String?  @default("21:00")
   lastAchievementUnlockedAt DateTime?
   pendingAchievementId      String?
+  constructorCount          Int      @default(0)
+  scanCount                 Int      @default(0)
+  chapterReadCount          Int      @default(0)
 
   dailyMetrics        DailyMetric[]
   dailyRatings        DailyRating[]
@@ -60,6 +63,7 @@ model DailyMetric {
   habitsDone      Int      @default(0)
   activityMinutes Int      @default(0)
   waterEntries    String?
+  sleepLogs       String?
   digestionLog    String?
   movementLog     String?
   measurements    String?

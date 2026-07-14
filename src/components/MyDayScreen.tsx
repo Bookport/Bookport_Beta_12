@@ -1218,6 +1218,7 @@ export default function MyDayScreen({
         date: new Date().toISOString().split("T")[0],
         dayIndex: currentDayIndex,
         sleepMinutes: durationMin,
+        sleepLogs: [entry],
       },
     }).catch(() => {});
 

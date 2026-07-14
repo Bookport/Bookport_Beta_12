@@ -10,6 +10,8 @@ async function main() {
     let day = 1;
     // Set specific days as requested
     if (ach.id === "ach-083") day = 7;
+    if (["ach-064", "ach-033", "ach-034", "ach-037", "ach-010", "ach-018", "ach-019", "ach-068", "ach-069", "ach-025"].includes(ach.id)) day = 8;
+    if (["ach-015", "ach-016"].includes(ach.id)) day = 14;
     
     await prisma.achievement.upsert({
       where: { id: ach.id },
