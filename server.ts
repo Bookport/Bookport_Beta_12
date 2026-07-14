@@ -1143,7 +1143,172 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
   });
 
   // ── CRUD: User Profile ──
-  // POST /api/user/profile — save or update the user's profile data
+  
+// ==========================================
+// BACKGROUND ACHIEVEMENT EVALUATOR
+// ==========================================
+async function grantAchievements(userId, unlockedIds) {
+  if (!unlockedIds || unlockedIds.length === 0) return;
+  try {
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) return;
+
+    let pendingStr = user.pendingAchievementId || "";
+    const pendingArr = pendingStr ? pendingStr.split(",") : [];
+    
+    for (const id of unlockedIds) {
+      await prisma.userAchievement.upsert({
+        where: { userId_achievementId: { userId, achievementId: id } },
+        update: { unlocked: true, unlockedAt: new Date() },
+        create: { userId, achievementId: id, unlocked: true, unlockedAt: new Date(), xp: 0 },
+      });
+      if (!pendingArr.includes(id)) pendingArr.push(id);
+    }
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: { pendingAchievementId: pendingArr.join(",") }
+    });
+    logger.info(`[Achievements] Queued new achievements for user ${userId}: ${unlockedIds.join(", ")}`);
+  } catch (dbErr) {
+    logger.error("[Achievements] Failed to grant achievements:", dbErr.message);
+  }
+}
+
+async function checkBackgroundAchievements(userId, eventType, data) {
+  try {
+    const user = await prisma.user.findUnique({ 
+      where: { id: userId },
+      include: {
+        userAchievements: true,
+        savedDishes: true,
+        dailyMetrics: { orderBy: { date: 'asc' } }
+      }
+    });
+    if (!user) return;
+
+    const unlocked = new Set(user.userAchievements.map(ua => ua.achievementId));
+    const newUnlocks = [];
+
+    const tryUnlock = (id, condition) => {
+      if (condition && !unlocked.has(id)) {
+        newUnlocks.push(id);
+        unlocked.add(id);
+      }
+    };
+
+    const isMonday = new Date().getDay() === 1;
+    const currentDay = user.currentDayIndex || 1;
+
+    tryUnlock('ach-083', currentDay >= 7);
+
+    if (eventType === "profile_saved") {
+      tryUnlock('ach-080', user.hasSavedSettings === true);
+    }
+
+    if (eventType === "dish_saved" || eventType === "metric_saved") {
+      tryUnlock('ach-084', isMonday);
+    }
+
+    if (eventType === "dish_saved") {
+      const nonMixer = user.savedDishes.filter(d => d.sourceType !== 'mixer' && !(d as any).isMixerGenerated);
+      tryUnlock('ach-081', nonMixer.length >= 1);
+      
+      let hasAnyGreenDish = false;
+      let hasAnyRedIngredient = false;
+      let hasAnyMayo = false;
+      let hasAnySugarAfter16 = false;
+
+      for (const d of nonMixer) {
+        let ings: any[] = [];
+        try { ings = JSON.parse(d.ingredients || "[]"); } catch (e) {}
+        if (ings.length > 0 && ings.every(i => i.status === "green")) hasAnyGreenDish = true;
+        if (ings.some(i => i.status === "red")) hasAnyRedIngredient = true;
+        if (ings.some(i => {
+          const lower = (i.name || "").toLowerCase();
+          return lower.includes('майонез') || lower.includes('маргарин') || lower.includes('спред');
+        })) hasAnyMayo = true;
+        
+        const hour = new Date(d.createdAt).getHours();
+        if (hour >= 16 && ings.some(i => {
+          const lower = (i.name || "").toLowerCase();
+          return lower.includes('сахар') || lower.includes('конфет') || lower.includes('шоколад') || lower.includes('пирож') || lower.includes('торт');
+        })) hasAnySugarAfter16 = true;
+      }
+
+      tryUnlock('ach-082', hasAnyGreenDish);
+      tryUnlock('ach-061', hasAnyRedIngredient);
+      tryUnlock('ach-022', hasAnyMayo);
+      tryUnlock('ach-028', hasAnySugarAfter16);
+
+      if (currentDay === 1 && nonMixer.filter(d => d.dayIndex === 1).length > 0) {
+        const day1Dishes = nonMixer.filter(d => d.dayIndex === 1);
+        let rawCount = 0;
+        let totalCount = 0;
+        for (const d of day1Dishes) {
+          let ings: any[] = [];
+          try { ings = JSON.parse(d.ingredients || "[]"); } catch(e){}
+          totalCount += ings.length;
+          ings.forEach(i => {
+            const lower = (i.name || "").toLowerCase();
+            if (lower.includes('свеж') || lower.includes('сыр') || lower.includes('зелен') || lower.includes('салат') || lower.includes('огурец') || lower.includes('помидор') || lower.includes('яблок') || lower.includes('фрукт')) {
+              rawCount++;
+            }
+          });
+        }
+        if (totalCount > 0 && (rawCount / totalCount) > 0.6) {
+           tryUnlock('ach-085', true);
+        }
+      }
+    }
+
+    if (eventType === "metric_saved") {
+      const metrics = user.dailyMetrics;
+      const waterEntriesAll = [];
+      const sleepLogsAll = [];
+      
+      for (const m of metrics) {
+        if (m.waterEntries) {
+          try {
+            const parsed = typeof m.waterEntries === 'string' ? JSON.parse(m.waterEntries) : m.waterEntries;
+            waterEntriesAll.push(...(Array.isArray(parsed) ? parsed : []));
+          } catch(e){}
+        }
+        if (m.sleepMinutes > 0) {
+           sleepLogsAll.push({ minutes: m.sleepMinutes, date: m.date });
+        }
+      }
+
+      tryUnlock('ach-008', waterEntriesAll.length >= 1);
+
+      if (waterEntriesAll.length > 0 && sleepLogsAll.length > 0) {
+         const firstWaterTimeStr = waterEntriesAll[0].time;
+         if (firstWaterTimeStr) {
+           const [h, m] = firstWaterTimeStr.split(':').map(Number);
+           const isEarly = h < 9 || (h === 9 && m <= 30);
+           tryUnlock('ach-009', isEarly);
+         }
+      }
+
+      const latestSleep = sleepLogsAll.length > 0 ? sleepLogsAll[sleepLogsAll.length - 1] : null;
+      if (latestSleep) {
+         const hours = latestSleep.minutes / 60;
+         if (hours >= 7 && hours <= 9) {
+           tryUnlock('ach-039', true);
+         }
+      }
+    }
+
+    if (newUnlocks.length > 0) {
+      await grantAchievements(userId, newUnlocks);
+    }
+  } catch (e) {
+    logger.error("[Achievements] Background check failed", e);
+  }
+}
+// ==========================================
+
+// POST /api/user/profile — save or update the user's profile data
   app.post("/api/user/profile", async (req, res) => {
     if (!req.userId) return res.status(400).json({ error: "Missing device ID" });
     try {

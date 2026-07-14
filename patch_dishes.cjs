@@ -1,0 +1,9 @@
+const fs = require('fs');
+let content = fs.readFileSync('server.ts', 'utf8');
+
+content = content.replace(
+  'res.json({ success: true, savedDish });',
+  'res.json({ success: true, savedDish });\n      // Background achievements check\n      checkBackgroundAchievements(req.userId, "dish_saved", data);'
+);
+fs.writeFileSync('server.ts', content, 'utf8');
+console.log("Patched saved dishes endpoint.");
