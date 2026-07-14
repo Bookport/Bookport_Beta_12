@@ -24,8 +24,8 @@ export default function AchievementsDebugPanel() {
         body: { action: "reset_all" }
       });
       alert("All achievements reset successfully.");
-    } catch (e) {
-      alert("Error resetting achievements.");
+    } catch (e: any) {
+      alert(`Error resetting achievements: ${e?.message || e}`);
     }
   };
 
@@ -36,8 +36,8 @@ export default function AchievementsDebugPanel() {
         body: { action: "set_day", payload: { day: dayInput } }
       });
       alert(`Day set to ${dayInput}.`);
-    } catch (e) {
-      alert("Error setting day.");
+    } catch (e: any) {
+      alert(`Error setting day: ${e?.message || e}`);
     }
   };
 
@@ -51,8 +51,8 @@ export default function AchievementsDebugPanel() {
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('force-check-pending-achievements'));
       }
-    } catch (e) {
-      alert("Error forcing queue.");
+    } catch (e: any) {
+      alert(`Error forcing queue: ${e?.message || e}`);
     }
   };
 
