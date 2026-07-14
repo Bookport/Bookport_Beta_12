@@ -2,6 +2,7 @@ import { useState, useCallback, useRef } from 'react'
 import type { MixerConfig, MixerIngredient, MixerOutcomeType, MixerGeminiResult, MixerNutrients, MixerMicronutrient, CookingMethod } from '../types/mixer.types'
 import { selectIngredients, generateMixerResult } from '../services/mixerAI'
 import { saveMixerDish, type SavedMixerDish } from '../services/mixerSave'
+import { api } from '../../../utils/api'
 
 export function useMixerLogic(config: MixerConfig) {
   const initialSelected = useRef(selectIngredients(config.scenarioType))
@@ -47,7 +48,7 @@ export function useMixerLogic(config: MixerConfig) {
     setSavedDish(dish)
   }, [ingredients, config])
 
-  const triggerSpin = useCallback(async (chargeLevel: number, cookingMethod: CookingMethod) => {
+  const triggerSpin = useCallback(async (chargeLevel: number, cookingMethod: CookingMethod, hasAutoReleased?: boolean) => {
     if (isGeminiLoading) return
     setIsGeminiLoading(true)
     setGeminiResult(null)
@@ -66,6 +67,14 @@ export function useMixerLogic(config: MixerConfig) {
         achievementCategory: config.achievementCategory,
       })
       if (!activeRef.current) return
+
+      // Track Golden Spin
+      if (hasAutoReleased && outcomeType === 'C') {
+        api('/api/achievements/track', {
+           method: 'POST',
+           body: { type: 'mixer_spin', payload: { hasAutoReleased, outcomeType } }
+        }).catch(e => console.error(e))
+      }
       setGeminiResult(result)
       doSave(result, outcomeType, chargeLevel)
     } catch (e: any) {

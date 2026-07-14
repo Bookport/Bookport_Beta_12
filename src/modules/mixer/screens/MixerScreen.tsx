@@ -136,7 +136,7 @@ export default function MixerScreen({ config, onClose }: MixerScreenProps) {
       spinStartRef.current = Date.now()
       mixerSounds.startReelSpin()
       slotAnim.startSpin(seconds)
-      mixer.triggerSpin(seconds, method)
+      mixer.triggerSpin(seconds, method, charge.hasAutoReleased)
     },
     [slotAnim, mixer, selectedMethod],
   )

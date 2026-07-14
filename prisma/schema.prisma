@@ -36,6 +36,8 @@ model User {
   constructorCount          Int      @default(0)
   scanCount                 Int      @default(0)
   chapterReadCount          Int      @default(0)
+  shareCount                Int      @default(0)
+  feedbackCount             Int      @default(0)
 
   dailyMetrics        DailyMetric[]
   dailyRatings        DailyRating[]
