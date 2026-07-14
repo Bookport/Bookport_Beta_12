@@ -2532,7 +2532,10 @@ async function checkBackgroundAchievements(userId, eventType, data) {
 
         await prisma.user.update({
           where: { id: req.userId },
-          data: { pendingAchievementId: pendingArr.join(",") }
+          data: { 
+            pendingAchievementId: pendingArr.join(","),
+            lastAchievementUnlockedAt: null
+          }
         });
         logger.info(`[Debug] Force queued ${achievementId} for user ${req.userId}`);
         return res.json({ success: true });

@@ -164,8 +164,16 @@ export default function MyDayScreen({
       const handleVisibility = () => {
         if (!document.hidden) checkPendingAchievements();
       };
+      
+      const handleForceCheck = () => checkPendingAchievements();
+
       document.addEventListener("visibilitychange", handleVisibility);
-      return () => document.removeEventListener("visibilitychange", handleVisibility);
+      window.addEventListener("force-check-pending-achievements", handleForceCheck);
+      
+      return () => {
+        document.removeEventListener("visibilitychange", handleVisibility);
+        window.removeEventListener("force-check-pending-achievements", handleForceCheck);
+      };
     }
   }, [screen]);
 

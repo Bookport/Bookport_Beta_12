@@ -47,7 +47,10 @@ export default function AchievementsDebugPanel() {
         method: "POST",
         body: { action: "force_queue", payload: { achievementId: selectedAch } }
       });
-      alert(`Forced queued ${selectedAch}. Go to My Day to see it (if not throttled).`);
+      alert(`Forced queued ${selectedAch}. Go to My Day to see it.`);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('force-check-pending-achievements'));
+      }
     } catch (e) {
       alert("Error forcing queue.");
     }
