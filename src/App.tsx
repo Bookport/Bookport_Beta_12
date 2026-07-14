@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from "motion/react";
 import { X, Mic, Send } from "lucide-react";
 import { SpeechToTextSession } from "./utils/speechToText";
 import { useAppStore } from "./store/useAppStore";
+import { useNotificationEngine } from "./services/useNotificationEngine";
+import GlobalNotificationOverlay from "./components/GlobalNotificationOverlay";
 import { api } from "./utils/api";
 import GlassRing from "./components/GlassRing";
 import StartButton from "./components/StartButton";
@@ -196,13 +198,14 @@ function getAnnaBubbleStyle(currentScreen: string) {
 }
 
 export default function App() {
+  useNotificationEngine(); // Run global notifications
+  
   console.log("App.tsx is rendering!");
   const screen = useAppStore((s) => s.screen);
   console.log("Current screen is:", screen);
   const setScreen = useAppStore((s) => s.setScreen);
   const buildVersion = "Beta_12.1";
   const annaAvatarSrc = resolveGeneralAvatar().src;
-  const hasSavedSettings = false;
 
   const [selectedChronic, setSelectedChronic] = useState<string[]>([]);
 
@@ -445,10 +448,9 @@ export default function App() {
 
   // Init achievement subsystem + App store (device ID, profile sync)
   useEffect(() => {
-    useAppStore.getState().initApp();
-
-    // Load all persisted data from server in one request
     (async () => {
+      await useAppStore.getState().initApp();
+
       try {
         // Init course day from server (auto-advances based on calendar date)
         const initData = await api<any>("/api/user/init");
@@ -456,6 +458,10 @@ export default function App() {
 
         const data = await api<any>("/api/user/data");
         console.log("[Init] profile:", data.profile?.name || "—", "dishes:", data.savedDishes?.length, "diary:", data.diary?.length, "progress:", data.recipeProgress?.length);
+
+        if (data.profile?.hasSavedSettings) {
+          useAppStore.getState().setScreen("my-day");
+        }
 
         if (data.savedDishes?.length > 0) {
           setSavedDishes(prev => {
@@ -1032,6 +1038,7 @@ export default function App() {
 
   return (
     <ErrorBoundary>
+      <GlobalNotificationOverlay />
       <div 
         className="min-h-screen bg-[#F0F3F5] text-text-main flex items-center justify-center py-6 px-4 md:py-10 transition-colors duration-300 pointer-events-auto" 
         style={{ fontFamily: '"Calibri", "Candara", "Segoe UI", system-ui, sans-serif' }}
@@ -1495,6 +1502,7 @@ export default function App() {
               <SettingsScreen 
                 onBack={() => setScreen("my-day")}
                 currentDayIndex={activeDayIndex}
+                onboardingComplete={() => setScreen("my-day")}
               />
             </motion.div>
           ) : (

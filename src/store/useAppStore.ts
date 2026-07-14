@@ -21,6 +21,8 @@ export interface UserProfile {
   initialSystolic?: number;
   initialDiastolic?: number;
   hasSavedSettings?: boolean;
+  ritualTime?: string;
+  currentDayIndex?: number;
   chronicConditions?: string[];
   healthGoals?: string[];
 }
@@ -71,12 +73,22 @@ export interface CalendarNotes {
   [dayIndex: number]: string[];
 }
 
+export interface AppNotification {
+  type: string;
+  title: string;
+  body: string;
+  annaPhrase: string;
+  colorClass: string;
+  iconType: "water" | "sleep" | "measurements" | "habits" | "summary" | "tip";
+}
+
 interface AppState {
   screen: Screen;
   deviceId: string | null;
   userProfile: UserProfile;
   isCalendarOpen: boolean;
   isOverlayOpen: boolean;
+  activeNotification: AppNotification | null;
 
   waterEntries: WaterEntry[];
   sleepEntries: SleepEntry[];
@@ -95,6 +107,7 @@ interface AppState {
   setUserProfile: (profile: UserProfile) => void;
   setCalendarOpen: (open: boolean) => void;
   setOverlayOpen: (open: boolean) => void;
+  setActiveNotification: (notif: AppNotification | null) => void;
 
   setWaterEntries: (entries: WaterEntry[]) => void;
   setSleepEntries: (entries: SleepEntry[]) => void;
@@ -125,6 +138,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   userProfile: {},
   isCalendarOpen: false,
   isOverlayOpen: false,
+  activeNotification: null,
   waterEntries: [],
   sleepEntries: [],
   movementEntries: [],
@@ -140,6 +154,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   setUserProfile: (profile) => set({ userProfile: profile }),
   setCalendarOpen: (open) => set({ isCalendarOpen: open }),
   setOverlayOpen: (open) => set({ isOverlayOpen: open }),
+  setActiveNotification: (notif) => set({ activeNotification: notif }),
+
   setWaterEntries: (entries) => set({ waterEntries: entries }),
   setSleepEntries: (entries) => set({ sleepEntries: entries }),
   setMovementEntries: (entries) => set({ movementEntries: entries }),

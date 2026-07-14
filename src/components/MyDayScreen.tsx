@@ -146,6 +146,29 @@ export default function MyDayScreen({
   const [mealCount, setMealCount] = useState(0);
   const [clickCount, setClickCount] = useState(0);
 
+  // Check for pending achievements when MyDay is active
+  useEffect(() => {
+    if (screen === "my-day") {
+      const checkPendingAchievements = async () => {
+        try {
+          const data = await api<any>("/api/achievements/check-pending");
+          if (data && data.id) {
+            window.dispatchEvent(new CustomEvent('show-achievement-overlay', { detail: { id: data.id } }));
+          }
+        } catch (e) {
+          console.error("Failed to check pending achievements", e);
+        }
+      };
+      checkPendingAchievements();
+      
+      const handleVisibility = () => {
+        if (!document.hidden) checkPendingAchievements();
+      };
+      document.addEventListener("visibilitychange", handleVisibility);
+      return () => document.removeEventListener("visibilitychange", handleVisibility);
+    }
+  }, [screen]);
+
   // DB-sourced daily metric (persisted in DB — survives reload and navigation away)
   const [dbMetric, setDbMetric] = useState<any>(null);
   useEffect(() => {
@@ -1220,7 +1243,10 @@ export default function MyDayScreen({
   }, [currentDayIndex, waterLogs, setWater]);
 
   // Smart periodic checks for predictive reminder notifications
+  // DEPRECATED: Handled by global NotificationEngine
   useEffect(() => {
+    return;
+    
     if (!isRemindersEnabled) {
       setActiveNotification(null);
       return;

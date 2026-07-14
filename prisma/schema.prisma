@@ -30,6 +30,9 @@ model User {
   courseStartDate   DateTime?
   currentDayIndex   Int      @default(1)
   lastActiveDate    DateTime?
+  ritualTime        String?  @default("21:00")
+  lastAchievementUnlockedAt DateTime?
+  pendingAchievementId      String?
 
   dailyMetrics        DailyMetric[]
   dailyRatings        DailyRating[]
@@ -41,6 +44,7 @@ model User {
   annaChats           AnnaChat[]
   annaOverlayMessages AnnaOverlayMessage[]
   userAchievements    UserAchievement[]
+  eveningRituals      EveningRitual[]
 }
 
 model DailyMetric {
@@ -59,6 +63,8 @@ model DailyMetric {
   digestionLog    String?
   movementLog     String?
   measurements    String?
+  dayMood         String?
+  dayBookmark     String?
 
   @@unique([userId, date])
 }
@@ -209,6 +215,7 @@ model Achievement {
   descriptionFemale String
   image            String
   isSecret         Boolean  @default(false)
+  availableFromDay Int      @default(1)
 
   userAchievements UserAchievement[]
 }
@@ -224,4 +231,18 @@ model UserAchievement {
   xp            Int       @default(0)
 
   @@unique([userId, achievementId])
+}
+
+model EveningRitual {
+  id              String   @id @default(uuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id])
+  dayIndex        Int
+  answerBody      String
+  answerPsycho    String
+  answerUnexpected String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([userId, dayIndex])
 }

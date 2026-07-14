@@ -150,7 +150,7 @@ export class PromptCompiler {
       if (brc.all_recipes_for_current_day?.length > 0) {
         bookLines.push(`- Все рецепты дня ${brc.active_day}:`);
         for (const recipe of brc.all_recipes_for_current_day) {
-          bookLines.push(`  * [${recipe.category}] "${recipe.technicalName}"${recipe.emotionalName ? ` («${recipe.emotionalName}») ` : ""}стр. ${recipe.page}, состав: ${recipe.ingredients}`);
+          bookLines.push(`  * [${recipe.category}] "${recipe.technicalName}"${recipe.emotionalName ? ` («${recipe.emotionalName}») ` : ""}стр. ${recipe.page}`);
         }
       }
       lines.push(bookLines.join("\n"));

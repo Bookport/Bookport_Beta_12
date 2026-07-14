@@ -40,6 +40,10 @@ import BottomBar from "./BottomBar";
 import { useAppStore } from "../store/useAppStore";
 import { NoteSpeechInputHelper } from "../utils/speechToText";
 import { api } from "../utils/api";
+import { ritualMatrix } from "../utils/ritualMatrix";
+
+// Load all recipe images for random daily photo
+const recipeImages = Object.values(import.meta.glob("/src/assets/images/recipes/*.webp", { eager: true } as any)).map((mod: any) => mod.default as string);
 
 // Compatible with the basic { text: string; time: string } type while supporting premium properties
 export interface DiaryNote {
@@ -58,7 +62,7 @@ interface MyDiaryScreenProps {
   setDayNotes: React.Dispatch<React.SetStateAction<Record<number, { text: string; time: string; [key: string]: any }[]>>>;
   currentDayIndex: number;
   onBack?: () => void;
-  userName?: string;
+  currentName?: string;
   age?: number;
   height?: number;
   weight?: number;
@@ -91,7 +95,7 @@ export default function MyDiaryScreen({
   setDayNotes,
   currentDayIndex: initialDayIndex,
   onBack: propsOnBack,
-  userName: propsUserName = "",
+  currentName: propsUserName = "",
   age = 28,
   height = 165,
   weight: propWeight = 50,
@@ -104,8 +108,13 @@ export default function MyDiaryScreen({
   onOpenCalendar
 }: MyDiaryScreenProps) {
   const setScreen = useAppStore((s) => s.setScreen);
-  const userName = propsUserName || "";
   const onBack = propsOnBack || (() => setScreen("my-day"));
+  const profile = useAppStore((s) => s.userProfile);
+  const currentName = profile?.name || propsUserName || "";
+  const currentWeight = profile?.weight ?? propWeight;
+  const currentHeight = profile?.height ?? height;
+  const currentSystolic = profile?.systolic ?? propSystolic;
+  const currentDiastolic = profile?.diastolic ?? propDiastolic;
   // Navigation State
   const [selectedDayIndex, setSelectedDayIndex] = useState<number>(initialDayIndex || 1);
 
@@ -114,22 +123,6 @@ export default function MyDiaryScreen({
 
   // Profile Modal State
   const [showProfileModal, setShowProfileModal] = useState<boolean>(false);
-
-  // Sub-metrics edited dynamically inside the modal
-  const [editWeight, setEditWeight] = useState<number>(propWeight);
-  const [editSystolic, setEditSystolic] = useState<number>(propSystolic);
-  const [editDiastolic, setEditDiastolic] = useState<number>(propDiastolic);
-
-  // Synchronize modal state with any props change
-  useEffect(() => {
-    setEditWeight(propWeight);
-  }, [propWeight]);
-  useEffect(() => {
-    setEditSystolic(propSystolic);
-  }, [propSystolic]);
-  useEffect(() => {
-    setEditDiastolic(propDiastolic);
-  }, [propDiastolic]);
 
   // Interactive local states for inputs
   const [newNoteText, setNewNoteText] = useState<string>("");
@@ -147,12 +140,12 @@ export default function MyDiaryScreen({
   // Day Bookmarks ("Умные закладки дней")
   const [dayBookmarks, setDayBookmarks] = useState<Record<number, string>>({});
 
-  // Day One-liners ("Итог дня одной строкой")
-  const [dayOneLiners, setDayOneLiners] = useState<Record<number, string>>({});
-  const [currentOneLinerInput, setCurrentOneLinerInput] = useState<string>("");
-
   // Day Mood state
   const [dayMoods, setDayMoods] = useState<Record<number, string>>({});
+
+  // Cross-module derived entries from other tracking modules
+  const [crossModuleEntries, setCrossModuleEntries] = useState<Record<number, DiaryNote[]>>({});
+  const [dayDates, setDayDates] = useState<Record<number, string>>({});
 
   // Hook for Anna screen context awareness
   useEffect(() => {
@@ -163,12 +156,12 @@ export default function MyDiaryScreen({
       screen_title: "Личный Дневник Осознанности",
       current_day: selectedDayIndex,
       active_tab: selectedCategory,
-      current_status: showProfileModal ? "Редактирование физиологических замеров тела" : (isSimulatingSpeech ? "Запись аудиозаписи/мысли о рационе..." : "Ведение дневника WFPB-состояния"),
+      current_status: showProfileModal ? "Сводка здоровья WFPB" : (isSimulatingSpeech ? "Запись аудиозаписи/мысли о рационе..." : "Ведение дневника WFPB-состояния"),
       active_modal_or_overlay: showProfileModal ? "Панель физиологических замеров" : null,
-      userName: userName,
+      userName: currentName,
       metrics: {
-        weight_kg: editWeight,
-        blood_pressure: `${editSystolic}/${editDiastolic}`
+        weight_kg: currentWeight,
+        blood_pressure: `${currentSystolic}/${currentDiastolic}`
       },
       user_input_values: {
         draft_note_text: newNoteText,
@@ -182,14 +175,7 @@ export default function MyDiaryScreen({
         delete (window as any).currentScreenContext;
       }
     };
-  }, [selectedDayIndex, selectedCategory, showProfileModal, isSimulatingSpeech, userName, editWeight, editSystolic, editDiastolic, newNoteText, searchQuery]);
-
-  // Sync currentOneLiner input when day index changes
-
-  // Sync currentOneLiner input when day index changes
-  useEffect(() => {
-    setCurrentOneLinerInput(dayOneLiners[selectedDayIndex] || "");
-  }, [selectedDayIndex, dayOneLiners]);
+  }, [selectedDayIndex, selectedCategory, showProfileModal, isSimulatingSpeech, currentName, currentWeight, currentSystolic, currentDiastolic, newNoteText, searchQuery]);
 
   // Ref to canvas for floating bubble particle effects
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -433,6 +419,45 @@ export default function MyDiaryScreen({
     return { origin, label, color, textColors, icon, formattedText, isVoiceDefault };
   };
 
+  // Helpers to persist mood and bookmarks
+  const handleToggleBookmark = (tag: string) => {
+    let newBookmark = tag;
+    setDayBookmarks(prev => {
+      if (prev[selectedDayIndex] === tag) {
+        newBookmark = "";
+        const updated = { ...prev };
+        delete updated[selectedDayIndex];
+        return updated;
+      }
+      return { ...prev, [selectedDayIndex]: tag };
+    });
+    
+    if (dayDates[selectedDayIndex]) {
+      api("/api/metrics/daily", {
+        method: "POST",
+        body: {
+          date: dayDates[selectedDayIndex],
+          dayIndex: selectedDayIndex,
+          dayBookmark: newBookmark || null,
+        }
+      }).catch(() => {});
+    }
+  };
+
+  const handleSetDayMood = (label: string) => {
+    setDayMoods(prev => ({ ...prev, [selectedDayIndex]: label }));
+    if (dayDates[selectedDayIndex]) {
+      api("/api/metrics/daily", {
+        method: "POST",
+        body: {
+          date: dayDates[selectedDayIndex],
+          dayIndex: selectedDayIndex,
+          dayMood: label,
+        }
+      }).catch(() => {});
+    }
+  };
+
   // Safe fetch of current notes
   const getSelectedDayNotes = (): DiaryNote[] => {
     const rawList = dayNotes[selectedDayIndex] || [];
@@ -557,6 +582,185 @@ export default function MyDiaryScreen({
     };
   }, []);
 
+  // Fetch cross-module data for the selected day
+  useEffect(() => {
+    let cancelled = false;
+    api<any>(`/api/user/state-now?dayIndex=${selectedDayIndex}`).then(data => {
+      if (cancelled) return;
+
+      // Sync diary entries for this day from the server (complete per-day data)
+      if (data.diary?.length > 0) {
+        setDayNotes(prev => {
+          const next = { ...prev };
+          if (!next[selectedDayIndex]) next[selectedDayIndex] = [];
+          for (const entry of data.diary) {
+            const exists = next[selectedDayIndex].some((n: any) => n.id === entry.id);
+            if (!exists) {
+              next[selectedDayIndex] = [{
+                id: entry.id,
+                text: entry.note || '',
+                time: entry.time || (entry.createdAt
+                  ? new Date(entry.createdAt).toLocaleTimeString('ru-RU', { timeZone: 'Europe/Moscow', hour: '2-digit', minute: '2-digit' })
+                  : ''),
+                origin: Array.isArray(entry.tags) ? entry.tags[0] : 'thoughts',
+                isVoice: false,
+                isImportant: false,
+                isPinned: false,
+              }, ...next[selectedDayIndex]];
+            }
+          }
+          return next;
+        });
+      }
+
+      // Sync dayMood and dayBookmark from daily metrics
+      if (data.dailyMetric?.dayMood) {
+        setDayMoods(prev => ({ ...prev, [selectedDayIndex]: data.dailyMetric.dayMood }));
+      }
+      if (data.dailyMetric?.dayBookmark) {
+        setDayBookmarks(prev => ({ ...prev, [selectedDayIndex]: data.dailyMetric.dayBookmark }));
+      }
+
+      if (data.courseStartDate) {
+        const csd = new Date(data.courseStartDate);
+        csd.setDate(csd.getDate() + selectedDayIndex - 1);
+        setDayDates(prev => ({ ...prev, [selectedDayIndex]: csd.toISOString().split("T")[0] }));
+      }
+
+      const entries: DiaryNote[] = [];
+
+      // Parse water entries
+      let waterArr: any[] = [];
+      try {
+        waterArr = typeof data.dailyMetric?.waterEntries === 'string'
+          ? JSON.parse(data.dailyMetric.waterEntries)
+          : (data.dailyMetric?.waterEntries || []);
+      } catch {}
+      waterArr.forEach((w: any, i: number) => {
+        const ts = w.time || (w.timestamp ? new Date(w.timestamp).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : '');
+        entries.push({
+          id: `water-${w.timestamp || i}-${selectedDayIndex}`,
+          text: `💧 Выпито ${w.amount} мл воды`,
+          time: ts,
+          origin: 'water',
+        });
+      });
+
+      // Parse movement entries
+      let movArr: any[] = [];
+      try {
+        movArr = typeof data.dailyMetric?.movementLog === 'string'
+          ? JSON.parse(data.dailyMetric.movementLog)
+          : (data.dailyMetric?.movementLog || []);
+      } catch {}
+      movArr.forEach((m: any, i: number) => {
+        const type = m.activityType || m.type || 'Активность';
+        const mins = Math.round((m.durationSeconds || m.duration || 0) / 60);
+        const ts = m.timeString || m.time || (m.timestamp ? new Date(m.timestamp).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : '');
+        entries.push({
+          id: `movement-${m.timestamp || i}-${selectedDayIndex}`,
+          text: `🏃 ${type} — ${mins} мин`,
+          time: ts,
+          origin: 'movement',
+        });
+      });
+
+      // Parse digestion entries
+      let digArr: any[] = [];
+      try {
+        digArr = typeof data.dailyMetric?.digestionLog === 'string'
+          ? JSON.parse(data.dailyMetric.digestionLog)
+          : (data.dailyMetric?.digestionLog || []);
+      } catch {}
+      digArr.forEach((d: any, i: number) => {
+        const ts = d.timestamp ? new Date(d.timestamp).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : '';
+        const comfortText = d.comfort === 'good' ? 'Комфортно' : d.comfort === 'medium' ? 'Средне' : d.comfort === 'bad' ? 'Дискомфорт' : '';
+        const noteText = d.note ? `. ${d.note}` : '';
+        entries.push({
+          id: `digestion-${d.timestamp || i}-${selectedDayIndex}`,
+          text: `🍃 Пищеварение: тип ${d.bristolType || '?'}${comfortText ? `, ${comfortText}` : ''}${noteText}`,
+          time: ts,
+          origin: 'digestion',
+        });
+      });
+
+      // Parse measurement entries
+      let measArr: any[] = [];
+      try {
+        measArr = typeof data.dailyMetric?.measurements === 'string'
+          ? JSON.parse(data.dailyMetric.measurements)
+          : (data.dailyMetric?.measurements || []);
+      } catch {}
+      measArr.forEach((m: any, i: number) => {
+        const ts = m.timestamp ? new Date(m.timestamp).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : '';
+        const parts: string[] = [];
+        if (m.weight) parts.push(`Вес: ${m.weight} кг`);
+        if (m.systolic && m.diastolic) parts.push(`Давление: ${m.systolic}/${m.diastolic}`);
+        if (m.pulse) parts.push(`Пульс: ${m.pulse}`);
+        if (m.energy) parts.push(`Энергия: ${m.energy}/5`);
+        if (m.wellbeing) parts.push(`Самочувствие: ${m.wellbeing}/5`);
+        entries.push({
+          id: `measurement-${m.timestamp || i}-${selectedDayIndex}`,
+          text: `⚖️ ${parts.join(', ')}`,
+          time: ts,
+          origin: 'measurements',
+        });
+      });
+
+      // Sleep entry
+      if (data.dailyMetric?.sleepMinutes > 0) {
+        const h = Math.floor(data.dailyMetric.sleepMinutes / 60);
+        const m = data.dailyMetric.sleepMinutes % 60;
+        entries.push({
+          id: `sleep-${selectedDayIndex}`,
+          text: `🌙 Сон: ${h} ч ${m > 0 ? m + ' мин' : ''}`,
+          time: '',
+          origin: 'sleep',
+        });
+      }
+
+      // Meal/food count entry
+      if (data.dailyMetric?.mealCount > 0) {
+        entries.push({
+          id: `meals-${selectedDayIndex}`,
+          text: `🥦 Приёмы пищи: ${data.dailyMetric.mealCount}`,
+          time: '',
+          origin: 'food',
+        });
+      }
+
+      // Saved dishes for this day
+      if (data.savedDishes?.length > 0) {
+        (data.savedDishes as any[]).forEach((d: any, i: number) => {
+          if (d.dayIndex !== selectedDayIndex) return;
+          const calStr = d.calories ? ` (${d.calories} ккал)` : '';
+          entries.push({
+            id: `dish-${d.id || i}-${selectedDayIndex}`,
+            text: `🥦 Приготовлено: ${d.name}${calStr}`,
+            time: d.createdAt ? new Date(d.createdAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : '',
+            origin: 'food',
+          });
+        });
+      }
+
+      // Daily ratings
+      if (data.dailyRating) {
+        const r = data.dailyRating;
+        if (r.wellbeing && r.energy && r.lightness) {
+          entries.push({
+            id: `ratings-${selectedDayIndex}`,
+            text: `💭 Самочувствие: ${r.wellbeing}/5 · Энергия: ${r.energy}/5 · Лёгкость: ${r.lightness}/5`,
+            time: '',
+            origin: 'thoughts',
+          });
+        }
+      }
+
+      setCrossModuleEntries(prev => ({ ...prev, [selectedDayIndex]: entries }));
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [selectedDayIndex]);
+
   const handleDiaryMicStart = (e: React.PointerEvent<HTMLButtonElement>) => {
     e.preventDefault();
     try {
@@ -583,42 +787,6 @@ export default function MyDiaryScreen({
     diaryHoldingMicRef.current = false;
     diarySpeechHelperRef.current.release();
     setIsSimulatingSpeech(false);
-  };
-
-  // Handle modal submit to update user state dynamically
-  const handleSaveProfileData = () => {
-    if (setWeight) setWeight(editWeight);
-    if (setSystolic) setSystolic(editSystolic);
-    if (setDiastolic) setDiastolic(editDiastolic);
-
-    // Also inject as a short note to current day timeline for historical coherence automatically!
-    const updatedNotes = getSelectedDayNotes();
-    const now = new Date();
-    const hours = String(now.getHours()).padStart(2, '0');
-    const mins = String(now.getMinutes()).padStart(2, '0');
-    const timeStr = `${hours}:${mins}`;
-
-    const metricsNote: DiaryNote = {
-      id: `metrics-auto-${Date.now()}`,
-      text: `⚖️ Обновлены личные показатели в Дневнике: Вес ${editWeight} кг, Давление ${editSystolic}/${editDiastolic} мм рт.ст. Движемся к намеченным целям!`,
-      time: timeStr,
-      origin: "measurements",
-      isVoice: false
-    };
-
-    saveSelectedDayNotes([...updatedNotes, metricsNote]);
-    setShowProfileModal(false);
-
-    // Persist metrics update to diary (fire-and-forget)
-    api("/api/diary", {
-      method: "POST",
-      body: {
-        dayIndex: selectedDayIndex,
-        note: metricsNote.text,
-        time: timeStr,
-        tags: ["measurements"],
-      },
-    }).catch(() => {});
   };
 
   // Simple search filter implementation across all history (all days)
@@ -650,12 +818,6 @@ export default function MyDiaryScreen({
     return results;
   };
 
-  // Add one sentence description summary
-  const handleSaveOneLiner = () => {
-    if (!currentOneLinerInput.trim()) return;
-    setDayOneLiners(prev => ({ ...prev, [selectedDayIndex]: currentOneLinerInput.trim() }));
-  };
-
   // Night Mode Styles Configuration values
   // Light values
   // Background: #F7F4EE, Cards: #FBFAF7, Borders: #E7E1D6, Text main: #243126, Text sec: #6F786F, Green: #2F6B45
@@ -669,10 +831,17 @@ export default function MyDiaryScreen({
   const brandGreen = isNightMode ? "text-[#7FB596]" : "text-[#2F6B45]";
   const brandGreenBg = isNightMode ? "bg-[#7FB596]/15" : "bg-[#2F6B45]/8";
 
-  // Timeline entries
+  // Timeline entries (diary + cross-module)
   const allCurrentNotes = getSelectedDayNotes();
-  const pinnedNote = allCurrentNotes.find(n => n.isPinned);
-  const normalNotes = allCurrentNotes.filter(n => !n.isPinned);
+  const crossNotes = crossModuleEntries[selectedDayIndex] || [];
+  const allTimelineNotes = [...allCurrentNotes, ...crossNotes].sort((a, b) => {
+    if (!a.time && !b.time) return 0;
+    if (!a.time) return 1;
+    if (!b.time) return -1;
+    return b.time.localeCompare(a.time);
+  });
+  const pinnedNote = allTimelineNotes.find(n => n.isPinned);
+  const normalNotes = allTimelineNotes.filter(n => !n.isPinned);
 
   // Filter Favorite Only inside page if needed (local layout state)
   const [filterFavoritesOnly, setFilterFavoritesOnly] = useState<boolean>(false);
@@ -680,67 +849,95 @@ export default function MyDiaryScreen({
     ? normalNotes.filter(n => n.isImportant) 
     : normalNotes;
 
-  // Evening Ritual Anna prompt saving handler
-  const [annaResponses, setAnnaResponses] = useState({ q1: "", q2: "", q3: "" });
+  // Evening Ritual Logic
+  const ritualTimeStr = profile?.ritualTime || "21:00";
+  const [ritualStatus, setRitualStatus] = useState<"waiting" | "active" | "completed">("waiting");
+  const [annaResponses, setAnnaResponses] = useState({ qBody: "", qPsycho: "", qUnexpected: "" });
+  const [ritualTimeLeft, setRitualTimeLeft] = useState<string>("");
+  const [ritualAvatarImg, setRitualAvatarImg] = useState<string>("");
   const [showAnnaRitual, setShowAnnaRitual] = useState<boolean>(true);
 
+  useEffect(() => {
+    // Generate a stable random avatar for the waiting state from specific folders
+    const allowedFolders = ["affirmation", "joy_and_support", "important_affirmation"];
+    const folder = allowedFolders[Math.floor(Math.random() * allowedFolders.length)];
+    const num = Math.floor(Math.random() * 6) + 1; // 1-6
+    setRitualAvatarImg(`/anna/${folder}/${num}.png`);
+  }, [selectedDayIndex]);
+
+  useEffect(() => {
+    let cancelled = false;
+    // Check if already completed
+    api<any>(`/api/evening-ritual?dayIndex=${selectedDayIndex}`).then(data => {
+      if (cancelled) return;
+      if (data && data.id) {
+        setRitualStatus("completed");
+        setAnnaResponses({
+          qBody: data.answerBody || "",
+          qPsycho: data.answerPsycho || "",
+          qUnexpected: data.answerUnexpected || "",
+        });
+      } else {
+        // Evaluate time if not completed
+        const [hr, min] = ritualTimeStr.split(":").map(Number);
+        
+        const interval = setInterval(() => {
+          if (cancelled) return;
+          const now = new Date();
+          const target = new Date();
+          target.setHours(hr, min, 0, 0);
+
+          if (now.getTime() >= target.getTime()) {
+            setRitualStatus("active");
+            setRitualTimeLeft("");
+            clearInterval(interval);
+          } else {
+            setRitualStatus("waiting");
+            const diffMs = target.getTime() - now.getTime();
+            const h = Math.floor(diffMs / 3600000);
+            const m = Math.floor((diffMs % 3600000) / 60000);
+            const s = Math.floor((diffMs % 60000) / 1000);
+            setRitualTimeLeft(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`);
+          }
+        }, 1000);
+        return () => clearInterval(interval);
+      }
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [selectedDayIndex, ritualTimeStr]);
+
+  const currentRitualQuestions = ritualMatrix[selectedDayIndex] || ritualMatrix[1];
+
   const handleSaveAnnaRitual = () => {
-    const answers: string[] = [];
-    if (annaResponses.q1.trim()) answers.push(`✨ Вдохновение: ${annaResponses.q1.trim()}`);
-    if (annaResponses.q2.trim()) answers.push(`🪐 Трудность: ${annaResponses.q2.trim()}`);
-    if (annaResponses.q3.trim()) answers.push(`🌱 Вектор на завтра: ${annaResponses.q3.trim()}`);
+    if (!annaResponses.qBody.trim() && !annaResponses.qPsycho.trim() && !annaResponses.qUnexpected.trim()) return;
 
-    if (answers.length === 0) return;
-
-    const currentNotes = getSelectedDayNotes();
-    const now = new Date();
-    const hours = String(now.getHours()).padStart(2, '0');
-    const mins = String(now.getMinutes()).padStart(2, '0');
-    const timeStr = `${hours}:${mins}`;
-
-    const newNotesList = [...currentNotes];
-    answers.forEach((ans, index) => {
-      newNotesList.push({
-        id: `ritual-${Date.now()}-${index}`,
-        text: ans,
-        time: timeStr,
-        origin: "thoughts",
-        isVoice: false
-      });
-    });
-
-    saveSelectedDayNotes(newNotesList);
-    setAnnaResponses({ q1: "", q2: "", q3: "" });
-
-    // Persist ritual entries to DB (fire-and-forget)
-    answers.forEach((ans) => {
-      api("/api/diary", {
-        method: "POST",
-        body: {
-          dayIndex: selectedDayIndex,
-          note: ans,
-          time: timeStr,
-          tags: ["thoughts"],
-        },
-      }).catch(() => {});
-    });
-    setShowAnnaRitual(false);
+    api("/api/evening-ritual", {
+      method: "POST",
+      body: {
+        dayIndex: selectedDayIndex,
+        answerBody: annaResponses.qBody.trim(),
+        answerPsycho: annaResponses.qPsycho.trim(),
+        answerUnexpected: annaResponses.qUnexpected.trim(),
+      },
+    }).then(() => {
+      setRitualStatus("completed");
+    }).catch(() => {});
   };
 
   // Dynamic Photo of the Day state
   const [dayPhotos, setDayPhotos] = useState<Record<number, string>>({});
 
-  const handlePhotoSelect = (imgUrl: string) => {
-    setDayPhotos(prev => ({ ...prev, [selectedDayIndex]: imgUrl }));
+  const handlePhotoSelect = () => {
+    const random = recipeImages[Math.floor(Math.random() * recipeImages.length)];
+    setDayPhotos(prev => ({ ...prev, [selectedDayIndex]: random }));
   };
 
-  // Standard presets of beautiful healthy food/mindfulness photographs
-  const photoPresets = [
-    "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&q=80&w=400",
-    "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&q=80&w=400",
-    "https://images.unsplash.com/photo-1506126613408-eca07ce68773?auto=format&fit=crop&q=80&w=400",
-    "https://images.unsplash.com/photo-1488161628813-04466f872be2?auto=format&fit=crop&q=80&w=400"
-  ];
+  // Pick a random recipe image on mount or day change
+  useEffect(() => {
+    if (!dayPhotos[selectedDayIndex] && recipeImages.length > 0) {
+      handlePhotoSelect();
+    }
+  }, [selectedDayIndex]);
 
   // Dynamically inject custom milestones/achievements in the timeline flow based on day
   const renderInjectedAchievements = (index: number) => {
@@ -805,7 +1002,7 @@ export default function MyDiaryScreen({
       />
 
       {/* Primary Scrollable Scroll container */}
-      <div className="flex-1 flex flex-col overflow-y-auto max-h-[720px] scrollbar-none z-20 px-4 pt-1 pb-16">
+      <div className="flex-1 flex flex-col overflow-y-auto max-h-[720px] scrollbar-none z-20 px-4 pt-1 pb-24">
         
         {/* HEADER AREA */}
         <div className="flex justify-between items-center mb-4 mt-3">
@@ -818,7 +1015,7 @@ export default function MyDiaryScreen({
             >
               <User className={`w-4 h-4 ${brandGreen}`} />
               <span className={`text-[14px] sm:text-[15px] font-black leading-none ${bodyText} font-sans`}>
-                {userName || "Пользователь"}
+                {currentName || "Пользователь"}
               </span>
               <span className="text-[10px] text-slate-400">▼</span>
             </button>
@@ -1000,16 +1197,7 @@ export default function MyDiaryScreen({
                 return (
                   <button
                     key={tag}
-                    onClick={() => {
-                      setDayBookmarks(prev => {
-                        if (prev[selectedDayIndex] === tag) {
-                          const updated = { ...prev };
-                          delete updated[selectedDayIndex];
-                          return updated;
-                        }
-                        return { ...prev, [selectedDayIndex]: tag };
-                      });
-                    }}
+                    onClick={() => handleToggleBookmark(tag)}
                     className={`text-[10px] sm:text-[10.5px] font-black px-2.5 py-1 rounded-full border cursor-pointer transition-all active:scale-95 ${
                       isSelected 
                         ? "bg-amber-400 border-amber-400 text-slate-900 font-black shadow-sm"
@@ -1047,9 +1235,7 @@ export default function MyDiaryScreen({
                 return (
                   <button
                     key={item.label}
-                    onClick={() => {
-                      setDayMoods(prev => ({ ...prev, [selectedDayIndex]: item.label }));
-                    }}
+                    onClick={() => handleSetDayMood(item.label)}
                     title={item.label}
                     className={`w-8.5 h-8.5 rounded-full flex items-center justify-center text-[16px] border cursor-pointer transition-all hover:scale-105 active:scale-95 ${
                       isSelected 
@@ -1212,21 +1398,21 @@ export default function MyDiaryScreen({
                       animate={{ opacity: 1, y: 0 }}
                       className={`p-4 rounded-[28px] border ${borderCol} ${cardBg} hover:shadow-md transition-shadow relative flex flex-col text-left`}
                     >
-                      {/* Note Module Pill Tag Header */}
-                      <div className="flex justify-between items-center mb-2">
-                        <div className="flex items-center gap-1.5">
-                          <div className="w-5.5 h-5.5 rounded-full flex items-center justify-center scale-90" style={{ backgroundColor: info.color }}>
-                            <IconComponent className={`w-3 h-3 ${info.textColors.split(" ")[0]}`} />
+                        {/* Note Module Pill Tag Header */}
+                        <div className="flex justify-between items-center mb-2">
+                          <div className="flex items-center gap-1.5">
+                            <div className="px-2 py-0.5 rounded-full flex items-center gap-1" style={{ backgroundColor: info.color }}>
+                              <IconComponent className={`w-3 h-3 ${info.textColors.split(" ")[0]}`} />
+                              <span className={`text-[10px] font-black ${info.textColors} tracking-tight font-sans`}>
+                                {info.label}
+                              </span>
+                            </div>
+                            {note.isVoice && (
+                              <span className="text-[9.5px] bg-slate-100 text-slate-500 font-extrabold px-1.5 py-0.5 rounded-full uppercase tracking-wider font-sans ml-1">
+                                🎤 Голос
+                              </span>
+                            )}
                           </div>
-                          <span className={`text-[11.5px] font-bold ${info.textColors} tracking-tight font-sans`}>
-                            {info.label}
-                          </span>
-                          {note.isVoice && (
-                            <span className="text-[9.5px] bg-slate-100 text-slate-500 font-extrabold px-1.5 py-0.5 rounded-full uppercase tracking-wider font-sans ml-1">
-                              🎤 Голос
-                            </span>
-                          )}
-                        </div>
                         <span className="text-[11px] text-slate-400 font-extrabold">{note.time}</span>
                       </div>
 
@@ -1293,76 +1479,36 @@ export default function MyDiaryScreen({
 
         </div>
 
-        {/* PHOTO OF THE DAY WIDGET (ФОТО ДНЯ) */}
+        {/* PHOTO OF THE DAY WIDGET (ФОТО АНКЕР ДНЯ) */}
         <div className={`p-4 rounded-[28px] border ${borderCol} ${cardBg} text-left mb-4 shadow-sm`}>
-          <span className={`text-[11px] font-black uppercase tracking-wider ${labelText} font-sans leading-none flex items-center gap-1.5`}>
-            📸 ФОТО АНКЕР ДНЯ
-          </span>
+          <div className="flex items-center justify-between mb-3">
+            <span className={`text-[11px] font-black uppercase tracking-wider ${labelText} font-sans leading-none flex items-center gap-1.5`}>
+              📸 ФОТО АНКЕР ДНЯ
+            </span>
+            <button
+              onClick={handlePhotoSelect}
+              className="text-[11px] font-bold text-slate-400 hover:text-slate-600 transition-colors"
+            >
+              🔄 Сменить
+            </button>
+          </div>
           
           {dayPhotos[selectedDayIndex] ? (
-            <div className="mt-3.5 rounded-2xl overflow-hidden relative group">
+            <div className="rounded-2xl overflow-hidden">
               <img 
                 src={dayPhotos[selectedDayIndex]} 
                 alt="Визуальный анкер дня" 
                 className="w-full h-44 object-cover" 
-                referrerPolicy="no-referrer"
               />
-              <div className="absolute inset-x-0 bottom-0 bg-black/60 p-2 pl-3 flex justify-between items-center text-white">
-                <span className="text-[12px] font-bold font-sans">Ключевое фото сегодняшнего дня</span>
-                <button 
-                  onClick={() => handlePhotoSelect("")}
-                  className="p-1 bg-white/20 hover:bg-white/40 rounded-full text-white"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
             </div>
           ) : (
-            <div className="flex flex-col gap-3 mt-3">
-              <span className="text-[12px] text-slate-400/80 font-medium">Выберите одно главное фото для запечатления событий дзен-дня:</span>
-              <div className="grid grid-cols-4 gap-2">
-                {photoPresets.map((url, i) => (
-                  <button
-                    key={i}
-                    onClick={() => handlePhotoSelect(url)}
-                    className="h-14 rounded-xl overflow-hidden border border-slate-200 hover:border-slate-400 transition-all cursor-pointer relative"
-                  >
-                    <img src={url} className="w-full h-full object-cover" alt="Preset healthy food preview" referrerPolicy="no-referrer" />
-                  </button>
-                ))}
-              </div>
+            <div className="h-28 rounded-2xl bg-slate-100 flex items-center justify-center">
+              <span className="text-[12px] text-slate-400 font-medium">Загрузка...</span>
             </div>
           )}
         </div>
 
-        {/* ONE-LINER BLOCK (ИТОГ ДНЯ ОДНОЙ СТРОКОЙ) */}
-        <div className={`p-4 rounded-[28px] border ${borderCol} ${cardBg} text-left mb-4 shadow-sm`}>
-          <span className={`text-[11px] font-black uppercase tracking-wider ${labelText} font-sans leading-none block mb-2`}>
-            ИТОГ ДНЯ ОДНОЙ СТРОКОЙ
-          </span>
-          <p className="text-[12px] text-slate-400 leading-normal mb-3 font-medium">
-            Как бы вы описали сегодняшний день одной фразой? Оставьте тихий личный след:
-          </p>
-          
-          <div className="flex gap-2.5">
-            <input
-              type="text"
-              value={currentOneLinerInput}
-              onChange={(e) => setCurrentOneLinerInput(e.target.value)}
-              placeholder="«Лёгкость в теле просто крышесносная!»"
-              className={`flex-1 text-[13.5px] font-bold p-3 rounded-2xl border ${borderCol} bg-transparent ${bodyText} outline-none focus:ring-1 focus:ring-emerald-500 placeholder:text-slate-400/85 font-sans`}
-            />
-            <button
-              onClick={handleSaveOneLiner}
-              disabled={!currentOneLinerInput.trim()}
-              className="px-4 py-2 bg-[#2F6B45] text-white rounded-2xl text-[12.5px] font-black hover:bg-emerald-700 transition-colors disabled:opacity-40"
-            >
-              Ок
-            </button>
-          </div>
-        </div>
-
-        {/* ANNA'S EVENING RITUAL COMPRESSED CARD (ВЕЧЕРНИЙ РИТУАЛ АННЫ) */}
+        {/* ANNA'S EVENING RITUAL (ВЕЧЕРНИЙ РИТУАЛ АННЫ) */}
         {showAnnaRitual && (
           <motion.div 
             initial={{ opacity: 0 }}
@@ -1381,47 +1527,89 @@ export default function MyDiaryScreen({
               </button>
             </div>
 
-            <div className="flex flex-col gap-3">
-              <div className="flex flex-col text-left">
-                <label className={`text-[12px] font-bold ${labelText} mb-1 font-sans`}>1. Что сегодня получилось лучше всего?</label>
-                <input 
-                  type="text" 
-                  value={annaResponses.q1} 
-                  onChange={(e) => setAnnaResponses(p => ({ ...p, q1: e.target.value }))}
-                  placeholder="Приготовила роскошный WFPB обед"
-                  className={`text-[13px] font-bold p-2.5 rounded-xl border ${borderCol} bg-transparent ${bodyText} outline-none placeholder:text-slate-300 font-sans`}
-                />
+            {ritualStatus === "waiting" && (
+              <div className="flex flex-col items-center justify-center py-4">
+                {ritualAvatarImg && (
+                  <img src={ritualAvatarImg} className="w-16 h-16 rounded-full mb-3 shadow-md" alt="Анна" />
+                )}
+                <span className={`text-[14px] font-bold ${bodyText} font-sans mb-1`}>Ритуал откроется в {ritualTimeStr}</span>
+                <span className="text-[24px] font-black text-emerald-600 font-sans tracking-widest">{ritualTimeLeft}</span>
+                <span className={`text-[11px] text-slate-400 mt-2 text-center max-w-[200px] leading-tight`}>Анна готовит персональные вопросы для {selectedDayIndex}-го дня</span>
               </div>
+            )}
 
-              <div className="flex flex-col text-left">
-                <label className={`text-[12px] font-bold ${labelText} mb-1 font-sans`}>2. Что оказалось самым сложным?</label>
-                <input 
-                  type="text" 
-                  value={annaResponses.q2} 
-                  onChange={(e) => setAnnaResponses(p => ({ ...p, q2: e.target.value }))}
-                  placeholder="Забыла вовремя выпить воду на прогулке"
-                  className={`text-[13px] font-bold p-2.5 rounded-xl border ${borderCol} bg-transparent ${bodyText} outline-none placeholder:text-slate-300 font-sans`}
-                />
+            {ritualStatus === "active" && (
+              <div className="flex flex-col gap-4">
+                <div className="flex flex-col text-left">
+                  <label className={`text-[12px] font-bold ${brandGreen} mb-1.5 font-sans leading-tight`}>Тело: {currentRitualQuestions.q_body}</label>
+                  <textarea 
+                    value={annaResponses.qBody} 
+                    onChange={(e) => setAnnaResponses(p => ({ ...p, qBody: e.target.value }))}
+                    placeholder="Напишите ответ..."
+                    rows={2}
+                    className={`text-[13px] font-bold p-3 rounded-xl border ${borderCol} bg-transparent ${bodyText} outline-none placeholder:text-slate-300 font-sans resize-none`}
+                  />
+                </div>
+
+                <div className="flex flex-col text-left">
+                  <label className={`text-[12px] font-bold ${brandGreen} mb-1.5 font-sans leading-tight`}>Психология: {currentRitualQuestions.q_psycho}</label>
+                  <textarea 
+                    value={annaResponses.qPsycho} 
+                    onChange={(e) => setAnnaResponses(p => ({ ...p, qPsycho: e.target.value }))}
+                    placeholder="Напишите ответ..."
+                    rows={2}
+                    className={`text-[13px] font-bold p-3 rounded-xl border ${borderCol} bg-transparent ${bodyText} outline-none placeholder:text-slate-300 font-sans resize-none`}
+                  />
+                </div>
+
+                <div className="flex flex-col text-left">
+                  <label className={`text-[12px] font-bold ${brandGreen} mb-1.5 font-sans leading-tight`}>Инсайт: {currentRitualQuestions.q_unexpected}</label>
+                  <textarea 
+                    value={annaResponses.qUnexpected} 
+                    onChange={(e) => setAnnaResponses(p => ({ ...p, qUnexpected: e.target.value }))}
+                    placeholder="Напишите ответ..."
+                    rows={2}
+                    className={`text-[13px] font-bold p-3 rounded-xl border ${borderCol} bg-transparent ${bodyText} outline-none placeholder:text-slate-300 font-sans resize-none`}
+                  />
+                </div>
+
+                <button 
+                  onClick={handleSaveAnnaRitual}
+                  disabled={!annaResponses.qBody.trim() && !annaResponses.qPsycho.trim() && !annaResponses.qUnexpected.trim()}
+                  className="w-full py-3 bg-[#2F6B45] text-white rounded-2xl text-[13px] font-black hover:bg-emerald-700 transition-all font-sans tracking-tight disabled:opacity-50 disabled:cursor-not-allowed mt-1"
+                >
+                  Записать ответы в Дневник
+                </button>
               </div>
+            )}
 
-              <div className="flex flex-col text-left">
-                <label className={`text-[12px] font-bold ${labelText} mb-1 font-sans`}>3. Что хочется взять в завтра?</label>
-                <input 
-                  type="text" 
-                  value={annaResponses.q3} 
-                  onChange={(e) => setAnnaResponses(p => ({ ...p, q3: e.target.value }))}
-                  placeholder="Утреннюю йогу и ощущение чистоты"
-                  className={`text-[13px] font-bold p-2.5 rounded-xl border ${borderCol} bg-transparent ${bodyText} outline-none placeholder:text-slate-300 font-sans`}
-                />
+            {ritualStatus === "completed" && (
+              <div className="flex flex-col py-2">
+                <div className="flex items-center gap-2 mb-4 text-emerald-600">
+                  <CheckCircle2 className="w-5 h-5" />
+                  <span className="text-[13px] font-black font-sans">Ритуал успешно завершён</span>
+                </div>
+                
+                {annaResponses.qBody && (
+                  <div className="mb-3">
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Тело</span>
+                    <p className={`text-[12.5px] ${bodyText} font-medium leading-tight`}>{annaResponses.qBody}</p>
+                  </div>
+                )}
+                {annaResponses.qPsycho && (
+                  <div className="mb-3">
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Психология</span>
+                    <p className={`text-[12.5px] ${bodyText} font-medium leading-tight`}>{annaResponses.qPsycho}</p>
+                  </div>
+                )}
+                {annaResponses.qUnexpected && (
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Инсайт</span>
+                    <p className={`text-[12.5px] ${bodyText} font-medium leading-tight`}>{annaResponses.qUnexpected}</p>
+                  </div>
+                )}
               </div>
-
-              <button 
-                onClick={handleSaveAnnaRitual}
-                className="w-full py-2.5 bg-[#2F6B45] text-white rounded-2xl text-[13px] font-black hover:bg-emerald-700 transition-all font-sans tracking-tight"
-              >
-                Записать ответы в Дневник
-              </button>
-            </div>
+            )}
           </motion.div>
         )}
 
@@ -1431,7 +1619,7 @@ export default function MyDiaryScreen({
       <div className={`absolute bottom-0 inset-x-0 p-3.5 bg-gradient-to-t ${isNightMode ? 'from-[#1F2A28] via-[#1F2A28]/95 to-transparent' : 'from-[#F7F4EE] via-[#F7F4EE]/95 to-transparent'} z-40 border-t border-dashed ${borderCol} flex flex-col gap-2.5 rounded-b-[40px]`}>
         
         {/* Module Category Selection indicators */}
-        <div className="flex gap-2 overflow-x-auto pb-0.5 scrollbar-none items-center">
+        <div className="flex gap-2 overflow-x-auto pb-1 items-center scrollbar-thin" style={{ WebkitOverflowScrolling: "touch" }}>
           <span className={`text-[10px] uppercase font-black tracking-widest ${labelText} mr-1 font-sans leading-none shrink-0`}>Раздел:</span>
           {[
             { id: "thoughts", label: "Мысли", emo: "💭" },
@@ -1603,68 +1791,34 @@ export default function MyDiaryScreen({
 
               <div className={`w-full h-px ${borderCol} mb-3.5`} />
 
-              {/* Dynamic current fields edit inputs form */}
+              {/* Static read-only fields */}
               <div className="flex flex-col gap-3.5 text-left mb-5">
                 
-                {/* Username label indicator card */}
+                {/* Username */}
                 <div className="p-2.5 rounded-xl bg-slate-50/70 border border-slate-100 text-[12.5px] leading-snug">
                   <span className={`text-[10px] font-black uppercase text-slate-400 font-sans block mb-0.5`}>ИМЯ ПОЛЬЗОВАТЕЛЯ</span>
-                  <p className={`font-black ${bodyText} font-sans`}>{userName || "Пользователь"}</p>
+                  <p className={`font-black ${bodyText} font-sans`}>{currentName || "Пользователь"}</p>
                 </div>
 
-                {/* Day cycle Indicator */}
+                {/* Weight & Height */}
                 <div className="grid grid-cols-2 gap-2.5">
                   <div className="p-2.5 rounded-xl bg-slate-50/70 border border-slate-100 text-[12.5px]">
                     <span className="text-[10px] font-black uppercase text-slate-400 font-sans block mb-0.5">ВЕС (кг)</span>
-                    <div className="flex items-center gap-2 mt-1">
-                      <button 
-                        onClick={() => setEditWeight(w => Math.max(20, w - 1))}
-                        className="w-5.5 h-5.5 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center font-bold font-mono"
-                      >
-                        -
-                      </button>
-                      <span className={`font-black font-sans ${bodyText} text-[14px]`}>{editWeight}</span>
-                      <button 
-                        onClick={() => setEditWeight(w => Math.min(300, w + 1))}
-                        className="w-5.5 h-5.5 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center font-bold font-mono"
-                      >
-                        +
-                      </button>
-                    </div>
+                    <p className={`font-black font-sans ${bodyText} text-[14px] mt-0.5`}>{currentWeight}</p>
                   </div>
-
                   <div className="p-2.5 rounded-xl bg-slate-50/70 border border-slate-100 text-[12.5px]">
                     <span className="text-[10px] font-black uppercase text-slate-400 font-sans block mb-0.5">РОСТ (см)</span>
-                    <p className={`font-black ${bodyText} font-sans mt-0.5`}>{height} см</p>
+                    <p className={`font-black ${bodyText} font-sans mt-0.5`}>{currentHeight} см</p>
                   </div>
                 </div>
 
                 {/* Blood pressure */}
                 <div className="p-3 rounded-2xl bg-slate-50/70 border border-slate-100 text-[12.5px]">
                   <span className="text-[10px] font-black uppercase text-slate-400 font-sans block mb-1">АРТЕРИАЛЬНОЕ ДАВЛЕНИЕ (мм)</span>
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-slate-400 font-bold font-sans">Сис:</span>
-                      <input 
-                        type="number" 
-                        value={editSystolic} 
-                        onChange={(e) => setEditSystolic(Number(e.target.value))}
-                        className="w-12 text-center p-1 rounded bg-white border border-slate-200 font-bold font-sans text-[12.5px]"
-                      />
-                    </div>
-                    <div className="flex items-center gap-1.5 mr-2">
-                      <span className="text-slate-400 font-bold font-sans">Диа:</span>
-                      <input 
-                        type="number" 
-                        value={editDiastolic} 
-                        onChange={(e) => setEditDiastolic(Number(e.target.value))}
-                        className="w-12 text-center p-1 rounded bg-white border border-slate-200 font-bold font-sans text-[12.5px]"
-                      />
-                    </div>
-                  </div>
+                  <p className={`font-black ${bodyText} font-sans text-[14px]`}>{currentSystolic}/{currentDiastolic} мм</p>
                 </div>
 
-                {/* Day profile and generic advice snippet */}
+                {/* Info snippet */}
                 <div className="p-3 rounded-2xl bg-emerald-50/45 border border-emerald-100 text-[11.5px] leading-relaxed text-slate-600 flex gap-2">
                   <Info className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
                   <p className="font-medium font-sans">
@@ -1674,19 +1828,13 @@ export default function MyDiaryScreen({
 
               </div>
 
-              {/* Action Buttons inside profile modal edit popup */}
+              {/* Only Закрыть button */}
               <div className="flex gap-2.5 mt-auto">
                 <button 
                   onClick={() => setShowProfileModal(false)}
                   className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 rounded-2xl text-[12.5px] font-black text-slate-500 font-sans tracking-tight text-center transition-colors"
                 >
                   Закрыть
-                </button>
-                <button 
-                  onClick={handleSaveProfileData}
-                  className="flex-1 py-2.5 bg-[#2F6B45] hover:bg-emerald-700 rounded-2xl text-[12.5px] font-black text-white font-sans tracking-tight text-center shadow-md transition-all"
-                >
-                  Обновить данные
                 </button>
               </div>
 

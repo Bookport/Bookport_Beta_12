@@ -126,6 +126,7 @@ const RECIPE_DIET_PREFS = [
 interface SettingsScreenProps {
   onBack: () => void;
   currentDayIndex: number;
+  onboardingComplete?: () => void;
 }
 
 type SettingsSection = "hub" | "notifications" | "nutrition" | "recipes" | "account";
@@ -176,6 +177,7 @@ function StepperButton({ onClick, disabled, children, className }: any) {
 export default function SettingsScreen({
   onBack,
   currentDayIndex,
+  onboardingComplete,
 }: SettingsScreenProps) {
   const profile = useAppStore((s) => s.userProfile);
   const setUserProfile = useAppStore((s) => s.setUserProfile);
@@ -204,6 +206,7 @@ export default function SettingsScreen({
   const [draftWeight, setDraftWeight] = useState(weight);
   const [draftSystolic, setDraftSystolic] = useState(systolic);
   const [draftDiastolic, setDraftDiastolic] = useState(diastolic);
+  const [draftRitualTime, setDraftRitualTime] = useState(profile?.ritualTime || "21:00");
   const [draftChronic, setDraftChronic] = useState<string[]>(() => [...selectedChronic]);
   const [draftGoals, setDraftGoals] = useState<string[]>(() => [...selectedGoals]);
   const [showSavedToast, setShowSavedToast] = useState(false);
@@ -297,7 +300,7 @@ export default function SettingsScreen({
     setWeight(draftWeight);
     setSystolic(draftSystolic);
     setDiastolic(draftDiastolic);
-    const data = { name: draftName, gender: draftGender, age: draftAge, height: draftHeight, weight: draftWeight, systolic: draftSystolic, diastolic: draftDiastolic, hasSavedSettings: true };
+    const data = { name: draftName, gender: draftGender, age: draftAge, height: draftHeight, weight: draftWeight, systolic: draftSystolic, diastolic: draftDiastolic, hasSavedSettings: true, ritualTime: draftRitualTime };
     setUserProfile({ ...profile, ...data });
     api("/api/user/profile", { method: "POST", body: data }).catch(() => {});
     UserPreferencesStore.save(prefs);
@@ -329,10 +332,40 @@ export default function SettingsScreen({
 
   const handleSaveNotifications = () => {
     UserPreferencesStore.save(prefs);
+    const data = { ritualTime: draftRitualTime };
+    setUserProfile({ ...profile, ...data });
+    api("/api/user/profile", { method: "POST", body: data }).catch(() => {});
     setShowSavedToast(true);
     setTimeout(() => setShowSavedToast(false), 2000);
     completeSection("notifications");
     setActiveSection("hub");
+  };
+
+  const handleSaveAll = () => {
+    setUserName(draftName);
+    setUserGender(draftGender);
+    setAge(draftAge);
+    setHeight(draftHeight);
+    setWeight(draftWeight);
+    setSystolic(draftSystolic);
+    setDiastolic(draftDiastolic);
+    setSelectedChronic(draftChronic);
+    setSelectedGoals(draftGoals);
+    const data = {
+      name: draftName, gender: draftGender, age: draftAge, height: draftHeight,
+      weight: draftWeight, systolic: draftSystolic, diastolic: draftDiastolic,
+      chronicConditions: draftChronic, healthGoals: draftGoals,
+      hasSavedSettings: true,
+      ritualTime: draftRitualTime,
+    };
+    setUserProfile({ ...profile, ...data });
+    api("/api/user/profile", { method: "POST", body: data }).catch(() => {});
+    UserPreferencesStore.save(prefs);
+    setShowSavedToast(true);
+    setTimeout(() => setShowSavedToast(false), 2000);
+    if (onboardingComplete) {
+      onboardingComplete();
+    }
   };
 
   // Keep track of active expanded notification item in the list
@@ -747,6 +780,28 @@ export default function SettingsScreen({
                   )}
                 </AnimatePresence>
               </div>
+
+              {/* Start button - appears after all sections saved */}
+              {completedSections.length === SECTION_ORDER.length && (
+                <motion.div 
+                  className="mt-6"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4 }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleSaveAll();
+                    }}
+                    className="w-full bg-gradient-to-r from-brand-green-bright to-brand-green-dark text-white font-bold py-4 px-6 rounded-[20px] shadow-[0_6px_20px_rgba(22,181,81,0.2)] hover:shadow-[0_8px_25px_rgba(22,181,81,0.3)] active:scale-[0.98] transition-all duration-300 flex items-center justify-center gap-2 cursor-pointer text-[16px] border border-brand-green-deep/15 animate-pulse"
+                    style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}
+                  >
+                    <Check className="w-5 h-5 stroke-[3] text-white" />
+                    <span>Старт</span>
+                  </button>
+                </motion.div>
+              )}
             </motion.div>
           )}
 
@@ -983,6 +1038,31 @@ export default function SettingsScreen({
                     </div>
                   );
                 })}
+              </div>
+
+              {/* Ritual Time Setting */}
+              <div className="mt-4 bg-white border border-gray-100 shadow-[0_2px_10px_rgba(0,0,0,0.02)] rounded-[24px] p-4 flex flex-col gap-2 text-left">
+                <div className="flex items-center justify-between">
+                  <span className="text-[14px] font-bold text-text-dark">Вечерний Ритуал</span>
+                  <select 
+                    value={draftRitualTime} 
+                    onChange={(e) => setDraftRitualTime(e.target.value)}
+                    className="text-[13px] font-bold text-brand-green-dark bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-100 focus:outline-none"
+                  >
+                    <option value="19:00">19:00</option>
+                    <option value="19:30">19:30</option>
+                    <option value="20:00">20:00</option>
+                    <option value="20:30">20:30</option>
+                    <option value="21:00">21:00</option>
+                    <option value="21:30">21:30</option>
+                    <option value="22:00">22:00</option>
+                    <option value="22:30">22:30</option>
+                    <option value="23:00">23:00</option>
+                  </select>
+                </div>
+                <p className="text-[12px] text-text-muted leading-snug">
+                  Укажите комфортное время для подведения итогов дня с Анной. Ритуал будет открываться ежедневно в назначенное время.
+                </p>
               </div>
 
               {/* Save button for Notifications */}
@@ -1451,8 +1531,7 @@ export default function SettingsScreen({
                 <div className="flex flex-col gap-1.5">
                   <span className="text-[11px] font-extrabold uppercase text-[#737C86]">Вес (кг):</span>
                   <div className="flex items-center justify-center gap-3">
-                    <button
-                      type="button"
+                    <StepperButton
                       onClick={() => setDraftWeight(prev => {
                         const step = 0.1
                         return Math.round(Math.max(20, prev - step) * 100) / 100
@@ -1461,12 +1540,11 @@ export default function SettingsScreen({
                       className="w-12 h-12 rounded-xl bg-white border-2 border-gray-100 shadow-sm flex items-center justify-center text-text-sec active:scale-90 hover:border-purple-300 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
                     >
                       <Minus className="w-5 h-5 stroke-[2.5]" />
-                    </button>
+                    </StepperButton>
                     <div className="min-w-[100px] h-12 rounded-xl bg-gray-50 border border-gray-100 flex items-center justify-center">
                       <span className="text-[20px] font-bold text-text-dark">{draftWeight.toFixed(1)}</span>
                     </div>
-                    <button
-                      type="button"
+                    <StepperButton
                       onClick={() => setDraftWeight(prev => {
                         const step = 0.1
                         return Math.round(Math.min(300, prev + step) * 100) / 100
@@ -1475,7 +1553,7 @@ export default function SettingsScreen({
                       className="w-12 h-12 rounded-xl bg-white border-2 border-gray-100 shadow-sm flex items-center justify-center text-text-sec active:scale-90 hover:border-purple-300 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
                     >
                       <Plus className="w-5 h-5 stroke-[2.5]" />
-                    </button>
+                    </StepperButton>
                   </div>
                 </div>
 

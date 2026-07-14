@@ -5,6 +5,8 @@ import AchievementModal from '../components/AchievementModal'
 import type { Achievement } from '../types'
 import { getArtUrl } from '../utils/imageMap'
 
+import { api } from '../../../utils/api'
+
 function playSound(type: 'positive' | 'negative'): void {
   try {
     const ctx = new AudioContext()
@@ -128,11 +130,18 @@ export default function AchievementOverlay({ userGender = 'male' }: AchievementO
   }, [pendingAchievement])
 
   const handleModalClose = useCallback(() => {
+    if (pendingAchievement) {
+      api('/api/achievements/mark-shown', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: pendingAchievement.id })
+      }).catch(e => console.error("Failed to mark achievement as shown", e))
+    }
     setShowModal(false)
     setPendingAchievement(null)
     lastAchievementIdRef.current = null
     achievementEngine.completeDisplay()
-  }, [])
+  }, [pendingAchievement])
 
   const achievement = pendingAchievement
   const isPositive = achievement?.type === 'positive'

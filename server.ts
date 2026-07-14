@@ -498,7 +498,7 @@ async function startServer() {
 
       const annaToolGuidance = buildAnnaToolGuidance(message);
 
-      const systemPrompt = promptCompiler.compile({
+      let systemPrompt = promptCompiler.compile({
         screenId: screenContextDetails?.screen_id || screenContext,
         userMessage: message,
         userName: userName || screenContextDetails?.userName,
@@ -506,6 +506,22 @@ async function startServer() {
         bookRecipesDataContext,
         isVoiceChat,
       }) + (annaToolGuidance ? `\n\n${annaToolGuidance}` : "");
+
+      if (req.userId && dayIndex) {
+        const shouldInjectRitual = /утро|вчера|ритуал|итог|проснул|спал|привет|добр|чувству|настро/i.test(message);
+        if (shouldInjectRitual) {
+          try {
+            const ritual = await prisma.eveningRitual.findUnique({
+              where: { userId_dayIndex: { userId: req.userId, dayIndex } }
+            });
+            if (ritual) {
+              systemPrompt += `\n\n[Системные данные: Пользователь завершил вечерний ритуал (День ${dayIndex}). Его ответы.\nТело: ${ritual.answerBody}\nПсихология: ${ritual.answerPsycho}\nИнсайт: ${ritual.answerUnexpected}\nИспользуй эти данные для персонализации ответов].`;
+            }
+          } catch (e) {
+            console.error("Error loading ritual for Anna:", e);
+          }
+        }
+      }
 
       const availableTools = pickAnnaTools(message, screenContextDetails?.screen_id || screenContext, dayIndex);
 
@@ -1148,6 +1164,7 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
           initialSystolic: data.initialSystolic ?? undefined,
           initialDiastolic: data.initialDiastolic ?? undefined,
           hasSavedSettings: data.hasSavedSettings ?? undefined,
+          ritualTime: data.ritualTime ?? undefined,
           chronicConditions: data.chronicConditions ? JSON.stringify(data.chronicConditions) : undefined,
           healthGoals: data.healthGoals ? JSON.stringify(data.healthGoals) : undefined,
         },
@@ -1179,6 +1196,7 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
         initialSystolic: user.initialSystolic,
         initialDiastolic: user.initialDiastolic,
         hasSavedSettings: user.hasSavedSettings,
+        ritualTime: user.ritualTime,
         chronicConditions: user.chronicConditions ? JSON.parse(user.chronicConditions) : [],
         healthGoals: user.healthGoals ? JSON.parse(user.healthGoals) : [],
       });
@@ -1285,6 +1303,8 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
           movementLog: dailyMetric.movementLog,
           digestionLog: dailyMetric.digestionLog,
           measurements: dailyMetric.measurements,
+          dayMood: dailyMetric.dayMood,
+          dayBookmark: dailyMetric.dayBookmark,
         } : null,
         dailyRating: dailyRating ? {
           wellbeing: dailyRating.wellbeing,
@@ -1306,7 +1326,7 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
   app.post("/api/metrics/daily", async (req, res) => {
     if (!req.userId) return res.status(400).json({ error: "Missing device ID" });
     try {
-      const { date, dayIndex, waterMl, sleepMinutes, mealCount, habitsDone, activityMinutes, waterEntries, digestionLog, movementLog, measurements } = req.body;
+      const { date, dayIndex, waterMl, sleepMinutes, mealCount, habitsDone, activityMinutes, waterEntries, digestionLog, movementLog, measurements, dayMood, dayBookmark } = req.body;
       
       // Fetch existing record
       const existing = await prisma.dailyMetric.findUnique({
@@ -1339,6 +1359,8 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
           digestionLog: JSON.stringify(newDigestionLog),
           movementLog: JSON.stringify(newMovementLog),
           measurements: JSON.stringify(newMeasurements),
+          dayMood: dayMood ?? undefined,
+          dayBookmark: dayBookmark ?? undefined,
         },
         create: {
           userId: req.userId,
@@ -1353,6 +1375,8 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
           digestionLog: JSON.stringify(newDigestionLog),
           movementLog: JSON.stringify(newMovementLog),
           measurements: JSON.stringify(newMeasurements),
+          dayMood: dayMood ?? null,
+          dayBookmark: dayBookmark ?? null,
         },
       });
       res.json({ ok: true, id: record.id });
@@ -1588,6 +1612,48 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
     }
   });
 
+  // ── Evening Ritual ──
+  // POST /api/evening-ritual — save ritual answers for a day
+  app.post("/api/evening-ritual", async (req, res) => {
+    if (!req.userId) return res.status(400).json({ error: "Missing device ID" });
+    try {
+      const { dayIndex, answerBody, answerPsycho, answerUnexpected } = req.body;
+      if (dayIndex == null) return res.status(400).json({ error: "dayIndex required" });
+      const ritual = await prisma.eveningRitual.upsert({
+        where: { userId_dayIndex: { userId: req.userId, dayIndex } },
+        update: { answerBody, answerPsycho, answerUnexpected },
+        create: { userId: req.userId, dayIndex, answerBody, answerPsycho, answerUnexpected },
+      });
+      res.json({ ok: true, id: ritual.id });
+    } catch (err: any) {
+      console.error("[EveningRitual] POST error:", err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // GET /api/evening-ritual?dayIndex=X — get ritual answers for a day
+  app.get("/api/evening-ritual", async (req, res) => {
+    if (!req.userId) return res.status(400).json({ error: "Missing device ID" });
+    try {
+      const dayIndex = parseInt(req.query.dayIndex as string);
+      if (isNaN(dayIndex)) return res.json(null);
+      const ritual = await prisma.eveningRitual.findUnique({
+        where: { userId_dayIndex: { userId: req.userId, dayIndex } },
+      });
+      res.json(ritual ? {
+        id: ritual.id,
+        dayIndex: ritual.dayIndex,
+        answerBody: ritual.answerBody,
+        answerPsycho: ritual.answerPsycho,
+        answerUnexpected: ritual.answerUnexpected,
+        createdAt: ritual.createdAt.toISOString(),
+      } : null);
+    } catch (err: any) {
+      console.error("[EveningRitual] GET error:", err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // ── CRUD: Shopping List ──
   app.get("/api/shopping-list", async (req, res) => {
     if (!req.userId) return res.status(400).json({ error: "Missing device ID" });
@@ -1697,27 +1763,32 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
   });
 
   // ── Achievement Check Endpoint ──
-  // Client sends events, server evaluates conditions and returns newly unlocked achievements
+  // Client sends events, server evaluates conditions silently.
   app.post("/api/achievements/check", async (req, res) => {
     try {
       const { action, payload } = req.body;
+      if (!req.userId) {
+        return res.json({ unlocked: [] });
+      }
 
-      // Load user's existing achievements from DB
-      if (req.userId) {
-        try {
-          const existing = await prisma.userAchievement.findMany({
-            where: { userId: req.userId, unlocked: true },
-          });
-          achievementService.setUnlocked(existing.map((a: any) => a.achievementId));
-        } catch (dbErr: any) {
-          logger.warn("[Achievements] DB unavailable, using in-memory state:", dbErr.message);
-        }
+      // Load user and existing achievements from DB
+      const user = await prisma.user.findUnique({ where: { id: req.userId } });
+      if (!user) return res.json({ unlocked: [] });
+
+      let existing = [];
+      try {
+        existing = await prisma.userAchievement.findMany({
+          where: { userId: req.userId, unlocked: true },
+        });
+        achievementService.setUnlocked(existing.map((a: any) => a.achievementId));
+      } catch (dbErr: any) {
+        logger.warn("[Achievements] DB unavailable, using in-memory state:", dbErr.message);
       }
 
       const result = await achievementService.check({ action, payload });
 
-      // Save newly unlocked achievements to DB
-      if (req.userId && result.unlocked.length > 0) {
+      // Save newly unlocked achievements to DB silently
+      if (result.unlocked.length > 0) {
         try {
           for (const id of result.unlocked) {
             await prisma.userAchievement.upsert({
@@ -1726,16 +1797,86 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
               create: { userId: req.userId, achievementId: id, unlocked: true, unlockedAt: new Date(), xp: 0 },
             });
           }
-          logger.info(`[Achievements] Saved ${result.unlocked.length} new achievements to DB for user ${req.userId}`);
+          
+          // Append new IDs to pendingAchievementId queue
+          let pendingStr = user.pendingAchievementId || "";
+          const pendingArr = pendingStr ? pendingStr.split(",") : [];
+          for (const id of result.unlocked) {
+            if (!pendingArr.includes(id)) pendingArr.push(id);
+          }
+          await prisma.user.update({
+            where: { id: req.userId },
+            data: { pendingAchievementId: pendingArr.join(",") }
+          });
+
+          logger.info(`[Achievements] Queued ${result.unlocked.length} new achievements for user ${req.userId}`);
         } catch (dbErr: any) {
           logger.error("[Achievements] Failed to save to DB:", dbErr.message);
         }
       }
 
-      res.json(result);
+      // Return empty array to completely suppress instant overlays
+      res.json({ unlocked: [] });
     } catch (err: any) {
       logger.error("[Achievements] Check error:", err.message);
       res.status(500).json({ error: err.message, unlocked: [] });
+    }
+  });
+
+  // ── Achievement Check Pending Endpoint ──
+  app.get("/api/achievements/check-pending", async (req, res) => {
+    try {
+      if (!req.userId) return res.json({ id: null });
+      
+      const user = await prisma.user.findUnique({ where: { id: req.userId } });
+      if (!user || !user.pendingAchievementId) {
+        return res.json({ id: null });
+      }
+
+      // 2-hour throttling rule
+      if (user.lastAchievementUnlockedAt) {
+        const diffMs = new Date().getTime() - user.lastAchievementUnlockedAt.getTime();
+        const twoHoursMs = 2 * 60 * 60 * 1000;
+        if (diffMs < twoHoursMs) {
+          logger.debug(`[Achievements] Throttled showing pending achievement for user ${req.userId}. Next check allowed later.`);
+          return res.json({ id: null });
+        }
+      }
+
+      // Pop the first achievement from the queue
+      const pendingArr = user.pendingAchievementId.split(",");
+      const idToShow = pendingArr[0];
+
+      res.json({ id: idToShow });
+    } catch (err: any) {
+      logger.error("[Achievements] Check pending error:", err.message);
+      res.status(500).json({ id: null });
+    }
+  });
+
+  app.post("/api/achievements/mark-shown", async (req, res) => {
+    try {
+      if (!req.userId) return res.json({ success: false });
+      const { id } = req.body;
+      
+      const user = await prisma.user.findUnique({ where: { id: req.userId } });
+      if (user && user.pendingAchievementId) {
+        const pendingArr = user.pendingAchievementId.split(",");
+        const updatedArr = pendingArr.filter(pid => pid !== id);
+        
+        await prisma.user.update({
+          where: { id: req.userId },
+          data: {
+            pendingAchievementId: updatedArr.length > 0 ? updatedArr.join(",") : null,
+            lastAchievementUnlockedAt: new Date()
+          }
+        });
+        return res.json({ success: true });
+      }
+      res.json({ success: false });
+    } catch (err: any) {
+      logger.error("[Achievements] Mark shown error:", err.message);
+      res.status(500).json({ success: false });
     }
   });
 
