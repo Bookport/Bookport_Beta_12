@@ -54,11 +54,7 @@ interface PersonalShoppingItem {
   image?: string;
   barcode?: string;
   checked: boolean;
-  verdict: {
-    status: "perfect" | "warning" | "oil-sugar" | "bad";
-    title: string;
-    text: string;
-  };
+  verdictStatus: "green" | "orange" | "red";
   addedAt: number;
 }
 
@@ -336,6 +332,8 @@ export default function MyPurchasesScreen({
 
   // Shopping list
   const [shoppingList, setShoppingList] = useState<PersonalShoppingItem[]>([]);
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastMessage, setToastMessage] = useState("");
 
   // html5-qrcode implementation states
   const [scannerActive, setScannerActive] = useState(false);
@@ -969,6 +967,16 @@ export default function MyPurchasesScreen({
     };
   };
 
+  // Map local verdict status to DB verdictStatus
+  function mapVerdictStatus(status: "perfect" | "warning" | "oil-sugar" | "bad"): "green" | "orange" | "red" {
+    switch (status) {
+      case "perfect": return "green";
+      case "warning": return "orange";
+      case "oil-sugar":
+      case "bad":     return "red";
+    }
+  }
+
   // Add current selected product to shopping list
   const handleAddToShoppingList = () => {
     if (!selectedProduct) return;
@@ -976,13 +984,15 @@ export default function MyPurchasesScreen({
     const ingredients = selectedProduct.ingredients_text_ru || selectedProduct.ingredients_text || "";
     const hasValidIngredients = isIngredientsListValid(ingredients);
     
-    const verdict = hasValidIngredients 
+    const rawVerdict = hasValidIngredients 
       ? getAnnasVerdict(selectedProduct)
       : {
           status: "perfect" as const,
           title: "Состав не указан",
           text: "Справочный состав отсутствует в Open Food Facts. Пожалуйста, ознакомьтесь с этикеткой самостоятельно!"
         };
+
+    const verdictStatus = mapVerdictStatus(rawVerdict.status);
 
     const newItem: PersonalShoppingItem = {
       id: `shop-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
@@ -991,21 +1001,26 @@ export default function MyPurchasesScreen({
       image: selectedProduct.image_front_url || "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&q=80&w=200",
       barcode: selectedProduct.code,
       checked: false,
-      verdict,
+      verdictStatus,
       addedAt: Date.now()
     };
 
     setShoppingList(prev => [newItem, ...prev]);
-    setActiveMode("start");
-    setSelectedProduct(null);
+
+    // Show toast and go back
+    setToastMessage("Добавлено в список!");
+    setToastVisible(true);
+    setTimeout(() => { setToastVisible(false); setActiveMode("start"); setSelectedProduct(null); }, 1200);
 
     // Persist shopping item to DB (fire-and-forget)
     api("/api/shopping-list", {
       method: "POST",
       body: {
+        barcode: newItem.barcode || null,
         name: newItem.name,
-        category: newItem.brand || null,
-        dayIndex: currentDayIndex,
+        brand: newItem.brand || null,
+        imageUrl: newItem.image || null,
+        verdictStatus,
       },
     }).then((res: any) => {
       // Update local id with server UUID for future PATCH/DELETE
@@ -1041,15 +1056,8 @@ export default function MyPurchasesScreen({
   // Reset entire shopping list
   const handleClearShoppingList = () => {
     if (window.confirm("Очистить ваш список покупок?")) {
-      setShoppingList(prev => {
-        // Delete each item from DB (fire-and-forget)
-        prev.forEach(item => {
-          api("/api/shopping-list/" + encodeURIComponent(item.id), {
-            method: "DELETE",
-          }).catch(() => {});
-        });
-        return [];
-      });
+      setShoppingList([]);
+      api("/api/shopping-list", { method: "DELETE" }).catch(() => {});
     }
   };
 
@@ -1899,9 +1907,16 @@ export default function MyPurchasesScreen({
             {shoppingList.length > 0 ? (
               <div className="flex flex-col gap-2.5">
                 {shoppingList.map((item) => {
-                  const isPerfect = item.verdict?.status === "perfect";
-                  const isOilOrSugar = item.verdict?.status === "oil-sugar";
-                  const isWarning = item.verdict?.status === "warning";
+                  const vColor: Record<string, string> = {
+                    green: "bg-emerald-50 text-emerald-700",
+                    orange: "bg-amber-50 text-amber-700",
+                    red: "bg-red-50 text-red-700",
+                  };
+                  const vLabel: Record<string, string> = {
+                    green: "WFPB ✅",
+                    orange: "С осторожностью",
+                    red: "Не рекомендуется ❌",
+                  };
                   
                   return (
                     <div
@@ -1947,14 +1962,8 @@ export default function MyPurchasesScreen({
 
                           {/* Anna's quick tag indicator */}
                           <div className="flex items-center gap-1.5 mt-1.5">
-                            <span className={`text-[9.5px] font-bold px-1.5 py-0.5 rounded-full ${
-                              isPerfect
-                                ? "bg-emerald-50 text-emerald-700"
-                                : isOilOrSugar || isWarning
-                                  ? "bg-amber-50 text-amber-700"
-                                  : "bg-red-50 text-red-700"
-                            }`}>
-                              {item.verdict?.title || "Чистый состав"}
+                            <span className={`text-[9.5px] font-bold px-1.5 py-0.5 rounded-full ${vColor[item.verdictStatus] || "bg-emerald-50 text-emerald-700"}`}>
+                              {vLabel[item.verdictStatus] || "Чистый состав"}
                             </span>
                           </div>
                         </div>
@@ -1988,6 +1997,13 @@ export default function MyPurchasesScreen({
         )}
 
       </div>
+
+      {/* Toast notification */}
+      {toastVisible && (
+        <div className="fixed top-8 left-1/2 -translate-x-1/2 z-[999] bg-indigo-600 text-white text-[14px] font-bold px-5 py-2.5 rounded-2xl shadow-lg animate-fade-in">
+          {toastMessage}
+        </div>
+      )}
 
       {/* 2. FIXED STICKY NAVIGATION BAR WITH HOME / CELLULAR IMPULSE TABS */}
       <div className="absolute bottom-0 inset-x-0 w-full z-30 pointer-events-auto">

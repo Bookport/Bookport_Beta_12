@@ -1842,11 +1842,12 @@ async function checkBackgroundAchievements(userId, eventType, data) {
   app.get("/api/user/data", async (req, res) => {
     if (!req.userId) return res.status(400).json({ error: "Missing device ID" });
     try {
-      const [user, dishes, diary, recipeProgress] = await Promise.all([
+      const [user, dishes, diary, recipeProgress, userAchievements] = await Promise.all([
         prisma.user.findUnique({ where: { id: req.userId } }),
         prisma.savedDish.findMany({ where: { userId: req.userId }, orderBy: { createdAt: "desc" }, take: 50 }),
         prisma.diaryEntry.findMany({ where: { userId: req.userId }, orderBy: { createdAt: "desc" }, take: 50 }),
         prisma.recipeProgress.findMany({ where: { userId: req.userId } }),
+        prisma.userAchievement.findMany({ where: { userId: req.userId, unlocked: true }, select: { achievementId: true } }),
       ]);
 
       res.json({
@@ -1879,6 +1880,7 @@ async function checkBackgroundAchievements(userId, eventType, data) {
           ...r,
           tags: r.tags ? JSON.parse(r.tags) : [],
         })),
+        unlockedAchievementIds: (userAchievements || []).map(a => a.achievementId),
       });
     } catch (err: any) {
       console.error("[UserData] GET error:", err.message);
@@ -2306,9 +2308,9 @@ async function checkBackgroundAchievements(userId, eventType, data) {
   app.post("/api/shopping-list", async (req, res) => {
     if (!req.userId) return res.status(400).json({ error: "Missing device ID" });
     try {
-      const { name, category, dayIndex } = req.body;
+      const { barcode, name, brand, imageUrl, verdictStatus } = req.body;
       const item = await prisma.shoppingItem.create({
-        data: { userId: req.userId, name, category: category ?? null, dayIndex: dayIndex ?? null },
+        data: { userId: req.userId, barcode: barcode ?? null, name, brand: brand ?? null, imageUrl: imageUrl ?? null, verdictStatus: verdictStatus ?? "green" },
       });
       res.json({ ok: true, id: item.id });
     } catch (err: any) {
@@ -2332,6 +2334,16 @@ async function checkBackgroundAchievements(userId, eventType, data) {
     if (!req.userId) return res.status(400).json({ error: "Missing device ID" });
     try {
       await prisma.shoppingItem.delete({ where: { id: req.params.id } });
+      res.json({ ok: true });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.delete("/api/shopping-list", async (req, res) => {
+    if (!req.userId) return res.status(400).json({ error: "Missing device ID" });
+    try {
+      await prisma.shoppingItem.deleteMany({ where: { userId: req.userId } });
       res.json({ ok: true });
     } catch (err: any) {
       res.status(500).json({ error: err.message });

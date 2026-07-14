@@ -33,10 +33,11 @@ import {
   initializeAchievementSystem,
   ingestAchievementEvent,
   getUnlockedAchievementIds,
-  isGodModeEnabled,
+  initFromISOString,
   AchievementOverlay,
   MyRewardsScreen,
 } from "./modules/achievements";
+import { achievementEngine } from "./modules/achievements/engine/AchievementEngine";
 import type { AchievementStateSnapshot } from "./modules/achievements";
 import type { MixerConfig } from "./modules/mixer/types/mixer.types";
 import MixerScreen from "./modules/mixer/screens/MixerScreen";
@@ -443,6 +444,7 @@ export default function App() {
   const [dayNotes, setDayNotes] = useState<Record<number, { text: string; time: string; [key: string]: any }[]>>({});
   const isCalendarOpen = useAppStore((s) => s.isCalendarOpen);
   const setCalendarOpen = useAppStore((s) => s.setCalendarOpen);
+  const storeGender = useAppStore((s) => s.userProfile?.gender);
 
   // Dynamic state container for HabitsTwenty screen checked circles data
   const [habitsTwentyData, setHabitsTwentyData] = useState<HabitsState | undefined>(undefined);
@@ -456,9 +458,15 @@ export default function App() {
         // Init course day from server (auto-advances based on calendar date)
         const initData = await api<any>("/api/user/init");
         setCurrentDayIndex(initData.currentDayIndex);
+        initFromISOString(initData.courseStartDate);
 
         const data = await api<any>("/api/user/data");
         console.log("[Init] profile:", data.profile?.name || "—", "dishes:", data.savedDishes?.length, "diary:", data.diary?.length, "progress:", data.recipeProgress?.length);
+
+        // Hydrate achievement engine with server-side unlocked IDs
+        if (data.unlockedAchievementIds?.length > 0) {
+          achievementEngine.setUnlockedIds(data.unlockedAchievementIds)
+        }
 
         if (data.profile?.hasSavedSettings) {
           useAppStore.getState().setScreen("my-day");
@@ -540,6 +548,13 @@ export default function App() {
       initializeAchievementSystem()
     }
   }, [])
+
+  // Sync userGender from the Zustand store (server profile) whenever it changes
+  useEffect(() => {
+    if (storeGender) {
+      setUserGender(storeGender as "female" | "male")
+    }
+  }, [storeGender])
 
   // Persist daily ratings to DB whenever they change (debounced)
   useEffect(() => {
@@ -1489,7 +1504,7 @@ export default function App() {
               transition={{ duration: 0.4 }}
               className="flex-1 flex flex-col"
             >
-              <MyRewardsScreen />
+              <MyRewardsScreen onMixerLaunch={setMixerConfig} />
             </motion.div>
           ) : screen === "settings" ? (
             <motion.div
@@ -1722,7 +1737,14 @@ export default function App() {
         />
 
         {/* Global Achievement Overlay */}
-        <AchievementOverlay userGender={userGender} />
+        <AchievementOverlay userGender={userGender} onMixer={(a) => setMixerConfig({
+          achievementId: a.id,
+          achievementName: a.name,
+          achievementCategory: a.category || '',
+          achievementBackground: a.background || '',
+          scenarioType: a.type === 'positive' ? 'positive' : 'negative',
+          userGender,
+        })} />
 
         {/* Developer Debug Panel */}
         <AchievementsDebugPanel />

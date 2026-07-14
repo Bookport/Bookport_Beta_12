@@ -6,4 +6,7 @@ export function isGodModeEnabled(): boolean {
 
 export function setGodMode(enabled: boolean): void {
   godModeEnabled = enabled
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('godmode-changed', { detail: { enabled } }))
+  }
 }

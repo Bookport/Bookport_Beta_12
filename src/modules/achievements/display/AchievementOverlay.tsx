@@ -91,9 +91,10 @@ function Particles({ type }: { type: 'positive' | 'negative' }) {
 
 interface AchievementOverlayProps {
   userGender?: 'male' | 'female'
+  onMixer?: (achievement: Achievement) => void
 }
 
-export default function AchievementOverlay({ userGender = 'male' }: AchievementOverlayProps) {
+export default function AchievementOverlay({ userGender = 'male', onMixer }: AchievementOverlayProps) {
   const [pendingAchievement, setPendingAchievement] = useState<Achievement | null>(null)
   const [showPopup, setShowPopup] = useState(false)
   const [showModal, setShowModal] = useState(false)
@@ -133,8 +134,7 @@ export default function AchievementOverlay({ userGender = 'male' }: AchievementO
     if (pendingAchievement) {
       api('/api/achievements/mark-shown', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: pendingAchievement.id })
+        body: { id: pendingAchievement.id }
       }).catch(e => console.error("Failed to mark achievement as shown", e))
     }
     setShowModal(false)
@@ -203,10 +203,10 @@ export default function AchievementOverlay({ userGender = 'male' }: AchievementO
 
       {showModal && achievement && (
         <AchievementModal
-          achievement={achievement}
+          achievement={{ ...achievement, isFreshUnlock: true }}
           userGender={userGender}
-          isGodMode={false}
           onClose={handleModalClose}
+          onMixer={onMixer}
         />
       )}
     </>

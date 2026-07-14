@@ -168,14 +168,16 @@ model DiaryEntry {
 }
 
 model ShoppingItem {
-  id        String   @id @default(uuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  name      String
-  category  String?
-  checked   Boolean  @default(false)
-  dayIndex  Int?
-  createdAt DateTime @default(now())
+  id            String   @id @default(uuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  barcode       String?
+  name          String
+  brand         String?
+  imageUrl      String?
+  verdictStatus String   @default("green")
+  checked       Boolean  @default(false)
+  createdAt     DateTime @default(now())
 }
 
 model Purchase {

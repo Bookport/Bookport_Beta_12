@@ -23,7 +23,7 @@ interface MyRewardsScreenProps {
 export default function MyRewardsScreen({
   onBack: propsOnBack,
   userGender = 'female',
-  isGodMode = false,
+  isGodMode: _isGodModeProp = false,
   onMixerLaunch = () => {},
 }: MyRewardsScreenProps) {
   const setScreen = useAppStore((s) => s.setScreen)
@@ -48,7 +48,7 @@ export default function MyRewardsScreen({
       return {
         ...a,
         isUnlocked,
-        isFreshUnlock: isUnlocked && a.supportsMixer && !a.isMixerConsumed,
+        isFreshUnlock: false,
       }
     })
   }, [unlockedIds, updateTrigger])
@@ -79,39 +79,48 @@ export default function MyRewardsScreen({
   }
 
   return (
-    <div className="flex flex-col h-full bg-zinc-50 relative">
-        <div className="shrink-0 flex items-center justify-between px-4 pt-2 pb-1">
-          <button
-            onClick={onBack}
-            className="flex items-center gap-1 text-sm font-bold text-zinc-500 hover:text-zinc-800 transition-colors cursor-pointer active:scale-95"
-          >
-            ← Назад
-          </button>
+    <div className="flex flex-col h-full min-h-screen bg-gradient-to-b from-[#0f111a] via-[#151824] to-[#0f111a] text-white">
+      {/* Header */}
+      <div className="shrink-0 flex items-center justify-between px-4 pt-3 pb-1">
+        <button
+          onClick={onBack}
+          className="flex items-center gap-1 text-sm font-bold text-zinc-400 hover:text-white transition-colors cursor-pointer active:scale-95"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+          </svg>
+          Назад
+        </button>
+      </div>
+
+      {/* Scrollable content */}
+      <div className="flex-1 overflow-y-auto px-4 pb-6 min-h-0 scrollbar-thin space-y-4">
+
+        {/* Title section */}
+        <div className="pt-1">
+          <h1 className="text-[26px] font-black tracking-tight">
+            <span className="bg-gradient-to-r from-amber-200 via-amber-400 to-amber-200 bg-clip-text text-transparent">
+              Зал Славы
+            </span>
+          </h1>
+          <p className="text-sm font-medium text-zinc-500 mt-0.5">
+            Твоя коллекция трофеев за 28 дней курса
+          </p>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-4 pb-4 min-h-0 scrollbar-thin">
-          <div className="mb-4">
-            <h1 className="text-[22px] font-black text-zinc-800">Мои награды</h1>
-            <p className="text-sm font-medium text-zinc-500 mt-0.5">
-              Твой личный зал достижений за 28 дней курса.
-            </p>
-          </div>
+        {/* Stats */}
+        <StatsRow
+          total={achievements.length}
+          unlocked={unlockedCount}
+          xp={totalXp}
+          legendary={legendaryCount}
+          epic={epicCount}
+        />
 
-          <div className="mb-4">
-            <StatsRow
-              total={achievements.length}
-              unlocked={unlockedCount}
-              xp={totalXp}
-              legendary={legendaryCount}
-              epic={epicCount}
-            />
-          </div>
-
-          <div className="mb-2">
-            <FilterChips labels={CATEGORY_FILTER_LABELS} selected={categoryFilter} onSelect={setCategoryFilter} />
-          </div>
-
-          <div className="flex items-center justify-between mb-3 gap-3">
+        {/* Filters */}
+        <div className="space-y-2.5">
+          <FilterChips labels={CATEGORY_FILTER_LABELS} selected={categoryFilter} onSelect={setCategoryFilter} />
+          <div className="flex items-center justify-between gap-3">
             <div className="flex-1">
               <RarityFilter labels={RARITY_FILTER_LABELS} selected={rarityFilter} onSelect={setRarityFilter} />
             </div>
@@ -119,33 +128,35 @@ export default function MyRewardsScreen({
               <ShowUnearnedToggle value={showUnearned} onChange={setShowUnearned} />
             </div>
           </div>
-
-          <div className="grid grid-cols-2 gap-2.5">
-            {filtered.map((achievement) => (
-              <RewardCard
-                key={achievement.id}
-                achievement={achievement}
-                onSelect={setSelectedAchievement}
-              />
-            ))}
-          </div>
-
-          {filtered.length === 0 && (
-            <p className="text-center text-sm text-zinc-400 font-semibold mt-12">
-              Нет ачивок по выбранным фильтрам
-            </p>
-          )}
         </div>
 
-        {selectedAchievement && (
-          <AchievementModal
-            achievement={selectedAchievement}
-            userGender={userGender}
-            isGodMode={isGodMode}
-            onClose={() => setSelectedAchievement(null)}
-            onMixer={handleMixer}
-          />
+        {/* Cards grid */}
+        <div className="grid grid-cols-2 gap-3">
+          {filtered.map((achievement) => (
+            <RewardCard
+              key={achievement.id}
+              achievement={achievement}
+              onSelect={setSelectedAchievement}
+            />
+          ))}
+        </div>
+
+        {filtered.length === 0 && (
+          <p className="text-center text-sm text-zinc-500 font-semibold mt-12">
+            Нет ачивок по выбранным фильтрам
+          </p>
         )}
+      </div>
+
+      {/* Detail modal */}
+      {selectedAchievement && (
+        <AchievementModal
+          achievement={selectedAchievement}
+          userGender={userGender}
+          onClose={() => setSelectedAchievement(null)}
+          onMixer={handleMixer}
+        />
+      )}
     </div>
   )
 }

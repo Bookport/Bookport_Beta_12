@@ -1,19 +1,32 @@
 import React, { useState, useEffect } from "react";
 import { ACHIEVEMENTS } from "../modules/achievements/config/achievementContent";
+import { setGodMode } from "../modules/achievements";
 import { api } from "../utils/api";
 
 export default function AchievementsDebugPanel() {
   const [isVisible, setIsVisible] = useState(false);
   const [dayInput, setDayInput] = useState("");
   const [selectedAch, setSelectedAch] = useState(ACHIEVEMENTS[0]?.id || "");
+  const [godModeOn, setGodModeOn] = useState(false);
 
   useEffect(() => {
     const isDev = process.env.NODE_ENV === "development";
-    const godMode = localStorage.getItem("isGodMode") === "true";
-    if (isDev || godMode) {
+    const lsGodMode = localStorage.getItem("isGodMode") === "true";
+    if (isDev || lsGodMode) {
       setIsVisible(true);
     }
+    if (lsGodMode) {
+      setGodMode(true);
+      setGodModeOn(true);
+    }
   }, []);
+
+  function toggleGodMode() {
+    const next = !godModeOn;
+    setGodMode(next);
+    setGodModeOn(next);
+    localStorage.setItem("isGodMode", String(next));
+  }
 
   if (!isVisible) return null;
 
@@ -65,6 +78,10 @@ export default function AchievementsDebugPanel() {
 
       <button onClick={handleReset} className="w-full py-1.5 bg-red-600 hover:bg-red-500 rounded font-semibold text-white transition-colors">
         Сбросить все ачивки
+      </button>
+
+      <button onClick={toggleGodMode} className={`w-full py-1.5 rounded font-semibold text-white transition-colors ${godModeOn ? 'bg-amber-500 hover:bg-amber-400' : 'bg-zinc-700 hover:bg-zinc-600'}`}>
+        {godModeOn ? 'Выключить God Mode' : 'Включить God Mode'}
       </button>
 
       <div className="flex gap-2 items-end">

@@ -3,13 +3,13 @@ import { motion, AnimatePresence } from 'motion/react'
 import { X } from 'lucide-react'
 import type { Achievement } from '../types'
 import { RARITY_COLORS } from '../types'
-import { getDaysSinceCourseStart } from '../config/AchievementsMixerStore'
+import { isGodModeEnabled } from '../config/achievementsGodMode'
 import { getArtUrl, getBgUrl } from '../utils/imageMap'
 
 interface AchievementModalProps {
   achievement: Achievement
   userGender: 'male' | 'female'
-  isGodMode: boolean
+  isGodMode?: boolean
   onClose: () => void
   onMixer?: (achievement: Achievement) => void
 }
@@ -17,16 +17,24 @@ interface AchievementModalProps {
 export default function AchievementModal({
   achievement,
   userGender,
-  isGodMode,
+  isGodMode: _isGodModeProp,
   onClose,
   onMixer,
 }: AchievementModalProps) {
   const [visible, setVisible] = useState(false)
   const [imgError, setImgError] = useState(false)
   const [bgError, setBgError] = useState(false)
+  const [godMode, setGodMode] = useState(isGodModeEnabled())
 
   useEffect(() => {
     setVisible(true)
+  }, [])
+
+  useEffect(() => {
+    setGodMode(isGodModeEnabled())
+    const handler = () => setGodMode(isGodModeEnabled())
+    window.addEventListener('godmode-changed', handler)
+    return () => window.removeEventListener('godmode-changed', handler)
   }, [])
 
   const {
@@ -50,8 +58,8 @@ export default function AchievementModal({
   const artUrl = image && !imgError ? getArtUrl(image) : undefined
   const bgUrl = background && !bgError ? getBgUrl(background) : undefined
 
-  const showMixer = isGodMode || getDaysSinceCourseStart() >= 3
-  const showLocked = !isUnlocked && !isGodMode
+  const showMixer = isFreshUnlock
+  const showLocked = !isUnlocked && !godMode
   const isPositive = type === 'positive'
 
   function handleClose() {
@@ -185,13 +193,6 @@ export default function AchievementModal({
                   </button>
                 )}
               </div>
-
-              {/* God Mode badge */}
-              {isGodMode && (
-                <p className="text-[10px] text-center text-zinc-400 font-semibold mt-3">
-                  Режим Бога — все ачивки открыты для предпросмотра
-                </p>
-              )}
             </div>
           </motion.div>
         </motion.div>

@@ -23,6 +23,10 @@ class AchievementEngine {
     this.unlockedAchievementIds = []
   }
 
+  setUnlockedIds(ids: string[]): void {
+    this.unlockedAchievementIds = [...ids]
+  }
+
   private saveToStorage(): void {
     // no-op: achievements are now server-driven
   }

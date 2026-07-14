@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useCallback, useRef, useState } from 'react'
 import { motion, AnimatePresence, useAnimate } from 'motion/react'
-import { X, ChevronDown } from 'lucide-react'
-import type { MixerConfig, MixerOutcomeType, MixerIngredient, CookingMethod } from '../types/mixer.types'
+import { X } from 'lucide-react'
+import type { MixerConfig, MixerOutcomeType, CookingMethod } from '../types/mixer.types'
 import { useSlotAnimation } from '../hooks/useSlotAnimation'
 import { useChargeMechanic } from '../hooks/useChargeMechanic'
 import { useMixerLogic } from '../hooks/useMixerLogic'
@@ -9,58 +9,12 @@ import SlotMachine from '../components/SlotMachine'
 import AnnaPanel from '../components/AnnaPanel'
 import NutrientsBlock from '../components/NutrientsBlock'
 import DishResult from '../components/DishResult'
-import { isGodModeEnabled } from '../../achievements/config/achievementsGodMode'
 import { getBgUrl } from '../../achievements/utils/imageMap'
 import { mixerSounds } from '../services/mixerSounds'
 
 interface MixerScreenProps {
   config: MixerConfig
   onClose: () => void
-}
-
-function GodModeChip({
-  selectedIngredients,
-  chargeLevel,
-  onForceOutcome,
-  onSkipSpin,
-  onSkipAll,
-}: {
-  selectedIngredients: MixerIngredient[]
-  chargeLevel: number
-  onForceOutcome: (outcome: MixerOutcomeType) => void
-  onSkipSpin: () => void
-  onSkipAll: () => void
-}) {
-  const [open, setOpen] = useState(false)
-  return (
-    <div className="absolute top-2 left-2 z-40">
-      <button
-        onClick={() => setOpen(!open)}
-        className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-zinc-900/60 backdrop-blur-sm text-[9px] text-amber-400 font-bold hover:bg-zinc-800/80 transition cursor-pointer border border-zinc-700/40"
-      >
-        GM <ChevronDown className={`w-2.5 h-2.5 transition-transform ${open ? 'rotate-180' : ''}`} />
-      </button>
-      {open && (
-        <motion.div
-          initial={{ opacity: 0, y: -4 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mt-1 p-2 rounded-lg bg-zinc-900/85 backdrop-blur-sm border border-zinc-700/40 min-w-[180px]"
-        >
-          <p className="text-[8px] text-zinc-400 mb-1 leading-tight">
-            {selectedIngredients.map((i) => i.name).join(', ')}
-            <br />Заряд: {chargeLevel.toFixed(1)}с
-          </p>
-          <div className="flex flex-wrap gap-1">
-            <button onClick={() => onForceOutcome('A')} className="text-[8px] px-1.5 py-0.5 rounded bg-emerald-700 text-white font-semibold hover:bg-emerald-600 transition cursor-pointer">A</button>
-            <button onClick={() => onForceOutcome('B')} className="text-[8px] px-1.5 py-0.5 rounded bg-red-700 text-white font-semibold hover:bg-red-600 transition cursor-pointer">B</button>
-            <button onClick={() => onForceOutcome('C')} className="text-[8px] px-1.5 py-0.5 rounded bg-violet-700 text-white font-semibold hover:bg-violet-600 transition cursor-pointer">C</button>
-            <button onClick={onSkipSpin} className="text-[8px] px-1.5 py-0.5 rounded bg-amber-700 text-white font-semibold hover:bg-amber-600 transition cursor-pointer">Skip spin</button>
-            <button onClick={onSkipAll} className="text-[8px] px-1.5 py-0.5 rounded bg-sky-700 text-white font-semibold hover:bg-sky-600 transition cursor-pointer">Skip all</button>
-          </div>
-        </motion.div>
-      )}
-    </div>
-  )
 }
 
 const SCENARIO_BAR_GRADIENT: Record<string, string> = {
@@ -292,24 +246,6 @@ export default function MixerScreen({ config, onClose }: MixerScreenProps) {
     timersRef.current.push(t)
   }, [])
 
-  const handleForceOutcome = useCallback(
-    (outcome: MixerOutcomeType) => {
-      mixerSounds.playLineComplete()
-      slotAnim.skipToReveal()
-      mixer.forceResult(outcome, 5)
-      hasTriggeredSpin.current = true
-      annaDoneRef.current = false
-      setShowPostContent(false)
-      setShowAnna(false)
-      setShowNutrients(false)
-      setShowClose(false)
-      spinStartRef.current = Date.now()
-    },
-    [slotAnim, mixer],
-  )
-
-  const showGodMode = isGodModeEnabled()
-
   // Cleanup timers
   useEffect(() => {
     return () => {
@@ -398,25 +334,6 @@ export default function MixerScreen({ config, onClose }: MixerScreenProps) {
                   {/* Light vignette for readability */}
                   <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/20" />
                 </div>
-
-              {/* God Mode — compact top-left */}
-              {showGodMode && (
-                <GodModeChip
-                  selectedIngredients={mixer.ingredients}
-                  chargeLevel={charge.chargeLevel}
-                  onForceOutcome={handleForceOutcome}
-                  onSkipSpin={() => slotAnim.skipToReveal()}
-                  onSkipAll={() => {
-                    mixerSounds.playLineComplete()
-                    slotAnim.skipToReveal()
-                    mixer.triggerSpin(8, selectedMethod || 'braise')
-                    hasTriggeredSpin.current = true
-                    annaDoneRef.current = false
-                    setShowPostContent(false)
-                    setShowClose(false)
-                  }}
-                />
-              )}
 
               {/* Close button */}
               <button

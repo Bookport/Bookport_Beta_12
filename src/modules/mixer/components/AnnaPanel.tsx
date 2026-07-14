@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { motion } from 'motion/react'
 import { resolveAvatarByState, resolveAvatarForCompliance } from '../../../utils/annaAvatarResolver'
 import type { MixerOutcomeType } from '../types/mixer.types'
@@ -19,9 +19,12 @@ export default function AnnaPanel({ text, intensity, onTypingComplete, outcomeTy
   const onCompleteRef = useRef(onTypingComplete)
   onCompleteRef.current = onTypingComplete
 
-  const avatarConfig = outcomeType
-    ? resolveAvatarForCompliance(outcomeType === 'B' ? 1 : 0, ingredientCount || 10)
-    : resolveAvatarByState('Отвечаю', text, intensity)
+  const avatarConfig = useMemo(
+    () => outcomeType
+      ? resolveAvatarForCompliance(outcomeType === 'B' ? 1 : 0, ingredientCount || 10)
+      : resolveAvatarByState('Отвечаю', text, intensity),
+    [outcomeType, ingredientCount, text, intensity]
+  )
 
   useEffect(() => {
     typingRef.current.forEach(clearTimeout)

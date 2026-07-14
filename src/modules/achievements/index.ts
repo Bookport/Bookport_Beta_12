@@ -10,8 +10,8 @@ export {
 
 export { AchievementIntake, achievementIntake } from './engine/AchievementIntake'
 export { ACHIEVEMENTS } from './config/achievementContent'
-export { isGodModeEnabled } from './config/achievementsGodMode'
-export { getDaysSinceCourseStart, setCourseStartTimestamp } from './config/AchievementsMixerStore'
+export { isGodModeEnabled, setGodMode } from './config/achievementsGodMode'
+export { getDaysSinceCourseStart, setCourseStartTimestamp, initFromISOString } from './config/AchievementsMixerStore'
 export { getArtUrl, getBgUrl } from './utils/imageMap'
 export type { Achievement, Rarity, AchievementType } from './types'
 export type { AchievementEvent, AchievementStateSnapshot } from './events'
