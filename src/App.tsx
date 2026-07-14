@@ -55,6 +55,7 @@ import {
   DRINKS_RECIPES,
 } from "./components/BookRecipesScreen";
 import { getFoodProfile, parseWeightGrams } from "./services/DailyNutritionStore";
+import AchievementsDebugPanel from "./components/AchievementsDebugPanel";
 
 const RECIPE_TYPE_TO_ARRAY: Record<string, any[]> = {
   breakfast: BREAKFAST_RECIPES,
@@ -1722,6 +1723,9 @@ export default function App() {
 
         {/* Global Achievement Overlay */}
         <AchievementOverlay userGender={userGender} />
+
+        {/* Developer Debug Panel */}
+        <AchievementsDebugPanel />
 
         {/* MixerScreen overlay */}
         <AnimatePresence>
