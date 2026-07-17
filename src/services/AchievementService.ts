@@ -203,7 +203,7 @@ export class AchievementService {
 
       case "movement:recorded":
       case "state:updated": {
-        const { water = 0, mealCount = 0, sleep = 0, currentDayIndex = 1, dayNotes = {}, movementEntries = [], waterEntries = [] } = payload;
+        const { water = 0, mealCount = 0, sleep = 0, currentDayIndex = 1, dayNotes = {}, movementEntries = [], waterEntries = [], savedDishes = [] } = payload;
         const todayActivity = movementEntries.filter((e: any) => e.dayIndex === currentDayIndex);
         const todayTotalSec = todayActivity.reduce((s: number, e: any) => s + (e.duration || 0), 0);
         this.tryUnlock("ach-048", todayTotalSec >= 1800, newlyUnlocked);
@@ -263,6 +263,80 @@ export class AchievementService {
             }
           }
           this.tryUnlock("ach-010", morningStreak >= 5, newlyUnlocked);
+        }
+
+        // ── Dish checks (replay same logic as dish:saved) ──
+        const nonMixer = savedDishes.filter((d: any) => !d.isMixerGenerated);
+        this.tryUnlock("ach-081", nonMixer.length === 1, newlyUnlocked);
+        this.tryUnlock("ach-083", currentDayIndex === 7, newlyUnlocked);
+        this.tryUnlock("ach-032", nonMixer.length >= 50, newlyUnlocked);
+        if (nonMixer.length > 0) {
+          const firstClean = nonMixer.some((d: any) => d.ingredients?.every((i: any) => i.status === "green"));
+          this.tryUnlock("ach-082", firstClean, newlyUnlocked);
+          const distinctTypes = new Set(nonMixer.map((d: any) => d.tag));
+          this.tryUnlock("ach-026", distinctTypes.size >= 4, newlyUnlocked);
+          const latest = nonMixer[0];
+          const proteinVal = parseFloat(latest.protein) || 0;
+          this.tryUnlock("ach-017", proteinVal >= 30, newlyUnlocked);
+          let broccoliCount = 0;
+          for (const d of nonMixer) {
+            for (const ing of d.ingredients || []) {
+              if (ing.name?.toLowerCase().includes("броккол")) broccoliCount++;
+            }
+          }
+          this.tryUnlock("ach-019", broccoliCount >= 10, newlyUnlocked);
+          let hasManualOverride = false;
+          let hasShockDish = false;
+          let meatDishCount = 0;
+          let hasMayo = false;
+          for (const d of nonMixer) {
+            if (d.ingredients?.some((i: any) => i.manuallyAllowed)) hasManualOverride = true;
+            const lowerNames = (d.ingredients || []).map((i: any) => (i.name || "").toLowerCase());
+            const categories: string[] = [];
+            const hasAnimal = lowerNames.some((n: string) => /мяс|кур|говяд|свинин|баранин|утк|индейк|рыб|кревет/.test(n));
+            if (hasAnimal) categories.push("animal");
+            const hasDairy = lowerNames.some((n: string) => /молок|сливк|сыр|творог|масл/.test(n));
+            if (hasDairy) categories.push("dairy");
+            const hasEgg = lowerNames.some((n: string) => /яйц|яич/.test(n));
+            if (hasEgg) categories.push("egg");
+            if (categories.length >= 2) hasShockDish = true;
+            if (hasAnimal) meatDishCount++;
+            if (lowerNames.some((n: string) => /майонез|кетчуп|соус/.test(n))) hasMayo = true;
+          }
+          this.tryUnlock("ach-064", hasManualOverride, newlyUnlocked);
+          this.tryUnlock("ach-001", hasShockDish, newlyUnlocked);
+          this.tryUnlock("ach-023", meatDishCount >= 5, newlyUnlocked);
+          this.tryUnlock("ach-022", hasMayo, newlyUnlocked);
+          let violationStreak = 0;
+          let perfectStreak = 0;
+          let totalViolations = 0;
+          const chronological = [...nonMixer].reverse();
+          for (const d of chronological) {
+            const isClean = d.ingredients?.every((i: any) => i.status === "green");
+            if (isClean) { perfectStreak++; violationStreak = 0; }
+            else { violationStreak++; totalViolations++; perfectStreak = 0; }
+          }
+          this.tryUnlock("ach-002", violationStreak >= 10, newlyUnlocked);
+          this.tryUnlock("ach-003", perfectStreak >= 3, newlyUnlocked);
+          this.tryUnlock("ach-024", perfectStreak >= 10, newlyUnlocked);
+          this.tryUnlock("ach-004", currentDayIndex >= 30 && totalViolations === 0, newlyUnlocked);
+          const uniqueDays = [...new Set(nonMixer.filter((d: any) => d.dayIndex).map((d: any) => d.dayIndex))].sort((a: number, b: number) => a - b);
+          const last7 = uniqueDays.slice(-7);
+          if (last7.length >= 7) {
+            let meatFree = true, sugarFree = true;
+            for (const day of last7) {
+              const dayDishes = nonMixer.filter((d: any) => d.dayIndex === day);
+              for (const d of dayDishes) {
+                for (const ing of d.ingredients || []) {
+                  const lower = (ing.name || "").toLowerCase();
+                  if (/мяс|кур|говяд|свинин|баранин|индейк|утк|рыб|кревет/.test(lower)) meatFree = false;
+                  if ((lower.includes("сахар") && !lower.includes("сахарозам")) || lower.includes("фруктоз") || lower.includes("глюкоз") || lower.includes("сироп")) sugarFree = false;
+                }
+              }
+            }
+            this.tryUnlock("ach-015", meatFree, newlyUnlocked);
+            this.tryUnlock("ach-016", sugarFree, newlyUnlocked);
+          }
         }
         break;
       }
