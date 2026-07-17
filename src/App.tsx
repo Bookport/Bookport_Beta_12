@@ -1629,7 +1629,7 @@ export default function App() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute bottom-[104px] left-4 right-4 z-40 flex flex-col gap-2 pointer-events-none select-none"
+              className="absolute bottom-[104px] left-4 right-4 top-4 z-40 flex flex-col gap-2"
               id="anna-local-overlay-panel"
             >
               {/* Context Pill (Indicator of active screen being analyzed) */}
@@ -1663,7 +1663,7 @@ export default function App() {
 
               {/* Stack of Floating Chat Bubbles */}
               <div 
-                className="w-full flex flex-col gap-2.5 max-h-[300px] overflow-y-auto no-scrollbar justify-end pointer-events-none pr-1"
+                className="w-full flex flex-col gap-2.5 max-h-[300px] overflow-y-auto flex-1 min-h-0 pr-1"
                 id="anna-overlay-bubble-stack"
                 ref={(el) => {
                   if (el) {

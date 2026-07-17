@@ -13,7 +13,7 @@ function getDashClient(): OpenAI {
 }
 
 const PRIMARY_MODEL = "qwen-vl-plus";
-const FALLBACK_MODEL = "qwen-vl-max";
+const FALLBACK_MODEL = "qwen3-vl-plus";
 
 export async function analyzeFoodImage(
   imageBase64: string,

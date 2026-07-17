@@ -48,7 +48,7 @@ function normalizeContents(contents: any): Array<{ role: string; content: any }>
 
 async function callDashScope(payload: any) {
   const config = payload.config || {};
-  const modelName = payload.model || "qwen3.5-plus";
+  const modelName = payload.model || "qwen3.7-plus";
   const tools = payload.tools;
   const toolChoice = payload.tool_choice;
 

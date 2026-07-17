@@ -37,7 +37,7 @@ const USDA_API_KEY = "ywYviAkfdnK8u2Sn19fMG7Kvmje8y2Bd66Hi2hlN";
 
 // Robust wrapper with automatic model cascade fallback
 async function generateContentWithFallback(payload: any) {
-  const models = ["qwen3.5-plus", "qwen-plus"];
+  const models = ["qwen3.7-plus", "qwen3.6-flash"];
   let lastError: any = null;
 
   for (const modelName of models) {
