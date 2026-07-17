@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { motion } from "motion/react";
 import BottomBar from "./BottomBar";
 import { 
@@ -17,25 +17,17 @@ import {
 } from "lucide-react";
 import BriefNoteBlock from "./BriefNoteBlock";
 import { resolveAvatar } from "../utils/annaAvatarResolver";
+import { useAppStore, type MovementEntry } from "../store/useAppStore";
 
 const annaAvatarSrc = resolveAvatar({ toneGroup: 'positive', intent: 'approval' }).src;
 
-export interface MovementLogEntry {
-  id: string;
-  dayIndex: number;
-  activityType: string; // e.g. "Прогулка", "Растяжка", "Иога"
-  durationSeconds: number; // actual seconds
-  timestamp: number;
-  timeString: string; // "14:15"
-}
+export type { MovementEntry as MovementLogEntry } from "../store/useAppStore";
 
 interface MovementDetailsScreenProps {
   currentDayIndex: number;
   userName: string;
   userGender: "female" | "male";
   onBack: () => void;
-  movementLogs: Record<number, MovementLogEntry[]>;
-  setMovementLogs: React.Dispatch<React.SetStateAction<Record<number, MovementLogEntry[]>>>;
 
   // Day notes
   dayNotes: Record<number, { text: string; time: string; source?: string; tags?: string[]; isVoice?: boolean }[]>;
@@ -149,16 +141,18 @@ export default function MovementDetailsScreen({
   userName,
   userGender,
   onBack,
-  movementLogs,
-  setMovementLogs,
   dayNotes,
   setDayNotes
 }: MovementDetailsScreenProps) {
+  const movementEntries = useAppStore((s) => s.movementEntries);
   const [selectedGraphDay, setSelectedGraphDay] = useState<number>(currentDayIndex);
   const [noteSavedOrSkipped, setNoteSavedOrSkipped] = useState(false);
 
   // Daily physical target: 30 minutes of logged activity in minutes
   const dailyTargetMin = 30;
+
+  const getDayEntries = (day: number) =>
+    movementEntries.filter((e: MovementEntry) => e.dayIndex === day);
 
   const handleSaveMovementNote = (noteText: string, selectedTags: string[], isVoice: boolean) => {
     if (!noteText.trim() && selectedTags.length === 0) return;
@@ -187,9 +181,9 @@ export default function MovementDetailsScreen({
   // Initial movement logs are passed as props, defaulting to {} from parent
 
   // Calculations for current selected day
-  const todayEntries = movementLogs[currentDayIndex] || [];
-  const selectedDayEntries = movementLogs[selectedGraphDay] || [];
-  const selectedDayTotalSec = selectedDayEntries.reduce((sum, entry) => sum + entry.durationSeconds, 0);
+  const todayEntries = getDayEntries(currentDayIndex);
+  const selectedDayEntries = getDayEntries(selectedGraphDay);
+  const selectedDayTotalSec = selectedDayEntries.reduce((sum, entry) => sum + entry.duration, 0);
   const selectedDayTotalMin = Math.round(selectedDayTotalSec / 60);
   const selectedDayCount = selectedDayEntries.length;
   const selectedDayPercent = Math.min(100, Math.round((selectedDayTotalMin / dailyTargetMin) * 100));
@@ -207,19 +201,20 @@ export default function MovementDetailsScreen({
     const favoriteTypeCounts: Record<string, { duration: number; count: number }> = {};
 
     for (let day = 1; day <= currentDayIndex; day++) {
-      const entries = movementLogs[day] || [];
+      const entries = getDayEntries(day);
       if (entries.length > 0) {
         daysWithMovement++;
-        const seconds = entries.reduce((s, e) => s + e.durationSeconds, 0);
+        const seconds = entries.reduce((s, e) => s + e.duration, 0);
         totalMinutesAllDays += seconds / 60;
         totalSessions += entries.length;
 
         entries.forEach(e => {
-          if (!favoriteTypeCounts[e.activityType]) {
-            favoriteTypeCounts[e.activityType] = { duration: 0, count: 0 };
+          const t = e.type;
+          if (!favoriteTypeCounts[t]) {
+            favoriteTypeCounts[t] = { duration: 0, count: 0 };
           }
-          favoriteTypeCounts[e.activityType].duration += e.durationSeconds / 60;
-          favoriteTypeCounts[e.activityType].count += 1;
+          favoriteTypeCounts[t].duration += e.duration / 60;
+          favoriteTypeCounts[t].count += 1;
         });
       }
     }
@@ -238,7 +233,7 @@ export default function MovementDetailsScreen({
     let currentStreak = 0;
     let maxStreak = 0;
     for (let day = 1; day <= currentDayIndex; day++) {
-      const entries = movementLogs[day] || [];
+      const entries = getDayEntries(day);
       if (entries.length > 0) {
         currentStreak++;
         if (currentStreak > maxStreak) maxStreak = currentStreak;
@@ -262,7 +257,7 @@ export default function MovementDetailsScreen({
 
   // Create personalized dynamic Anna coaching statements
   const getAnnaMovementCoaching = () => {
-    const todayTotalMin = Math.round(todayEntries.reduce((sum, e) => sum + e.durationSeconds, 0) / 60);
+    const todayTotalMin = Math.round(todayEntries.reduce((sum, e) => sum + e.duration, 0) / 60);
     const pronouns = userGender === "male" ? "дорогой" : "дорогая";
 
     if (todayTotalMin === 0) {
@@ -347,7 +342,7 @@ export default function MovementDetailsScreen({
               <span className="text-[11px] text-slate-500 font-bold block mb-1">Всего времени</span>
               <div className="flex items-baseline gap-1">
                 <span className="text-[26px] font-black text-indigo-950 font-mono">
-                  {Math.round(todayEntries.reduce((sum, e) => sum + e.durationSeconds, 0) / 60)}
+                  {Math.round(todayEntries.reduce((sum, e) => sum + e.duration, 0) / 60)}
                 </span>
                 <span className="text-[14px] font-bold text-slate-600">минут</span>
               </div>
@@ -402,13 +397,13 @@ export default function MovementDetailsScreen({
                 <div className="text-left">
                   <span className="text-[11px] block font-semibold text-slate-400 uppercase tracking-widest leading-none">ПОСЛЕДНЯЯ ЗАПИСЬ</span>
                   <span className="text-[14px] font-bold text-slate-800">
-                    {todayEntries[todayEntries.length - 1].activityType}
+                    {todayEntries[todayEntries.length - 1].type}
                   </span>
                 </div>
               </div>
               <div className="text-right">
                 <span className="text-[14px] font-black font-mono text-indigo-700">
-                  {Math.round(todayEntries[todayEntries.length - 1].durationSeconds / 60)} мин
+                  {Math.round(todayEntries[todayEntries.length - 1].duration / 60)} мин
                 </span>
                 <span className="text-[10px] block text-slate-400 font-bold">
                   в {todayEntries[todayEntries.length - 1].timeString}
@@ -484,8 +479,8 @@ export default function MovementDetailsScreen({
                 const active = dayNum === selectedGraphDay;
                 const isFuture = dayNum > currentDayIndex;
                 
-                const entries = movementLogs[dayNum] || [];
-                const dMinutes = Math.round(entries.reduce((s, e) => s + e.durationSeconds, 0) / 60);
+                const entries = getDayEntries(dayNum);
+                const dMinutes = Math.round(entries.reduce((s, e) => s + e.duration, 0) / 60);
                 
                 // Height percentage bound between 8% and 100%
                 let heightPct = 6;
@@ -550,10 +545,10 @@ export default function MovementDetailsScreen({
                     >
                       <div className="flex items-center gap-2">
                         <span className="text-base">🏃</span>
-                        <span className="font-extrabold text-slate-800">{entry.activityType}</span>
+                        <span className="font-extrabold text-slate-800">{entry.type}</span>
                       </div>
                       <div className="font-mono text-indigo-700 font-bold flex items-center gap-1.5">
-                        <span>{Math.round(entry.durationSeconds / 60)} мин</span>
+                        <span>{Math.round(entry.duration / 60)} мин</span>
                         <span className="text-slate-300 text-[11px] font-semibold font-sans">
                           в {entry.timeString}
                         </span>

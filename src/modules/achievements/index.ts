@@ -1,17 +1,11 @@
 export {
   initializeAchievementSystem,
   ingestAchievementEvent,
-  getUnlockedAchievementIds,
-  isAchievementUnlocked,
-  findAchievement,
-  getAchievementQueueLength,
-  disposeAchievementSystem,
 } from './api'
 
-export { AchievementIntake, achievementIntake } from './engine/AchievementIntake'
 export { ACHIEVEMENTS } from './config/achievementContent'
 export { isGodModeEnabled, setGodMode } from './config/achievementsGodMode'
-export { getDaysSinceCourseStart, setCourseStartTimestamp, initFromISOString } from './config/AchievementsMixerStore'
+export { initFromISOString } from './config/AchievementsMixerStore'
 export { getArtUrl, getBgUrl } from './utils/imageMap'
 export type { Achievement, Rarity, AchievementType } from './types'
 export type { AchievementEvent, AchievementStateSnapshot } from './events'

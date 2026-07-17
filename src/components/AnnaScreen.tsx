@@ -317,6 +317,10 @@ export default function AnnaScreen(props: AnnaScreenProps) {
   const handleSendText = () => {
     if (!typedInput.trim()) return;
     interruptAnnaSpeech();
+    api('/api/achievements/track', { method: 'POST', body: { type: 'anna_chat', payload: {} } });
+    setTimeout(() => {
+       if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('anna_chat_tracked'));
+    }, 500);
     const userText = typedInput.trim();
     setTypedInput("");
     const userMsgId = `msg-user-${Date.now()}`;

@@ -50,10 +50,12 @@ export interface SleepEntry {
 }
 
 export interface MovementEntry {
+  id: string;
   type: string;
   duration: number;
   dayIndex: number;
   timestamp: number;
+  timeString: string;
 }
 
 export interface MeasurementEntry {
@@ -123,6 +125,7 @@ interface AppState {
   setWaterEntries: (entries: WaterEntry[]) => void;
   setSleepEntries: (entries: SleepEntry[]) => void;
   setMovementEntries: (entries: MovementEntry[]) => void;
+  addMovementEntry: (entry: MovementEntry) => void;
   setMeasurementEntries: (entries: MeasurementEntry[]) => void;
   setDigestionEntries: (entries: DigestionEntry[]) => void;
   setRecipeState: (type: string, state: RecipeState) => void;
@@ -174,6 +177,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   setWaterEntries: (entries) => set({ waterEntries: entries }),
   setSleepEntries: (entries) => set({ sleepEntries: entries }),
   setMovementEntries: (entries) => set({ movementEntries: entries }),
+  addMovementEntry: (entry) => set((s) => ({ movementEntries: [...s.movementEntries, entry] })),
   setMeasurementEntries: (entries) => set({ measurementEntries: entries }),
   setDigestionEntries: (entries) => set({ digestionEntries: entries }),
   setRecipeState: (type, state) =>

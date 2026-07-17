@@ -32,6 +32,7 @@ model User {
   lastActiveDate    DateTime?
   ritualTime        String?  @default("21:00")
   lastAchievementUnlockedAt DateTime?
+
   pendingAchievementId      String?
   constructorCount          Int      @default(0)
   scanCount                 Int      @default(0)
@@ -39,6 +40,10 @@ model User {
   shareCount                Int      @default(0)
   feedbackCount             Int      @default(0)
   clickCount                Int      @default(0)
+  compositionViewLog        String?  @default("[]")
+  annaDislikeCount          Int      @default(0)
+  annaChatCount             Int      @default(0)
+
 
   dailyMetrics        DailyMetric[]
   dailyRatings        DailyRating[]

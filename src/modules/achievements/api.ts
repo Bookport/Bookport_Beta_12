@@ -1,8 +1,5 @@
 import type { AchievementEvent, AchievementStateSnapshot } from './events'
-import type { Achievement } from './types'
 import { clientLogger } from '../../utils/clientLogger'
-
-let pendingAchievements: string[] = []
 
 export function initializeAchievementSystem(): void {
   clientLogger.info('Achievement system initialized (server-driven)')
@@ -21,7 +18,6 @@ export async function ingestAchievementEvent(event: AchievementEvent): Promise<v
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
     const data = await resp.json()
     if (data.unlocked?.length > 0) {
-      pendingAchievements.push(...data.unlocked)
       if (typeof window !== 'undefined') {
         for (const id of data.unlocked) {
           window.dispatchEvent(new CustomEvent('show-achievement-overlay', { detail: { id } }))
@@ -31,26 +27,6 @@ export async function ingestAchievementEvent(event: AchievementEvent): Promise<v
   } catch (err: any) {
     clientLogger.error('Achievement check failed', err, { source: 'achievements' })
   }
-}
-
-export function getUnlockedAchievementIds(): string[] {
-  return [...pendingAchievements]
-}
-
-export function isAchievementUnlocked(_id: string): boolean {
-  return false
-}
-
-export function findAchievement(_id: string): Achievement | undefined {
-  return undefined
-}
-
-export function getAchievementQueueLength(): number {
-  return pendingAchievements.length
-}
-
-export function disposeAchievementSystem(): void {
-  pendingAchievements = []
 }
 
 function actionFromEvent(event: AchievementEvent): string | null {
@@ -83,6 +59,9 @@ function buildPayload(event: AchievementEvent): Record<string, any> {
       waterEntries: s.waterEntries || [],
       sleepLogs: s.sleepLogs || [],
       clickCount: s.clickCount || 0,
+      localHour: new Date().getHours(),
+      localTime: new Date().toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" }),
+      movementEntries: s.movementEntries || [],
     }
   }
   return {}

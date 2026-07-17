@@ -1,9 +1,10 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Utensils, Clock, Flame } from "lucide-react";
 import { motion } from "motion/react";
 import AnnaTabSpoiler from "./AnnaTabSpoiler";
 import { NextStepRecommendation } from "../../utils/nextStepEngine";
 import IngredientCollage from "../IngredientCollage";
+import { ingestAchievementEvent } from "../../modules/achievements";
 
 interface CompositionTabProps {
   key?: any;
@@ -49,6 +50,16 @@ export default function CompositionTab({
   recommendedAction,
 }: CompositionTabProps) {
   const totalMass = aggregatedIngredients.reduce((acc, curr) => acc + curr.weight, 0);
+
+  useEffect(() => {
+    // legacy block 1 event
+    ingestAchievementEvent({ type: 'ingredient:card_viewed' });
+    // block 4 event
+    import('../../utils/api').then(({ api }) => {
+      api('/api/achievements/track', { method: 'POST', body: { type: 'composition_view', payload: {} } });
+      setTimeout(() => ingestAchievementEvent({ type: 'composition_view' } as any), 500);
+    });
+  }, [])
 
   return (
     <motion.div

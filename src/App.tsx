@@ -34,7 +34,6 @@ import { SystemKeysStore } from "./services/SystemKeysStore";
 import {
   initializeAchievementSystem,
   ingestAchievementEvent,
-  getUnlockedAchievementIds,
   initFromISOString,
   AchievementOverlay,
   MyRewardsScreen,
@@ -940,9 +939,9 @@ export default function App() {
   const [savedDishes, setSavedDishes] = useState<SavedDish[]>([]);
 
   // ─── ACHIEVEMENT SNAPSHOT INGESTION ────────────────────────────
-  const lastSnapshotRef = useRef('')
-  useEffect(() => {
-    // Read water entries from localStorage (populated by MyDayScreen)
+  const buildSnapshot = (): AchievementStateSnapshot => {
+    const storeState = useAppStore.getState()
+    // Read water/sleep from localStorage (populated by MyDayScreen)
     let allWaterEntries: AchievementStateSnapshot['waterEntries'] = []
     try {
       const raw = localStorage.getItem('wfpb_daily_water_entries_v3')
@@ -955,13 +954,12 @@ export default function App() {
       const sleepCache: Record<number, { dayIndex: number; sleepTime: string; duration: number; quality?: string }> = sleepRaw ? JSON.parse(sleepRaw) : {}
       allSleepLogs = Object.values(sleepCache)
     } catch {}
-
-    const snapshot: AchievementStateSnapshot = {
+    return {
       savedDishes,
       water,
       sleep,
       mealCount,
-      clickCount,
+      clickCount: storeState.clickCount,
       habitsDone,
       currentDayIndex,
       dayNotes,
@@ -972,13 +970,32 @@ export default function App() {
       overlayState: overlayStateRef.current,
       waterEntries: allWaterEntries,
       sleepLogs: allSleepLogs,
+      movementEntries: storeState.movementEntries.map((e) => ({ dayIndex: e.dayIndex, duration: e.duration, type: e.type, timestamp: e.timestamp })),
     }
+  }
+
+  // Zustand subscribe — fires on any store change (movement, clickCount, etc.)
+  const lastSnapshotRef = useRef('')
+  useEffect(() => {
+    const unsub = useAppStore.subscribe(() => {
+      const snapshot = buildSnapshot()
+      const json = JSON.stringify(snapshot)
+      if (json === lastSnapshotRef.current) return
+      lastSnapshotRef.current = json
+      ingestAchievementEvent({ type: 'state:updated', snapshot })
+    })
+    return unsub
+  }, [])
+
+  // React deps — fires on React state changes (water, sleep, savedDishes, etc.)
+  useEffect(() => {
+    const snapshot = buildSnapshot()
     const json = JSON.stringify(snapshot)
     if (json === lastSnapshotRef.current) return
     lastSnapshotRef.current = json
     ingestAchievementEvent({ type: 'state:updated', snapshot })
   }, [
-    savedDishes, water, sleep, mealCount, clickCount, habitsDone,
+    savedDishes, water, sleep, mealCount, habitsDone,
     currentDayIndex, dayNotes, weight, systolic, initialWeight, initialSystolic, overlayState,
   ])
 

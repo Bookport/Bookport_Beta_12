@@ -2379,7 +2379,55 @@ async function checkBackgroundAchievements(userId, eventType, data) {
         logger.warn("[Achievements] DB unavailable, using in-memory state:", dbErr.message);
       }
 
-      const result = await achievementService.check({ action, payload });
+      // Fetch historical data for multi-day achievement checks (non-blocking)
+      let dbMetrics: any[] = [];
+      let dbDishes: any[] = [];
+      let dbEveningRituals: any[] = [];
+      try {
+        const maxDay = Math.max(user.currentDayIndex || 1, 30);
+        dbMetrics = await prisma.dailyMetric.findMany({
+          where: { userId: req.userId, dayIndex: { gte: Math.max(1, maxDay - 30) } },
+          orderBy: { dayIndex: 'asc' },
+        });
+        dbDishes = await prisma.savedDish.findMany({
+          where: { userId: req.userId },
+          orderBy: { createdAt: 'desc' },
+          take: 500,
+        });
+        dbEveningRituals = await prisma.eveningRitual.findMany({
+          where: { userId: req.userId, dayIndex: { gte: Math.max(1, maxDay - 30) } },
+          orderBy: { dayIndex: 'asc' },
+        });
+      } catch (dbErr: any) {
+        logger.warn("[Achievements] Failed to fetch historical data:", dbErr.message);
+      }
+      
+      let dbRatings: any[] = [];
+      let dbChats: any[] = [];
+      try {
+        dbRatings = await prisma.dailyRating.findMany({
+          where: { userId: req.userId },
+        });
+        dbChats = await prisma.annaChat.findMany({
+          where: { userId: req.userId, reply: { not: null } },
+          orderBy: { createdAt: 'desc' },
+          take: 20
+        });
+      } catch(e) {}
+
+      const enrichedPayload = {
+        ...(payload || {}),
+        _dbUser: { weight: user.weight, initialWeight: user.initialWeight, currentDayIndex: user.currentDayIndex },
+        _dbMetrics: dbMetrics,
+        _dbDishes: dbDishes,
+        _dbEveningRituals: dbEveningRituals,
+        _dbRatings: dbRatings,
+        
+        _dbUserFull: user,
+        _dbChats: dbChats,
+      };
+
+      const result = await achievementService.check({ action, payload: enrichedPayload });
 
       // Save newly unlocked achievements to DB silently
       if (result.unlocked.length > 0) {
@@ -2428,6 +2476,18 @@ async function checkBackgroundAchievements(userId, eventType, data) {
       else if (type === "chapter_read") updateData.chapterReadCount = { increment: 1 };
       else if (type === "share") updateData.shareCount = { increment: 1 };
       else if (type === "feedback") updateData.feedbackCount = { increment: 1 };
+      else if (type === "composition_view") {
+        const u = await prisma.user.findUnique({ where: { id: req.userId }});
+        if (u) {
+           let views = [];
+           try { views = JSON.parse(u.compositionViewLog || "[]"); } catch {}
+           views.push(payload?.dayIndex || u.currentDayIndex);
+           updateData.compositionViewLog = JSON.stringify(views);
+        }
+      }
+      else if (type === "anna_dislike") updateData.annaDislikeCount = { increment: 1 };
+      else if (type === "anna_chat") updateData.annaChatCount = { increment: 1 };
+      else if (type === "time_capsule_saved") { /* handled via state updated later, or we can just track */ }
       else if (type === "mixer_spin") {
          // Payload holds mixer data. We evaluate ach-075 here.
          if (payload && payload.hasAutoReleased === true && payload.outcomeType === 'perfect') {

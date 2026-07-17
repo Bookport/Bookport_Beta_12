@@ -53,7 +53,7 @@ import BottomBar from "./BottomBar";
 import CalendarButton from "./CalendarButton";
 import WaterDetailsScreen from "./WaterDetailsScreen";
 import SleepDetailsScreen, { SleepLogEntry } from "./SleepDetailsScreen";
-import MovementDetailsScreen, { MovementLogEntry, ACTIVITY_CONFIGS } from "./MovementDetailsScreen";
+import MovementDetailsScreen, { ACTIVITY_CONFIGS } from "./MovementDetailsScreen";
 import MeasurementsDetailsScreen, { MeasurementLogEntry } from "./MeasurementsDetailsScreen";
 import DigestionScreen, { DigestionLogEntry, BristolIcon } from "./DigestionScreen";
 
@@ -187,7 +187,16 @@ export default function MyDayScreen({
         if (d?.dailyMetric?.movementLog) {
           try {
             const parsed = JSON.parse(d.dailyMetric.movementLog);
-            setMovementLogs(prev => ({ ...prev, [currentDayIndex]: parsed }));
+            const converted = (Array.isArray(parsed) ? parsed : []).map((e: any) => ({
+              id: e.id || `m-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+              type: e.activityType || e.type || '',
+              duration: e.durationSeconds || e.duration || 0,
+              dayIndex: currentDayIndex,
+              timestamp: e.timestamp || Date.now(),
+              timeString: e.timeString || '',
+            }));
+            const prev = useAppStore.getState().movementEntries.filter((me: any) => me.dayIndex !== currentDayIndex);
+            setMovementEntriesStore([...prev, ...converted]);
           } catch (e) {
             console.error("Failed to parse movementLog:", e);
           }
@@ -411,7 +420,9 @@ export default function MyDayScreen({
   const sleepIsLongPressedRef = React.useRef<boolean>(false);
 
   // --- MOVEMENT MODULE STATE ---
-  const [movementLogs, setMovementLogs] = useState<Record<number, MovementLogEntry[]>>({});
+  const movementEntries = useAppStore((s) => s.movementEntries);
+  const addMovementEntry = useAppStore((s) => s.addMovementEntry);
+  const setMovementEntriesStore = useAppStore((s) => s.setMovementEntries);
 
   const [showMovementDetails, setShowMovementDetails] = useState(false);
   const [showFastMovement, setShowFastMovement] = useState(false);
@@ -863,26 +874,20 @@ export default function MyDayScreen({
     const min = new Date().getMinutes().toString().padStart(2, "0");
     const timeStr = `${hour}:${min}`;
 
-    const newLogEntry: MovementLogEntry = {
+    const newLogEntry = {
       id: `m-log-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
       dayIndex: currentDayIndex,
-      activityType: activeActivity,
-      durationSeconds: durationSeconds,
+      type: activeActivity,
+      duration: durationSeconds,
       timestamp: nowStamp,
-      timeString: timeStr
+      timeString: timeStr,
     };
 
-    const updatedLogs = { ...movementLogs };
-    if (!updatedLogs[currentDayIndex]) {
-      updatedLogs[currentDayIndex] = [];
-    }
-    updatedLogs[currentDayIndex].push(newLogEntry);
-
-    setMovementLogs(updatedLogs);
+    addMovementEntry(newLogEntry);
 
     // Persist movement log + total activity minutes to DB (fire-and-forget)
-    const allLogsToday = [...(movementLogs[currentDayIndex] || []), newLogEntry];
-    const totalActivityMin = Math.round(allLogsToday.reduce((sum, e) => sum + e.durationSeconds, 0) / 60);
+    const allLogsToday = [...movementEntries.filter((e: any) => e.dayIndex === currentDayIndex), newLogEntry];
+    const totalActivityMin = Math.round(allLogsToday.reduce((sum, e) => sum + e.duration, 0) / 60);
     api("/api/metrics/daily", {
       method: "POST",
       body: {
@@ -1763,9 +1768,9 @@ export default function MyDayScreen({
   const srcSleep = (dbMetric?.sleepMinutes ?? 0) + sleep;
   const srcMeal = (dbMetric?.mealCount ?? 0) + mealCount;
 
-  const todayActivityLogs = movementLogs[currentDayIndex] || [];
+  const todayActivityLogs = movementEntries.filter((e: any) => e.dayIndex === currentDayIndex);
   const srcActivity = (dbMetric?.activityMinutes ?? 0)
-    + Math.round(todayActivityLogs.reduce((sum, e) => sum + e.durationSeconds, 0) / 60);
+    + Math.round(todayActivityLogs.reduce((sum, e) => sum + e.duration, 0) / 60);
 
   const planOfDayPercent = calculateIntegralScore({
     waterMl: srcWater,
@@ -1909,8 +1914,6 @@ export default function MyDayScreen({
         userName={userName}
         userGender={userGender}
         onBack={() => setShowMovementDetails(false)}
-        movementLogs={movementLogs}
-        setMovementLogs={setMovementLogs}
         dayNotes={dayNotes}
         setDayNotes={setDayNotes}
       />
