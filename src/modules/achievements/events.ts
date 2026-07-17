@@ -28,6 +28,7 @@ export interface AchievementStateSnapshot {
   initialSystolic: number
   overlayState: string | null
   waterEntries?: { amount: number; time: string; timestamp: number }[]
+  sleepLogs?: { dayIndex: number; sleepTime: string; duration: number; quality?: string }[]
 }
 
 export type AchievementEvent =

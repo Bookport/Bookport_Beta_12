@@ -81,6 +81,7 @@ function buildPayload(event: AchievementEvent): Record<string, any> {
       initialWeight: s.initialWeight || 0,
       initialSystolic: s.initialSystolic || 0,
       waterEntries: s.waterEntries || [],
+      sleepLogs: s.sleepLogs || [],
       clickCount: s.clickCount || 0,
     }
   }

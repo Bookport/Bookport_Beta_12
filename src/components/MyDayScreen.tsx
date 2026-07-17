@@ -221,6 +221,23 @@ export default function MyDayScreen({
           allLogs[currentDayIndex] = dbWaterEntries;
           localStorage.setItem('wfpb_daily_water_entries_v3', JSON.stringify(allLogs));
         } catch {}
+        // Load sleep logs from DB into localStorage cache
+        try {
+          const dbSleep = d?.dailyMetric?.sleepLogs;
+          if (dbSleep) {
+            const parsedSleep = typeof dbSleep === 'string' ? JSON.parse(dbSleep) : dbSleep;
+            if (Array.isArray(parsedSleep)) {
+              const sleepRaw = localStorage.getItem('wfpb_daily_sleep_logs_v1');
+              const sleepCache = sleepRaw ? JSON.parse(sleepRaw) : {};
+              for (const entry of parsedSleep) {
+                if (entry.dayIndex !== undefined) {
+                  sleepCache[entry.dayIndex] = entry;
+                }
+              }
+              localStorage.setItem('wfpb_daily_sleep_logs_v1', JSON.stringify(sleepCache));
+            }
+          }
+        } catch {}
         // Load measurements from DB (source of truth for historical analytics)
         if (d?.dailyMetric?.measurements) {
           try {
@@ -1223,6 +1240,14 @@ export default function MyDayScreen({
       quality
     };
     persistSleepLog(currentDayIndex, entry);
+
+    // Sync sleep logs to localStorage cache (for achievement snapshot)
+    try {
+      const sleepRaw = localStorage.getItem('wfpb_daily_sleep_logs_v1');
+      const sleepCache = sleepRaw ? JSON.parse(sleepRaw) : {};
+      sleepCache[currentDayIndex] = entry;
+      localStorage.setItem('wfpb_daily_sleep_logs_v1', JSON.stringify(sleepCache));
+    } catch {}
 
     // Persist sleep metric to DB (fire-and-forget)
     api("/api/metrics/daily", {

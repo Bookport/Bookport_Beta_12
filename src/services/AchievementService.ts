@@ -203,7 +203,7 @@ export class AchievementService {
 
       case "movement:recorded":
       case "state:updated": {
-        const { water = 0, mealCount = 0, sleep = 0, currentDayIndex = 1, dayNotes = {}, movementEntries = [], waterEntries = [], savedDishes = [] } = payload;
+        const { water = 0, mealCount = 0, sleep = 0, currentDayIndex = 1, dayNotes = {}, movementEntries = [], waterEntries = [], savedDishes = [], sleepLogs = [] } = payload;
         const todayActivity = movementEntries.filter((e: any) => e.dayIndex === currentDayIndex);
         const todayTotalSec = todayActivity.reduce((s: number, e: any) => s + (e.duration || 0), 0);
         this.tryUnlock("ach-048", todayTotalSec >= 1800, newlyUnlocked);
@@ -337,6 +337,19 @@ export class AchievementService {
             this.tryUnlock("ach-015", meatFree, newlyUnlocked);
             this.tryUnlock("ach-016", sugarFree, newlyUnlocked);
           }
+        }
+
+        // ── Sleep checks (replay same logic as sleep:recorded) ──
+        const sortedSleep = [...sleepLogs].sort((a: any, b: any) => (a.sleepTime || "").localeCompare(b.sleepTime || ""));
+        this.tryUnlock("ach-041", sortedSleep.length === 1, newlyUnlocked);
+        if (sortedSleep.length > 0) {
+          const latest = sortedSleep[sortedSleep.length - 1];
+          this.tryUnlock("ach-039", (latest.sleepTime || "") <= "22:00", newlyUnlocked);
+          const hour = parseInt((latest.sleepTime || "").split(":")[0], 10);
+          this.tryUnlock("ach-040", !isNaN(hour) && hour >= 2 && hour <= 4, newlyUnlocked);
+          const last3 = sortedSleep.slice(-3);
+          this.tryUnlock("ach-037", last3.length >= 3 && last3.every((e: any) => e.duration >= 480), newlyUnlocked);
+          this.tryUnlock("ach-043", last3.length >= 3 && last3.every((e: any) => e.duration < 300), newlyUnlocked);
         }
         break;
       }

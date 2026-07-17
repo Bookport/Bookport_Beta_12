@@ -949,6 +949,12 @@ export default function App() {
       const allLogs: Record<number, { amount: number; time: string; timestamp: number }[]> = raw ? JSON.parse(raw) : {}
       allWaterEntries = Object.values(allLogs).flat()
     } catch {}
+    let allSleepLogs: AchievementStateSnapshot['sleepLogs'] = []
+    try {
+      const sleepRaw = localStorage.getItem('wfpb_daily_sleep_logs_v1')
+      const sleepCache: Record<number, { dayIndex: number; sleepTime: string; duration: number; quality?: string }> = sleepRaw ? JSON.parse(sleepRaw) : {}
+      allSleepLogs = Object.values(sleepCache)
+    } catch {}
 
     const snapshot: AchievementStateSnapshot = {
       savedDishes,
@@ -965,6 +971,7 @@ export default function App() {
       initialSystolic,
       overlayState: overlayStateRef.current,
       waterEntries: allWaterEntries,
+      sleepLogs: allSleepLogs,
     }
     const json = JSON.stringify(snapshot)
     if (json === lastSnapshotRef.current) return
