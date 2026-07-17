@@ -35,33 +35,16 @@ export const ANNA_TOOL_DEFINITIONS = [
   {
     type: "function" as const,
     function: {
-      name: "get_cooked_dishes",
-      description: "Получить уже приготовленные и сохранённые блюда из раздела 'Мои блюда'. Это блюда из фото, 'собери сам' и книги. Используй, когда пользователь спрашивает что он уже приготовил или что лежит в его блюдах.",
+      name: "get_dishes",
+      description: "Получить сохранённые/приготовленные блюда пользователя (из фото, 'собери сам', книги, mixer). Используй когда спрашивают о блюдах, избранном, категориях, составе 'Мои блюда', что приготовлено.",
       parameters: {
         type: "object" as const,
         properties: {
           category: { type: "string", description: "Категория (например Завтраки, Салаты, Книга)" },
-          sourceType: { type: "string", description: "Источник блюда: book, photo, custom, mixer и т.д." },
-          isBookRecipe: { type: "boolean", description: "Только блюда из книги (true/false)" },
-          isFavorite: { type: "boolean", description: "Только избранное (true/false)" },
-          limit: { type: "number", description: "Максимум результатов, по умолчанию 15" },
-        },
-      },
-    },
-  },
-  {
-    type: "function" as const,
-    function: {
-      name: "get_saved_dishes",
-      description: "Получить сохранённые блюда пользователя. Используй когда спрашивают о блюдах, избранном, категориях и составе 'Мои блюда'.",
-      parameters: {
-        type: "object" as const,
-        properties: {
-          category: { type: "string", description: "Категория (например Завтраки, Салаты, Книга)" },
-          sourceType: { type: "string", description: "Источник блюда: book, photo, custom, mixer и т.д." },
-          isBookRecipe: { type: "boolean", description: "Только блюда из книги (true/false)" },
-          isFavorite: { type: "boolean", description: "Только избранное (true/false)" },
-          limit: { type: "number", description: "Максимум результатов, по умолчанию 15" },
+          sourceType: { type: "string", description: "Источник: book, photo, custom, mixer" },
+          isBookRecipe: { type: "boolean", description: "Только из книги" },
+          isFavorite: { type: "boolean", description: "Только избранное" },
+          limit: { type: "number", description: "Максимум, по умолчанию 15" },
         },
       },
     },
@@ -179,6 +162,7 @@ export async function executeToolCall(
 ): Promise<Record<string, any>> {
   try {
     switch (name) {
+      case "get_dishes":
       case "get_cooked_dishes":
       case "get_saved_dishes": {
         const { category, sourceType, isBookRecipe, isFavorite, limit } = args;

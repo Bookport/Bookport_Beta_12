@@ -69,8 +69,7 @@ function pickAnnaTools(message: string, screenContext?: string, dayIndex?: numbe
     screenContext === "my-dishes";
 
   if (foodQuery) {
-    selected.add("get_cooked_dishes");
-    selected.add("get_saved_dishes");
+    selected.add("get_dishes");
     selected.add("get_book_recipe_details");
     selected.add("get_recipe_progress");
     selected.add("get_daily_kbju_summary");
@@ -110,7 +109,7 @@ function buildAnnaToolGuidance(message: string): string {
 
   return [
     "[ПРАВИЛО БД]: если пользователь спрашивает о своих блюдах, уже приготовленных блюдах, 'Мои блюда', фото, 'собери сам' или блюдах из книги, сначала используй tools и проверь базу данных.",
-    "Для таких вопросов используй `get_cooked_dishes` как основной tool. Если нужен конкретный рецепт из книги, используй `get_book_recipe_details`.",
+    "Для таких вопросов используй `get_dishes` как основной tool. Если нужен конкретный рецепт из книги — `get_book_recipe_details`.",
     "Если пользователь спрашивает про калории, КБЖУ, белки, жиры, клетчатку за день — используй `get_daily_kbju_summary` с указанием dayIndex.",
     "Не отвечай 'я не знаю' до проверки БД.",
   ].join("\n");
@@ -521,12 +520,15 @@ async function startServer() {
             });
             if (ritual) {
               systemPrompt += `\n\n[Системные данные: Пользователь завершил вечерний ритуал (День ${dayIndex}). Его ответы.\nТело: ${ritual.answerBody}\nПсихология: ${ritual.answerPsycho}\nИнсайт: ${ritual.answerUnexpected}\nИспользуй эти данные для персонализации ответов].`;
+
             }
           } catch (e) {
             console.error("Error loading ritual for Anna:", e);
           }
         }
       }
+
+      systemPrompt += `\n\n[ПРАВИЛО КРАТКОСТИ]: Отвечай кратко и по существу. Для простых вопросов — 1-3 предложения. Развёрнутый ответ — только если пользователь явно просит подробностей или это необходимо для объяснения. Не повторяй очевидное.`;
 
       const availableTools = pickAnnaTools(message, screenContextDetails?.screen_id || screenContext, dayIndex);
 
@@ -558,7 +560,7 @@ async function startServer() {
       messages.push({ role: "user", content: message });
 
       // ── Tool calling loop ──
-      const MAX_TOOL_ROUNDS = 5;
+      const MAX_TOOL_ROUNDS = 3;
       let finalReply = "";
 
       for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
@@ -567,6 +569,7 @@ async function startServer() {
           config: {
             systemInstruction: systemPrompt,
             temperature: 0.8,
+            maxOutputTokens: 500,
           },
           tools: availableTools.length > 0 ? availableTools : undefined,
           tool_choice: "auto",
@@ -667,44 +670,23 @@ async function startServer() {
       }
 
       // ── Step A: LLM analysis for dish name + insights ──
-      const promptText = `КРИТИЧЕСКОЕ ПРАВИЛО: Ты — Анна, молодая девушка-нутрициолог. Ты всегда говоришь о себе ТОЛЬКО в женском роде (например: 'я заметила', 'я проанализировала', 'я вынуждена', 'я рада'). НИКОГДА, ни при каких обстоятельствах не используй мужской род по отношению к себе. Это недопустимо.
+      const promptText = `Ты — Анна, девушка-нутрициолог, женский род.
 
-${forbiddenWarning}You are a professional certified food nutritionist and USDA Database Analyzer for the "Всё дело в еде!" plant-based (WFPB) app.
-The user confirmed the following list of verified ingredients with their weights in grams:
+${forbiddenWarning}Ты — профессиональный нутрициолог и анализатор продуктов для WFPB-приложения «Всё дело в еде!».
+Пользователь подтвердил ингредиенты (в граммах):
 ${ingredientsDescription}
 
-Your task is to:
-1. Identify EACH ingredient (including non-WFPB ones like meat, fish, dairy) and provide three customized nutritional insights in Russian based on the composition. DO NOT skip or ignore any ingredient.
-2. Provide a Russian dish name based on the ingredients.
-3. Estimate micronutrient values for ALL ingredients combined (iron, zinc, magnesium, iodine, selenium, vitamin C, vitamin B9, lysine, methionine). Non-WFPB ingredients should have their estimated micronutrients included in the totals.
+Проанализируй каждый ингредиент (включая не-WFPB: мясо, рыбу, молочку). Дай:
+1. Название блюда на русском.
+2. Оценку микронутриентов (iron, zinc, magnesium, iodine, selenium, vitaminC, vitaminB9, lysine, methionine) — с единицами (мг/мкг/г).
+3. Три инсайта: strengths, improvements, compliance — все на русском.
 
-CRITICAL: Include ALL listed ingredients in your analysis regardless of their WFPB compliance. Non-compliant ingredients must be flagged in the "compliance" insight but still included in micronutrient estimates.
+Включи ВСЕ ингредиенты, даже не-WFPB. Несоответствующие пометь в compliance.
 
-Return ONLY a valid JSON object matching this schema:
-{
-  "dishName": "string (Russian Name of the entire dish, e.g. 'Тёплый боул с киноа и нутом')",
-  "micronutrients": {
-    "iron": { "value": number, "unit": "мг" },
-    "zinc": { "value": number, "unit": "мг" },
-    "magnesium": { "value": number, "unit": "мг" },
-    "iodine": { "value": number, "unit": "мкг" },
-    "selenium": { "value": number, "unit": "мкг" },
-    "vitaminC": { "value": number, "unit": "мг" },
-    "vitaminB9": { "value": number, "unit": "мкг" },
-    "lysine": { "value": number, "unit": "г" },
-    "methionine": { "value": number, "unit": "г" }
-  },
-  "insights": {
-    "strengths": { "title": "Сильные стороны блюда", "text": "string" },
-    "improvements": { "title": "Что можно улучшить", "text": "string" },
-    "compliance": { "title": "Соответствие растительному рациону", "text": "string" }
-  }
-}
+Формат JSON:
+{"dishName": "string", "micronutrients": {"iron":{"value":number,"unit":"мг"},...}, "insights": {"strengths":{"title":"Сильные стороны блюда","text":"string"},"improvements":{...},"compliance":{...}}}
 
-Important Rules:
-- All texts, titles, and descriptions MUST be strictly in Russian.
-- Do NOT simulate or invent fake metrics for micronutrients — use reasonable estimates based on ingredient knowledge.
-- Output ONLY valid JSON, do not include any other markdown formatting.`;
+Важно: только JSON, без markdown, разумные оценки, всё на русском.`;
 
       // ── Step A + Step B: запускаем LLM и USDA параллельно ──
       const [llmResponse, usdaResult] = await Promise.all([
@@ -841,48 +823,23 @@ Important Rules:
       };
 
       const textPart = {
-        text: `You are an objective food ingredient analyzer. Identify EVERY visible food item in the photo regardless of dietary compliance.
+        text: `Analyze food photo. List EVERY visible ingredient — never skip, hide, or rename. Break dishes into raw components (e.g. 'салат' → 'помидор, огурец, лук'). Use singular lowercase Russian nouns.
 
-CRITICAL — NEVER OMIT INGREDIENTS: You MUST list absolutely EVERY food ingredient visible in the image. Never skip, hide, rename, or rephrase an ingredient to make it appear compliant. If an ingredient violates WFPB rules, simply set its "status" to "error" — but ALWAYS include it in the output. Omitting ingredients is strictly forbidden.
+WFPB status rules:
+- animal products (meat, fish, dairy, eggs, honey, gelatin) → "error"
+- added salt, soy sauce, bouillon → "error"
+- extracted oils → "error"
+- plant foods → "green"
+- non-food objects → "blue" (keys, phone, glasses, etc.)
 
-WFPB compliance rules for reference (use only for status="error" classification):
-1. Animal products (meat, poultry, fish, seafood, eggs, milk, cheese, yogurt, cream, butter, ghee, honey, gelatin) → status: "error"
-2. Added salt (salt, sea salt, soy sauce, miso with salt, bouillon cubes) → status: "error"
-3. Added oils (olive oil, sunflower oil, coconut oil, any extracted oil) → status: "error"
+Scenarios:
+1. Food only → list all ingredients with green/error
+2. Mixed food + non-food → list food only, green/error
+3. Non-food only → list all as "blue"
 
-EXAMPLES of correct status assignment:
-- "мясо", "говядина", "курица", "свинина" → status: "error"
-- "рыба", "лосось", "креветки" → status: "error"
-- "сыр", "молоко", "яйцо", "масло сливочное" → status: "error"
-- "хлеб", "макароны", "сахар" → status: "error"
-- "помидор", "огурец", "яблоко", "рис", "нут" → status: "green"
-- "ключи", "телефон", "очки" → status: "blue" (non-food)
+Return JSON: {"dishName":"string (Russian)","ingredients":[{"id":"snake_case_slug","fullName":"descriptive Russian","shortName":"short Russian","status":"green|error|blue","weight":number,"reason":"error reason or humorous comment or empty"}]}
 
-CRITICAL RULE FOR INGREDIENT EXTRACTION:
-- DECOMPOSITION ONLY: Never output complex dishes or recipes as single ingredients. Break down everything into its primary raw components. WRONG: 'Овощной салат', 'Блины', 'Котлеты из нута', 'Хумус'. RIGHT: 'помидор, огурец, лук', 'мука, яйцо, растительное молоко', 'нут, морковь', 'нут, кунжут, оливковое масло'.
-- UNIFICATION: Use singular nouns in lowercase. Return exact matches to our frontend keys whenever possible (e.g., return 'помидор' not 'Томаты', 'макароны' not 'Паста', 'овсянка' not 'Овсяные хлопья').
-
-VERY IMPORTANT SCENARIOS:
-1. If the image is a food/dish picture (edible), return ALL ingredients with "status" set to "green" or "error" based on compliance. NEVER omit any ingredient.
-2. If the image contains a MIX of both food/edible items AND non-food/inedible items (e.g. some food next to keys or glasses), focus on food items only but still list ALL of them.
-3. If the image contains ONLY non-food/inedible items (e.g. household items, accessories, electronics, keys, mugs, books, glasses, decor, toys), identify them all with "status": "blue".
-
-Return ONLY a valid JSON object matching this schema:
-{
-  "dishName": "string (Russian Name of the dish, or if it is purely non-food, describe the collection of objects in Russian, e.g., 'Несъедобные предметы')",
-  "ingredients": [
-    {
-      "id": "string (unique clean snake_case slug, e.g. 'spinach', 'chickpeas', 'salt', 'beef', 'keys', 'eyeglasses')",
-      "fullName": "string (descriptive name in Russian, e.g., 'Сочный молодой шпинат', 'Связка металлических ключей')",
-      "shortName": "string (short name in Russian, e.g., 'Шпинат', 'Ключи')",
-      "status": "green" | "error" | "blue",
-      "weight": number (estimated weight in grams),
-      "reason": "string (reason in Russian for 'error', or a humorous comment for 'blue' objects, or empty string)"
-    }
-  ]
-}
-
-Ensure to output strictly valid JSON conforming exactly to this structure.`,
+Only valid JSON, no markdown.`,
       };
 
       // Primary: DashScope (Qwen VL), fallback: Yandex/Gemini
@@ -939,18 +896,10 @@ Ensure to output strictly valid JSON conforming exactly to this structure.`,
     try {
       const { situation } = req.body;
       
-      const prompt = `Ты — куратор Анна в мобильном приложении на основе цельного растительного рациона (WFPB) без соли и продуктов животного происхождения «Всё дело в еде!».
-Пользователь загрузил фото своего блюда, и сейчас идёт процесс нейросетевого распознавания ингредиентов.
+      const prompt = `Ты — системный голос приложения WFPB. Пользователь загрузил фото блюда, идёт распознавание ингредиентов.
+Контекст: ${situation || "временное ожидание повторного анализа блюда"}
 
-Сгенерируй ОДНУ короткую, поддерживающую и вежливую фразу на русском языке, которая объясняет текущий процесс с технической стороны и информирует о действиях Системы в данный момент.
-Контекст ситуации для генерации:
-${situation || "временное ожидание повторного анализа блюда"}
-
-Правила:
-1. Исключи любое личное заигрывание, фамильярность, кокетство, уменьшительно-ласкательные слова или хвастовство. Тон должен быть профессиональным, поддерживающим и технологичным.
-2. Абсолютно ЗАПРЕЩЕНО говорить от первого лица ("я", "я рада", "я заметила", "я проверила", "я настраиваю", "мой", "моя", "мы" и т.д.). Текст должен описывать только действия Системы, Алгоритма или Нейросети (например: "Идёт обработка...", "Система производит...", "Алгоритм выполняет...", "Проводится техническая сонастройка...").
-3. Описывай техническую сторону происходящего: сопоставление текстур, определение контуров, сегментация кадров на ингредиенты и сверка со стандартами цельного растительного питания без соли.
-4. ОДНА законченная фраза, длиной от 8 до 20 слов, без кавычек вокруг. Пиши строго на русском языке.`;
+Сгенерируй ОДНУ техническую фразу на русском (8-20 слов). Опиши действия Системы/Алгоритма/Нейросети (сопоставление текстур, сегментация, сверка со стандартами WFPB). Без первого лица, без фамильярности, без кавычек. Только суть.`;
 
       const result = await generateContentWithFallback({
         contents: { parts: [{ text: prompt }] },
@@ -985,26 +934,11 @@ ${situation || "временное ожидание повторного ана�
         itemsStr = "непищевые предметы";
       }
 
-      const prompt = `КРИТИЧЕСКОЕ ПРАВИЛО: Ты — Анна, молодая девушка-нутрициолог. Ты всегда говоришь о себе ТОЛЬКО в женском роде (например: 'я заметила', 'я проанализировала', 'я вынуждена', 'я рада'). НИКОГДА, ни при каких обстоятельствах не используй мужской род по отношению к себе. Это недопустимо.
+      const prompt = `Ты — Анна, девушка-нутрициолог, женский род. Пользователь сфотографировал несъедобные предметы: ${itemsStr}.
 
-Ты — куратор-советник Анна (девушка, WFPB-диетолог) из приложения WFPB-рациона «Всё дело в еде!».
-Пользователь загрузил фото, на котором Система распознала только НЕСЪЕДОБНЫЕ (непищевые, не съедобные) предметы: ${itemsStr}.
+Напиши 2-4 предложения на русском (один абзац). Умный, тонкий юмор. Обыграй конкретно эти предметы (${itemsStr}). Отметь их абсолютную бессолевость и низкокалорийность :) Мягко призови сфотографировать настоящую WFPB-еду.
 
-Напиши для пользователя живой, интеллектуальный литературный комментарий на русском языке от твоего лица (в женском роде: "я заметила", "я удивлена" и т.д.).
-Твоя цель — мягко и с юмором пожурить пользователя за выбор "абсолютно бессолевого и низкокалорийного", но совершенно несъедобного меню из этих вещей, весело обыграть конкретные предметы, которые здесь распознаны, и с улыбкой направить пользователя обратно в безопасное русло — сфотографировать здоровую растительную еду.
-
-Характер твоего юмора:
-- Умный, тонкий, живой, книжный, интеллигентный, с легким подтрунированием и мягким удивлением. Без банальностей.
-- ПРЯМО и весело обыграй именно эти предметы: ${itemsStr}. (Например, если это ключи, напиши про крепкие замки или зубы, если очки — про точное зрение, если чашка — про пустоту без полезного чая, и т.д. Обыгрывай конкретно те предметы, которые указаны в списке!).
-- Если среди предметов есть что-то потенциально странное, опасное или чувствительное, сделай тон максимально бережным, безопасным и мягким.
-- ПРЕДОСТЕРЕЖЕНИЕ: Никакой токсичности, грубости, агрессии или глупых шуток "ниже пояса". Ты остаешься обаятельной, грамотной, чуть озорной WFPB-советницей.
-
-Смысл реплики:
-1. Показать, что ты видишь конкретные предметы (${itemsStr}) и удивлённо-весело отметить этот выбор.
-2. Обратить внимание на их несъедобность (хоть в них и гарантированно нет соли, масла или животных продуктов!).
-3. Мягко призвать сделать фото настоящей полезной WFPB-еды (овощи, злаки, бобовые, фрукты) для здоровья эндотелия и сосудов.
-
-Длина реплики: средняя (приблизительно 2-4 предложения, от 40 до 90 слов). Напиши реплику целиком как один абзац текста. Глаголы в прошедшем времени и прилагательные от первого лица пиши строго в ЖЕНСКОМ РОДЕ.`;
+Без токсичности, без пошлости. Ты — обаятельная, чуть озорная советница. Глаголы в женском роде.`;
 
       const result = await generateContentWithFallback({
         contents: { parts: [{ text: prompt }] },
