@@ -55,8 +55,9 @@ export async function analyzeFoodImage(
   throw lastError || new Error("All DashScope models failed");
 }
 
-// ── Speech-to-Text (Paraformer / SenseVoice) ──
-const ASR_ENDPOINT = "https://dashscope-intl.aliyuncs.com/api/v1/services/audio/transcription/asr";
+// ── Speech-to-Text (Qwen3-ASR-Flash) ──
+const ASR_ENDPOINT = "https://dashscope-intl.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation";
+const ASR_MODEL = "qwen3-asr-flash";
 
 export async function transcribeAudio(
   audioBase64: string,
@@ -70,47 +71,61 @@ export async function transcribeAudio(
   const apiKey = process.env.DASHSCOPE_API_KEY;
   if (!apiKey) throw new Error("DASHSCOPE_API_KEY not set");
 
-  const models = [
-    options?.model || "paraformer-v2",
-    "sensevoice-v1",
-  ];
-  let lastError: unknown;
+  const model = options?.model || ASR_MODEL;
+  const format = options?.format || "wav";
 
-  for (const model of models) {
-    try {
-      const response = await fetch(ASR_ENDPOINT, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
+  const audioDataUrl = `data:audio/${format};base64,${audioBase64}`;
+
+  try {
+    const response = await fetch(ASR_ENDPOINT, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model,
+        input: {
+          messages: [
+            {
+              role: "system",
+              content: [{ text: "" }],
+            },
+            {
+              role: "user",
+              content: [
+                {
+                  audio: audioDataUrl,
+                },
+              ],
+            },
+          ],
         },
-        body: JSON.stringify({
-          model,
-          input: { audio: audioBase64 },
-          parameters: {
+        parameters: {
+          asr_options: {
             language: options?.language || "ru",
-            sample_rate: options?.sampleRate || 16000,
-            format: options?.format || "wav",
           },
-        }),
-      });
+        },
+      }),
+    });
 
-      if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(`DashScope ASR error ${response.status}: ${errText.slice(0, 300)}`);
-      }
-
-      const data = await response.json();
-      const text = data.output?.text || "";
-      if (text) return text;
-      lastError = new Error("Empty transcription from " + model);
-    } catch (err) {
-      lastError = err;
-      console.warn(`[DashScope ASR] Model ${model} failed:`, (err as any)?.message || err);
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`DashScope ASR error ${response.status}: ${errText.slice(0, 300)}`);
     }
-  }
 
-  throw lastError || new Error("All DashScope ASR models failed");
+    const data = await response.json();
+    const content = data.output?.choices?.[0]?.message?.content;
+    const text = Array.isArray(content)
+      ? content.map((item: any) => item.text || "").join(" ")
+      : (content || "");
+    console.log("[DashScope ASR] qwen3-asr-flash response:", JSON.stringify(data).slice(0, 500));
+    if (text) return text;
+    throw new Error("Empty transcription from " + model + ": " + JSON.stringify(data).slice(0, 200));
+  } catch (err) {
+    console.warn(`[DashScope ASR] Model ${model} failed:`, (err as any)?.message || err);
+    throw err;
+  }
 }
 
 // ── Text-to-Speech (DashScope Qwen3-TTS-VC) ──

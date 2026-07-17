@@ -16,6 +16,7 @@ COPY package.json tsconfig.json vite.config.ts ./
 COPY server.ts ./
 COPY src/ ./src/
 COPY index.html ./
+COPY public/ ./public/
 COPY prisma ./prisma/
 
 RUN npx vite build

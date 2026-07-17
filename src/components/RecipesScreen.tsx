@@ -21,7 +21,7 @@ import SaveDishModal from "./SaveDishModal";
 import IngredientCollage from "./IngredientCollage";
 import { resolveAvatarForCompliance } from "../utils/annaAvatarResolver";
 import { checkWFPB } from "../utils/wfpbRules";
-import type { SavedDish } from "./MyDishesScreen";
+import type { SavedDish } from "../types/dishes";
 import { getSavedDishes } from "../modules/mixer/services/mixerSave";
 import { getRecipeImagePath } from "../utils/recipeImageMapper";
 import { complimentsBackData } from "../data/compliments_back";
@@ -328,7 +328,7 @@ export default function RecipesScreen({
               exit={{ y: "100%", opacity: 0 }}
               transition={{ type: "spring", damping: 28, stiffness: 300 }}
               onClick={(e) => e.stopPropagation()}
-              className="bg-white rounded-[28px] w-full max-w-lg mx-4 max-h-[85vh] overflow-y-auto shadow-xl"
+              className="bg-white rounded-[28px] w-full max-w-lg mx-4 max-h-[80dvh] overflow-y-auto overscroll-contain shadow-xl"
             >
               {/* Modal Image */}
               <div className="relative w-full h-48 rounded-t-[28px] overflow-hidden bg-gray-100">

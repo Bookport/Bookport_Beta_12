@@ -512,7 +512,7 @@ export default function SettingsScreen({
             exit={{ opacity: 0 }}
           >
             <motion.div
-              className="relative mx-5 w-full max-w-sm rounded-3xl bg-white flex flex-col items-center text-center p-7"
+              className="relative mx-5 w-full max-w-sm rounded-3xl bg-white flex flex-col items-center text-center p-6 max-h-[85dvh] overflow-y-auto overscroll-contain"
               style={{ boxShadow: '0 0 40px rgba(34,197,94,0.3)' }}
               initial={{ scale: 0.85, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}

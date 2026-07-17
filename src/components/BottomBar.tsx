@@ -3,7 +3,7 @@ import { Home, BookOpen, Users, Settings } from "lucide-react";
 import { useAppStore } from "../store/useAppStore";
 
 interface BottomBarProps {
-  activeTab?: "my-day" | "recipes" | "my-dishes" | "progress" | "cellular-impulse" | "home" | "diary" | "anna" | "settings" | "what-i-eat" | "add-food";
+  activeTab?: "my-day" | "recipes" | "my-dishes" | "progress" | "cellular-impulse" | "home" | "diary" | "anna" | "settings" | "what-i-eat" | "add-food" | "club";
   onHomeClick?: () => void;
   onRecipesClick?: () => void;
   onAnalyticsClick?: () => void;
@@ -173,13 +173,26 @@ export default function BottomBar({ activeTab = "my-day", ...props }: BottomBarP
       <button
         id="nav-club"
         type="button"
-        onClick={() => window.open('https://t.me/placeholder_club', '_blank')}
+        onClick={() => setScreen("club")}
         className="flex-1 flex flex-col items-center justify-center gap-1 py-0.5 transition-all duration-200 cursor-pointer active:scale-95 text-center"
       >
-        <div className="w-7 h-7 flex items-center justify-center text-[#737C86] hover:text-brand-green-dark">
+        <div className={`w-7 h-7 flex items-center justify-center ${
+          activeTab === "club"
+            ? "text-[#16B551]"
+            : "text-[#737C86] hover:text-brand-green-dark"
+        }`}>
           <Users className="w-6 h-6 stroke-[1.8]" />
         </div>
-        <span className="text-[12px] sm:text-[13px] font-bold leading-none tracking-tight text-[#737C86]" style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}>Клуб</span>
+        <span
+          className={`text-[12px] sm:text-[13px] font-bold leading-none tracking-tight ${
+            activeTab === "club"
+              ? "text-[#16B551]"
+              : "text-[#737C86]"
+          }`}
+          style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}
+        >
+          Клуб
+        </span>
       </button>
 
       {/* Настройки */}

@@ -38,6 +38,7 @@ model User {
   chapterReadCount          Int      @default(0)
   shareCount                Int      @default(0)
   feedbackCount             Int      @default(0)
+  clickCount                Int      @default(0)
 
   dailyMetrics        DailyMetric[]
   dailyRatings        DailyRating[]
@@ -50,6 +51,13 @@ model User {
   annaOverlayMessages AnnaOverlayMessage[]
   userAchievements    UserAchievement[]
   eveningRituals      EveningRitual[]
+
+  telegramId          String?   @unique
+  telegramName        String?
+  telegramUsername    String?
+  clubToken           String?
+  clubTokenExpiresAt  DateTime?
+  clubLinkedAt        DateTime?
 }
 
 model DailyMetric {

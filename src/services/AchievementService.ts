@@ -203,7 +203,7 @@ export class AchievementService {
 
       case "movement:recorded":
       case "state:updated": {
-        const { water = 0, mealCount = 0, sleep = 0, currentDayIndex = 1, dayNotes = {}, movementEntries = [] } = payload;
+        const { water = 0, mealCount = 0, sleep = 0, currentDayIndex = 1, dayNotes = {}, movementEntries = [], waterEntries = [] } = payload;
         const todayActivity = movementEntries.filter((e: any) => e.dayIndex === currentDayIndex);
         const todayTotalSec = todayActivity.reduce((s: number, e: any) => s + (e.duration || 0), 0);
         this.tryUnlock("ach-048", todayTotalSec >= 1800, newlyUnlocked);
@@ -232,6 +232,38 @@ export class AchievementService {
           else break;
         }
         this.tryUnlock("ach-056", streak14 >= 14, newlyUnlocked);
+
+        // ── Water checks (replay same logic as water:recorded) ──
+        const goal = 2500;
+        this.tryUnlock("ach-008", waterEntries.length === 1, newlyUnlocked);
+        this.tryUnlock("ach-011", water >= goal, newlyUnlocked);
+        this.tryUnlock("ach-013", water >= (goal || 2500) + 1000, newlyUnlocked);
+        const todayWaterEntries = waterEntries.filter((e: any) => e.dayIndex === currentDayIndex);
+        if (todayWaterEntries.length > 0) {
+          const latest = todayWaterEntries[todayWaterEntries.length - 1];
+          if (latest) {
+            const hour = parseInt((latest.time || "").split(":")[0], 10);
+            this.tryUnlock("ach-009", !isNaN(hour) && hour < 9, newlyUnlocked);
+          }
+          // Compute morning streak from full history
+          let morningStreak = 0;
+          let morningLastDay = 0;
+          const dayIndexes: number[] = (waterEntries.map((e: any) => e.dayIndex) as number[]).filter((v, i, a) => a.indexOf(v) === i).sort((a: number, b: number) => b - a);
+          for (const day of dayIndexes) {
+            const dayEntries = waterEntries.filter((e: any) => e.dayIndex === day);
+            const hasMorning = dayEntries.some((e: any) => {
+              const h = parseInt((e.time || "").split(":")[0], 10);
+              return !isNaN(h) && h < 8;
+            });
+            if (hasMorning) {
+              morningStreak++;
+              morningLastDay = day;
+            } else {
+              break;
+            }
+          }
+          this.tryUnlock("ach-010", morningStreak >= 5, newlyUnlocked);
+        }
         break;
       }
 

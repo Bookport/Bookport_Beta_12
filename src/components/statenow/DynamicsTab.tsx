@@ -64,6 +64,7 @@ interface DynamicsTabProps {
   currentDayIndex?: number;
   savedDishes?: any[];
   onWakeConfirm?: (minutes: number) => void;
+  activityLogs?: { timestamp: number; durationSeconds: number }[];
 }
 
 export default function DynamicsTab({
@@ -80,7 +81,24 @@ export default function DynamicsTab({
   recommendedAction,
   currentDayIndex = 1,
   savedDishes = [],
+  activityLogs = [],
 }: DynamicsTabProps) {
+  // Live real-time clock state
+  const [currentTime, setCurrentTime] = useState(new Date());
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 60000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const currentHour = currentTime.getHours();
+  const timeString = `${String(currentTime.getHours()).padStart(2, "0")}:${String(currentTime.getMinutes()).padStart(2, "0")}`;
+  const phaseOfDay = (() => {
+    if (currentHour >= 6 && currentHour < 12) return { label: "ПРОБУЖДЕНИЕ И ГИДРАТАЦИЯ", emoji: "🌅" };
+    if (currentHour >= 12 && currentHour < 16) return { label: "ПИК ОРГАНИЗМА", emoji: "☀️" };
+    if (currentHour >= 16 && currentHour < 21) return { label: "СНИЖЕНИЕ АКТИВНОСТИ", emoji: "🌤️" };
+    return { label: "ВОССТАНОВЛЕНИЕ И ДЕТОКС", emoji: "🌙" };
+  })();
+
   // Local reactive states initialized from props to allows interactive system simulation
   const [localSleep, setLocalSleep] = useState<number>(sleep);
   const [localWater, setLocalWater] = useState<number>(water);
@@ -142,10 +160,14 @@ export default function DynamicsTab({
     if (water > 0) setLocalWater(water);
   }, [water]);
 
-  // Derived wellness conditions
-  const hasBreakfast = localCooked.some(d => d.category === "Завтраки") || localCooked.some(d => d.name.toLowerCase().includes("завтрак"));
-  const hasLunch = localCooked.some(d => d.category === "Супы и Салаты" || d.category === "Вторые блюда" || d.category === "Основные блюда") || localCooked.some(d => d.name.toLowerCase().includes("обед"));
-  const hasDinner = localCooked.some(d => d.category === "Основные блюда") || localCooked.some(d => d.name.toLowerCase().includes("ужин"));
+  // Derived wellness conditions with circadian time windows
+  const hasBreakfast = (localCooked.some(d => d.category === "Завтраки") || localCooked.some(d => d.name.toLowerCase().includes("завтрак"))) && currentHour < 12;
+  const hasLunch = (localCooked.some(d => d.category === "Супы и Салаты" || d.category === "Вторые блюда" || d.category === "Основные блюда") || localCooked.some(d => d.name.toLowerCase().includes("обед"))) && currentHour >= 12 && currentHour < 17;
+  const hasDinner = (localCooked.some(d => d.category === "Основные блюда") || localCooked.some(d => d.name.toLowerCase().includes("ужин"))) && currentHour >= 17;
+
+  // Movement status from real activity logs (last 3 hours)
+  const nowTs = Date.now();
+  const hasRecentActivity = activityLogs.some(log => (nowTs - log.timestamp) < 180 * 60 * 1000);
 
   // Calculate dynamic physiological metrics for the "System Pulse" panel
   const calculatePulseMetrics = () => {
@@ -435,7 +457,7 @@ export default function DynamicsTab({
             <div className="mt-3.5 flex items-center gap-1.5 text-slate-500 bg-[#F5F4EF]/60 px-3 py-1 rounded-full border border-slate-200/50">
               <Clock className="w-3.5 h-3.5 text-amber-700 animate-spin" style={{ animationDuration: '45s' }} />
               <span className="text-[10px] font-black font-mono tracking-wide">
-                13:14 • ПИК ОРГАНИЗМА
+                {timeString} • {phaseOfDay.emoji} {phaseOfDay.label}
               </span>
             </div>
           </div>
@@ -473,10 +495,10 @@ export default function DynamicsTab({
 
               <div className="text-center p-2 rounded-xl bg-white/50 border border-[#F2ECE0]/50 shadow-3xs">
                 <div className="flex justify-center mb-1 text-slate-400">
-                  <Activity className={`w-4 h-4 ${localHabitsDone > 2 ? "text-emerald-500 animate-pulse" : "text-slate-400"}`} />
+                  <Activity className={`w-4 h-4 ${hasRecentActivity ? "text-emerald-500 animate-pulse" : "text-slate-400"}`} />
                 </div>
                 <div className="text-[11px] font-black text-slate-800 font-mono leading-none">
-                  {localHabitsDone > 2 ? "Активен" : "Покой"}
+                  {hasRecentActivity ? "Активность" : "Покой"}
                 </div>
                 <div className="text-[8.5px] uppercase text-slate-400/90 font-bold tracking-wider mt-1 leading-none">Движение</div>
               </div>

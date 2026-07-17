@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import BottomBar from "./BottomBar";
 import { resolveGeneralAvatar, resolveAvatarByState } from "../utils/annaAvatarResolver";
-import { SpeechToTextSession } from "../utils/speechToText";
+import { SpeechToTextSession, ensureMicPermission } from "../utils/speechToText";
 import { useAppStore } from "../store/useAppStore";
 import { api } from "../utils/api";
 import { clientLogger } from "../utils/clientLogger";
@@ -330,10 +330,19 @@ export default function AnnaScreen(props: AnnaScreenProps) {
 
   // Push-to-talk: browser SpeechRecognition (webkitSpeechRecognition)
   // Отправка происходит из onTranscript(isFinal=true), чтобы избежать race condition
-  const handleVoicePressStart = (e: React.PointerEvent<HTMLButtonElement>) => {
+  const handleVoicePressStart = async (e: React.PointerEvent<HTMLButtonElement>) => {
     e.preventDefault();
     try { e.currentTarget.setPointerCapture(e.pointerId); } catch {}
     interruptAnnaSpeech();
+
+    const audioCtx = new AudioContext();
+
+    const granted = await ensureMicPermission();
+    if (!granted) {
+      audioCtx.close();
+      setAnnaState("На связи");
+      return;
+    }
 
     setIsHoldingMic(true);
     isHoldingMicRef.current = true;
@@ -343,6 +352,7 @@ export default function AnnaScreen(props: AnnaScreenProps) {
 
     speechSessionRef.current = new SpeechToTextSession({
       isHoldingRef: isHoldingMicRef,
+      audioContext: audioCtx,
       onTranscript: (incomingText, isFinal) => {
         voiceTextRef.current = incomingText;
         setTypedInput(incomingText);
@@ -816,7 +826,7 @@ export default function AnnaScreen(props: AnnaScreenProps) {
               animate={{ y: 0 }}
               exit={{ y: 240 }}
               transition={{ type: "spring", damping: 25 }}
-              className="w-full bg-white rounded-t-[36px] border-t border-gray-150 p-6 pb-9 z-20 shadow-[0_-12px_36px_rgba(0,0,0,0.06)] relative flex flex-col gap-5 select-text"
+              className="w-full bg-white rounded-t-[36px] border-t border-gray-150 p-6 pb-9 z-20 shadow-[0_-12px_36px_rgba(0,0,0,0.06)] relative flex flex-col gap-5 select-text max-h-[85dvh] overflow-y-auto overscroll-contain"
             >
               <div className="w-12 h-1 bg-gray-200 rounded-full mx-auto" />
 

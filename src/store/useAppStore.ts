@@ -5,7 +5,7 @@ export type Screen =
   | "digestion" | "my-day" | "habits-twenty" | "what-i-eat"
   | "check-composition" | "dish-analysis" | "my-dishes"
   | "from-what-is" | "book-recipes" | "purchases" | "diary"
-  | "anna" | "state-now" | "settings" | "rewards";
+  | "anna" | "state-now" | "settings" | "rewards" | "club";
 
 export interface UserProfile {
   name?: string;
@@ -25,6 +25,13 @@ export interface UserProfile {
   currentDayIndex?: number;
   chronicConditions?: string[];
   healthGoals?: string[];
+}
+
+export interface TelegramUser {
+  id: number;
+  firstName: string;
+  lastName?: string;
+  username?: string;
 }
 
 export interface WaterEntry {
@@ -86,6 +93,7 @@ interface AppState {
   screen: Screen;
   deviceId: string | null;
   userProfile: UserProfile;
+  telegramUser: TelegramUser | null;
   isCalendarOpen: boolean;
   isOverlayOpen: boolean;
   activeNotification: AppNotification | null;
@@ -100,11 +108,14 @@ interface AppState {
   calendarNotes: CalendarNotes;
 
   courseStartTimestamp: number | null;
+  clickCount: number;
   isGodMode: boolean;
 
   setScreen: (screen: Screen) => void;
   setDeviceId: (id: string) => void;
   setUserProfile: (profile: UserProfile) => void;
+  setTelegramUser: (user: TelegramUser | null) => void;
+  setClickCount: (count: number) => void;
   setCalendarOpen: (open: boolean) => void;
   setOverlayOpen: (open: boolean) => void;
   setActiveNotification: (notif: AppNotification | null) => void;
@@ -136,6 +147,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   screen: "welcome",
   deviceId: null,
   userProfile: {},
+  telegramUser: null,
   isCalendarOpen: false,
   isOverlayOpen: false,
   activeNotification: null,
@@ -147,11 +159,14 @@ export const useAppStore = create<AppState>((set, get) => ({
   recipeStates: {},
   calendarNotes: {},
   courseStartTimestamp: null,
+  clickCount: 0,
   isGodMode: false,
 
   setScreen: (screen) => set({ screen }),
   setDeviceId: (id) => set({ deviceId: id }),
   setUserProfile: (profile) => set({ userProfile: profile }),
+  setTelegramUser: (user) => set({ telegramUser: user }),
+  setClickCount: (count) => { set({ clickCount: count }); localStorage.setItem('wfpb_click_count', String(count)); },
   setCalendarOpen: (open) => set({ isCalendarOpen: open }),
   setOverlayOpen: (open) => set({ isOverlayOpen: open }),
   setActiveNotification: (notif) => set({ activeNotification: notif }),
@@ -177,7 +192,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       });
       if (resp.ok) {
         const data = await resp.json();
-        set({ userProfile: data });
+        set({ userProfile: data, clickCount: data.clickCount || 0 });
       }
     } catch {
       // Server not available — continue with empty profile

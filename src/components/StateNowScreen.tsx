@@ -12,9 +12,10 @@ import {
   RECIPE_OF_DAY_RECIPES, 
   DRINKS_RECIPES 
 } from "./BookRecipesScreen";
-import { SavedDish } from "./MyDishesScreen";
+import type { SavedDish } from "../types/dishes";
 import { DailyNutritionStore } from "../services/DailyNutritionStore";
 import { SystemKeysStore } from "../services/SystemKeysStore";
+import { calculateIntegralScore } from "../utils/integralScore";
 import BalanceTab from "./statenow/BalanceTab";
 import { getRecommendedNextStep } from "../utils/nextStepEngine";
 import ScalesTab from "./statenow/ScalesTab";
@@ -514,8 +515,10 @@ export default function StateNowScreen({
   const sleepPct = Math.min(100, Math.round((effSleep / sleepTarget) * 100));
   const mealsPct = Math.min(100, Math.round((effMealCount / mealsTarget) * 100));
   const habitsPct = Math.min(100, Math.round((effHabitsDone / habitsTarget) * 100));
-  const energyPct = Math.min(100, Math.round(((activityLogs || []).reduce((acc: number, log: any) => acc + (log.durationSeconds || 0), 0) / 60 / 30) * 100)); // % of 30 mins
-  const activityMinutes = Math.round((energyPct / 100) * 30);
+  const activityPercent = Math.min(100, Math.round(((activityLogs || []).reduce((acc: number, log: any) => acc + (log.durationSeconds || 0), 0) / 60 / 30) * 100)); // % of 30 mins
+  const activityMinutes = Math.round((activityPercent / 100) * 30);
+  const subjectiveEnergyPercent = (effRatingEnergy ?? 3) * 20; // 1–5 → 20–100%, default 3 = 60%
+  const energyPct = Math.min(100, Math.round((activityPercent + subjectiveEnergyPercent) / 2));
   const zenPct = effRatingWellbeing * 20;
   const lightnessPct = effRatingLightness * 20;
 
@@ -524,19 +527,21 @@ export default function StateNowScreen({
     return effWater > 0 ? 'normal' : 'warning'
   })()
 
-  // Complete integral score computed dynamically via modular contributions
-  const integralScore = Math.min(
-    100,
-    Math.round(
-      (waterPct * 0.2) + 
-      (sleepPct * 0.2) + 
-      (mealsPct * 0.2) + 
-      (habitsPct * 0.15) + 
-      (zenPct * 0.1) + 
-      (energyPct * 0.1) + 
-      (lightnessPct * 0.05)
-    )
-  );
+  const integralScore = calculateIntegralScore({
+    waterMl: effWater,
+    waterTarget,
+    sleepMinutes: effSleep,
+    sleepTarget,
+    mealCount: effMealCount,
+    mealsTarget,
+    habitsDone: effHabitsDone,
+    habitsTarget,
+    activityMinutes,
+    activityTarget: 30,
+    ratingEnergy: effRatingEnergy,
+    ratingWellbeing: effRatingWellbeing,
+    ratingLightness: effRatingLightness,
+  });
 
   const getStatusInfo = (score: number) => {
     // 95-100
@@ -1452,6 +1457,7 @@ export default function StateNowScreen({
               recommendedAction={recommendedAction}
               currentDayIndex={currentDayIndex}
               savedDishes={effSavedDishes}
+              activityLogs={activityLogs}
             />
           )}
         </AnimatePresence>

@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { X, Mic, Send } from "lucide-react";
-import { SpeechToTextSession } from "./utils/speechToText";
+import { SpeechToTextSession, ensureMicPermission } from "./utils/speechToText";
 import { useAppStore } from "./store/useAppStore";
 import { useNotificationEngine } from "./services/useNotificationEngine";
 import GlobalNotificationOverlay from "./components/GlobalNotificationOverlay";
 import { api } from "./utils/api";
+import { useTelegram } from "./hooks/useTelegram";
 import GlassRing from "./components/GlassRing";
 import StartButton from "./components/StartButton";
 import BottomBar from "./components/BottomBar";
@@ -19,7 +20,7 @@ import CheckCompositionScreen from "./components/CheckCompositionScreen";
 import DishAnalysisScreen from "./components/DishAnalysisScreen";
 import CalendarOverlay from "./components/CalendarOverlay";
 import RecipesScreen from "./components/RecipesScreen";
-import type { SavedDish } from "./components/MyDishesScreen";
+import type { SavedDish } from "./types/dishes";
 import FromWhatIsScreen from "./components/FromWhatIsScreen";
 import BookRecipesScreen from "./components/BookRecipesScreen";
 import MyPurchasesScreen from "./components/MyPurchasesScreen";
@@ -28,6 +29,7 @@ import { HabitsState } from "./types";
 import AnnaScreen from "./components/AnnaScreen";
 import StateNowScreen from "./components/StateNowScreen";
 import SettingsScreen from "./components/SettingsScreen";
+import ClubScreen from "./components/ClubScreen";
 import { SystemKeysStore } from "./services/SystemKeysStore";
 import {
   initializeAchievementSystem,
@@ -56,6 +58,7 @@ import {
   DRINKS_RECIPES,
 } from "./components/BookRecipesScreen";
 import { getFoodProfile, parseWeightGrams } from "./services/DailyNutritionStore";
+const SHOW_DEBUG_ACHIEVEMENTS_PANEL = false;
 import AchievementsDebugPanel from "./components/AchievementsDebugPanel";
 
 const RECIPE_TYPE_TO_ARRAY: Record<string, any[]> = {
@@ -385,7 +388,7 @@ export default function App() {
   const [water, setWater] = useState<number>(0); // in ml, max 2500ml
   const [sleep, setSleep] = useState<number>(0); // in minutes, max 480min
   const [mealCount, setMealCount] = useState<number>(0); // completed meals out of 4
-  const [clickCount, setClickCount] = useState<number>(0);
+  const clickCount = useAppStore((s) => s.clickCount);
   const [habitsDone, setHabitsDone] = useState<number>(0);
 
   // Elevated rating states for general bioenergy and zen
@@ -448,6 +451,33 @@ export default function App() {
 
   // Dynamic state container for HabitsTwenty screen checked circles data
   const [habitsTwentyData, setHabitsTwentyData] = useState<HabitsState | undefined>(undefined);
+
+  // Telegram WebApp init: expand to full screen, save user to store
+  const { tg, user: tgUser, expand } = useTelegram();
+  const setTelegramUser = useAppStore((s) => s.setTelegramUser);
+  const isTelegram = !!tg || window.location.search.includes('tgWebAppData=');
+
+  useEffect(() => {
+    expand();
+    if (tgUser) {
+      setTelegramUser({
+        id: tgUser.id,
+        firstName: tgUser.first_name,
+        lastName: tgUser.last_name,
+        username: tgUser.username,
+      });
+      console.log(`[Telegram] Mini App opened by @${tgUser.username || tgUser.first_name} (id: ${tgUser.id})`);
+    }
+  }, []);
+
+  // Telegram: reset body margin when in Telegram mode (some WebViews preserve default 8px)
+  useEffect(() => {
+    if (isTelegram) {
+      const prev = document.body.style.margin;
+      document.body.style.margin = '0';
+      return () => { document.body.style.margin = prev; };
+    }
+  }, [isTelegram]);
 
   // Init achievement subsystem + App store (device ID, profile sync)
   useEffect(() => {
@@ -752,9 +782,31 @@ export default function App() {
     triggerOverlayResponse(text, updated);
   };
 
-  const startOverlaySpeech = () => {
+  const startOverlaySpeech = async () => {
     if (overlayAutoCloseTimerRef.current) clearTimeout(overlayAutoCloseTimerRef.current);
     if (overlayTypingTimerRef.current) clearTimeout(overlayTypingTimerRef.current);
+
+    const audioCtx = new AudioContext();
+
+    const granted = await ensureMicPermission();
+    if (!granted) {
+      audioCtx.close();
+      setOverlayOpen(true);
+      setOverlayState("На связи");
+      setOverlayInput("");
+      setOverlayMessages(prev => {
+        if (prev.length === 0) {
+          return [{
+            id: "overlay-welcome",
+            sender: "anna",
+            text: getOverlayGreeting(screen),
+            time: new Date().toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })
+          }];
+        }
+        return prev;
+      });
+      return;
+    }
 
     isOverlayHoldingMicRef.current = true;
     setOverlayState("Слушаю");
@@ -775,8 +827,13 @@ export default function App() {
 
     overlaySpeechSessionRef.current = new SpeechToTextSession({
       isHoldingRef: isOverlayHoldingMicRef,
+      audioContext: audioCtx,
       onTranscript: (incomingTranscript, isFinalState) => {
         setOverlayInput(incomingTranscript);
+        if (isFinalState && incomingTranscript.trim() && overlaySendEnabledRef.current) {
+          overlaySendEnabledRef.current = false;
+          handleOverlaySendText(incomingTranscript.trim());
+        }
       },
       onStateChange: (state) => {
         if (state === "listening") {
@@ -791,33 +848,24 @@ export default function App() {
     overlaySpeechSessionRef.current.start();
   };
 
+  const overlaySendEnabledRef = useRef(false);
+
   const stopOverlaySpeechAndSend = () => {
     isOverlayHoldingMicRef.current = false;
-    
-    let textToSend = "";
+    overlaySendEnabledRef.current = true;
+
     if (overlaySpeechSessionRef.current) {
-      textToSend = overlaySpeechSessionRef.current.getAccumulatedText().trim();
       overlaySpeechSessionRef.current.stop();
       overlaySpeechSessionRef.current = null;
     }
 
-    if (!textToSend) {
-      textToSend = overlayInput.trim();
-    }
-
-    setOverlayInput("");
-
-    if (!textToSend) {
-      setOverlayState("На связи");
-      resetOverlayAutoCloseTimer(5000);
-      return;
-    }
-
-    handleOverlaySendText(textToSend);
+    resetOverlayAutoCloseTimer(10000);
   };
 
   const cancelOverlaySpeech = () => {
     isOverlayHoldingMicRef.current = false;
+    overlaySendEnabledRef.current = false;
+
     if (overlaySpeechSessionRef.current) {
       overlaySpeechSessionRef.current.stop();
       overlaySpeechSessionRef.current = null;
@@ -841,8 +889,8 @@ export default function App() {
       setScreen("rewards");
     };
 
-    const handleStartPress = () => {
-      startOverlaySpeech();
+    const handleStartPress = async () => {
+      await startOverlaySpeech();
     };
 
     const handleEndPress = () => {
@@ -894,6 +942,14 @@ export default function App() {
   // ─── ACHIEVEMENT SNAPSHOT INGESTION ────────────────────────────
   const lastSnapshotRef = useRef('')
   useEffect(() => {
+    // Read water entries from localStorage (populated by MyDayScreen)
+    let allWaterEntries: AchievementStateSnapshot['waterEntries'] = []
+    try {
+      const raw = localStorage.getItem('wfpb_daily_water_entries_v3')
+      const allLogs: Record<number, { amount: number; time: string; timestamp: number }[]> = raw ? JSON.parse(raw) : {}
+      allWaterEntries = Object.values(allLogs).flat()
+    } catch {}
+
     const snapshot: AchievementStateSnapshot = {
       savedDishes,
       water,
@@ -908,6 +964,7 @@ export default function App() {
       initialWeight,
       initialSystolic,
       overlayState: overlayStateRef.current,
+      waterEntries: allWaterEntries,
     }
     const json = JSON.stringify(snapshot)
     if (json === lastSnapshotRef.current) return
@@ -1046,7 +1103,7 @@ export default function App() {
     setHabitsDone(completedKeysCount);
 
     // Increase click count indicating progress
-    setClickCount(prev => prev + completedKeysCount + 5);
+    useAppStore.getState().setClickCount(clickCount + completedKeysCount + 5);
 
     // Turn screen back to 'my-day'
     setScreen("my-day");
@@ -1056,18 +1113,28 @@ export default function App() {
     <ErrorBoundary>
       <GlobalNotificationOverlay />
       <div 
-        className="min-h-screen bg-[#F0F3F5] text-text-main flex items-center justify-center py-6 px-4 md:py-10 transition-colors duration-300 pointer-events-auto" 
+        className={[
+          "text-text-main transition-colors duration-300 pointer-events-auto",
+          isTelegram ? "bg-white" : "min-h-screen bg-[#F0F3F5] flex items-center justify-center py-6 px-4 md:py-10",
+        ].join(" ")}
         style={{ fontFamily: '"Calibri", "Candara", "Segoe UI", system-ui, sans-serif' }}
       >
-      {/* Decorative organic background blobs for context styling */}
+      {!isTelegram && (
+        <>
       <div className="absolute top-10 left-10 w-96 h-96 bg-brand-green-bright/3 rounded-full blur-[100px] pointer-events-none" />
       <div className="absolute bottom-10 right-10 w-96 h-96 bg-brand-green-mint/3 rounded-full blur-[100px] pointer-events-none" />
+        </>
+      )}
 
       {/* Main viewport Container (No device notched borders or system status overlays, purely the screen UI content) */}
       <motion.div 
         layout
-        className="w-full max-w-[420px] bg-white rounded-[40px] shadow-[0_24px_54px_-10px_rgba(43,49,55,0.08),_0_12px_24px_-12px_rgba(0,0,0,0.03)] border border-gray-100/50 flex flex-col justify-between overflow-hidden relative"
-        style={{ minHeight: "844px" }}
+        className={
+          isTelegram
+            ? "w-full min-h-screen bg-white flex flex-col"
+            : "w-full max-w-[420px] bg-white rounded-[40px] shadow-[0_24px_54px_-10px_rgba(43,49,55,0.08),_0_12px_24px_-12px_rgba(0,0,0,0.03)] border border-gray-100/50 flex flex-col justify-between overflow-hidden relative"
+        }
+        style={isTelegram ? {} : { minHeight: "844px" }}
       >
         
         {/* Top Spacer element representing the status bar region - completely clean empty area of the interface itself */}
@@ -1217,7 +1284,7 @@ export default function App() {
                 water={water}
                 setWater={setWater}
                 initialHabits={habitsTwentyData}
-                recordClickExternally={(pts) => setClickCount(prev => prev + pts)}
+                recordClickExternally={(pts) => useAppStore.getState().setClickCount(clickCount + pts)}
                 onSaveProgress={handleSaveProgress}
                 screen={screen}
                 onOpenCalendar={() => setCalendarOpen(true)}
@@ -1276,7 +1343,7 @@ export default function App() {
                 ingredients={customMealIngredients || []}
                 onConfirm={(dishName, computedNutrients, annaComment) => {
                   setMealCount(prev => Math.min(4, prev + 1));
-                  setClickCount(prev => prev + 25);
+                  useAppStore.getState().setClickCount(clickCount + 25);
                   setMeals(prev => prev.map((m, idx) => {
                     if (idx === mealCount) {
                       return { ...m, name: dishName, checked: true };
@@ -1521,6 +1588,17 @@ export default function App() {
                 onboardingComplete={() => setScreen("my-day")}
               />
             </motion.div>
+          ) : screen === "club" ? (
+            <motion.div
+              key="club-view"
+              initial={{ opacity: 0, x: 10 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -10 }}
+              transition={{ duration: 0.4 }}
+              className="flex-1 flex flex-col"
+            >
+              <ClubScreen onBack={() => setScreen("my-day")} />
+            </motion.div>
           ) : (
             <motion.div
               key="my-day-view"
@@ -1733,7 +1811,7 @@ export default function App() {
           currentDayIndex={currentDayIndex}
           viewingDayIndex={viewingDayIndex}
           setViewingDayIndex={setViewingDayIndex}
-          recordClick={(pts) => setClickCount(prev => prev + (pts || 1))}
+          recordClick={(pts) => useAppStore.getState().setClickCount(clickCount + (pts || 1))}
         />
 
         {/* Global Achievement Overlay */}
@@ -1747,7 +1825,7 @@ export default function App() {
         })} />
 
         {/* Developer Debug Panel */}
-        <AchievementsDebugPanel />
+        {SHOW_DEBUG_ACHIEVEMENTS_PANEL && <AchievementsDebugPanel />}
 
         {/* MixerScreen overlay */}
         <AnimatePresence>

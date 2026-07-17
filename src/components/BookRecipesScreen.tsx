@@ -3217,8 +3217,8 @@ export default function BookRecipesScreen({
               transition={{ type: "spring", stiffness: 350, damping: 26 }}
               className={`relative w-[380px] z-10 rounded-[34px] border border-gray-150/80 shadow-[0_24px_50px_-8px_rgba(0,0,0,0.18),_0_8px_16px_rgba(0,0,0,0.06)] ${
                 useLegacyLayout
-                  ? "bg-white p-5.5 overflow-y-auto max-h-[790px] scrollbar-none flex flex-col justify-between text-left"
-                  : "bg-black p-0 overflow-hidden h-[675px]"
+                  ? "bg-white p-5.5 overflow-y-auto max-h-[85dvh] scrollbar-none overscroll-contain flex flex-col justify-between text-left"
+                  : "bg-black p-0 overflow-y-auto h-[85dvh] overscroll-contain"
               }`}
               id="book-recipe-modal-panel"
             >

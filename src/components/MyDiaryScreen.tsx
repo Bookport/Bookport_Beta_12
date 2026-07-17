@@ -1716,7 +1716,7 @@ export default function MyDiaryScreen({
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className={`w-full max-w-[280px] p-5 rounded-[32px] border ${borderCol} ${cardBg} shadow-2xl relative text-center z-10`}
+              className={`w-full max-w-[280px] p-5 rounded-[32px] border ${borderCol} ${cardBg} shadow-2xl relative text-center z-10 max-h-[85dvh] overflow-y-auto overscroll-contain`}
             >
               <div className="w-11 h-11 rounded-full bg-amber-400/10 flex items-center justify-center text-[18px] mx-auto text-amber-500 mb-3">
                 🔒
@@ -1773,7 +1773,7 @@ export default function MyDiaryScreen({
               initial={{ opacity: 0, y: 15, scale: 0.96 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 15, scale: 0.96 }}
-              className={`w-full max-w-[325px] p-5 rounded-[36px] border ${borderCol} ${cardBg} shadow-2xl relative text-left z-10 flex flex-col justify-start`}
+              className={`w-full max-w-[325px] p-5 rounded-[36px] border ${borderCol} ${cardBg} shadow-2xl relative text-left z-10 flex flex-col justify-start max-h-[85dvh] overflow-y-auto overscroll-contain`}
             >
               {/* Header Title with dismiss cross */}
               <div className="flex justify-between items-center mb-4">

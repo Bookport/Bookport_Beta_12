@@ -80,6 +80,8 @@ function buildPayload(event: AchievementEvent): Record<string, any> {
       systolic: s.systolic || 0,
       initialWeight: s.initialWeight || 0,
       initialSystolic: s.initialSystolic || 0,
+      waterEntries: s.waterEntries || [],
+      clickCount: s.clickCount || 0,
     }
   }
   return {}

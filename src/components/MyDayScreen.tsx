@@ -23,6 +23,7 @@ import {
 import { resolveAvatar } from "../utils/annaAvatarResolver";
 import { useAppStore } from "../store/useAppStore";
 import { SystemKeysStore } from "../services/SystemKeysStore";
+import { calculateIntegralScore } from "../utils/integralScore";
 import { api } from "../utils/api";
 import waterImg from "../assets/images/buttons/вода.webp";
 import foodImg from "../assets/images/buttons/еда.webp";
@@ -80,8 +81,7 @@ interface MyDayScreenProps {
   setSleep?: React.Dispatch<React.SetStateAction<number>>;
   mealCount?: number;
   setMealCount?: React.Dispatch<React.SetStateAction<number>>;
-  clickCount?: number;
-  setClickCount?: React.Dispatch<React.SetStateAction<number>>;
+
   habitsDone?: number;
   setHabitsDone?: React.Dispatch<React.SetStateAction<number>>;
   meals?: { id: string; name: string; checked: boolean }[];
@@ -144,7 +144,8 @@ export default function MyDayScreen({
   const [water, setWater] = useState(0);
   const [sleep, setSleep] = useState(0);
   const [mealCount, setMealCount] = useState(0);
-  const [clickCount, setClickCount] = useState(0);
+  const clickCount = useAppStore((s) => s.clickCount);
+  const setClickCountStore = useAppStore((s) => s.setClickCount);
 
   // Check for pending achievements when MyDay is active
   useEffect(() => {
@@ -321,6 +322,7 @@ export default function MyDayScreen({
 
   const [activeNotification, setActiveNotification] = useState<{ text: string; type: string } | null>(null);
   const [isPulsating, setIsPulsating] = useState<boolean>(false);
+  const scrollRef = React.useRef<HTMLDivElement | null>(null);
   const nextAllowedNotificationTimeRef = React.useRef<number>(0);
 
   // Sync isPulsating out of timeout
@@ -861,13 +863,16 @@ export default function MyDayScreen({
 
     setMovementLogs(updatedLogs);
 
-    // Persist movement log to DB (fire-and-forget)
+    // Persist movement log + total activity minutes to DB (fire-and-forget)
+    const allLogsToday = [...(movementLogs[currentDayIndex] || []), newLogEntry];
+    const totalActivityMin = Math.round(allLogsToday.reduce((sum, e) => sum + e.durationSeconds, 0) / 60);
     api("/api/metrics/daily", {
       method: "POST",
       body: {
         date: new Date().toISOString().split("T")[0],
         dayIndex: currentDayIndex,
         movementLog: [newLogEntry],
+        activityMinutes: totalActivityMin,
       },
     }).catch(() => {});
 
@@ -1722,31 +1727,40 @@ export default function MyDayScreen({
     }
   }, [habitsDone, prevHabitsLocal]);
 
-  // 2. Logic Calculations
-  // All math uses the rigorous percentage bounds
+  // 2. Logic Calculations — 7-factor integral score (Water 20%, Sleep 20%, Meals 20%, Habits 15%, Zen 10%, Energy 10%, Lightness 5%)
   const currentWeightForDay = getResolvedWeightForDay(currentDayIndex);
-  const waterGoal = currentWeightForDay * 30; // 30 ml per kg
-  const sleepGoal = 480; // 8 Hours (8 * 60)
+  const waterGoal = currentWeightForDay * 30;
+  const sleepGoal = 480;
   const mealGoal = 4;
+  const activityGoal = 30;
 
-  // Source values = DB persisted base + local session additions (survives reload & navigation)
   const srcWater = (dbMetric?.waterMl ?? 0) + water;
   const srcSleep = (dbMetric?.sleepMinutes ?? 0) + sleep;
   const srcMeal = (dbMetric?.mealCount ?? 0) + mealCount;
 
-  const waterPercent = Math.min(100, Math.round((srcWater / waterGoal) * 100));
-  const sleepPercent = Math.min(100, Math.round((srcSleep / sleepGoal) * 100));
-  const mealPercent = Math.min(100, Math.round((srcMeal / mealGoal) * 100));
+  const todayActivityLogs = movementLogs[currentDayIndex] || [];
+  const srcActivity = (dbMetric?.activityMinutes ?? 0)
+    + Math.round(todayActivityLogs.reduce((sum, e) => sum + e.durationSeconds, 0) / 60);
 
-  // Energy is defined by: Энергия = Сон * 0.5 + Вода * 0.2 + Рацион * 0.3
-  const energyPercent = Math.min(100, Math.round((sleepPercent * 0.5) + (waterPercent * 0.2) + (mealPercent * 0.3)));
-
-  // Plan of the day: План дня = (Вода + Сон + Энергия + Рацион) / 4
-  const planOfDayPercent = Math.min(100, Math.round((waterPercent + sleepPercent + energyPercent + mealPercent) / 4));
+  const planOfDayPercent = calculateIntegralScore({
+    waterMl: srcWater,
+    waterTarget: waterGoal,
+    sleepMinutes: srcSleep,
+    sleepTarget: sleepGoal,
+    mealCount: srcMeal,
+    mealsTarget: mealGoal,
+    habitsDone,
+    habitsTarget: 20,
+    activityMinutes: srcActivity,
+    activityTarget: activityGoal,
+    ratingEnergy,
+    ratingWellbeing,
+    ratingLightness,
+  });
 
   // Auto-increment the interaction tracker "Прогресс" when clicking elements on the page
   const recordClick = (points: number = 1) => {
-    setClickCount(prev => prev + points);
+    setClickCountStore(clickCount + points);
   };
 
   // 3. Anna Recommendations logic
@@ -2540,7 +2554,7 @@ export default function MyDayScreen({
               animate={{ y: 0 }}
               exit={{ y: "100%" }}
               transition={{ type: "spring", damping: 25, stiffness: 220 }}
-              className="absolute bottom-0 inset-x-0 bg-white rounded-t-[36px] shadow-[0_-12px_40px_rgba(15,23,42,0.18)] border-t border-slate-100 z-50 p-6 flex flex-col text-left text-text-dark"
+              className="absolute bottom-0 inset-x-0 bg-white rounded-t-[36px] shadow-[0_-12px_40px_rgba(15,23,42,0.18)] border-t border-slate-100 z-50 p-6 flex flex-col text-left text-text-dark max-h-[80dvh] overflow-y-auto overscroll-contain"
             >
               {/* Drag handles decorative pill */}
               <div className="w-12 h-1.5 bg-slate-200 rounded-full mx-auto mb-4" />
@@ -2560,32 +2574,87 @@ export default function MyDayScreen({
               </div>
 
               {/* Horizontal Scroll Wheels volume selectors */}
-              <div className="flex overflow-x-auto gap-3.5 py-4 px-1 scrollbar-none snap-x mask-gradient-x justify-start select-none pointer-events-auto">
-                {[100, 150, 200, 250, 300, 400, 500, 750, 1000].map((amt) => {
-                  const isPref = amt === tempSelectedFastAmount;
-                  
-                  let dropletEmoji = "💧";
-                  if (amt >= 750) dropletEmoji = "🥃";
-                  else if (amt <= 150) dropletEmoji = "💦";
-
-                  return (
-                    <button
-                      key={amt}
-                      type="button"
-                      onClick={() => setTempSelectedFastAmount(amt)}
-                      className={`snap-center flex-shrink-0 w-24 h-24 rounded-2xl flex flex-col items-center justify-between p-3.5 transition-all duration-300 border cursor-pointer ${
-                        isPref
-                          ? "bg-gradient-to-b from-[#0EA5E9] to-[#0284C7] text-white border-sky-300 shadow-[0_8px_16px_rgba(14,165,233,0.3)] scale-105"
-                          : "bg-slate-50 text-slate-800 border-slate-100 hover:bg-slate-100/80 active:scale-95"
-                      }`}
-                    >
-                      <span className="text-[22px] leading-none">{dropletEmoji}</span>
-                      <span className="text-[14px] font-bold font-mono">
-                        {amt < 1000 ? `${amt} мл` : `1.0 л`}
+              <div className="relative">
+                {/* PC drag scrollbar above cards */}
+                <div className="px-1 mb-3">
+                  <input
+                    type="range"
+                    min={0}
+                    max={8}
+                    step={1}
+                    value={[100, 150, 200, 250, 300, 400, 500, 750, 1000].indexOf(tempSelectedFastAmount)}
+                    onChange={(e) => {
+                      const idx = parseInt(e.target.value);
+                      const amt = [100, 150, 200, 250, 300, 400, 500, 750, 1000][idx];
+                      setTempSelectedFastAmount(amt);
+                      if (scrollRef.current) {
+                        const child = scrollRef.current.children[idx] as HTMLElement;
+                        if (child) {
+                          const containerWidth = scrollRef.current.clientWidth;
+                          const childLeft = child.offsetLeft;
+                          const childWidth = child.offsetWidth;
+                          scrollRef.current.scrollLeft = childLeft - containerWidth / 2 + childWidth / 2;
+                        }
+                      }
+                    }}
+                    className="w-full h-2 rounded-full appearance-none cursor-pointer bg-slate-200 accent-sky-500
+                      [&::-webkit-slider-thumb]:appearance-none
+                      [&::-webkit-slider-thumb]:w-5
+                      [&::-webkit-slider-thumb]:h-5
+                      [&::-webkit-slider-thumb]:rounded-full
+                      [&::-webkit-slider-thumb]:bg-white
+                      [&::-webkit-slider-thumb]:border-2
+                      [&::-webkit-slider-thumb]:border-sky-500
+                      [&::-webkit-slider-thumb]:shadow-md
+                      [&::-webkit-slider-thumb]:hover:scale-110
+                      [&::-webkit-slider-thumb]:transition-transform
+                      [&::-moz-range-thumb]:w-5
+                      [&::-moz-range-thumb]:h-5
+                      [&::-moz-range-thumb]:rounded-full
+                      [&::-moz-range-thumb]:bg-white
+                      [&::-moz-range-thumb]:border-2
+                      [&::-moz-range-thumb]:border-sky-500
+                      [&::-moz-range-thumb]:shadow-md"
+                  />
+                  {/* Tick labels */}
+                  <div className="flex justify-between px-[2px] mt-1">
+                    {[100, 200, 300, 500, 1000].map((v) => (
+                      <span key={v} className="text-[10px] font-medium text-slate-400">
+                        {v < 1000 ? `${v}` : `1л`}
                       </span>
-                    </button>
-                  );
-                })}
+                    ))}
+                  </div>
+                </div>
+                {/* Scroll fade edges */}
+                <div className="absolute left-0 top-0 bottom-0 w-6 bg-gradient-to-r from-white to-transparent z-10 pointer-events-none" />
+                <div className="absolute right-0 top-0 bottom-0 w-6 bg-gradient-to-l from-white to-transparent z-10 pointer-events-none" />
+                <div ref={scrollRef} className="flex overflow-x-auto gap-3.5 py-4 px-1 scrollbar-none snap-x snap-mandatory justify-start select-none pointer-events-auto">
+                  {[100, 150, 200, 250, 300, 400, 500, 750, 1000].map((amt) => {
+                    const isPref = amt === tempSelectedFastAmount;
+                    
+                    let dropletEmoji = "💧";
+                    if (amt >= 750) dropletEmoji = "🥃";
+                    else if (amt <= 150) dropletEmoji = "💦";
+
+                    return (
+                      <button
+                        key={amt}
+                        type="button"
+                        onClick={() => setTempSelectedFastAmount(amt)}
+                        className={`snap-center flex-shrink-0 w-24 h-24 rounded-2xl flex flex-col items-center justify-between p-3.5 transition-all duration-300 border cursor-pointer ${
+                          isPref
+                            ? "bg-gradient-to-b from-[#0EA5E9] to-[#0284C7] text-white border-sky-300 shadow-[0_8px_16px_rgba(14,165,233,0.3)] scale-105"
+                            : "bg-slate-50 text-slate-800 border-slate-100 hover:bg-slate-100/80 active:scale-95"
+                        }`}
+                      >
+                        <span className="text-[22px] leading-none">{dropletEmoji}</span>
+                        <span className="text-[14px] font-bold font-mono">
+                          {amt < 1000 ? `${amt} мл` : `1.0 л`}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
               {/* Information Hint */}
@@ -2631,7 +2700,7 @@ export default function MyDayScreen({
               animate={{ y: "0%" }}
               exit={{ y: "100%" }}
               transition={{ type: "spring", damping: 28, stiffness: 240 }}
-              className="absolute inset-x-0 bottom-0 max-h-[460px] bg-white rounded-t-[34px] shadow-[0_-12px_45px_rgba(31,35,40,0.14)] z-50 border-t border-slate-100 flex flex-col pt-3 pb-6 px-6 text-left pointer-events-auto"
+              className="absolute inset-x-0 bottom-0 max-h-[80dvh] bg-white rounded-t-[34px] shadow-[0_-12px_45px_rgba(31,35,40,0.14)] z-50 border-t border-slate-100 flex flex-col pt-3 pb-6 px-6 text-left pointer-events-auto overflow-y-auto overscroll-contain"
             >
               {/* Premium Drag handle */}
               <div className="w-11 h-1.5 bg-slate-200 rounded-full mx-auto mb-4.5" />
@@ -2784,7 +2853,7 @@ export default function MyDayScreen({
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-[32px] border border-gray-100 p-5.5 w-full max-w-[320px] text-center shadow-[0_20px_50px_rgba(0,0,0,0.15)] flex flex-col gap-4.5"
+              className="bg-white rounded-[32px] border border-gray-100 p-5.5 w-full max-w-[320px] text-center shadow-[0_20px_50px_rgba(0,0,0,0.15)] flex flex-col gap-4.5 max-h-[85dvh] overflow-y-auto overscroll-contain"
             >
               <div className="flex flex-col gap-1">
                 <span className="text-[11px] font-bold text-violet-600 tracking-wider uppercase">КАЧЕСТВО СНА</span>

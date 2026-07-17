@@ -1,12 +1,7 @@
-let godModeEnabled = false
-
 export function isGodModeEnabled(): boolean {
-  return godModeEnabled
+  return false
 }
 
-export function setGodMode(enabled: boolean): void {
-  godModeEnabled = enabled
-  if (typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent('godmode-changed', { detail: { enabled } }))
-  }
+export function setGodMode(_enabled: boolean): void {
+  // God Mode permanently disabled — achievements only by honest formulas
 }

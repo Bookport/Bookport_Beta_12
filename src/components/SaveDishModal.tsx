@@ -2,7 +2,7 @@ import React, { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { X } from "lucide-react";
 import { getCategoryColor, DEFAULT_CATEGORIES } from "../utils/categoryColors";
-import type { SavedDish } from "./MyDishesScreen";
+import type { SavedDish } from "../types/dishes";
 
 interface SaveDishModalProps {
   dish: SavedDish;
@@ -56,7 +56,7 @@ export default function SaveDishModal({
           exit={{ y: "100%", opacity: 0 }}
           transition={{ type: "spring", damping: 28, stiffness: 300 }}
           onClick={(e) => e.stopPropagation()}
-          className="bg-white rounded-[28px] w-full max-w-md mx-4 p-5 shadow-xl"
+          className="bg-white rounded-[28px] w-full max-w-md mx-4 p-5 shadow-xl max-h-[85dvh] overflow-y-auto overscroll-contain"
         >
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-extrabold text-gray-800">Первая настройка блюда</h2>

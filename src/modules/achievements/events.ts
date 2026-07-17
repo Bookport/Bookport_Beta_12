@@ -27,6 +27,7 @@ export interface AchievementStateSnapshot {
   initialWeight: number
   initialSystolic: number
   overlayState: string | null
+  waterEntries?: { amount: number; time: string; timestamp: number }[]
 }
 
 export type AchievementEvent =

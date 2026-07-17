@@ -274,9 +274,9 @@ export default function MixerScreen({ config, onClose }: MixerScreenProps) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Casino Cabinet */}
-      <div className="relative w-full max-w-[460px] flex flex-col"
+      <div className="relative w-full max-w-[440px] flex flex-col"
         style={{ maxHeight: 'calc(100dvh - 1.5rem)' }}
       >
         {/* Gold border outer shell */}

@@ -1,6 +1,7 @@
 import express from "express";
 import path from "path";
 import fs from "fs/promises";
+import crypto from "crypto";
 import { Type } from "@google/genai";
 import dotenv from "dotenv";
 import { findForbiddenInText } from "./src/data/wfpb_forbidden_ingredients";
@@ -13,6 +14,7 @@ import { prisma } from "./src/prisma";
 import { logger } from "./src/utils/logger";
 import { achievementService } from "./src/services/AchievementService";
 import { ANNA_TOOL_DEFINITIONS, executeToolCall } from "./src/services/annaTools";
+import { setupTelegramWebhook, getBotUsername } from "./src/services/telegramBot";
 
 const promptCompiler = new PromptCompiler();
 
@@ -465,6 +467,9 @@ async function startServer() {
     next();
   });
 
+  // ── Telegram Webhook ──
+  setupTelegramWebhook(app);
+
   // Client error log receiver
   app.post("/api/logs/client", (req, res) => {
     try {
@@ -785,7 +790,9 @@ Important Rules:
           omegaRatio: { value: "—", unit: "" }
         };
       } else {
-        console.warn("[USDA] Failed, returning 0 macros as fallback");
+        console.warn("[USDA] Failed, using local fallback for macros");
+        const fallback = getUsdaFallbackData(ingredients);
+        nutrients = fallback.nutrients;
       }
 
       // ── Merge ──
@@ -1798,6 +1805,7 @@ async function checkBackgroundAchievements(userId, eventType, data) {
           ritualTime: data.ritualTime ?? undefined,
           chronicConditions: data.chronicConditions ? JSON.stringify(data.chronicConditions) : undefined,
           healthGoals: data.healthGoals ? JSON.stringify(data.healthGoals) : undefined,
+          clickCount: data.clickCount ?? undefined,
         },
       });
       res.json({ ok: true, userId: user.id });
@@ -1830,6 +1838,7 @@ async function checkBackgroundAchievements(userId, eventType, data) {
         ritualTime: user.ritualTime,
         chronicConditions: user.chronicConditions ? JSON.parse(user.chronicConditions) : [],
         healthGoals: user.healthGoals ? JSON.parse(user.healthGoals) : [],
+        clickCount: user.clickCount || 0,
       });
     } catch (err: any) {
       console.error("[UserProfile] GET error:", err.message);
@@ -1867,6 +1876,7 @@ async function checkBackgroundAchievements(userId, eventType, data) {
           hasSavedSettings: user.hasSavedSettings,
           chronicConditions: user.chronicConditions ? JSON.parse(user.chronicConditions) : [],
           healthGoals: user.healthGoals ? JSON.parse(user.healthGoals) : [],
+          clickCount: user.clickCount || 0,
         } : {},
         savedDishes: (dishes || []).map(d => ({
           ...d,
@@ -2614,6 +2624,85 @@ async function checkBackgroundAchievements(userId, eventType, data) {
     } catch (err: any) {
       logger.error("[Achievements] Mark shown error:", err.message);
       res.status(500).json({ success: false });
+    }
+  });
+
+  // ── Club: Telegram Token Management ──
+
+  // POST /api/club/generate-token — generates a one-time token with 15min TTL
+  app.post("/api/club/generate-token", async (req, res) => {
+    if (!req.userId) return res.status(400).json({ error: "Missing device ID" });
+    try {
+      const token = crypto.randomUUID();
+      const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+
+      await prisma.user.update({
+        where: { id: req.userId },
+        data: {
+          clubToken: token,
+          clubTokenExpiresAt: expiresAt,
+        },
+      });
+
+      const username = getBotUsername();
+
+      const deepLink = username
+        ? `https://t.me/${username}?start=${token}`
+        : null;
+
+      res.json({ deepLink });
+    } catch (err: any) {
+      logger.error("[Club] generate-token error:", err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // GET /api/club/status — returns current Telegram binding status
+  app.get("/api/club/status", async (req, res) => {
+    if (!req.userId) return res.status(400).json({ error: "Missing device ID" });
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: req.userId },
+        select: {
+          telegramId: true,
+          telegramName: true,
+          telegramUsername: true,
+          clubLinkedAt: true,
+        },
+      });
+
+      res.json({
+        linked: !!user?.telegramId,
+        telegramName: user?.telegramName || null,
+        telegramUsername: user?.telegramUsername || null,
+        clubLinkedAt: user?.clubLinkedAt?.toISOString() || null,
+        inviteLink: process.env.TELEGRAM_GROUP_INVITE_LINK || null,
+      });
+    } catch (err: any) {
+      logger.error("[Club] status error:", err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /api/club/unlink — removes Telegram binding from the user
+  app.post("/api/club/unlink", async (req, res) => {
+    if (!req.userId) return res.status(400).json({ error: "Missing device ID" });
+    try {
+      await prisma.user.update({
+        where: { id: req.userId },
+        data: {
+          telegramId: null,
+          telegramName: null,
+          telegramUsername: null,
+          clubToken: null,
+          clubTokenExpiresAt: null,
+          clubLinkedAt: null,
+        },
+      });
+      res.json({ ok: true });
+    } catch (err: any) {
+      logger.error("[Club] unlink error:", err.message);
+      res.status(500).json({ error: err.message });
     }
   });
 
