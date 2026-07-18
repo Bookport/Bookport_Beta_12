@@ -10,9 +10,19 @@ export interface TelegramUser {
 export function extractTelegramUser(initData: string): TelegramUser | null {
   try {
     const botToken = process.env.TELEGRAM_BOT_TOKEN;
+
+    // In production, bot token is required for HMAC validation
     if (!botToken) {
-      logger.warn("[InitData] TELEGRAM_BOT_TOKEN not set");
-      return null;
+      if (process.env.NODE_ENV === "production") {
+        logger.error("[InitData] TELEGRAM_BOT_TOKEN not set in production!");
+        return null;
+      }
+      // Dev fallback: parse user without hash validation
+      logger.warn("[InitData] TELEGRAM_BOT_TOKEN not set — dev mode skip validation");
+      const params = new URLSearchParams(initData);
+      const userStr = params.get("user");
+      if (!userStr) return null;
+      return JSON.parse(userStr) as TelegramUser;
     }
 
     const params = new URLSearchParams(initData);
