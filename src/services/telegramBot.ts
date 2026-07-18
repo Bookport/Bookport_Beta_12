@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import { Telegraf } from "telegraf";
 import type { Express } from "express";
 import { prisma } from "../prisma";
@@ -21,47 +22,54 @@ export function setupTelegramWebhook(app: Express) {
 
   bot.start(async (ctx) => {
     try {
-      const tokenParam = ctx.message.text.split(" ")[1];
-      if (!tokenParam) {
-        await ctx.reply("Добро пожаловать в Клуб «Всё дело в еде!» Используйте ссылку из приложения для привязки аккаунта.");
-        return;
-      }
+      const param = ctx.message.text.split(" ")[1];
 
-      const user = await prisma.user.findFirst({
-        where: { clubToken: tokenParam },
-      });
+      // Purchase flow
+      if (param && param.startsWith("purchase_")) {
+        const purchaseToken = await prisma.purchaseToken.findUnique({
+          where: { token: param },
+        });
 
-      if (!user) {
-        await ctx.reply("Ссылка устарела или недействительна. Запросите новую ссылку в приложении.");
-        return;
-      }
+        if (!purchaseToken || purchaseToken.used || purchaseToken.expiresAt < new Date()) {
+          await ctx.reply("Ссылка устарела или недействительна. Обратитесь в поддержку.");
+          return;
+        }
 
-      if (!user.clubTokenExpiresAt || user.clubTokenExpiresAt < new Date()) {
-        await ctx.reply("Срок действия ссылки истёк. Запросите новую ссылку в приложении.");
-        return;
-      }
+        const user = await prisma.user.upsert({
+          where: { telegramId: String(ctx.from.id) },
+          update: {
+            telegramName: ctx.from.first_name || null,
+            telegramUsername: ctx.from.username || null,
+            purchasedAt: new Date(),
+          },
+          create: {
+            id: crypto.randomUUID(),
+            telegramId: String(ctx.from.id),
+            telegramName: ctx.from.first_name || null,
+            telegramUsername: ctx.from.username || null,
+            purchasedAt: new Date(),
+          },
+        });
 
-      await prisma.user.update({
-        where: { id: user.id },
-        data: {
-          telegramId: String(ctx.from.id),
-          telegramName: ctx.from.first_name || null,
-          telegramUsername: ctx.from.username || null,
-          clubLinkedAt: new Date(),
-          clubToken: null,
-          clubTokenExpiresAt: null,
-        },
-      });
+        await prisma.purchaseToken.update({
+          where: { id: purchaseToken.id },
+          data: { used: true, telegramId: String(ctx.from.id), usedAt: new Date() },
+        });
 
-      const inviteLink = process.env.TELEGRAM_GROUP_INVITE_LINK;
-      if (inviteLink) {
+        const appUrl = process.env.SERVER_URL || "https://app.vsedelovede.ru";
         await ctx.reply(
-          `Аккаунт успешно привязан, ${ctx.from.first_name || "друг"}! Добро пожаловать в Клуб «Всё дело в еде!»\n\nВступайте в чат: ${inviteLink}`,
-          { link_preview_options: { is_disabled: true } }
+          `Добро пожаловать, ${ctx.from.first_name || "друг"}! 🎉\n\nНажмите кнопку ниже, чтобы открыть приложение:`,
+          {
+            reply_markup: {
+              inline_keyboard: [[{ text: "🚀 Открыть приложение", web_app: { url: appUrl } }]],
+            },
+          }
         );
-      } else {
-        await ctx.reply("Аккаунт успешно привязан! Добро пожаловать в Клуб «Всё дело в еде!»");
+        return;
       }
+
+      // Club stub
+      await ctx.reply("Клуб скоро будет доступен.");
     } catch (err) {
       logger.error("[TelegramBot] /start error", err);
       await ctx.reply("Произошла ошибка. Попробуйте позже.").catch(() => {});

@@ -1,5 +1,6 @@
 import type { AchievementEvent, AchievementStateSnapshot } from './events'
 import { clientLogger } from '../../utils/clientLogger'
+import { getTelegramInitData } from '../../utils/telegramClient'
 
 export function initializeAchievementSystem(): void {
   clientLogger.info('Achievement system initialized (server-driven)')
@@ -12,7 +13,7 @@ export async function ingestAchievementEvent(event: AchievementEvent): Promise<v
   try {
     const resp = await fetch('/api/achievements/check', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Device-Id': localStorage.getItem('wfpb_device_id') || '' },
+      headers: { 'Content-Type': 'application/json', 'X-Telegram-Init-Data': getTelegramInitData() },
       body: JSON.stringify({ action, payload: buildPayload(event) }),
     })
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`)

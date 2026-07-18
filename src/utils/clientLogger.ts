@@ -1,3 +1,5 @@
+import { getTelegramInitData } from "./telegramClient";
+
 const API_URL = ""; // relative path, same origin
 
 export interface ClientLogEntry {
@@ -8,26 +10,16 @@ export interface ClientLogEntry {
   url?: string;
   status?: number;
   stack?: string;
-  deviceId?: string;
-}
-
-function getDeviceId(): string {
-  try {
-    return localStorage.getItem("wfpb_device_id") || "unknown";
-  } catch {
-    return "unknown";
-  }
 }
 
 function sendToServer(entry: ClientLogEntry) {
   try {
     const payload = JSON.stringify(entry);
-    // Fire-and-forget — don't block the main flow
     fetch(`${API_URL}/api/logs/client`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-Device-Id": getDeviceId() },
+      headers: { "Content-Type": "application/json", "X-Telegram-Init-Data": getTelegramInitData() },
       body: payload,
-    }).catch(() => {}); // suppress network errors for the logger itself
+    }).catch(() => {});
   } catch {}
 }
 
@@ -40,7 +32,6 @@ export const clientLogger = {
       timestamp: new Date().toISOString(),
       url: meta?.url,
       status: meta?.status,
-      deviceId: getDeviceId(),
     };
     if (import.meta.env.MODE !== "production") console.log(`[CLIENT] ${message}`, meta || "");
   },
@@ -53,7 +44,6 @@ export const clientLogger = {
       timestamp: new Date().toISOString(),
       url: meta?.url,
       status: meta?.status,
-      deviceId: getDeviceId(),
     };
     console.warn(`[CLIENT] ⚠ ${message}`, meta || "");
     sendToServer(entry);
@@ -67,7 +57,6 @@ export const clientLogger = {
       timestamp: new Date().toISOString(),
       url: meta?.url,
       stack: error?.stack || (typeof error === "string" ? error : undefined),
-      deviceId: getDeviceId(),
     };
     console.error(`[CLIENT] ✗ ${message}`, error || "", meta || "");
     sendToServer(entry);

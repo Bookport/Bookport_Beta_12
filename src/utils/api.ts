@@ -1,17 +1,5 @@
-import { useAppStore } from "../store/useAppStore";
 import { clientLogger } from "./clientLogger";
-
-const DEVICE_ID_KEY = "wfpb_device_id";
-
-function getDeviceId(): string {
-  const fromStore = useAppStore.getState().deviceId;
-  if (fromStore) return fromStore;
-  const fromLs = localStorage.getItem(DEVICE_ID_KEY);
-  if (fromLs) return fromLs;
-  const id = crypto.randomUUID();
-  localStorage.setItem(DEVICE_ID_KEY, id);
-  return id;
-}
+import { getTelegramInitData } from "./telegramClient";
 
 export async function api<T = any>(
   path: string,
@@ -19,7 +7,7 @@ export async function api<T = any>(
 ): Promise<T> {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
-    "X-Device-Id": getDeviceId(),
+    "X-Telegram-Init-Data": getTelegramInitData(),
   };
 
   const fetchOptions: RequestInit = {

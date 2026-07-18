@@ -15,6 +15,7 @@ import { logger } from "./src/utils/logger";
 import { achievementService } from "./src/services/AchievementService";
 import { ANNA_TOOL_DEFINITIONS, executeToolCall } from "./src/services/annaTools";
 import { setupTelegramWebhook, getBotUsername } from "./src/services/telegramBot";
+import { extractTelegramUser } from "./src/utils/telegramInitData";
 
 const promptCompiler = new PromptCompiler();
 
@@ -430,24 +431,47 @@ async function startServer() {
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
-  // ── Device ID Middleware ──
-  // Extracts X-Device-Id from headers, finds or creates the user in PostgreSQL
+  // ── Telegram InitData Middleware ──
+  // Validates Telegram Mini App initData and finds/creates user by telegramId
   app.use("/api", async (req, res, next) => {
-    const deviceId = req.headers["x-device-id"] as string | undefined;
-    if (deviceId) {
-      try {
-        if (prisma && typeof prisma.user?.upsert === "function") {
-          await prisma.user.upsert({
-            where: { id: deviceId },
-            update: {},
-            create: { id: deviceId },
-          });
-        }
-        req.userId = deviceId;
-      } catch (err) {
-        req.userId = deviceId;
-        console.warn("[DeviceID] DB unavailable, using in-memory ID:", (err as Error)?.message);
+    const initData = req.headers["x-telegram-init-data"] as string | undefined;
+    if (!initData) {
+      return res.status(401).json({ error: "Unauthorized: missing initData" });
+    }
+
+    const tgUser = extractTelegramUser(initData);
+    if (!tgUser) {
+      return res.status(401).json({ error: "Invalid initData" });
+    }
+
+    try {
+      const telegramId = String(tgUser.id);
+      let user = await prisma.user.findUnique({ where: { telegramId } });
+
+      if (user) {
+        // Update name/username in case they changed in Telegram
+        user = await prisma.user.update({
+          where: { id: user.id },
+          data: {
+            telegramName: tgUser.first_name ?? user.telegramName,
+            telegramUsername: tgUser.username ?? user.telegramUsername,
+          },
+        });
+      } else {
+        user = await prisma.user.create({
+          data: {
+            id: crypto.randomUUID(),
+            telegramId,
+            telegramName: tgUser.first_name || null,
+            telegramUsername: tgUser.username || null,
+          },
+        });
       }
+
+      req.userId = user.id;
+    } catch (err) {
+      logger.error("[Auth] DB error during initData auth", err);
+      return res.status(500).json({ error: "Authentication failed" });
     }
     next();
   });
@@ -459,8 +483,10 @@ async function startServer() {
     const originalEnd = res.end.bind(res);
     res.end = function (this: any, ...args: any[]) {
       const duration = Date.now() - start;
-      const deviceId = req.headers["x-device-id"] as string | undefined;
-      logger.request(req.method, req.originalUrl, res.statusCode, duration, deviceId);
+      const tgId = req.headers["x-telegram-init-data"]
+        ? (req.userId?.slice(0, 8) ?? "unknown")
+        : "none";
+      logger.request(req.method, req.originalUrl, res.statusCode, duration, tgId);
       return originalEnd(...args);
     } as typeof res.end;
     next();
@@ -468,6 +494,32 @@ async function startServer() {
 
   // ── Telegram Webhook ──
   setupTelegramWebhook(app);
+
+  // ── Purchase Token API (для лендинга WordPress) ──
+  app.post("/api/purchase/register", async (req, res) => {
+    const apiKey = req.headers["x-api-key"];
+    if (apiKey !== process.env.PURCHASE_API_KEY) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ error: "Email required" });
+    try {
+      const token = `purchase_${crypto.randomUUID()}`;
+      await prisma.purchaseToken.create({
+        data: {
+          token,
+          email,
+          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        },
+      });
+      const botUsername = getBotUsername();
+      const botLink = botUsername ? `https://t.me/${botUsername}?start=${token}` : null;
+      res.json({ botLink, token });
+    } catch (err: any) {
+      logger.error("[Purchase] register error:", err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
 
   // Client error log receiver
   app.post("/api/logs/client", (req, res) => {
@@ -2623,81 +2675,19 @@ async function checkBackgroundAchievements(userId, eventType, data) {
 
   // ── Club: Telegram Token Management ──
 
-  // POST /api/club/generate-token — generates a one-time token with 15min TTL
-  app.post("/api/club/generate-token", async (req, res) => {
-    if (!req.userId) return res.status(400).json({ error: "Missing device ID" });
-    try {
-      const token = crypto.randomUUID();
-      const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
-
-      await prisma.user.update({
-        where: { id: req.userId },
-        data: {
-          clubToken: token,
-          clubTokenExpiresAt: expiresAt,
-        },
-      });
-
-      const username = getBotUsername();
-
-      const deepLink = username
-        ? `https://t.me/${username}?start=${token}`
-        : null;
-
-      res.json({ deepLink });
-    } catch (err: any) {
-      logger.error("[Club] generate-token error:", err.message);
-      res.status(500).json({ error: err.message });
-    }
+  // POST /api/club/generate-token — stub (Club будет позже)
+  app.post("/api/club/generate-token", async (_req, res) => {
+    res.json({ deepLink: null, message: "Клуб скоро будет доступен" });
   });
 
-  // GET /api/club/status — returns current Telegram binding status
-  app.get("/api/club/status", async (req, res) => {
-    if (!req.userId) return res.status(400).json({ error: "Missing device ID" });
-    try {
-      const user = await prisma.user.findUnique({
-        where: { id: req.userId },
-        select: {
-          telegramId: true,
-          telegramName: true,
-          telegramUsername: true,
-          clubLinkedAt: true,
-        },
-      });
-
-      res.json({
-        linked: !!user?.telegramId,
-        telegramName: user?.telegramName || null,
-        telegramUsername: user?.telegramUsername || null,
-        clubLinkedAt: user?.clubLinkedAt?.toISOString() || null,
-        inviteLink: process.env.TELEGRAM_GROUP_INVITE_LINK || null,
-      });
-    } catch (err: any) {
-      logger.error("[Club] status error:", err.message);
-      res.status(500).json({ error: err.message });
-    }
+  // GET /api/club/status — stub
+  app.get("/api/club/status", async (_req, res) => {
+    res.json({ linked: false, message: "Клуб скоро будет доступен" });
   });
 
-  // POST /api/club/unlink — removes Telegram binding from the user
-  app.post("/api/club/unlink", async (req, res) => {
-    if (!req.userId) return res.status(400).json({ error: "Missing device ID" });
-    try {
-      await prisma.user.update({
-        where: { id: req.userId },
-        data: {
-          telegramId: null,
-          telegramName: null,
-          telegramUsername: null,
-          clubToken: null,
-          clubTokenExpiresAt: null,
-          clubLinkedAt: null,
-        },
-      });
-      res.json({ ok: true });
-    } catch (err: any) {
-      logger.error("[Club] unlink error:", err.message);
-      res.status(500).json({ error: err.message });
-    }
+  // POST /api/club/unlink — stub
+  app.post("/api/club/unlink", async (_req, res) => {
+    res.json({ ok: true, message: "Клуб скоро будет доступен" });
   });
 
   // Vite development middleware vs Static Production files

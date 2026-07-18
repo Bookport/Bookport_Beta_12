@@ -67,8 +67,8 @@ export const logger = {
   error: (...args: any[]) => log("error", ...args),
 
   // Structured request logger
-  request: (method: string, url: string, status: number, durationMs: number, deviceId?: string) => {
-    const tag = deviceId ? ` [device=${deviceId.slice(0, 8)}..]` : " [no-device]";
+  request: (method: string, url: string, status: number, durationMs: number, userId?: string) => {
+    const tag = userId ? ` [user=${userId.slice(0, 8)}..]` : " [no-auth]";
     log("info", `⇨ ${method} ${url} → ${status} (${durationMs}ms)${tag}`);
   },
 

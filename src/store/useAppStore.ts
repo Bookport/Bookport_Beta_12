@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { getTelegramInitData } from "../utils/telegramClient";
 
 export type Screen =
   | "welcome" | "my-page"
@@ -93,7 +94,6 @@ export interface AppNotification {
 
 interface AppState {
   screen: Screen;
-  deviceId: string | null;
   userProfile: UserProfile;
   telegramUser: TelegramUser | null;
   isCalendarOpen: boolean;
@@ -114,7 +114,6 @@ interface AppState {
   isGodMode: boolean;
 
   setScreen: (screen: Screen) => void;
-  setDeviceId: (id: string) => void;
   setUserProfile: (profile: UserProfile) => void;
   setTelegramUser: (user: TelegramUser | null) => void;
   setClickCount: (count: number) => void;
@@ -136,19 +135,8 @@ interface AppState {
   initApp: () => Promise<void>;
 }
 
-const DEVICE_ID_KEY = "wfpb_device_id_v2";
-
-function getOrCreateDeviceId(): string {
-  const existing = localStorage.getItem(DEVICE_ID_KEY);
-  if (existing) return existing;
-  const id = crypto.randomUUID();
-  localStorage.setItem(DEVICE_ID_KEY, id);
-  return id;
-}
-
-export const useAppStore = create<AppState>((set, get) => ({
+export const useAppStore = create<AppState>((set) => ({
   screen: "welcome",
-  deviceId: null,
   userProfile: {},
   telegramUser: null,
   isCalendarOpen: false,
@@ -166,7 +154,6 @@ export const useAppStore = create<AppState>((set, get) => ({
   isGodMode: false,
 
   setScreen: (screen) => set({ screen }),
-  setDeviceId: (id) => set({ deviceId: id }),
   setUserProfile: (profile) => set({ userProfile: profile }),
   setTelegramUser: (user) => set({ telegramUser: user }),
   setClickCount: (count) => { set({ clickCount: count }); localStorage.setItem('wfpb_click_count', String(count)); },
@@ -187,12 +174,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   setIsGodMode: (v) => set({ isGodMode: v }),
 
   initApp: async () => {
-    const deviceId = getOrCreateDeviceId();
-    set({ deviceId });
-
     try {
       const resp = await fetch("/api/user/profile", {
-        headers: { "X-Device-Id": deviceId },
+        headers: { "X-Telegram-Init-Data": getTelegramInitData() },
       });
       if (resp.ok) {
         const data = await resp.json();

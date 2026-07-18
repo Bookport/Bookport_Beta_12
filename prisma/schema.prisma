@@ -60,9 +60,19 @@ model User {
   telegramId          String?   @unique
   telegramName        String?
   telegramUsername    String?
-  clubToken           String?
-  clubTokenExpiresAt  DateTime?
+  purchasedAt         DateTime?
   clubLinkedAt        DateTime?
+}
+
+model PurchaseToken {
+  id         String    @id @default(uuid())
+  token      String    @unique
+  email      String?
+  used       Boolean   @default(false)
+  telegramId String?
+  usedAt     DateTime?
+  expiresAt  DateTime
+  createdAt  DateTime  @default(now())
 }
 
 model DailyMetric {
