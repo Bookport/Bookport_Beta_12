@@ -3,6 +3,7 @@ import { Telegraf } from "telegraf";
 import type { Express } from "express";
 import { prisma } from "../prisma";
 import { logger } from "../utils/logger";
+import { HttpsProxyAgent } from "https-proxy-agent";
 
 let bot: Telegraf | null = null;
 let botUsername: string | null = null;
@@ -14,7 +15,16 @@ export function setupTelegramWebhook(app: Express) {
     return;
   }
 
-  bot = new Telegraf(token);
+  const proxyUrl = process.env.RINGO_PROXY_URL;
+  const agent = proxyUrl ? new HttpsProxyAgent(proxyUrl) : undefined;
+
+  if (proxyUrl) {
+    logger.info(`[TelegramBot] Using Ringo proxy: ${proxyUrl}`);
+  }
+
+  bot = new Telegraf(token, {
+    telegram: { agent }
+  });
 
   bot.telegram.getMe().then((me) => {
     botUsername = me.username || null;

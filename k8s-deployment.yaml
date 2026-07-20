@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+    argocd.argoproj.io/tracking-id: v9e-bookport:apps/Deployment:bookport/bookport
+  labels:
+    app: bookport
+  name: bookport
+  namespace: bookport
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: bookport
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: bookport
+    spec:
+      containers:
+      - env:
+        - name: NODE_ENV
+          value: production
+        - name: DASHSCOPE_BASE_URL
+          value: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
+        - name: RINGO_PROXY_URL
+          value: http://ai-egress-proxy.egress-proxy.svc.cluster.local:3128
+        - name: SERVER_URL
+          value: https://app.vsedelovede.ru
+        envFrom:
+        - secretRef:
+            name: bookport-db
+        image: docker.io/vsedelovede/bookport:latest
+        imagePullPolicy: Always
+        name: bookport
+        ports:
+        - containerPort: 3000
+          name: http
+        resources:
+          limits:
+            cpu: 300m
+            memory: 1Gi
+          requests:
+            cpu: 100m
+            memory: 256Mi

@@ -2,10 +2,9 @@ import express from "express";
 import path from "path";
 import fs from "fs/promises";
 import crypto from "crypto";
-
+import { Type } from "@google/genai";
 import dotenv from "dotenv";
 import { findForbiddenInText } from "./src/data/wfpb_forbidden_ingredients";
-import { INGREDIENT_TRANSLATIONS } from "./src/data/ingredientTranslations";
 import { analyzeFoodImage, transcribeAudio, generateAnnaAudio } from "./src/services/dashscopeAdapter";
 import { ANNA_REACTION_MATRIX } from "./src/prompts/annaReactionMatrix";
 import { callLLM } from "./src/services/llmAdapter";
@@ -37,23 +36,19 @@ const PORT = 3000;
 
 const USDA_API_KEY = "ywYviAkfdnK8u2Sn19fMG7Kvmje8y2Bd66Hi2hlN";
 
-const translationCache = new Map<string, string>();
-
 // Robust wrapper with automatic model cascade fallback
 async function generateContentWithFallback(payload: any) {
-  const defaultModels = ["qwen3.5-flash", "deepseek-v4-flash", "qwen-flash"];
-  const models = payload.cascade || defaultModels;
+  const models = ["qwen-plus", "qwen-turbo"];
   let lastError: any = null;
 
   for (const modelName of models) {
     try {
-      const tm = Date.now();
       console.log(`[AI-Cascade] Attempting model: ${modelName}`);
       const result = await callLLM({
         ...payload,
         model: modelName,
       });
-      console.log(`[AI-Cascade] Success with model: ${modelName} (${Date.now() - tm}ms)`);
+      console.log(`[AI-Cascade] Success with model: ${modelName}`);
       return result;
     } catch (err: any) {
       lastError = err;
@@ -281,187 +276,127 @@ function getUsdaFallbackData(ingredients: any[]) {
 
 // ── USDA FoodData Central Integration ──
 
-function lookupTranslation(name: string): string | undefined {
-  if (!name) return undefined;
-  const key = name.toLowerCase().trim();
-
-  // 1. Exact match on full name or shortName
-  let t = INGREDIENT_TRANSLATIONS[key];
-  if (t) return t;
-
-  // 2. Substring match — find longest matching key
-  let best: string | undefined;
-  let bestLen = 0;
-  for (const [pat, val] of Object.entries(INGREDIENT_TRANSLATIONS)) {
-    if (key.includes(pat) && pat.length > bestLen) {
-      bestLen = pat.length;
-      best = val;
-    }
-  }
-  return best;
-}
-
 async function parseAndTranslateIngredients(
   ingredients: { fullName?: string; shortName?: string; weight?: number }[]
-): Promise<{ originalName: string; foodName: string; weightInGrams: number }[]> {
-  const result: { originalName: string; foodName: string; weightInGrams: number }[] = [];
-  const unknowns: { name: string; weight: number; index: number }[] = [];
+): Promise<{ foodName: string; weightInGrams: number }[]> {
+  const russianText = ingredients
+    .map(ing => `${ing.fullName || ing.shortName || "ингредиент"} ${ing.weight || 100}г`)
+    .join(", ");
 
-  for (let i = 0; i < ingredients.length; i++) {
-    const ing = ingredients[i];
-    const name = (ing.fullName || ing.shortName || "").trim();
-    const weight = ing.weight || 100;
-
-    // Try dictionary
-    let translation = lookupTranslation(name);
-
-    // Try cache
-    if (!translation) {
-      translation = translationCache.get(name.toLowerCase());
-    }
-
-    if (translation) {
-      result.push({ originalName: name, foodName: translation, weightInGrams: weight });
-    } else {
-      unknowns.push({ name, weight, index: i });
-      result.push({ originalName: name, foodName: name, weightInGrams: weight }); // placeholder
-    }
-  }
-
-  // Batch-translate unknowns via LLM (single call, no retry)
-  if (unknowns.length > 0) {
-    const unknownText = unknowns.map(u => `${u.name} ${u.weight}г`).join(", ");
-    const translationPrompt = `You are a strict USDA FoodData Central data mapper. Translate the following Russian ingredients into the most generic, raw base English names suitable for the USDA SR Legacy database.
+  const translationPrompt = `You are a strict USDA FoodData Central data mapper. Translate the Russian ingredients into the most generic, raw base English names suitable for the USDA SR Legacy database.
 RULES:
 - Always append 'raw' if the item is a fresh vegetable, meat, or fish.
 - Strip cooking/packaging terms like 'fillet', 'bulb', 'slice', 'steak', 'cherry'.
 - Examples: 'Томаты черри' -> 'tomatoes raw', 'Филе лосося' -> 'salmon raw', 'Чеснок' -> 'garlic raw', 'Оливковое масло' -> 'olive oil'.
 Output ONLY a raw JSON array of objects: [{foodName: string, weightInGrams: number}].
 
-Now process this: "${unknownText}"`;
+Now process this: "${russianText}"`;
 
-    try {
-      const llmResult = await generateContentWithFallback({
+  try {
+      const result = await generateContentWithFallback({
         contents: { parts: [{ text: translationPrompt }] },
         config: { responseMimeType: "text/plain", temperature: 0 }
       });
-      const raw = llmResult.text?.trim() || "";
-      const { data: parsed } = safeParseJSON(raw, null);
-      if (Array.isArray(parsed)) {
-        for (let j = 0; j < Math.min(parsed.length, unknowns.length); j++) {
-          const p = parsed[j];
-          if (p?.foodName) {
-            const idx = unknowns[j].index;
-            result[idx] = { originalName: unknowns[j].name, foodName: p.foodName, weightInGrams: p.weightInGrams || unknowns[j].weight };
-            translationCache.set(unknowns[j].name.toLowerCase(), p.foodName);
-          }
-        }
+      const raw = result.text?.trim() || "";
+      const { data: parsed, ok } = safeParseJSON(raw, null);
+      if (ok && Array.isArray(parsed) && parsed.length > 0) return parsed;
+
+      // Retry once with strict instruction
+      if (!ok) {
+        const strictPrompt = translationPrompt + "\n\nВНИМАНИЕ: твой предыдущий ответ был невалидным. Сгенерируй ответ заново. Верни СТРОГО валидный JSON без markdown, текста и комментариев. Только JSON.";
+        const retryResult = await generateContentWithFallback({
+          contents: { parts: [{ text: strictPrompt }] },
+          config: { responseMimeType: "text/plain", temperature: 0 }
+        });
+        const retryRaw = retryResult.text?.trim() || "";
+        const { data: retryParsed, ok: retryOk } = safeParseJSON(retryRaw, null);
+        if (retryOk && Array.isArray(retryParsed) && retryParsed.length > 0) return retryParsed;
       }
     } catch (e) {
-      console.warn("[USDA] LLM translation failed for unknowns:", e);
+      console.warn("[USDA] Translation failed:", e);
     }
-  }
 
-  return result;
+  return ingredients.map(ing => {
+    const name = ing.shortName || ing.fullName || "ingredient";
+    return {
+      foodName: name,
+      weightInGrams: ing.weight || 100
+    };
+  });
 }
 
-async function fetchUsdaNutrition(ingredients: { originalName?: string; foodName: string; weightInGrams: number }[]): Promise<{
-  calories: number; protein: number; fat: number; carbs: number; fiber: number;
-  iron: number; zinc: number; magnesium: number; iodine: number; selenium: number;
-  vitaminC: number; vitaminB9: number; lysine: number; methionine: number;
+async function fetchUsdaNutrition(ingredients: { foodName: string; weightInGrams: number }[]): Promise<{
+  calories: number;
+  protein: number;
+  fat: number;
+  carbs: number;
+  fiber: number;
 } | null> {
   try {
-    const skipWords = ["blend", "substitute", "imitation", "fabricated", "formulated", "lunchmeat", "canned", "commercial"];
+    const USDA_TIMEOUT_MS = 10000;
+    const skipWords = ["blend", "substitute", "vegetarian", "imitation", "fabricated", "formulated", "frankfurter", "lunchmeat", "powder", "leaves", "flakes", "canned", "prepared"];
 
     const results = await Promise.all(
       ingredients.map(async (ingr) => {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), USDA_TIMEOUT_MS);
         try {
-          const nameLowerStr = ingr.foodName.toLowerCase();
-          const origNameLower = ingr.originalName?.toLowerCase() || "";
-          if (nameLowerStr === "water" || origNameLower === "вода") {
-            return {
-              calories: 0, protein: 0, fat: 0, carbs: 0, fiber: 0,
-              iron: 0, zinc: 0, magnesium: 0, iodine: 0, selenium: 0,
-              vitaminC: 0, vitaminB9: 0, lysine: 0, methionine: 0
-            };
+          const url = `https://api.nal.usda.gov/fdc/v1/foods/search?api_key=${USDA_API_KEY}&query=${encodeURIComponent(ingr.foodName)}&pageSize=3&dataType=Foundation,SR%20Legacy&requireAllWords=true`;
+          const response = await fetch(url, { signal: controller.signal });
+          if (!response.ok) {
+            console.warn(`[USDA] API returned status ${response.status} for query: ${ingr.foodName}`);
+            return null;
           }
-
-          const words = ingr.foodName.split(" ").filter(w => w.length > 0);
-          if (words.length === 0) return null;
-
-          const items = await prisma.foodItem.findMany({
-            where: {
-              AND: words.map(w => ({ name: { contains: w, mode: "insensitive" } }))
-            },
-            take: 100
-          });
-
-          const validItems = items.filter(item => {
-            if (skipWords.some(w => item.name.includes(w))) return false;
-            const nameLower = item.name.toLowerCase();
-            for (const w of words) {
-              const regex = new RegExp(`\\b${w}(s|es|ed)?\\b`, 'i');
-              if (!regex.test(nameLower)) {
-                // soft fallback: if the strict regex fails, try removing trailing 's' if the word has one
-                if (w.endsWith('s')) {
-                  const singular = w.slice(0, -1);
-                  const regexSingular = new RegExp(`\\b${singular}(s|es|ed)?\\b`, 'i');
-                  if (!regexSingular.test(nameLower)) return false;
-                } else {
-                  return false;
-                }
-              }
-            }
-            return true;
-          });
-
-          validItems.sort((a, b) => a.name.length - b.name.length);
-          const food = validItems[0];
-
-          if (!food) {
-            console.warn(`[USDA] No food found in local DB for query: ${ingr.foodName}`);
+          const data = await response.json();
+          const foods = data.foods || [];
+          const food = foods.find((f: any) =>
+            f.foodNutrients &&
+            !skipWords.some(w => f.description?.toLowerCase().includes(w))
+          ) || foods[0];
+          if (!food || !Array.isArray(food.foodNutrients)) {
+            console.warn(`[USDA] No food or nutrients found for query: ${ingr.foodName}`);
             return null;
           }
 
-
+          const nutrientsList = food.foodNutrients;
           const ratio = ingr.weightInGrams / 100;
-          console.log("[PIPELINE TRACE 3] Local DB Queried:", ingr.foodName, "→ Matched FDC ID:", food.fdcId, food.name, "Base cals (per 100g):", food.calories);
 
-          // Self-learning: save russian name
-          if (ingr.originalName) {
-            const rName = ingr.originalName.toLowerCase().trim();
-            if (rName && (!food.russianName || !food.russianName.includes(rName))) {
-              try {
-                const newRussian = food.russianName ? food.russianName + ',' + rName : rName;
-                await prisma.foodItem.update({
-                  where: { fdcId: food.fdcId },
-                  data: { russianName: newRussian }
-                });
-                translationCache.set(rName, ingr.foodName);
-              } catch (e) { console.error("Failed to update russianName", e); }
-            }
-          }
+          const findNutrientValue = (nameSubstring: string): number => {
+            const nut = nutrientsList.find((n: any) =>
+              n.nutrientName && n.nutrientName.toLowerCase().includes(nameSubstring.toLowerCase())
+            );
+            return nut ? (nut.value || 0) : 0;
+          };
 
+          const findEnergyInKcal = (): number => {
+            const nut = nutrientsList.find((n: any) =>
+              n.nutrientName && n.nutrientName.toLowerCase().includes("energy")
+            );
+            if (!nut) return 0;
+            const unit = (nut.unitName || "").toLowerCase();
+            const val = nut.value || 0;
+            return unit === "kj" ? Math.round(val / 4.184) : val;
+          };
+
+          const baseCals = findEnergyInKcal();
+          console.log("[PIPELINE TRACE 3] USDA Queried:", ingr.foodName, "→ Matched FDC ID:", food.fdcId, food.description, "Base cals (per 100g):", baseCals);
 
           return {
-            calories: food.calories * ratio,
-            protein: food.protein * ratio,
-            fat: food.fat * ratio,
-            carbs: food.carbs * ratio,
-            fiber: food.fiber * ratio,
-            iron: (food.iron || 0) * ratio,
-            zinc: (food.zinc || 0) * ratio,
-            magnesium: (food.magnesium || 0) * ratio,
-            iodine: (food.iodine || 0) * ratio,
-            selenium: (food.selenium || 0) * ratio,
-            vitaminC: (food.vitaminC || 0) * ratio,
-            vitaminB9: (food.vitaminB9 || 0) * ratio,
-            lysine: (food.lysine || 0) * ratio,
-            methionine: (food.methionine || 0) * ratio,
+            calories: baseCals * ratio,
+            protein: findNutrientValue("Protein") * ratio,
+            fat: (findNutrientValue("Total lipid (fat)") || findNutrientValue("Total lipid")) * ratio,
+            carbs: findNutrientValue("Carbohydrate") * ratio,
+            fiber: findNutrientValue("Fiber") * ratio,
           };
         } catch (err: any) {
-          console.warn(`[USDA] Local DB Error for query: ${ingr.foodName}:`, err?.message);
+          if (err?.name === "AbortError") {
+            console.warn(`[USDA] Timeout for query: ${ingr.foodName}`);
+          } else {
+            console.warn(`[USDA] Error for query: ${ingr.foodName}:`, err?.message);
+          }
           return null;
+        } finally {
+          clearTimeout(timer);
         }
       })
     );
@@ -475,41 +410,14 @@ async function fetchUsdaNutrition(ingredients: { originalName?: string; foodName
       fat: Math.round(valid.reduce((s, r) => s + r.fat, 0) * 10) / 10,
       carbs: Math.round(valid.reduce((s, r) => s + r.carbs, 0) * 10) / 10,
       fiber: Math.round(valid.reduce((s, r) => s + r.fiber, 0) * 10) / 10,
-      iron: Math.round(valid.reduce((s, r) => s + r.iron, 0) * 10) / 10,
-      zinc: Math.round(valid.reduce((s, r) => s + r.zinc, 0) * 10) / 10,
-      magnesium: Math.round(valid.reduce((s, r) => s + r.magnesium, 0)),
-      iodine: Math.round(valid.reduce((s, r) => s + r.iodine, 0) * 10) / 10,
-      selenium: Math.round(valid.reduce((s, r) => s + r.selenium, 0) * 10) / 10,
-      vitaminC: Math.round(valid.reduce((s, r) => s + r.vitaminC, 0) * 10) / 10,
-      vitaminB9: Math.round(valid.reduce((s, r) => s + r.vitaminB9, 0)),
-      lysine: Math.round(valid.reduce((s, r) => s + r.lysine, 0) * 10) / 10,
-      methionine: Math.round(valid.reduce((s, r) => s + r.methionine, 0) * 10) / 10,
     };
   } catch (error) {
-    console.warn("[USDA] fetchUsdaNutrition local DB error:", error);
+    console.warn("[USDA] fetchUsdaNutrition error:", error);
     return null;
   }
 }
 
 async function startServer() {
-  try {
-    const items = await prisma.foodItem.findMany({
-      where: { russianName: { not: null } },
-      select: { name: true, russianName: true }
-    });
-    for (const item of items) {
-      if (item.russianName) {
-        const parts = item.russianName.split(',');
-        for (const p of parts) {
-          translationCache.set(p.trim(), item.name);
-        }
-      }
-    }
-    console.log(`[Cache] Loaded ${translationCache.size} Russian translations from DB`);
-  } catch(e) {
-    console.warn("Failed to load translation cache from DB", e);
-  }
-
   process.on("uncaughtException", (err) => {
     console.error("[UNCAUGHT]", err);
   });
@@ -531,8 +439,7 @@ async function startServer() {
       return res.status(401).json({ error: "Unauthorized: missing initData" });
     }
 
-    const allowTestAuth = process.env.ALLOW_TEST_AUTH === "true";
-    const tgUser = (allowTestAuth && initData === "test-auth") ? { id: 123456, first_name: "Test" } : extractTelegramUser(initData);
+    const tgUser = extractTelegramUser(initData);
     if (!tgUser) {
       return res.status(401).json({ error: "Invalid initData" });
     }
@@ -795,10 +702,9 @@ async function startServer() {
 
   // API endpoint for true nutrient analysis — Edamam API with RU→EN translation proxy
   app.post("/api/analyze-dish", async (req, res) => {
-    const t1 = Date.now();
     res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
     const { ingredients, defaultDishName } = req.body || {};
-    console.log(`[T1] Raw Input from Client:`, JSON.stringify(ingredients?.map((i: any) => ({ name: i.fullName || i.shortName, weight: i.weight }))), "HasImage: false");
+    console.log("[PIPELINE TRACE 1] Raw Input from Client:", JSON.stringify(ingredients?.map((i: any) => ({ name: i.fullName || i.shortName, weight: i.weight }))), "HasImage: false");
     try {
       if (!ingredients || !Array.isArray(ingredients) || ingredients.length === 0) {
         return res.status(400).json({ error: "No ingredients received" });
@@ -824,27 +730,13 @@ ${ingredientsDescription}
 
 Проанализируй каждый ингредиент (включая не-WFPB: мясо, рыбу, молочку). Дай:
 1. Название блюда на русском.
-2. Оценку микронутриентов (iron, zinc, magnesium, iodine, selenium, vitaminC, vitaminB9, lysine, methionine) — с единицами (мг/мкг/г). Используй реальные знания о продуктах.
+2. Оценку микронутриентов (iron, zinc, magnesium, iodine, selenium, vitaminC, vitaminB9, lysine, methionine) — с единицами (мг/мкг/г).
 3. Три инсайта: strengths, improvements, compliance — все на русском.
-
-Примеры реальных значений на 100г продукта:
-- Киноа: iron 1.5мг, magnesium 64мг, zinc 1.1мг, vitaminB9 42мкг
-- Нут: iron 2.9мг, magnesium 48мг, zinc 1.5мг, vitaminB9 172мкг
-- Шпинат: iron 2.7мг, magnesium 79мг, vitaminC 28мг, vitaminB9 194мкг
-- Чечевица: iron 3.3мг, magnesium 36мг, zinc 1.3мг, vitaminB9 181мкг
-- Грецкие орехи: magnesium 158мг, zinc 3.1мг, selenium 5мкг
-- Семена кунжута: iron 14.6мг, magnesium 351мг, zinc 7.8мг, vitaminB9 97мкг
-
-Йод (iodine) есть в морских водорослях и йодированной соли — в обычных продуктах ~0мкг.
-Селен (selenium) есть в бразильском орехе ~1917мкг, в остальном ~0-10мкг.
-Лизин (lysine) богаты бобовые ~0.6г; метионин (methionine) ~0.2г.
-
-Используй эти ориентиры для оценки. НЕ ставь 0 если продукт содержит этот нутриент.
 
 Включи ВСЕ ингредиенты, даже не-WFPB. Несоответствующие пометь в compliance.
 
 Формат JSON:
-{"dishName": "string", "micronutrients": {"iron":{"value":number,"unit":"мг"},"zinc":{"value":number,"unit":"мг"},"magnesium":{"value":number,"unit":"мг"},"iodine":{"value":number,"unit":"мкг"},"selenium":{"value":number,"unit":"мкг"},"vitaminC":{"value":number,"unit":"мг"},"vitaminB9":{"value":number,"unit":"мкг"},"lysine":{"value":number,"unit":"г"},"methionine":{"value":number,"unit":"г"}}, "insights": {"strengths":{"title":"Сильные стороны блюда","text":"string"},"improvements":{...},"compliance":{...}}}
+{"dishName": "string", "micronutrients": {"iron":{"value":number,"unit":"мг"},...}, "insights": {"strengths":{"title":"Сильные стороны блюда","text":"string"},"improvements":{...},"compliance":{...}}}
 
 Важно: только JSON, без markdown, разумные оценки, всё на русском.`;
 
@@ -858,30 +750,30 @@ ${ingredientsDescription}
                 responseMimeType: "application/json",
                 temperature: 0,
                 responseSchema: {
-                  type: "object",
+                  type: Type.OBJECT,
                   properties: {
-                    dishName: { type: "string" },
+                    dishName: { type: Type.STRING },
                     micronutrients: {
-                      type: "object",
+                      type: Type.OBJECT,
                       properties: {
-                        iron: { type: "object", properties: { value: { type: "number" }, unit: { type: "string" } }, required: ["value", "unit"] },
-                        zinc: { type: "object", properties: { value: { type: "number" }, unit: { type: "string" } }, required: ["value", "unit"] },
-                        magnesium: { type: "object", properties: { value: { type: "number" }, unit: { type: "string" } }, required: ["value", "unit"] },
-                        iodine: { type: "object", properties: { value: { type: "number" }, unit: { type: "string" } }, required: ["value", "unit"] },
-                        selenium: { type: "object", properties: { value: { type: "number" }, unit: { type: "string" } }, required: ["value", "unit"] },
-                        vitaminC: { type: "object", properties: { value: { type: "number" }, unit: { type: "string" } }, required: ["value", "unit"] },
-                        vitaminB9: { type: "object", properties: { value: { type: "number" }, unit: { type: "string" } }, required: ["value", "unit"] },
-                        lysine: { type: "object", properties: { value: { type: "number" }, unit: { type: "string" } }, required: ["value", "unit"] },
-                        methionine: { type: "object", properties: { value: { type: "number" }, unit: { type: "string" } }, required: ["value", "unit"] }
+                        iron: { type: Type.OBJECT, properties: { value: { type: Type.NUMBER }, unit: { type: Type.STRING } }, required: ["value", "unit"] },
+                        zinc: { type: Type.OBJECT, properties: { value: { type: Type.NUMBER }, unit: { type: Type.STRING } }, required: ["value", "unit"] },
+                        magnesium: { type: Type.OBJECT, properties: { value: { type: Type.NUMBER }, unit: { type: Type.STRING } }, required: ["value", "unit"] },
+                        iodine: { type: Type.OBJECT, properties: { value: { type: Type.NUMBER }, unit: { type: Type.STRING } }, required: ["value", "unit"] },
+                        selenium: { type: Type.OBJECT, properties: { value: { type: Type.NUMBER }, unit: { type: Type.STRING } }, required: ["value", "unit"] },
+                        vitaminC: { type: Type.OBJECT, properties: { value: { type: Type.NUMBER }, unit: { type: Type.STRING } }, required: ["value", "unit"] },
+                        vitaminB9: { type: Type.OBJECT, properties: { value: { type: Type.NUMBER }, unit: { type: Type.STRING } }, required: ["value", "unit"] },
+                        lysine: { type: Type.OBJECT, properties: { value: { type: Type.NUMBER }, unit: { type: Type.STRING } }, required: ["value", "unit"] },
+                        methionine: { type: Type.OBJECT, properties: { value: { type: Type.NUMBER }, unit: { type: Type.STRING } }, required: ["value", "unit"] }
                       },
                       required: ["iron", "zinc", "magnesium", "iodine", "selenium", "vitaminC", "vitaminB9", "lysine", "methionine"]
                     },
                     insights: {
-                      type: "object",
+                      type: Type.OBJECT,
                       properties: {
-                        strengths: { type: "object", properties: { title: { type: "string" }, text: { type: "string" } }, required: ["title", "text"] },
-                        improvements: { type: "object", properties: { title: { type: "string" }, text: { type: "string" } }, required: ["title", "text"] },
-                        compliance: { type: "object", properties: { title: { type: "string" }, text: { type: "string" } }, required: ["title", "text"] }
+                        strengths: { type: Type.OBJECT, properties: { title: { type: Type.STRING }, text: { type: Type.STRING } }, required: ["title", "text"] },
+                        improvements: { type: Type.OBJECT, properties: { title: { type: Type.STRING }, text: { type: Type.STRING } }, required: ["title", "text"] },
+                        compliance: { type: Type.OBJECT, properties: { title: { type: Type.STRING }, text: { type: Type.STRING } }, required: ["title", "text"] }
                       },
                       required: ["strengths", "improvements", "compliance"]
                     }
@@ -908,8 +800,6 @@ ${ingredientsDescription}
           }
         })(),
       ]);
-      const t2 = Date.now();
-      console.log(`[T2] LLM+USDA parallel done in ${t2 - t1}ms`);
 
       const llmText = llmResponse?.text || "{}";
       const { data: llmData } = safeParseJSON(llmText, {});
@@ -923,7 +813,6 @@ ${ingredientsDescription}
         omegaRatio: { value: "—", unit: "" }
       };
 
-      let fallback: any = null;
       if (usdaResult) {
         console.log("[USDA] Success — calories:", usdaResult.calories);
         nutrients = {
@@ -936,55 +825,28 @@ ${ingredientsDescription}
         };
       } else {
         console.warn("[USDA] Failed, using local fallback for macros");
-        fallback = getUsdaFallbackData(ingredients);
+        const fallback = getUsdaFallbackData(ingredients);
         nutrients = fallback.nutrients;
       }
 
-      // ── Merge: USDA primary → LLM supplementary → local fallback ──
-      const MICRO_KEYS = ["iron","zinc","magnesium","iodine","selenium","vitaminC","vitaminB9","lysine","methionine"] as const;
-      const MICRO_UNITS: Record<string, string> = { iron:"мг", zinc:"мг", magnesium:"мг", iodine:"мкг", selenium:"мкг", vitaminC:"мг", vitaminB9:"мкг", lysine:"г", methionine:"г" };
-      const zeroMicro = Object.fromEntries(MICRO_KEYS.map(k => [k, { value: 0, unit: MICRO_UNITS[k] }])) as any;
-
-      function pickMicro(usda: any, llm: any, fb: any) {
-        const r: any = {};
-        for (const k of MICRO_KEYS) {
-          const u = MICRO_UNITS[k];
-          const fromUsda = usda?.[k];
-          const fromLlm = llm?.[k];
-          if (fromUsda && fromUsda.value > 0) { r[k] = { value: fromUsda.value, unit: u }; }
-          else if (fromLlm && fromLlm.value > 0) { r[k] = { value: fromLlm.value, unit: u }; }
-          else if (fb?.[k] && fb[k].value > 0) { r[k] = fb[k]; }
-          else { r[k] = { value: 0, unit: u }; }
-        }
-        return r;
-      }
-
-      const usdaMicro = usdaResult ? {
-        iron: { value: usdaResult.iron, unit: "мг" },
-        zinc: { value: usdaResult.zinc, unit: "мг" },
-        magnesium: { value: usdaResult.magnesium, unit: "мг" },
-        iodine: { value: usdaResult.iodine, unit: "мкг" },
-        selenium: { value: usdaResult.selenium, unit: "мкг" },
-        vitaminC: { value: usdaResult.vitaminC, unit: "мг" },
-        vitaminB9: { value: usdaResult.vitaminB9, unit: "мкг" },
-        lysine: { value: usdaResult.lysine, unit: "г" },
-        methionine: { value: usdaResult.methionine, unit: "г" },
-      } : null;
-
-      const micronutrients = pickMicro(usdaMicro, llmData.micronutrients, fallback?.micronutrients);
-
+      // ── Merge ──
       const resultData = {
         dishName: llmData.dishName || defaultDishName || "Цельное растительное блюдо",
         nutrients,
-        micronutrients,
+        micronutrients: llmData.micronutrients || {
+          iron: { value: 0, unit: "мг" }, zinc: { value: 0, unit: "мг" },
+          magnesium: { value: 0, unit: "мг" }, iodine: { value: 0, unit: "мкг" },
+          selenium: { value: 0, unit: "мкг" }, vitaminC: { value: 0, unit: "мг" },
+          vitaminB9: { value: 0, unit: "мкг" }, lysine: { value: 0, unit: "г" },
+          methionine: { value: 0, unit: "г" }
+        },
         insights: llmData.insights || {
           strengths: { title: "Сильные стороны блюда", text: "Блюдо на основе цельных растительных ингредиентов." },
           improvements: { title: "Что можно улучшить", text: "Добавьте больше зелени и семян для баланса нутриентов." },
           compliance: { title: "Соответствие растительному рациону", text: forbiddenFound.length > 0 ? "Обнаружены несоответствия WFPB." : "Блюдо соответствует WFPB-рациону." }
         }
       };
-      const t3 = Date.now();
-      console.log(`[T3] Merge+response build done in ${t3 - t2}ms, total ${t3 - t1}ms`);
+      console.log("[PIPELINE TRACE 4] Response:", JSON.stringify({ dishName: resultData.dishName, nutrients: resultData.nutrients, insightCount: resultData.insights ? Object.keys(resultData.insights).length : 0 }, null, 2));
       return res.json({ result: resultData });
     } catch (error: any) {
       console.log("Local program nutrition calculation fallback triggered:", error?.message || error);
@@ -1032,16 +894,17 @@ Return JSON: {"dishName":"string (Russian)","ingredients":[{"id":"snake_case_slu
 Only valid JSON, no markdown.`,
       };
 
-      // Primary: DashScope (Qwen VL)
+      // Primary: DashScope (Qwen VL), fallback: Yandex/Gemini
       let textOutput = "";
       try {
         textOutput = await analyzeFoodImage(base64Clean, textPart.text);
-      } catch (dashErr: any) {
-        console.warn("[analyze-image] DashScope failed:", dashErr?.message || dashErr);
-        return res.status(503).json({ 
-          error: "Vision model unavailable: " + (dashErr?.message || "Unknown error"),
-          status: "UNAVAILABLE" 
+      } catch (dashErr) {
+        console.warn("[analyze-image] DashScope failed, falling back:", (dashErr as any)?.message || dashErr);
+        const fallbackResponse = await generateContentWithFallback({
+          contents: { parts: [imagePart, textPart] },
+          config: { responseMimeType: "application/json" }
         });
+        textOutput = fallbackResponse.text || "{}";
       }
 
       let { data: resultData, ok: parseOk } = safeParseJSON(textOutput, {});
@@ -1094,8 +957,7 @@ Only valid JSON, no markdown.`,
         contents: { parts: [{ text: prompt }] },
         config: {
           responseMimeType: "text/plain"
-        },
-        cascade: ["deepseek-v4-flash", "qwen3.5-flash", "qwen-flash"]
+        }
       });
       
       const textOutput = result.text?.trim().replace(/^["']|["']$/g, "") || "Система настраивает соединение и выполняет детальный молекулярный анализ тарелки... 🌱";
@@ -1134,8 +996,7 @@ Only valid JSON, no markdown.`,
         contents: { parts: [{ text: prompt }] },
         config: {
           responseMimeType: "text/plain"
-        },
-        cascade: ["deepseek-v4-flash", "qwen3.5-flash", "qwen-flash"]
+        }
       });
 
       const textOutput = result.text?.trim().replace(/^["']|["']$/g, "") || "";
@@ -1184,8 +1045,7 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
 
       const result = await generateContentWithFallback({
         contents: { parts: [{ text: prompt }] },
-        config: { responseMimeType: "text/plain", temperature: 0.8 },
-        cascade: ["deepseek-v4-flash", "qwen3.5-flash", "qwen-flash"]
+        config: { responseMimeType: "text/plain", temperature: 0.8 }
       });
 
       const textOutput = result.text?.trim().replace(/^["']|["']$/g, "") || "";

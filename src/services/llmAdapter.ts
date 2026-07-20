@@ -1,5 +1,4 @@
 import OpenAI from "openai";
-import { directFetch } from "../utils/directFetch";
 
 let dashClient: OpenAI | null = null;
 
@@ -8,9 +7,8 @@ function getDashClient(): OpenAI {
     dashClient = new OpenAI({
       apiKey: process.env.DASHSCOPE_API_KEY,
       baseURL: process.env.DASHSCOPE_BASE_URL,
-      timeout: 30000,
+      timeout: 60000,
       maxRetries: 0,
-      fetch: directFetch as any,
     });
   }
   return dashClient;
@@ -50,7 +48,7 @@ function normalizeContents(contents: any): Array<{ role: string; content: any }>
 
 async function callDashScope(payload: any) {
   const config = payload.config || {};
-  const modelName = payload.model || "qwen3.5-flash";
+  const modelName = payload.model || "qwen3.7-plus";
   const tools = payload.tools;
   const toolChoice = payload.tool_choice;
 
@@ -81,9 +79,6 @@ async function callDashScope(payload: any) {
 
       if (tools) params.tools = tools;
       if (toolChoice) params.tool_choice = toolChoice;
-      if (config.responseMimeType === "application/json") {
-        params.response_format = { type: "json_object" };
-      }
 
       const response = await client.chat.completions.create(params);
 
@@ -98,6 +93,23 @@ async function callDashScope(payload: any) {
     }
   }
   throw lastErr;
+}
+
+async function callGemini(payload: any) {
+  const { GoogleGenAI } = await import("@google/genai");
+
+  const geminiKey = (() => {
+    const fromEnv = process.env.GEMINI_API_KEY;
+    if (fromEnv && fromEnv.length > 0 && fromEnv !== "MY_GEMINI_API_KEY") return fromEnv;
+    return "AIzaSyBJg1Q4iJN3s7Tq5Zw3BKik-W4GZ-MozZg";
+  })();
+
+  const ai = new GoogleGenAI({
+    apiKey: geminiKey,
+    httpOptions: { headers: { "User-Agent": "aistudio-build" } },
+  });
+
+  return await ai.models.generateContent(payload);
 }
 
 export async function callLLM(payload: any) {
