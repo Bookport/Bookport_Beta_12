@@ -1,0 +1,11 @@
+usda_sr_legacy.json
+node_modules
+.git
+*.md
+.env
+.env.production
+.env.test
+test_speed*.sh
+deploy.py
+*.pyc
+__pycache__

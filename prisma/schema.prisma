@@ -278,3 +278,33 @@ model EveningRitual {
 
   @@unique([userId, dayIndex])
 }
+
+model FoodItem {
+  id             String   @id @default(uuid())
+  fdcId          Int      @unique
+  name           String   // USDA Original description
+  russianName    String?  // Auto-learned Russian name 
+  
+  // КБЖУ (на 100г)
+  calories       Float    @default(0)
+  protein        Float    @default(0)
+  fat            Float    @default(0)
+  carbs          Float    @default(0)
+  fiber          Float    @default(0)
+  
+  // Микронутриенты (на 100г)
+  iron           Float?
+  zinc           Float?
+  magnesium      Float?
+  iodine         Float?
+  selenium       Float?
+  vitaminC       Float?
+  vitaminB9      Float?
+  lysine         Float?
+  methionine     Float?
+
+  wfpbStatus     String   @default("grey") // "allowed" | "forbidden" | "grey"
+
+  @@index([name])
+  @@index([russianName])
+}

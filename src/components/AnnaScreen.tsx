@@ -17,6 +17,7 @@ import { resolveGeneralAvatar, resolveAvatarByState } from "../utils/annaAvatarR
 import { SpeechToTextSession, ensureMicPermission } from "../utils/speechToText";
 import { useAppStore } from "../store/useAppStore";
 import { api } from "../utils/api";
+import { getTelegramInitData } from "../utils/telegramClient";
 import { clientLogger } from "../utils/clientLogger";
 
 export interface AnnaScreenProps {
@@ -276,7 +277,7 @@ export default function AnnaScreen(props: AnnaScreenProps) {
       const cleanTtsText = replyText.replace(/[🌱🍏🥗⚖️🌿✨🍲😴🦎🥬🥘🥑🍅🍇🍓🍒🍊🍋🍍🌽🥕🥜🥑🥛🧂🥣🍴🍷🥩🧁🍬🍟🍔🍕🥤❌♥️]/g, "").trim().split(" ").slice(0, 80).join(" ");
       if (cleanTtsText) {
         fetch("/api/anna-tts", {
-          method: "POST", headers: { "Content-Type": "application/json" },
+          method: "POST", headers: { "Content-Type": "application/json", "X-Telegram-Init-Data": getTelegramInitData() },
           body: JSON.stringify({ text: cleanTtsText })
         }).then(r => r.json()).then(ttsData => {
           if (ttsData.audioBase64 || ttsData.audioUrl) {

@@ -37,11 +37,10 @@ COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/src/anna_wiki ./src/anna_wiki
 COPY --from=builder /app/src/data ./src/data
 COPY --from=builder /app/src/assets/images ./src/assets/images
-
 COPY docker-entrypoint.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 EXPOSE 3000
 
 ENTRYPOINT ["docker-entrypoint.sh"]
-CMD ["node", "dist/server.cjs"]
+CMD ["node", "--max-old-space-size=400", "dist/server.cjs"]

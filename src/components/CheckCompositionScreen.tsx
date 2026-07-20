@@ -13,6 +13,7 @@ import {
   X,
   AlertTriangle
 } from "lucide-react";
+import { getTelegramInitData } from "../utils/telegramClient";
 import BottomBar from "./BottomBar";
 import CalendarButton from "./CalendarButton";
 import { resolveAvatar } from "../utils/annaAvatarResolver";
@@ -423,7 +424,7 @@ export default function CheckCompositionScreen({
       setIsLoadingReply(true);
       fetch("/api/anna-sarcastic-reply", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "X-Telegram-Init-Data": getTelegramInitData() },
         body: JSON.stringify({ items: blueCards.map(c => c.shortName || c.fullName) })
       })
       .then(res => {

@@ -81,6 +81,8 @@ async function main() {
 
   console.log("");
   console.log("BookRecipe seeding complete.");
+  await seedUSDA();
+  await seedTranslations();
 }
 
 main()
@@ -91,3 +93,166 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
+
+import fs from "fs/promises";
+import path from "path";
+
+const FORBIDDEN_WORDS = ["beef", "pork", "chicken", "turkey", "lamb", "meat", "fish", "salmon", "tuna", "shrimp", "egg", "cheese", "milk", "butter", "cream", "oil", "salt", "sugar", "syrup", "fried", "sausage", "bacon", "candies", "cake", "cookie"];
+const ALLOWED_WORDS = ["raw", "fresh", "uncooked", "bean", "lentil", "apple", "broccoli", "quinoa", "rice", "oat", "carrot", "spinach", "pea", "seed", "nut"];
+
+function determineWfpbStatus(name: string): string {
+  const lower = name.toLowerCase();
+  for (const word of FORBIDDEN_WORDS) {
+    if (lower.includes(word)) return "forbidden";
+  }
+  for (const word of ALLOWED_WORDS) {
+    if (lower.includes(word)) return "allowed";
+  }
+  return "grey";
+}
+
+async function seedUSDA() {
+  const existing = await prisma.foodItem.count();
+  if (existing >= 7000) {
+    console.log(`FoodItem table already seeded (${existing} items). Skipping USDA seed.`);
+    return;
+  }
+
+  console.log("Loading USDA SR Legacy data...");
+  const filePath = path.join(process.cwd(), "usda_sr_legacy.json");
+  let dataRaw: string;
+  try {
+    dataRaw = await fs.readFile(filePath, "utf-8");
+  } catch (err) {
+    console.log("usda_sr_legacy.json not found. Skipping USDA seed.");
+    return;
+  }
+  
+  let items: any[];
+  try {
+    const parsed = JSON.parse(dataRaw);
+    if (Array.isArray(parsed)) {
+      items = parsed;
+    } else if (parsed.SRLegacyFoods) {
+      items = parsed.SRLegacyFoods;
+    } else if (parsed.FoundationFoods) {
+      items = parsed.FoundationFoods;
+    } else {
+      console.error("Unknown JSON structure");
+      return;
+    }
+  } catch (err) {
+    console.error("Failed to parse JSON:", err);
+    return;
+  }
+
+  console.log(`Found ${items.length} USDA items. Processing...`);
+  let createdCount = 0;
+  const BATCH_SIZE = 1000;
+
+  for (let i = 0; i < items.length; i += BATCH_SIZE) {
+    const batch = items.slice(i, i + BATCH_SIZE);
+    const dbItems = batch.map((item: any) => {
+      const nutrients = item.foodNutrients || [];
+      const getNut = (nameSubstring: string) => {
+        const n = nutrients.find((nut: any) => 
+          nut.nutrient && nut.nutrient.name && nut.nutrient.name.toLowerCase().includes(nameSubstring.toLowerCase())
+        );
+        return n ? (n.amount || 0) : 0;
+      };
+      const getEnergy = () => {
+        const n = nutrients.find((nut: any) => 
+          nut.nutrient && nut.nutrient.name && nut.nutrient.name.toLowerCase().includes("energy")
+        );
+        if (!n) return 0;
+        const unit = (n.nutrient.unitName || "").toLowerCase();
+        const val = n.amount || 0;
+        return unit === "kj" ? Math.round(val / 4.184) : val;
+      };
+
+      return {
+        fdcId: item.fdcId,
+        name: (item.description || "Unknown Food").toLowerCase(),
+        calories: getEnergy(),
+        protein: getNut("Protein"),
+        fat: getNut("Total lipid (fat)") || getNut("Total lipid"),
+        carbs: getNut("Carbohydrate, by difference") || getNut("Carbohydrate"),
+        fiber: getNut("Fiber, total dietary") || getNut("Fiber"),
+        iron: getNut("Iron, Fe"),
+        zinc: getNut("Zinc, Zn"),
+        magnesium: getNut("Magnesium, Mg"),
+        iodine: getNut("Iodine"),
+        selenium: getNut("Selenium, Se"),
+        vitaminC: getNut("Vitamin C, total ascorbic acid"),
+        vitaminB9: getNut("Folate, total"),
+        lysine: getNut("Lysine"),
+        methionine: getNut("Methionine"),
+        wfpbStatus: determineWfpbStatus(item.description || "")
+      };
+    });
+
+    for (const data of dbItems) {
+      try {
+        await prisma.foodItem.upsert({
+          where: { fdcId: data.fdcId },
+          update: data,
+          create: data
+        });
+        createdCount++;
+      } catch (err) {
+        console.warn(`Failed to insert fdcId ${data.fdcId}`, err);
+      }
+    }
+    console.log(`Processed ${Math.min(i + BATCH_SIZE, items.length)} / ${items.length}`);
+  }
+  console.log(`USDA Seed complete. Processed ${createdCount} items.`);
+}
+
+import { INGREDIENT_TRANSLATIONS } from "../src/data/ingredientTranslations";
+const skipWords = ["blend", "substitute", "imitation", "fabricated", "formulated", "lunchmeat", "canned", "commercial"];
+
+async function seedTranslations() {
+  console.log("Seeding Russian translations...");
+  let count = 0;
+  for (const [rus, eng] of Object.entries(INGREDIENT_TRANSLATIONS)) {
+    const words = eng.split(" ").filter(w => w.length > 0);
+    const items = await prisma.foodItem.findMany({
+      where: { AND: words.map(w => ({ name: { contains: w, mode: "insensitive" } })) },
+      take: 100
+    });
+    
+    const validItems = items.filter(item => {
+      if (skipWords.some(w => item.name.includes(w))) return false;
+      const nameLower = item.name.toLowerCase();
+      for (const w of words) {
+        const regex = new RegExp(`\\b${w}(s|es|ed)?\\b`, 'i');
+        if (!regex.test(nameLower)) {
+          if (w.endsWith('s')) {
+            const singular = w.slice(0, -1);
+            const regexSingular = new RegExp(`\\b${singular}(s|es|ed)?\\b`, 'i');
+            if (!regexSingular.test(nameLower)) return false;
+          } else {
+            return false;
+          }
+        }
+      }
+      return true;
+    });
+
+    validItems.sort((a, b) => a.name.length - b.name.length);
+    const food = validItems[0];
+    
+    if (food) {
+      const rName = rus.toLowerCase().trim();
+      if (!food.russianName || !food.russianName.split(',').includes(rName)) {
+        const newRussian = food.russianName ? food.russianName + ',' + rName : rName;
+        await prisma.foodItem.update({
+          where: { id: food.id },
+          data: { russianName: newRussian }
+        });
+        count++;
+      }
+    }
+  }
+  console.log(`Seeded ${count} new Russian translations.`);
+}

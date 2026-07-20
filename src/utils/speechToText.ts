@@ -1,4 +1,5 @@
 import React from "react";
+import { getTelegramInitData } from "./telegramClient";
 
 let micStream: MediaStream | null = null;
 
@@ -236,7 +237,7 @@ export class SpeechToTextSession {
 
       const res = await fetch("/api/transcribe-audio", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "X-Telegram-Init-Data": getTelegramInitData() },
         body: JSON.stringify({ audioBase64: base64, format: "wav" }),
       });
 

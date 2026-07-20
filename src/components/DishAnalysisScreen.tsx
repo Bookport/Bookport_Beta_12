@@ -21,6 +21,7 @@ import { MealAnalysisProvider } from "../services/aiLayer";
 import { resolveAvatarForCompliance, resolveAvatar } from "../utils/annaAvatarResolver";
 import { checkWFPB } from "../utils/wfpbRules";
 import { useAppStore } from "../store/useAppStore";
+import { getTelegramInitData } from "../utils/telegramClient";
 import { clientLogger } from "../utils/clientLogger";
 
 interface IngredientCard {
@@ -115,7 +116,7 @@ export default function DishAnalysisScreen({
     }));
     fetch("/api/anna-comment", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "X-Telegram-Init-Data": getTelegramInitData() },
       body: JSON.stringify({ dishName: "", ingredients: mapped }),
     })
       .then(r => r.json())

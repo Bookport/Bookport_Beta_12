@@ -7,6 +7,7 @@
  */
 
 import { checkWFPB } from "../utils/wfpbRules";
+import { getTelegramInitData } from "../utils/telegramClient";
 
 export interface AIProviderConfig {
   provider: "studio" | "server" | "hybrid";
@@ -104,7 +105,7 @@ export interface AppControlAction {
 
 export const AISystemConfig = {
   // Configurable Active Provider Option
-  currentProvider: (import.meta.env.VITE_AI_PROVIDER as "studio" | "server" | "hybrid") || "studio",
+  currentProvider: "server" as const,
 
   // 1. Anna Character Profile & System Instructions
   AnnaCharacter: {
@@ -349,7 +350,7 @@ export const AnnaTextProvider = {
       try {
         const resp = await fetch("/api/anna-supports", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", "X-Telegram-Init-Data": getTelegramInitData() },
           body: JSON.stringify({ situation, userName: name, userGender: isFemale ? "female" : "male" })
         });
         if (resp.ok) {
@@ -365,7 +366,7 @@ export const AnnaTextProvider = {
     try {
       const resp = await fetch("/api/anna-supports", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "X-Telegram-Init-Data": getTelegramInitData() },
         body: JSON.stringify({ situation, userName: name, userGender: isFemale ? "female" : "male" })
       });
       if (resp.ok) {
@@ -418,7 +419,7 @@ export const MealAnalysisProvider = {
       try {
         const resp = await fetch("/api/analyze-dish", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", "X-Telegram-Init-Data": getTelegramInitData() },
           body: JSON.stringify({ ingredients })
         });
         if (resp.ok) {
@@ -434,7 +435,7 @@ export const MealAnalysisProvider = {
     try {
       const resp = await fetch("/api/analyze-dish", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "X-Telegram-Init-Data": getTelegramInitData() },
         body: JSON.stringify({ ingredients })
       });
       if (resp.ok) {
@@ -455,44 +456,26 @@ export const MealAnalysisProvider = {
  */
 export const IngredientRecognitionProvider = {
   async extractIngredientsFromImage(imageBase64: string): Promise<RecognitionResponse> {
-    const isServerMode = AISystemConfig.currentProvider === "server";
+    const resp = await fetch("/api/analyze-image", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Telegram-Init-Data": getTelegramInitData() },
+      body: JSON.stringify({ imageBase64 })
+    });
     
-    if (isServerMode) {
+    if (resp.ok) {
+      const data = await resp.json();
+      return data.result;
+    } else {
+      let errMessage = `AI Gateway responded with status: ${resp.status}`;
       try {
-        const resp = await fetch("/api/analyze-image", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ imageBase64 })
-        });
-        if (resp.ok) {
-          const data = await resp.json();
-          return data.result;
-        }
+        const errorData = await resp.json();
+        if (errorData.error) errMessage = errorData.error;
       } catch (e) {
-        console.warn("[IngredientRecognitionProvider] Server vision failed.", e);
+        const errText = await resp.text().catch(() => "");
+        if (errText) errMessage += ` - ${errText}`;
       }
+      throw new Error(errMessage);
     }
-
-    // Primary path: AI Studio endpoint
-    try {
-      const resp = await fetch("/api/analyze-image", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ imageBase64 })
-      });
-      if (resp.ok) {
-        const data = await resp.json();
-        return data.result;
-      } else {
-        // Handle rate limits or response errors inside the wrapper gracefully
-        throw new Error(`AI Gateway responded with status: ${resp.status}`);
-      }
-    } catch (e) {
-      console.warn("[IngredientRecognitionProvider] AI Studio vision call failed. Resiliently defaulting to local high-fidelity fallback.", e);
-    }
-
-    // Absolute fallback: beautiful plant-based vision mock object
-    return simulateLocalVisionPlan();
   }
 };
 

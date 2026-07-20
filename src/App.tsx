@@ -6,6 +6,7 @@ import { useAppStore } from "./store/useAppStore";
 import { useNotificationEngine } from "./services/useNotificationEngine";
 import GlobalNotificationOverlay from "./components/GlobalNotificationOverlay";
 import { api } from "./utils/api";
+import { getTelegramInitData } from "./utils/telegramClient";
 import { useTelegram } from "./hooks/useTelegram";
 import GlassRing from "./components/GlassRing";
 import StartButton from "./components/StartButton";
@@ -1465,7 +1466,7 @@ export default function App() {
 
                   fetch("/api/anna-comment", {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
+                    headers: { "Content-Type": "application/json", "X-Telegram-Init-Data": getTelegramInitData() },
                     body: JSON.stringify({ dishName, ingredients: mappedIngredients })
                   })
                     .then(r => r.json())

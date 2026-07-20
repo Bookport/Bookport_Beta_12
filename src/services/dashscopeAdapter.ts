@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { directFetch } from "../utils/directFetch";
 
 let dashClient: OpenAI | null = null;
 
@@ -7,13 +8,14 @@ function getDashClient(): OpenAI {
     dashClient = new OpenAI({
       apiKey: process.env.DASHSCOPE_API_KEY,
       baseURL: process.env.DASHSCOPE_BASE_URL,
+      fetch: directFetch as any,
     });
   }
   return dashClient;
 }
 
-const PRIMARY_MODEL = "qwen-vl-plus";
-const FALLBACK_MODEL = "qwen3-vl-plus";
+const PRIMARY_MODEL = "qwen-vl-max";
+const FALLBACK_MODEL = "qwen-vl-plus";
 
 export async function analyzeFoodImage(
   imageBase64: string,
@@ -77,7 +79,7 @@ export async function transcribeAudio(
   const audioDataUrl = `data:audio/${format};base64,${audioBase64}`;
 
   try {
-    const response = await fetch(ASR_ENDPOINT, {
+      const response = await directFetch(ASR_ENDPOINT, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -138,7 +140,7 @@ async function ttsFetch(text: string): Promise<any> {
   const lastErr: unknown[] = [];
   for (let attempt = 1; attempt <= 2; attempt++) {
     try {
-      const res = await fetch(TTS_ENDPOINT, {
+      const res = await directFetch(TTS_ENDPOINT, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
         body: JSON.stringify({
@@ -171,7 +173,7 @@ export async function generateAnnaAudio(
   try {
     const ac = new AbortController();
     const tid = setTimeout(() => ac.abort(), 6000);
-    const audioResponse = await fetch(audioUrl, { signal: ac.signal });
+    const audioResponse = await directFetch(audioUrl, { signal: ac.signal });
     clearTimeout(tid);
     if (audioResponse.ok) {
       const buf = Buffer.from(await audioResponse.arrayBuffer());
