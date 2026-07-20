@@ -41,7 +41,8 @@ const translationCache = new Map<string, string>();
 
 // Robust wrapper with automatic model cascade fallback
 async function generateContentWithFallback(payload: any) {
-  const models = ["qwen3.5-flash", "deepseek-v4-flash", "qwen-flash"];
+  const defaultModels = ["qwen3.5-flash", "deepseek-v4-flash", "qwen-flash"];
+  const models = payload.cascade || defaultModels;
   let lastError: any = null;
 
   for (const modelName of models) {
@@ -375,6 +376,16 @@ async function fetchUsdaNutrition(ingredients: { originalName?: string; foodName
     const results = await Promise.all(
       ingredients.map(async (ingr) => {
         try {
+          const nameLowerStr = ingr.foodName.toLowerCase();
+          const origNameLower = ingr.originalName?.toLowerCase() || "";
+          if (nameLowerStr === "water" || origNameLower === "вода") {
+            return {
+              calories: 0, protein: 0, fat: 0, carbs: 0, fiber: 0,
+              iron: 0, zinc: 0, magnesium: 0, iodine: 0, selenium: 0,
+              vitaminC: 0, vitaminB9: 0, lysine: 0, methionine: 0
+            };
+          }
+
           const words = ingr.foodName.split(" ").filter(w => w.length > 0);
           if (words.length === 0) return null;
 
@@ -1083,7 +1094,8 @@ Only valid JSON, no markdown.`,
         contents: { parts: [{ text: prompt }] },
         config: {
           responseMimeType: "text/plain"
-        }
+        },
+        cascade: ["deepseek-v4-flash", "qwen3.5-flash", "qwen-flash"]
       });
       
       const textOutput = result.text?.trim().replace(/^["']|["']$/g, "") || "Система настраивает соединение и выполняет детальный молекулярный анализ тарелки... 🌱";
@@ -1122,7 +1134,8 @@ Only valid JSON, no markdown.`,
         contents: { parts: [{ text: prompt }] },
         config: {
           responseMimeType: "text/plain"
-        }
+        },
+        cascade: ["deepseek-v4-flash", "qwen3.5-flash", "qwen-flash"]
       });
 
       const textOutput = result.text?.trim().replace(/^["']|["']$/g, "") || "";
@@ -1171,7 +1184,8 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
 
       const result = await generateContentWithFallback({
         contents: { parts: [{ text: prompt }] },
-        config: { responseMimeType: "text/plain", temperature: 0.8 }
+        config: { responseMimeType: "text/plain", temperature: 0.8 },
+        cascade: ["deepseek-v4-flash", "qwen3.5-flash", "qwen-flash"]
       });
 
       const textOutput = result.text?.trim().replace(/^["']|["']$/g, "") || "";

@@ -4,7 +4,9 @@ import { fileURLToPath } from "url";
 
 // Works in both ESM (via fileURLToPath) and CJS (via __dirname fallback)
 const _dirname = typeof __dirname !== "undefined" ? __dirname : path.dirname(fileURLToPath(import.meta.url));
-const WIKI_ROOT = path.resolve(_dirname, "../anna_wiki");
+const WIKI_ROOT = fs.existsSync(path.resolve(_dirname, "../src/anna_wiki")) 
+  ? path.resolve(_dirname, "../src/anna_wiki") 
+  : path.resolve(_dirname, "../anna_wiki");
 
 const fileCache = new Map<string, string>();
 
