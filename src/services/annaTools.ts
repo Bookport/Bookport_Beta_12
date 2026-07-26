@@ -169,6 +169,7 @@ export async function executeToolCall(
         const where: any = { userId };
         if (category) where.category = category;
         if (sourceType) where.sourceType = sourceType;
+        else where.sourceType = { not: "mixer" };
         if (isBookRecipe !== undefined) where.isBookRecipe = isBookRecipe;
         if (isFavorite !== undefined) where.isFavorite = isFavorite;
         const dishes = await prisma.savedDish.findMany({
@@ -329,9 +330,7 @@ export async function executeToolCall(
         return {
           name: recipe.technicalName,
           type: recipe.type,
-          week: recipe.week,
           day: recipe.day,
-          timeOfDay: recipe.timeOfDay,
           page: recipe.page,
           ingredients: recipe.ingredients,
           instructions: recipe.instructions.slice(0, 1000),
@@ -373,46 +372,70 @@ export async function executeToolCall(
         if (dayIndex === undefined || dayIndex === null) {
           return { error: "Укажи dayIndex для подсчёта КБЖУ за день" };
         }
-        const progress = await prisma.recipeProgress.findMany({
-          where: { userId, dayIndex, status: "cooked" },
-          include: { bookRecipe: true },
-        });
-        if (progress.length === 0) {
-          return { dayIndex, recipeCount: 0, message: "Нет приготовленных рецептов за этот день" };
-        }
+
         let totalCalories = 0;
         let totalProtein = 0;
         let totalFat = 0;
         let totalFiber = 0;
-        const recipes: Array<{
-          recipeName: string;
+        const items: Array<{
+          name: string;
+          source: string;
           calories: number | null;
           protein: number | null;
           fat: number | null;
           fiber: number | null;
         }> = [];
+
+        const progress = await prisma.recipeProgress.findMany({
+          where: { userId, dayIndex, status: "cooked" },
+          include: { bookRecipe: true },
+        });
         for (const p of progress) {
           const kbju = p.bookRecipe?.kbju ? parseKbjuToNumbers(p.bookRecipe.kbju) : null;
           if (kbju?.calories) totalCalories += kbju.calories;
           if (kbju?.protein) totalProtein += kbju.protein;
           if (kbju?.fat) totalFat += kbju.fat;
           if (kbju?.fiber) totalFiber += kbju.fiber;
-          recipes.push({
-            recipeName: p.bookRecipe?.technicalName || "неизвестный",
+          items.push({
+            name: p.bookRecipe?.technicalName || "неизвестный",
+            source: "book",
             calories: kbju?.calories ?? null,
             protein: kbju?.protein ?? null,
             fat: kbju?.fat ?? null,
             fiber: kbju?.fiber ?? null,
           });
         }
+
+        const savedDishes = await prisma.savedDish.findMany({
+          where: { userId, dayIndex, sourceType: { not: "mixer" } },
+        });
+        for (const d of savedDishes) {
+          if (d.calories) totalCalories += d.calories;
+          if (d.protein) totalProtein += parseFloat(d.protein) || 0;
+          if (d.fat) totalFat += parseFloat(d.fat) || 0;
+          if (d.fiber) totalFiber += parseFloat(d.fiber) || 0;
+          items.push({
+            name: d.name,
+            source: d.sourceType || "saved",
+            calories: d.calories ?? null,
+            protein: d.protein ? parseFloat(d.protein) : null,
+            fat: d.fat ? parseFloat(d.fat) : null,
+            fiber: d.fiber ? parseFloat(d.fiber) : null,
+          });
+        }
+
+        if (items.length === 0) {
+          return { dayIndex, recipeCount: 0, message: "Нет блюд за этот день" };
+        }
+
         return {
           dayIndex,
-          recipeCount: progress.length,
+          totalItems: items.length,
           totalCalories: Math.round(totalCalories * 10) / 10,
           totalProtein: Math.round(totalProtein * 10) / 10,
           totalFat: Math.round(totalFat * 10) / 10,
           totalFiber: Math.round(totalFiber * 10) / 10,
-          recipes,
+          items,
         };
       }
 

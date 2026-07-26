@@ -53,7 +53,9 @@ export interface SleepEntry {
 export interface MovementEntry {
   id: string;
   type: string;
+  activityType?: string;
   duration: number;
+  durationSeconds?: number;
   dayIndex: number;
   timestamp: number;
   timeString: string;
@@ -111,12 +113,16 @@ interface AppState {
 
   courseStartTimestamp: number | null;
   clickCount: number;
+  globalProgress: number;
+  unshippedProgress: number;
   isGodMode: boolean;
 
   setScreen: (screen: Screen) => void;
   setUserProfile: (profile: UserProfile) => void;
   setTelegramUser: (user: TelegramUser | null) => void;
   setClickCount: (count: number) => void;
+  setGlobalProgress: (count: number) => void;
+  setUnshippedProgress: (count: number) => void;
   setCalendarOpen: (open: boolean) => void;
   setOverlayOpen: (open: boolean) => void;
   setActiveNotification: (notif: AppNotification | null) => void;
@@ -151,12 +157,16 @@ export const useAppStore = create<AppState>((set) => ({
   calendarNotes: {},
   courseStartTimestamp: null,
   clickCount: 0,
+  globalProgress: 0,
+  unshippedProgress: 0,
   isGodMode: false,
 
   setScreen: (screen) => set({ screen }),
   setUserProfile: (profile) => set({ userProfile: profile }),
   setTelegramUser: (user) => set({ telegramUser: user }),
   setClickCount: (count) => { set({ clickCount: count }); localStorage.setItem('wfpb_click_count', String(count)); },
+  setGlobalProgress: (count) => set({ globalProgress: count }),
+  setUnshippedProgress: (count) => set({ unshippedProgress: count }),
   setCalendarOpen: (open) => set({ isCalendarOpen: open }),
   setOverlayOpen: (open) => set({ isOverlayOpen: open }),
   setActiveNotification: (notif) => set({ activeNotification: notif }),
@@ -180,7 +190,7 @@ export const useAppStore = create<AppState>((set) => ({
       });
       if (resp.ok) {
         const data = await resp.json();
-        set({ userProfile: data, clickCount: data.clickCount || 0 });
+        set({ userProfile: data, clickCount: data.clickCount || 0, globalProgress: data.globalProgress || 0 });
       }
     } catch {
       // Server not available — continue with empty profile

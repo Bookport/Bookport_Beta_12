@@ -145,6 +145,7 @@ export default function MyDayScreen({
   const [sleep, setSleep] = useState(0);
   const [mealCount, setMealCount] = useState(0);
   const clickCount = useAppStore((s) => s.clickCount);
+  const globalProgress = useAppStore((s) => s.globalProgress);
   const setClickCountStore = useAppStore((s) => s.setClickCount);
 
   // Check for pending achievements when MyDay is active
@@ -878,7 +879,9 @@ export default function MyDayScreen({
       id: `m-log-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
       dayIndex: currentDayIndex,
       type: activeActivity,
+      activityType: activeActivity,
       duration: durationSeconds,
+      durationSeconds,
       timestamp: nowStamp,
       timeString: timeStr,
     };
@@ -2124,7 +2127,7 @@ export default function MyDayScreen({
           {/* Right Cards Stack: 2 compact responsive blocks corresponding to physical layout */}
           <div className="col-span-5 flex flex-col gap-2">
             
-            {/* Card 1: Прогресс (Action Counter score) */}
+            {/* Card 1: Прогресс (Global Action Counter) */}
             <div className="bg-white rounded-[18px] border border-gray-100 shadow-[0_3px_8px_-1px_rgba(43,49,55,0.02)] p-2.5 flex items-center gap-2 text-left relative overflow-hidden">
               <div className="w-8 h-8 rounded-lg bg-[#F0FDF4] flex items-center justify-center text-[#15803D] shrink-0">
                 <Sparkles className="w-4.5 h-4.5 stroke-[2]" />
@@ -2134,7 +2137,7 @@ export default function MyDayScreen({
                   className="text-[17px] sm:text-[18px] font-bold text-text-dark leading-none"
                   style={{ fontFamily: '"Calibri", sans-serif' }}
                 >
-                  {clickCount}
+                  {globalProgress}
                 </span>
                 <span 
                   className="text-[11px] text-text-muted font-bold tracking-tight lowercase mt-0.5 leading-none"

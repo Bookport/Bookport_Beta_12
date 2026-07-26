@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   ChevronLeft,
@@ -130,6 +130,34 @@ export default function RecipesScreen({
     return allDishes.filter((d) => d.category === activeTab);
   }, [allDishes, activeTab]);
 
+  // ── Infinite scroll pagination ──
+  const PAGE_SIZE = 40;
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+
+  const paginatedDishes = useMemo(() => {
+    return filteredDishes.slice(0, visibleCount);
+  }, [filteredDishes, visibleCount]);
+
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [activeTab, filteredDishes.length]);
+
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setVisibleCount(prev => Math.min(prev + PAGE_SIZE, filteredDishes.length));
+        }
+      },
+      { rootMargin: "200px" }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [filteredDishes.length]);
+
   const selectedDish = useMemo(
     () => allDishes.find((d) => d.id === selectedDishId) || null,
     [allDishes, selectedDishId]
@@ -227,7 +255,7 @@ export default function RecipesScreen({
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-4 mt-1">
-            {filteredDishes.map((dish) => {
+            {paginatedDishes.map((dish) => {
               const col = getCategoryColor(dish.category);
               const shadowColor = dish.categoryColor || col.shadow;
               const dishCalories = dish.isBookRecipe && dish.bookRecipeRef ? (() => {
@@ -308,6 +336,9 @@ export default function RecipesScreen({
               );
             })}
           </div>
+        )}
+        {visibleCount < filteredDishes.length && (
+          <div ref={sentinelRef} className="h-10 w-full" />
         )}
       </div>
 

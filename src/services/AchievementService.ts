@@ -1093,6 +1093,33 @@ export class AchievementService {
       case "mixer:jackpot_won":
         this.tryUnlock("ach-068", true, newlyUnlocked);
         break;
+
+      case "tracking:updated": {
+        const { _dbUserFull } = payload;
+        const user = _dbUserFull || {};
+        this.tryUnlock("ach-025", (user.scanCount || 0) >= 10, newlyUnlocked);
+        this.tryUnlock("ach-068", (user.chapterReadCount || 0) >= 1, newlyUnlocked);
+        this.tryUnlock("ach-069", (user.constructorCount || 0) >= 5, newlyUnlocked);
+        this.tryUnlock("ach-071", (user.shareCount || 0) >= 5, newlyUnlocked);
+        this.tryUnlock("ach-073", (user.shareCount || 0) >= 1, newlyUnlocked);
+        this.tryUnlock("ach-074", (user.feedbackCount || 0) >= 1, newlyUnlocked);
+        if (payload.type === "feedback" && payload.payload?.length > 200) {
+          this.tryUnlock("ach-072", true, newlyUnlocked);
+        }
+        break;
+      }
+
+      case "mixer:spin": {
+        const spinPayload = payload || {};
+        this.tryUnlock("ach-075", spinPayload.outcomeType === "C" && spinPayload.hasAutoReleased === true, newlyUnlocked);
+        break;
+      }
+
+      case "profile:saved": {
+        const { _dbUserFull: profileUser } = payload;
+        this.tryUnlock("ach-080", profileUser?.hasSavedSettings === true, newlyUnlocked);
+        break;
+      }
     }
 
     if (newlyUnlocked.length > 0) {

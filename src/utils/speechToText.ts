@@ -6,10 +6,18 @@ let micStream: MediaStream | null = null;
 export async function ensureMicPermission(): Promise<boolean> {
   if (micStream?.active) return true;
   try {
+    releaseMic();
     micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
     return true;
   } catch {
     return false;
+  }
+}
+
+export function releaseMic() {
+  if (micStream) {
+    micStream.getTracks().forEach(t => t.stop());
+    micStream = null;
   }
 }
 
@@ -317,6 +325,7 @@ export class SpeechToTextSession {
     this.mediaRecorder = null;
     this.pcmBuffer = [];
     this.recordedChunks = [];
+    releaseMic();
   }
 
   public destroy() {
@@ -364,5 +373,6 @@ export class NoteSpeechInputHelper {
       this.session.stop();
       this.session = null;
     }
+    releaseMic();
   }
 }

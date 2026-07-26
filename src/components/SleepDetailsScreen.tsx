@@ -20,6 +20,7 @@ import {
   AlertTriangle
 } from "lucide-react";
 import { resolveAvatar } from "../utils/annaAvatarResolver";
+import { api } from "../utils/api";
 
 const annaAvatarSrc = resolveAvatar({ toneGroup: 'neutral_thoughtful', intent: 'thoughtful' }).src;
 import BriefNoteBlock from "./BriefNoteBlock";
@@ -128,6 +129,44 @@ export default function SleepDetailsScreen({
 
     setSleepLogs(initialLogs);
   }, [currentDayIndex, sleep, setSleepLogs, sleepLogs]);
+
+  // Fetch historical sleep logs from server on mount
+  useEffect(() => {
+    api<Record<string, any>[]>("/api/metrics/daily")
+      .then(records => {
+        if (!records || !Array.isArray(records)) return;
+        const serverLogs: Record<number, SleepLogEntry> = {};
+        for (const r of records) {
+          const rawLogs = r.sleepLogs;
+          let logs: any[] = [];
+          if (typeof rawLogs === 'string') { try { logs = JSON.parse(rawLogs); } catch {} }
+          else if (Array.isArray(rawLogs)) { logs = rawLogs; }
+          for (const entry of logs) {
+            if (entry && entry.dayIndex !== undefined && entry.sleepTime && entry.wakeTime) {
+              const di = Number(entry.dayIndex);
+              if (!serverLogs[di]) {
+                serverLogs[di] = {
+                  dayIndex: di,
+                  sleepTime: entry.sleepTime,
+                  wakeTime: entry.wakeTime,
+                  duration: entry.duration || entry.durationSeconds || 0,
+                  quality: entry.quality || "fair",
+                };
+              }
+            }
+          }
+        }
+        setSleepLogs(prev => {
+          const merged = { ...prev };
+          for (const [di, log] of Object.entries(serverLogs)) {
+            const key = Number(di);
+            if (!merged[key]) merged[key] = log as SleepLogEntry;
+          }
+          return merged;
+        });
+      })
+      .catch((err) => console.warn("[SleepDetails] failed to load history:", err));
+  }, []);
 
   // Selected day variables
   const sleepGoalToday = 480; // 8 Hours

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "motion/react";
 import BottomBar from "./BottomBar";
 import { 
@@ -18,6 +18,7 @@ import {
 import BriefNoteBlock from "./BriefNoteBlock";
 import { resolveAvatar } from "../utils/annaAvatarResolver";
 import { useAppStore, type MovementEntry } from "../store/useAppStore";
+import { api } from "../utils/api";
 
 const annaAvatarSrc = resolveAvatar({ toneGroup: 'positive', intent: 'approval' }).src;
 
@@ -254,6 +255,40 @@ export default function MovementDetailsScreen({
   };
 
   const metrics = getAllTimeMetrics();
+
+  // Fetch historical movement logs from server on mount
+  useEffect(() => {
+    api<Record<string, any>[]>("/api/metrics/daily")
+      .then(records => {
+        if (!records || !Array.isArray(records)) return;
+        const setMovementEntries = useAppStore.getState().setMovementEntries;
+        const serverEntries: MovementEntry[] = [];
+        for (const r of records) {
+          const rawLogs = r.movementLog;
+          let logs: any[] = [];
+          if (typeof rawLogs === 'string') { try { logs = JSON.parse(rawLogs); } catch {} }
+          else if (Array.isArray(rawLogs)) { logs = rawLogs; }
+          for (const entry of logs) {
+            if (entry && entry.id && entry.dayIndex !== undefined) {
+              serverEntries.push({
+                id: entry.id,
+                dayIndex: Number(entry.dayIndex),
+                type: entry.type || entry.activityType || "",
+                activityType: entry.activityType || entry.type || "",
+                duration: entry.duration || entry.durationSeconds || 0,
+                durationSeconds: entry.durationSeconds || entry.duration || 0,
+                timestamp: entry.timestamp || Date.now(),
+                timeString: entry.timeString || "",
+              });
+            }
+          }
+        }
+        if (serverEntries.length > 0) {
+          setMovementEntries(serverEntries);
+        }
+      })
+      .catch((err) => console.warn("[MovementDetails] failed to load history:", err));
+  }, []);
 
   // Create personalized dynamic Anna coaching statements
   const getAnnaMovementCoaching = () => {

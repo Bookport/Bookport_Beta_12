@@ -209,7 +209,7 @@ export default function App() {
   const screen = useAppStore((s) => s.screen);
   console.log("Current screen is:", screen);
   const setScreen = useAppStore((s) => s.setScreen);
-  const buildVersion = "Beta_12.1";
+  const buildVersion = "Bookport_20_Beta";
   const annaAvatarSrc = resolveGeneralAvatar().src;
 
   const [selectedChronic, setSelectedChronic] = useState<string[]>([]);
@@ -578,6 +578,50 @@ export default function App() {
       initializeAchievementSystem()
     }
   }, [])
+
+  // Global click tracker — increments progress counter, ships to backend in batches
+  useEffect(() => {
+    const SHIP_THRESHOLD = 5;
+    const SHIP_INTERVAL_MS = 10000;
+    let shipTimer: ReturnType<typeof setTimeout> | null = null;
+
+    function shipProgress() {
+      const unshipped = useAppStore.getState().unshippedProgress;
+      if (unshipped <= 0) return;
+      useAppStore.getState().setUnshippedProgress(0);
+      api("/api/user/progress", {
+        method: "POST",
+        body: { increment: unshipped },
+      }).then((res: any) => {
+        if (res?.globalProgress !== undefined) {
+          useAppStore.getState().setGlobalProgress(res.globalProgress);
+        }
+      }).catch(() => {});
+    }
+
+    function resetShipTimer() {
+      if (shipTimer) clearTimeout(shipTimer);
+      shipTimer = setTimeout(shipProgress, SHIP_INTERVAL_MS);
+    }
+
+    function handleClick() {
+      const { globalProgress, unshippedProgress } = useAppStore.getState();
+      useAppStore.getState().setGlobalProgress(globalProgress + 1);
+      useAppStore.getState().setUnshippedProgress(unshippedProgress + 1);
+      resetShipTimer();
+
+      if (useAppStore.getState().unshippedProgress >= SHIP_THRESHOLD) {
+        if (shipTimer) clearTimeout(shipTimer);
+        shipProgress();
+      }
+    }
+
+    document.addEventListener("click", handleClick);
+    return () => {
+      document.removeEventListener("click", handleClick);
+      if (shipTimer) clearTimeout(shipTimer);
+    };
+  }, []);
 
   // Sync userGender from the Zustand store (server profile) whenever it changes
   useEffect(() => {
@@ -1126,6 +1170,16 @@ export default function App() {
 
     // Synchronize simple habits list completed badge counts
     setHabitsDone(completedKeysCount);
+
+    // Persist habitsDone to DB
+    api("/api/metrics/daily", {
+      method: "POST",
+      body: {
+        date: new Date().toISOString().split("T")[0],
+        dayIndex: activeDayIndex,
+        habitsDone: completedKeysCount,
+      },
+    }).catch(() => {});
 
     // Increase click count indicating progress
     useAppStore.getState().setClickCount(clickCount + completedKeysCount + 5);

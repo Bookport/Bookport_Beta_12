@@ -300,7 +300,7 @@ export default function SettingsScreen({
     setWeight(draftWeight);
     setSystolic(draftSystolic);
     setDiastolic(draftDiastolic);
-    const data = { name: draftName, gender: draftGender, age: draftAge, height: draftHeight, weight: draftWeight, systolic: draftSystolic, diastolic: draftDiastolic, hasSavedSettings: true, ritualTime: draftRitualTime };
+    const data = { name: draftName, gender: draftGender, age: draftAge, height: draftHeight, weight: draftWeight, systolic: draftSystolic, diastolic: draftDiastolic, ritualTime: draftRitualTime };
     setUserProfile({ ...profile, ...data });
     api("/api/user/profile", { method: "POST", body: data }).catch(() => {});
     UserPreferencesStore.save(prefs);

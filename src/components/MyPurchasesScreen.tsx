@@ -425,10 +425,10 @@ export default function MyPurchasesScreen({
       tempErrorTimeoutRef.current = null;
     }
 
-    // After 10s of scan streaming without any decoded barcode, trigger warm troubleshoot help state ("temp-error")
+    // After 30s of scan streaming without any decoded barcode, trigger warm troubleshoot help state ("temp-error")
     tempErrorTimeoutRef.current = setTimeout(() => {
       setScanStatus("temp-error");
-    }, 10000);
+    }, 30000);
 
     // Render viewport container briefly first before attachment
     setTimeout(async () => {
@@ -456,7 +456,6 @@ export default function MyPurchasesScreen({
               height: Math.max(85, Math.min(boxHeight, 160))
             };
           },
-          aspectRatio: 1.777777,
         };
 
         const onScanSuccess = async (decodedText: string) => {
@@ -525,7 +524,7 @@ export default function MyPurchasesScreen({
         };
 
         // Standard rear facing mobile camera selection
-        let cameraToUse: any = { facingMode: "environment" };
+        let cameraToUse: MediaTrackConstraints = { facingMode: "environment", focusMode: "continuous" } as MediaTrackConstraints;
         try {
           const devices = await Html5Qrcode.getCameras();
           if (devices && devices.length > 0) {
@@ -543,9 +542,9 @@ export default function MyPurchasesScreen({
               );
             });
             if (rearCamera) {
-              cameraToUse = rearCamera.id;
+              cameraToUse = { deviceId: rearCamera.id, focusMode: "continuous" } as MediaTrackConstraints;
             } else {
-              cameraToUse = devices[0].id;
+              cameraToUse = { deviceId: devices[0].id, focusMode: "continuous" } as MediaTrackConstraints;
             }
           }
         } catch (camListErr) {

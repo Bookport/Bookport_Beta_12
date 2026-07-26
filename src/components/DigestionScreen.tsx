@@ -255,6 +255,48 @@ export default function DigestionScreen({
   const allLogs = (Object.values(currentLogsMap) as DigestionLogEntry[][]).flat();
   const dayLogs = (currentLogsMap[currentDayIndex] || []) as DigestionLogEntry[];
 
+  // Fetch historical digestion logs from server on mount
+  React.useEffect(() => {
+    api<Record<string, any>[]>("/api/metrics/daily")
+      .then(records => {
+        if (!records || !Array.isArray(records)) return;
+        const serverMap: Record<number, DigestionLogEntry[]> = {};
+        for (const r of records) {
+          const rawLogs = r.digestionLog;
+          let logs: any[] = [];
+          if (typeof rawLogs === 'string') { try { logs = JSON.parse(rawLogs); } catch {} }
+          else if (Array.isArray(rawLogs)) { logs = rawLogs; }
+          for (const entry of logs) {
+            if (entry && entry.id && entry.dayIndex !== undefined) {
+              const di = Number(entry.dayIndex);
+              if (!serverMap[di]) serverMap[di] = [];
+              serverMap[di].push({
+                id: entry.id,
+                dayIndex: di,
+                timestamp: entry.timestamp || Date.now(),
+                timeString: entry.timeString || "",
+                bristolType: entry.bristolType ?? 4,
+                comfort: entry.comfort || "normal",
+                note: entry.note || "",
+                linkedMeal: entry.linkedMeal || undefined,
+              });
+            }
+          }
+        }
+        if (Object.keys(serverMap).length > 0) {
+          currentSetLogs(prev => {
+            const merged = { ...prev };
+            for (const [di, entries] of Object.entries(serverMap)) {
+              const key = Number(di);
+              if (!merged[key]) merged[key] = entries;
+            }
+            return merged;
+          });
+        }
+      })
+      .catch((err) => console.warn("[Digestion] failed to load history:", err));
+  }, []);
+
   React.useEffect(() => {
     if (typeof window === "undefined") return;
 

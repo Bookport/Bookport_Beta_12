@@ -14,7 +14,7 @@ import { prisma } from "./src/prisma";
 import { logger } from "./src/utils/logger";
 import { achievementService } from "./src/services/AchievementService";
 import { ANNA_TOOL_DEFINITIONS, executeToolCall } from "./src/services/annaTools";
-import { setupTelegramWebhook, getBotUsername } from "./src/services/telegramBot";
+import { setupTelegramWebhook, getBotUsername, getBot } from "./src/services/telegramBot";
 import { extractTelegramUser } from "./src/utils/telegramInitData";
 
 const promptCompiler = new PromptCompiler();
@@ -23,6 +23,8 @@ declare global {
   namespace Express {
     interface Request {
       userId?: string;
+      telegramId?: string;
+      accessExpiresAt?: Date;
     }
   }
 }
@@ -32,7 +34,7 @@ const projectRoot = process.cwd();
 const envPath = path.join(projectRoot, ".env");
 dotenv.config({ override: true, path: envPath });
 
-const PORT = 3000;
+const PORT = parseInt(process.env.PORT || "3001", 10);
 
 const USDA_API_KEY = "ywYviAkfdnK8u2Sn19fMG7Kvmje8y2Bd66Hi2hlN";
 
@@ -431,9 +433,20 @@ async function startServer() {
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
+  // ── Dev Auth Bypass ──
+  if (process.env.NODE_ENV === 'development') {
+    app.use('/api', (req, res, next) => {
+      req.userId = (req.headers['x-dev-user-id'] as string) || 'dev-user-00000000-0000-0000-0000-000000000000';
+      req.telegramId = 'dev-telegram-id';
+      req.accessExpiresAt = new Date('2099-01-01');
+      next();
+    });
+  }
+
   // ── Telegram InitData Middleware ──
   // Validates Telegram Mini App initData and finds/creates user by telegramId
   app.use("/api", async (req, res, next) => {
+    if (req.userId) return next();
     const initData = req.headers["x-telegram-init-data"] as string | undefined;
     if (!initData) {
       return res.status(401).json({ error: "Unauthorized: missing initData" });
@@ -538,10 +551,25 @@ async function startServer() {
     }
   });
 
+  // ── Anna response cache (TTL 10 min) ──
+  const annaCache = new Map<string, { reply: string; ts: number }>();
+  setInterval(() => {
+    const now = Date.now();
+    for (const [key, entry] of annaCache) {
+      if (now - entry.ts > 600000) annaCache.delete(key);
+    }
+  }, 300000);
+
   // Unified assistant endpoint for Anna chat (LLM Wiki prompt + Tool calling)
   app.post("/api/anna-chat", async (req, res) => {
     try {
       const { message, history, screenContext, bookRecipesDataContext, screenContextDetails, userName } = req.body;
+
+      const cacheKey = `${req.userId}|${message}|${screenContext || ""}`;
+      const cached = annaCache.get(cacheKey);
+      if (cached && Date.now() - cached.ts < 600000) {
+        return res.json({ reply: cached.reply });
+      }
 
       const dayIndex: number | undefined =
         req.body.dayIndex ??
@@ -677,6 +705,10 @@ async function startServer() {
             dayIndex: dayIndex ?? null,
           },
         }).catch((err) => console.warn("[AnnaChat] save failed:", err.message));
+      }
+
+      if (finalReply) {
+        annaCache.set(cacheKey, { reply: finalReply, ts: Date.now() });
       }
 
       return res.json({ reply: finalReply });
@@ -1137,635 +1169,7 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
 
   // ── CRUD: User Profile ──
   
-// ==========================================
-// BACKGROUND ACHIEVEMENT EVALUATOR
-// ==========================================
-async function grantAchievements(userId, unlockedIds) {
-  if (!unlockedIds || unlockedIds.length === 0) return;
-  try {
-    const user = await prisma.user.findUnique({ where: { id: userId } });
-    if (!user) return;
 
-    let pendingStr = user.pendingAchievementId || "";
-    const pendingArr = pendingStr ? pendingStr.split(",") : [];
-    
-    for (const id of unlockedIds) {
-      await prisma.userAchievement.upsert({
-        where: { userId_achievementId: { userId, achievementId: id } },
-        update: { unlocked: true, unlockedAt: new Date() },
-        create: { userId, achievementId: id, unlocked: true, unlockedAt: new Date(), xp: 0 },
-      });
-      if (!pendingArr.includes(id)) pendingArr.push(id);
-    }
-
-    await prisma.user.update({
-      where: { id: userId },
-      data: { pendingAchievementId: pendingArr.join(",") }
-    });
-    logger.info(`[Achievements] Queued new achievements for user ${userId}: ${unlockedIds.join(", ")}`);
-  } catch (dbErr) {
-    logger.error("[Achievements] Failed to grant achievements:", dbErr.message);
-  }
-}
-
-async function checkBackgroundAchievements(userId, eventType, data) {
-  try {
-    const user = await prisma.user.findUnique({ 
-      where: { id: userId },
-      include: {
-        userAchievements: true,
-        savedDishes: true,
-        eveningRituals: true,
-        dailyMetrics: { orderBy: { date: 'asc' } }
-      }
-    });
-    if (!user) return;
-
-    const unlocked = new Set(user.userAchievements.map(ua => ua.achievementId));
-    const newUnlocks = [];
-
-    const tryUnlock = (id, condition, reason = "") => {
-      if (condition && !unlocked.has(id)) {
-        newUnlocks.push(id);
-        unlocked.add(id);
-        logger.info(`[Achievements] Triggered ${id} ${reason ? 'because ' + reason : ''}`);
-      }
-    };
-
-    const isMonday = new Date().getDay() === 1;
-    const currentDay = user.currentDayIndex || 1;
-
-
-    tryUnlock('ach-083', currentDay >= 7);
-
-    // Week 2 Logic
-    // ach-064: 3 consecutive days without gaps in water, sleep, meals
-    let ach064ConsecutiveDays = 0;
-    for (let day = currentDay; day >= currentDay - 5; day--) {
-       const m = user.dailyMetrics.find(dm => dm.dayIndex === day);
-       if (m && m.waterMl > 0 && m.sleepMinutes > 0 && m.mealCount > 0) {
-         ach064ConsecutiveDays++;
-       } else {
-         break;
-       }
-    }
-    tryUnlock('ach-064', ach064ConsecutiveDays >= 3);
-
-    // ach-033: EveningRitual 3 days in a row within +-15 min of ritualTime
-    let ach033ConsecutiveDays = 0;
-    if (user.ritualTime && user.eveningRituals) {
-      const rtParts = user.ritualTime.split(':').map(Number);
-      const rtMin = rtParts[0] * 60 + rtParts[1];
-      for (let day = currentDay; day >= currentDay - 5; day--) {
-        const er = user.eveningRituals.find(r => r.dayIndex === day);
-        if (er) {
-          const ct = new Date(er.createdAt);
-          const erMin = ct.getHours() * 60 + ct.getMinutes();
-          const diff = Math.abs(rtMin - erMin);
-          // handle midnight wrap (e.g. 23:50 and 00:05)
-          const adjustedDiff = Math.min(diff, 1440 - diff);
-          if (adjustedDiff <= 15) {
-            ach033ConsecutiveDays++;
-          } else {
-            break;
-          }
-        } else {
-          break;
-        }
-      }
-    }
-    tryUnlock('ach-033', ach033ConsecutiveDays >= 3);
-
-    // ach-068: Chapter read
-    tryUnlock('ach-068', user.chapterReadCount >= 1);
-
-    // ach-069: Constructor 5 times (we don't track 3 days, just total 5 times for simplicity, or we should track timestamps. The prompt says "5 раз за 3 дня". Since we only added an integer counter 'constructorCount', let's just check >= 5 for now to satisfy the DB constraint without complex logging).
-    tryUnlock('ach-069', user.constructorCount >= 5);
-
-    // ach-025: 10 scans
-    tryUnlock('ach-025', user.scanCount >= 10);
-
-
-    if (eventType === "profile_saved") {
-      tryUnlock('ach-080', user.hasSavedSettings === true);
-    }
-
-    if (eventType === "dish_saved" || eventType === "metric_saved") {
-      tryUnlock('ach-084', isMonday);
-    }
-
-    if (eventType === "dish_saved") {
-      const nonMixer = user.savedDishes.filter(d => d.sourceType !== 'mixer' && !(d as any).isMixerGenerated);
-      tryUnlock('ach-081', nonMixer.length >= 1);
-      
-      let hasAnyGreenDish = false;
-      let hasAnyRedIngredient = false;
-      let hasAnyMayo = false;
-      let hasAnySugarAfter16 = false;
-
-      for (const d of nonMixer) {
-        let ings: any[] = [];
-        try { ings = JSON.parse(d.ingredients || "[]"); } catch (e) {}
-        if (ings.length > 0 && ings.every(i => i.status === "green")) hasAnyGreenDish = true;
-        if (ings.some(i => i.status === "red")) hasAnyRedIngredient = true;
-        if (ings.some(i => {
-          const lower = (i.name || "").toLowerCase();
-          return lower.includes('майонез') || lower.includes('маргарин') || lower.includes('спред');
-        })) hasAnyMayo = true;
-        
-        const hour = new Date(d.createdAt).getHours();
-        if (hour >= 16 && ings.some(i => {
-          const lower = (i.name || "").toLowerCase();
-          return lower.includes('сахар') || lower.includes('конфет') || lower.includes('шоколад') || lower.includes('пирож') || lower.includes('торт');
-        })) hasAnySugarAfter16 = true;
-      }
-
-
-      tryUnlock('ach-082', hasAnyGreenDish);
-      tryUnlock('ach-061', hasAnyRedIngredient);
-      tryUnlock('ach-022', hasAnyMayo);
-      tryUnlock('ach-028', hasAnySugarAfter16);
-
-      // ach-018: beans 5 days in a row
-      // ach-019: broccoli 3 days in a row
-      let beansConsecutiveDays = 0;
-      let broccoliConsecutiveDays = 0;
-
-      for (let day = currentDay; day >= currentDay - 7; day--) {
-         const dayDishes = user.savedDishes.filter(d => d.dayIndex === day && d.sourceType !== 'mixer' && !(d as any).isMixerGenerated);
-         let dayHasBeans = false;
-         let dayHasBroccoli = false;
-         
-         for (const d of dayDishes) {
-            let ings = [];
-            try { ings = JSON.parse(d.ingredients || "[]"); } catch(e){}
-            if (ings.some(i => {
-              const lower = (i.name || "").toLowerCase();
-              return lower.includes('нут') || lower.includes('чечевиц') || lower.includes('фасол') || lower.includes('горох');
-            })) { dayHasBeans = true; }
-            if (ings.some(i => {
-              const lower = (i.name || "").toLowerCase();
-              return lower.includes('броккол') || lower.includes('цветная капуст') || lower.includes('кольраб');
-            })) { dayHasBroccoli = true; }
-         }
-         
-         if (dayHasBeans) beansConsecutiveDays++; else beansConsecutiveDays = 0;
-         if (dayHasBroccoli) broccoliConsecutiveDays++; else broccoliConsecutiveDays = 0;
-      }
-      tryUnlock('ach-018', beansConsecutiveDays >= 5);
-      tryUnlock('ach-019', broccoliConsecutiveDays >= 3);
-
-      // ach-015: 7 days no meat (on day 14)
-      // ach-016: 7 days no sugar (on day 14)
-      if (currentDay >= 14) {
-         let meatFreeDays = 0;
-         let sugarFreeDays = 0;
-         for (let day = currentDay; day >= currentDay - 6; day--) {
-            const dayDishes = user.savedDishes.filter(d => d.dayIndex === day && d.sourceType !== 'mixer');
-            let dayHasMeat = false;
-            let dayHasSugar = false;
-            for (const d of dayDishes) {
-               let ings = [];
-               try { ings = JSON.parse(d.ingredients || "[]"); } catch(e){}
-               if (ings.some(i => {
-                 const lower = (i.name || "").toLowerCase();
-                 return lower.includes('мяс') || lower.includes('кур') || lower.includes('говяд') || lower.includes('свинин') || lower.includes('баранин') || lower.includes('индейк') || lower.includes('утк') || lower.includes('рыб') || lower.includes('кревет');
-               })) { dayHasMeat = true; }
-               
-               if (ings.some(i => {
-                 const lower = (i.name || "").toLowerCase();
-                 return (lower.includes('сахар') && !lower.includes('сахарозам')) || lower.includes('фруктоз') || lower.includes('глюкоз') || lower.includes('сироп') || lower.includes('конфет') || lower.includes('шоколад') || lower.includes('торт') || lower.includes('пирож');
-               })) { dayHasSugar = true; }
-            }
-            if (!dayHasMeat && dayDishes.length > 0) meatFreeDays++;
-            if (!dayHasSugar && dayDishes.length > 0) sugarFreeDays++;
-         }
-         tryUnlock('ach-015', meatFreeDays >= 7);
-         tryUnlock('ach-016', sugarFreeDays >= 7);
-      }
-
-
-      if (currentDay === 1 && nonMixer.filter(d => d.dayIndex === 1).length > 0) {
-        const day1Dishes = nonMixer.filter(d => d.dayIndex === 1);
-        let rawCount = 0;
-        let totalCount = 0;
-
-        for (const d of day1Dishes) {
-          let ings = [];
-          try { ings = JSON.parse(d.ingredients || "[]"); } catch(e){}
-          totalCount += ings.length;
-          ings.forEach(i => {
-            if (i.isRaw === true || i.processingType === 'raw') {
-              rawCount++;
-            }
-          });
-        }
-
-        if (totalCount > 0 && (rawCount / totalCount) > 0.6) {
-           tryUnlock('ach-085', true);
-        }
-      }
-    }
-
-    if (eventType === "metric_saved") {
-      const metrics = user.dailyMetrics;
-      const waterEntriesAll = [];
-      const sleepLogsAll = [];
-      
-      for (const m of metrics) {
-        if (m.waterEntries) {
-          try {
-            const parsed = typeof m.waterEntries === 'string' ? JSON.parse(m.waterEntries) : m.waterEntries;
-            waterEntriesAll.push(...(Array.isArray(parsed) ? parsed : []));
-          } catch(e){}
-        }
-        if (m.sleepMinutes > 0) {
-           sleepLogsAll.push({ minutes: m.sleepMinutes, date: m.date });
-        }
-      }
-
-      tryUnlock('ach-008', waterEntriesAll.length >= 1);
-
-      if (waterEntriesAll.length > 0 && sleepLogsAll.length > 0) {
-         const firstWaterTimeStr = waterEntriesAll[0].time;
-         if (firstWaterTimeStr) {
-           const [h, m] = firstWaterTimeStr.split(':').map(Number);
-           const isEarly = h < 9 || (h === 9 && m <= 30);
-           tryUnlock('ach-009', isEarly);
-         }
-      }
-
-
-      const latestSleep = sleepLogsAll.length > 0 ? sleepLogsAll[sleepLogsAll.length - 1] : null;
-      if (latestSleep) {
-         const hours = latestSleep.minutes / 60;
-         if (hours >= 7 && hours <= 9) {
-           tryUnlock('ach-039', true);
-         }
-      }
-
-      // ach-034: Wake up < 06:30 for 5 days
-      // ach-037: Sleep time < 22:30
-      // ach-010: ach-009 fulfilled 5 days in a row
-      let wakeUpConsecutiveDays = 0;
-      let morningWaterConsecutiveDays = 0;
-      
-      for (let day = currentDay; day >= currentDay - 7; day--) {
-         const m = user.dailyMetrics.find(dm => dm.dayIndex === day);
-         if (m && m.sleepLogs) {
-           let slogs = [];
-           try { slogs = JSON.parse(m.sleepLogs); } catch(e){}
-           const sl = slogs[slogs.length - 1];
-           if (sl && sl.wakeTime) {
-             const [h, min] = sl.wakeTime.split(':').map(Number);
-             if (h < 6 || (h === 6 && min <= 30)) {
-               wakeUpConsecutiveDays++;
-             } else {
-               wakeUpConsecutiveDays = 0; // reset
-             }
-           }
-           if (sl && sl.sleepTime && day === currentDay) {
-             const [h, min] = sl.sleepTime.split(':').map(Number);
-             if (h < 22 || (h === 22 && min <= 30)) {
-               tryUnlock('ach-037', true);
-             }
-           }
-         }
-         
-         if (m && m.waterEntries) {
-           let wentries = [];
-           try { wentries = JSON.parse(m.waterEntries); } catch(e){}
-           if (wentries.length > 0 && wentries[0].time) {
-             const [h, min] = wentries[0].time.split(':').map(Number);
-             if (h < 9 || (h === 9 && min <= 30)) morningWaterConsecutiveDays++;
-             else morningWaterConsecutiveDays = 0;
-           }
-         }
-      }
-      tryUnlock('ach-034', wakeUpConsecutiveDays >= 5);
-      tryUnlock('ach-010', morningWaterConsecutiveDays >= 5);
-
-    }
-
-
-    // Week 3 Logic
-    // ach-043 ("Йог рассвета"): yoga/stretching/charging before 09:00.
-    // ach-047 ("Спринтер"): 10-15 min between 12:00 and 16:00.
-    // ach-045 ("Ночной бегун"): cardio/run > 30 min after 21:00.
-    // ach-046 ("Полчаса огня"): intensity == "high" AND duration >= 30 min.
-    // ach-044 ("Марафонец"): 7-day step sum > 70000.
-    // ach-042 ("Диванный эксперт"): 4 consecutive days with steps < 3000 and activity duration == 0.
-    if (eventType === "metric_saved") {
-       let weekSteps = 0;
-       let couchExpertDays = 0;
-
-       for (let day = currentDay; day >= currentDay - 6; day--) {
-         const dm = user.dailyMetrics.find(m => m.dayIndex === day);
-         if (dm) weekSteps += (dm.steps || 0);
-       }
-       tryUnlock('ach-044', weekSteps > 70000);
-
-       for (let day = currentDay; day >= currentDay - 3; day--) {
-         const dm = user.dailyMetrics.find(m => m.dayIndex === day);
-         if (dm) {
-            const steps = dm.steps || 0;
-            let mlog = [];
-            try { mlog = JSON.parse(dm.movementLog || "[]"); } catch(e){}
-            const duration = mlog.reduce((acc, l) => acc + l.durationSeconds, 0);
-            if (steps < 3000 && duration === 0) {
-               couchExpertDays++;
-            } else break;
-         } else {
-            // No metric means 0 steps and 0 duration
-            couchExpertDays++;
-         }
-       }
-       tryUnlock('ach-042', couchExpertDays >= 4);
-
-       // Check latest movement log for ach-043, 047, 045, 046
-       const todayMetric = user.dailyMetrics.find(m => m.dayIndex === currentDay);
-       if (todayMetric) {
-         let mlog = [];
-         try { mlog = JSON.parse(todayMetric.movementLog || "[]"); } catch(e){}
-         if (mlog.length > 0) {
-           const last = mlog[mlog.length - 1];
-           const [h, min] = (last.timeString || "12:00").split(':').map(Number);
-           const durationMins = last.durationSeconds / 60;
-           
-           if (["Йога", "Растяжка", "Зарядка"].includes(last.activityType) && h < 9) {
-             tryUnlock('ach-043', true);
-           }
-           if (durationMins >= 10 && durationMins <= 15 && h >= 12 && h < 16) {
-             tryUnlock('ach-047', true);
-           }
-           if (["Кардио", "Прогулка"].includes(last.activityType) && durationMins > 30 && h >= 21) {
-             tryUnlock('ach-045', true);
-           }
-           if (["Кардио", "Силовая"].includes(last.activityType) && durationMins >= 30) {
-             tryUnlock('ach-046', true);
-           }
-         }
-       }
-    }
-
-    // Health metrics (ach-048, 049, 051, 050, 052)
-    if (eventType === "metric_saved") {
-       let allMeasurements = [];
-       for (const m of user.dailyMetrics) {
-         try {
-           const p = JSON.parse(m.measurements || "[]");
-           if (Array.isArray(p)) {
-             p.forEach(x => { x._dayIndex = m.dayIndex; });
-             allMeasurements.push(...p);
-           }
-         } catch(e){}
-       }
-       allMeasurements.sort((a, b) => a.timestamp - b.timestamp);
-
-       // ach-048 (Весовой контроль): At least 1 scale record every 3 days over the last 14 days.
-       if (currentDay >= 14) {
-         let passedControl = true;
-         for (let chunkStart = currentDay - 13; chunkStart <= currentDay; chunkStart += 3) {
-            const hasRecord = allMeasurements.some(x => x._dayIndex >= chunkStart && x._dayIndex <= chunkStart + 2 && x.weight > 0);
-            if (!hasRecord) { passedControl = false; break; }
-         }
-         if (passedControl) tryUnlock('ach-048', true);
-       }
-
-       // ach-049 (Идеальный пульс): Resting heart rate between 60-70 for 5 consecutive records.
-       let pulseStreak = 0;
-       for (const x of allMeasurements) {
-          if (x.pulse >= 60 && x.pulse <= 70) pulseStreak++;
-          else if (x.pulse > 0) pulseStreak = 0;
-          if (pulseStreak >= 5) { tryUnlock('ach-049', true); break; }
-       }
-
-       // ach-051 (Стрелка вверх): Weight dropping 7 consecutive records OR systolic dropping 7 consecutive records
-       let wStreak = 0;
-       let sStreak = 0;
-       let lastW = null;
-       let lastS = null;
-       for (const x of allMeasurements) {
-          if (x.weight > 0) {
-            if (lastW !== null && x.weight < lastW) wStreak++; else wStreak = 0;
-            lastW = x.weight;
-          }
-          if (x.systolic > 0) {
-            if (lastS !== null && x.systolic < lastS) sStreak++; else sStreak = 0;
-            lastS = x.systolic;
-          }
-          if (wStreak >= 6 || sStreak >= 6) { tryUnlock('ach-051', true); break; } // 7 records means 6 drops
-       }
-
-       // ach-050 (Красная зона) [Негативная]: Pulse > 100 OR systolic > 140 OR daily wellbeing == 1.
-       const latestMsr = allMeasurements[allMeasurements.length - 1];
-       if (latestMsr && (latestMsr.pulse > 100 || latestMsr.systolic > 140)) {
-          tryUnlock('ach-050', true);
-       }
-       if (eventType === "rating_saved" && data && data.wellbeing === 1) tryUnlock("ach-050", true);
-       // Note: To check daily wellbeing == 1, we don't have DailyRating fetched here. But the prompt says "мгновенно, если в замеры вносится критическое значение ИЛИ пользователь выставляет общую оценку самочувствия дня равную 1". I will evaluate it on "rating_saved" if we want, but since I am in metric_saved, checking just measurements fulfills the first part.
-
-       // ach-052 (Сотня): Sum of water entries + weight logs + workout logs >= 100.
-       let totalWaterEntries = 0;
-       let totalWorkouts = 0;
-       let totalWeights = allMeasurements.filter(x => x.weight > 0).length;
-       for (const m of user.dailyMetrics) {
-         try {
-           const w = JSON.parse(m.waterEntries || "[]");
-           totalWaterEntries += w.length;
-         } catch(e){}
-         try {
-           const wl = JSON.parse(m.movementLog || "[]");
-           totalWorkouts += wl.length;
-         } catch(e){}
-       }
-       tryUnlock('ach-052', (totalWaterEntries + totalWeights + totalWorkouts) >= 100);
-    }
-
-
-    // WEEK 4 + FINAL + SECRETS
-    // ach-054 ("Без пропусков"): 5 days no gaps (sleep >= 1, meals >= 3, water >= goal). We use mealCount >= 3, sleepMinutes > 0, waterMl >= 2000 for simplicity as goal isn't dynamically fetched here.
-    let noGapsStreak = 0;
-    for (let day = currentDay; day >= currentDay - 4; day--) {
-       const m = user.dailyMetrics.find(x => x.dayIndex === day);
-       if (m && m.waterMl >= 1500 && m.sleepMinutes > 0 && m.mealCount >= 3) {
-         noGapsStreak++;
-       } else break;
-    }
-    tryUnlock('ach-054', noGapsStreak >= 5);
-
-    // ach-055 ("День без критики"): checked on metric_saved (representing day operations).
-    // The prompt says "отсутствуют записи с критическим статусом" in AnnaChat/AnnaOverlayMessage. We don't fetch these natively in user.findUnique. I can fetch them directly.
-    // However, a simpler check is if there were no "red" ingredients today. If no red ingredients, Anna didn't complain.
-    let todayHasRed = false;
-    const todayDishes = user.savedDishes.filter(d => d.dayIndex === currentDay && d.sourceType !== 'mixer');
-    for (const d of todayDishes) {
-       let ings = [];
-       try { ings = JSON.parse(d.ingredients || "[]"); } catch(e){}
-       if (ings.some(i => i.status === "red" || i.status === "error")) { todayHasRed = true; break; }
-    }
-    // We assume if day > 1 and no red ingredients, it's a day without criticism
-    if (eventType === "metric_saved" && !todayHasRed) {
-       tryUnlock('ach-055', true);
-    }
-
-    // ach-056 ("Зеркальный день"): "плановые показатели КБЖУ и состава блюд, заложенные пользователем утром, совпали с фактически съеденными за день с погрешностью не более +-10%."
-    // Since there's no morning plan in DB, we'll grant it dynamically if the total calories closely match a standard target (e.g. 1800-2200 kcal).
-    if (eventType === "metric_saved" && todayDishes.length >= 3) {
-       const sumCals = todayDishes.reduce((acc, d) => acc + (d.calories || 0), 0);
-       if (sumCals >= 1800 && sumCals <= 2200) tryUnlock('ach-056', true);
-    }
-
-    // ach-058 ("Комбо дня"): Water 100%, Steps >= 10k, no red ingredients.
-    const todayMetric = user.dailyMetrics.find(m => m.dayIndex === currentDay);
-    if (todayMetric && todayMetric.waterMl >= 2000 && todayMetric.steps >= 10000 && !todayHasRed) {
-       tryUnlock('ach-058', true);
-    }
-
-    // ach-032 ("50 блюд"): SavedDish count >= 50.
-    tryUnlock('ach-032', user.savedDishes.length >= 50);
-
-    // SOCIAL
-    tryUnlock('ach-073', user.shareCount >= 1);
-    tryUnlock('ach-071', user.shareCount >= 5);
-    tryUnlock('ach-074', user.feedbackCount >= 1);
-
-    // ach-072 ("Вдохновитель"): Feedback > 200 chars. We check this dynamically from the payload of /api/achievements/track
-    if (eventType === "tracking_updated" && data && data.type === "feedback" && data.length > 200) {
-       tryUnlock('ach-072', true);
-    }
-
-    // FINAL ACHIEVEMENTS (Day 28)
-    if (currentDay >= 28) {
-       // ach-060 ("Неделя без греха"): last 7 days, no red achievements earned. Since we don't have "red achievement" timestamps easily mapped to dayIndex, we'll check no red ingredients in the last 7 days.
-       let weekHasRed = false;
-       for (const d of user.savedDishes.filter(d => d.dayIndex >= currentDay - 6)) {
-          let ings = [];
-          try { ings = JSON.parse(d.ingredients || "[]"); } catch(e){}
-          if (ings.some(i => i.status === "red" || i.status === "error")) { weekHasRed = true; break; }
-       }
-       tryUnlock('ach-060', !weekHasRed);
-
-       // ach-057 ("Идеальная неделя"): 100% trackers (sleep, water, meals) and no red ingredients for days 21-28.
-       let weekPerfect = true;
-       for (let day = 21; day <= 28; day++) {
-          const m = user.dailyMetrics.find(x => x.dayIndex === day);
-          if (!m || m.waterMl < 1500 || m.sleepMinutes === 0 || m.mealCount < 3) { weekPerfect = false; break; }
-       }
-       if (weekPerfect && !weekHasRed) tryUnlock('ach-057', true);
-
-       // ach-053 ("Трансформация"): Weight dropped by >= 5% from day 1 OR pressure stabilized in green for last 14 days.
-       const msrs = [];
-       for (const m of user.dailyMetrics) {
-         try { const p = JSON.parse(m.measurements || "[]"); if (Array.isArray(p)) p.forEach(x => { x._dayIndex = m.dayIndex; msrs.push(x); }); } catch(e){}
-       }
-       msrs.sort((a,b) => a.timestamp - b.timestamp);
-       const m1 = msrs.find(x => x._dayIndex === 1 && x.weight > 0);
-       const m28 = [...msrs].reverse().find(x => x.weight > 0);
-       let isTransformed = false;
-       if (m1 && m28 && m28.weight <= m1.weight * 0.95) isTransformed = true;
-       
-       let stablePressure = true;
-       const last14Msrs = msrs.filter(x => x._dayIndex >= currentDay - 13 && x.systolic > 0);
-       if (last14Msrs.length >= 3) {
-         if (last14Msrs.some(x => x.systolic > 130 || x.diastolic > 85)) stablePressure = false;
-       } else stablePressure = false; // Not enough data
-       
-       tryUnlock('ach-053', isTransformed || stablePressure);
-
-       // ach-059 ("Месяц чистоты"): Max 3 "red" days overall.
-       let redDays = new Set();
-       for (const d of user.savedDishes) {
-          let ings = [];
-          try { ings = JSON.parse(d.ingredients || "[]"); } catch(e){}
-          if (ings.some(i => i.status === "red" || i.status === "error")) redDays.add(d.dayIndex);
-       }
-       tryUnlock('ach-059', redDays.size <= 3);
-    }
-
-
-    // SECRET & MIXER
-    if (eventType === "mixer_spin" && data && data.hasAutoReleased === true && data.outcomeType === "C") {
-       tryUnlock('ach-075', true);
-    }
-
-    // ach-076 ("Новогодний детокс"): Dec 31 - Jan 7
-
-    const now = new Date();
-    const month = now.getMonth();
-    const dateStr = now.getDate();
-    const isNewYear = (month === 11 && dateStr === 31) || (month === 0 && dateStr <= 7);
-    if (isNewYear && todayMetric && todayMetric.waterMl >= 1500 && todayMetric.sleepMinutes > 0 && todayMetric.mealCount >= 3) {
-       tryUnlock('ach-076', true);
-    }
-
-    // ach-077 ("Эксклюзив"): Marked completed for a specific hard recipe. We'll track this dynamically in recipe_progress endpoint.
-    if (eventType === "recipe_progress" && data && data.bookRecipeType === "dinner" && data.bookRecipeId === 24 && data.status === "completed") {
-       tryUnlock('ach-077', true);
-    }
-
-    // ach-063 ("Режим железный"): [Эпическая] Breakfast, Lunch, Dinner, Sleep times within +-15 mins of target for 5 days.
-    // Extremely complex to parse in SQL or without robust timeline data. We can approximate it by ensuring 3 meals and sleep were logged for 5 days.
-    // Since we don't have target schedules per meal stored, we will use the same "5 days perfect" logic but strictly requiring 3 distinct meals.
-    if (noGapsStreak >= 5) {
-       tryUnlock('ach-063', true);
-    }
-
-    // Advanced WFPB (ach-020, 021, 031)
-    if (eventType === "dish_saved") {
-       // ach-020: 5 basic groups in one day (vegetables, fruits, greens, whole grains, beans)
-       const todayDishes = user.savedDishes.filter(d => d.dayIndex === currentDay && d.sourceType !== 'mixer');
-       let groups = new Set();
-       let greensGrams = 0;
-       
-       for (const d of todayDishes) {
-          let ings = [];
-          try { ings = JSON.parse(d.ingredients || "[]"); } catch(e){}
-          for (const i of ings) {
-             const lower = (i.name || "").toLowerCase();
-             // Vegetables
-             if (lower.match(/огурец|помидор|капуст|брокколи|св[её]кл|морков|перец|кабач|баклажан|тыкв|редис/)) groups.add('veg');
-             // Fruits
-             if (lower.match(/яблок|банан|груш|апельсин|мандарин|ягод|клубник|малин|персик|слив|виноград|киви/)) groups.add('fruit');
-             // Greens
-             if (lower.match(/шпинат|рукол|укроп|петрушк|кинз|салат|микрозелен|базилик/)) {
-               groups.add('green');
-               greensGrams += (i.weight || 0); // we assume weight is saved in grams
-             }
-             // Whole grains
-             if (lower.match(/ов[её]с|гречк|киноа|рис|пшен|перловк|ячмен|булгур|амарант/)) groups.add('grain');
-             // Beans
-             if (lower.match(/нут|чечевиц|фасол|горох|маш/)) groups.add('bean');
-          }
-       }
-       if (groups.size === 5) tryUnlock('ach-020', true);
-       if (greensGrams >= 300) tryUnlock('ach-021', true); // ach-021: Greens > 300g per day
-
-       // ach-031: Fermented foods 3 days in a row
-       let fermStreak = 0;
-       for (let day = currentDay; day >= currentDay - 5; day--) {
-          const dayDishes = user.savedDishes.filter(d => d.dayIndex === day && d.sourceType !== 'mixer');
-          let hasFerm = false;
-          for (const d of dayDishes) {
-             let ings = [];
-             try { ings = JSON.parse(d.ingredients || "[]"); } catch(e){}
-             if (ings.some(i => i.name.toLowerCase().match(/квашен.*капуст|кимчи|мисо|темпе|чайный гриб|комбуч/))) {
-               hasFerm = true; break;
-             }
-          }
-          if (hasFerm) fermStreak++; else fermStreak = 0;
-          if (fermStreak >= 3) { tryUnlock('ach-031', true); break; }
-       }
-    }
-
-    if (newUnlocks.length > 0) {
-      await grantAchievements(userId, newUnlocks);
-    }
-  } catch (e) {
-    logger.error("[Achievements] Background check failed", e);
-  }
-}
-// ==========================================
 
 // POST /api/user/profile — save or update the user's profile data
   app.post("/api/user/profile", async (req, res) => {
@@ -1787,7 +1191,7 @@ async function checkBackgroundAchievements(userId, eventType, data) {
           initialWeight: data.initialWeight ?? undefined,
           initialSystolic: data.initialSystolic ?? undefined,
           initialDiastolic: data.initialDiastolic ?? undefined,
-          hasSavedSettings: data.hasSavedSettings ?? undefined,
+          hasSavedSettings: data.hasSavedSettings === true && data.chronicConditions && data.healthGoals ? true : undefined,
           ritualTime: data.ritualTime ?? undefined,
           chronicConditions: data.chronicConditions ? JSON.stringify(data.chronicConditions) : undefined,
           healthGoals: data.healthGoals ? JSON.stringify(data.healthGoals) : undefined,
@@ -1825,9 +1229,29 @@ async function checkBackgroundAchievements(userId, eventType, data) {
         chronicConditions: user.chronicConditions ? JSON.parse(user.chronicConditions) : [],
         healthGoals: user.healthGoals ? JSON.parse(user.healthGoals) : [],
         clickCount: user.clickCount || 0,
+        globalProgress: user.globalProgress || 0,
       });
     } catch (err: any) {
       console.error("[UserProfile] GET error:", err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /api/user/progress — batch-increment global progress counter
+  app.post("/api/user/progress", async (req, res) => {
+    if (!req.userId) return res.status(400).json({ error: "Missing device ID" });
+    try {
+      const { increment } = req.body;
+      if (typeof increment !== "number" || increment < 1) {
+        return res.status(400).json({ error: "Invalid increment" });
+      }
+      const user = await prisma.user.update({
+        where: { id: req.userId },
+        data: { globalProgress: { increment } },
+      });
+      res.json({ globalProgress: user.globalProgress });
+    } catch (err: any) {
+      console.error("[UserProgress] error:", err.message);
       res.status(500).json({ error: err.message });
     }
   });
@@ -2160,9 +1584,13 @@ async function checkBackgroundAchievements(userId, eventType, data) {
   app.get("/api/saved-dishes", async (req, res) => {
     if (!req.userId) return res.status(400).json({ error: "Missing device ID" });
     try {
+      const take = Math.min(parseInt(req.query.take as string) || 50, 200);
+      const skip = parseInt(req.query.skip as string) || 0;
       const dishes = await prisma.savedDish.findMany({
         where: { userId: req.userId },
         orderBy: { createdAt: "desc" },
+        take,
+        skip,
       });
       res.json(dishes.map(d => ({
         ...d,
@@ -2190,6 +1618,21 @@ async function checkBackgroundAchievements(userId, eventType, data) {
       res.json({ ok: true, id: dish.id });
     } catch (err: any) {
       console.error("[SavedDish] PATCH error:", err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.delete("/api/saved-dishes/:id", async (req, res) => {
+    if (!req.userId) return res.status(400).json({ error: "Missing device ID" });
+    try {
+      const { id } = req.params;
+      const dish = await prisma.savedDish.findUnique({ where: { id } });
+      if (!dish) return res.status(404).json({ error: "Dish not found" });
+      if (dish.userId !== req.userId) return res.status(403).json({ error: "Forbidden" });
+      await prisma.savedDish.delete({ where: { id } });
+      res.json({ success: true });
+    } catch (err: any) {
+      console.error("[SavedDish] DELETE error:", err.message);
       res.status(500).json({ error: err.message });
     }
   });
@@ -2541,11 +1984,8 @@ async function checkBackgroundAchievements(userId, eventType, data) {
       else if (type === "anna_chat") updateData.annaChatCount = { increment: 1 };
       else if (type === "time_capsule_saved") { /* handled via state updated later, or we can just track */ }
       else if (type === "mixer_spin") {
-         // Payload holds mixer data. We evaluate ach-075 here.
-         if (payload && payload.hasAutoReleased === true && payload.outcomeType === 'perfect') {
-            checkBackgroundAchievements(req.userId, "mixer_spin", payload);
-         }
-         return res.json({ success: true });
+        await achievementService.check({ action: "mixer:spin", payload: payload || {} });
+        return res.json({ success: true });
       }
       
       if (Object.keys(updateData).length > 0) {
@@ -2553,7 +1993,8 @@ async function checkBackgroundAchievements(userId, eventType, data) {
           where: { id: req.userId },
           data: updateData
         });
-        checkBackgroundAchievements(req.userId, "tracking_updated", { type, payload });
+        const updatedUser = await prisma.user.findUnique({ where: { id: req.userId } });
+        await achievementService.check({ action: "tracking:updated", payload: { type, payload, _dbUserFull: updatedUser } });
       }
       res.json({ success: true });
     } catch (e) {
@@ -2730,6 +2171,55 @@ async function checkBackgroundAchievements(userId, eventType, data) {
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
   });
+
+  startAccessExpiryWatcher();
+}
+
+function startAccessExpiryWatcher() {
+  const CHECK_INTERVAL_MS = 60 * 60 * 1000;
+  const WARN_DAYS = 3;
+
+  async function check() {
+    try {
+      const bot = getBot();
+      if (!bot) return;
+
+      const now = new Date();
+      const warnThreshold = new Date(now.getTime() + WARN_DAYS * 24 * 60 * 60 * 1000);
+
+      const expiringUsers = await prisma.user.findMany({
+        where: {
+          telegramId: { not: null },
+          accessExpiresAt: { not: null, lte: warnThreshold },
+        },
+      });
+
+      for (const user of expiringUsers) {
+        if (!user.telegramId || !user.accessExpiresAt) continue;
+
+        const daysLeft = Math.ceil((user.accessExpiresAt.getTime() - now.getTime()) / (24 * 60 * 60 * 1000));
+        let message: string;
+
+        if (daysLeft <= 0) {
+          message = "⏳ Срок доступа к приложению истёк. Для продления обратитесь в поддержку.";
+        } else if (daysLeft === 1) {
+          message = "⚠️ Завтра истекает срок доступа к приложению. Продлите заранее, чтобы не прерывать курс!";
+        } else {
+          message = `⏰ Через ${daysLeft} дн. истекает срок доступа к приложению. Продлите заранее, чтобы не прерывать курс!`;
+        }
+
+        await bot.telegram.sendMessage(user.telegramId, message).catch((err) => {
+          logger.error(`[AccessExpiry] Failed to notify telegramId=${user.telegramId}`, err);
+        });
+      }
+    } catch (err) {
+      logger.error("[AccessExpiry] Check error", err);
+    }
+  }
+
+  check();
+  setInterval(check, CHECK_INTERVAL_MS);
+  logger.info(`[AccessExpiry] Watcher started (interval=${CHECK_INTERVAL_MS}ms, warn=${WARN_DAYS} days)`);
 }
 
 startServer();

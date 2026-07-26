@@ -8,42 +8,42 @@ datasource db {
 }
 
 model User {
-  id               String   @id
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  id        String   @id
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  name              String?
-  gender            String?
-  age               Int?
-  height            Float?
-  weight            Float?
-  systolic          Int?
-  diastolic         Int?
-  initialAge        Int?
-  initialHeight     Float?
-  initialWeight     Float?
-  initialSystolic   Int?
-  initialDiastolic  Int?
-  hasSavedSettings  Boolean  @default(false)
-  chronicConditions String?
-  healthGoals       String?
-  courseStartDate   DateTime?
-  currentDayIndex   Int      @default(1)
-  lastActiveDate    DateTime?
-  ritualTime        String?  @default("21:00")
+  name                      String?
+  gender                    String?
+  age                       Int?
+  height                    Float?
+  weight                    Float?
+  systolic                  Int?
+  diastolic                 Int?
+  initialAge                Int?
+  initialHeight             Float?
+  initialWeight             Float?
+  initialSystolic           Int?
+  initialDiastolic          Int?
+  hasSavedSettings          Boolean   @default(false)
+  chronicConditions         String?
+  healthGoals               String?
+  courseStartDate           DateTime?
+  currentDayIndex           Int       @default(1)
+  lastActiveDate            DateTime?
+  ritualTime                String?   @default("21:00")
   lastAchievementUnlockedAt DateTime?
 
-  pendingAchievementId      String?
-  constructorCount          Int      @default(0)
-  scanCount                 Int      @default(0)
-  chapterReadCount          Int      @default(0)
-  shareCount                Int      @default(0)
-  feedbackCount             Int      @default(0)
-  clickCount                Int      @default(0)
-  compositionViewLog        String?  @default("[]")
-  annaDislikeCount          Int      @default(0)
-  annaChatCount             Int      @default(0)
-
+  pendingAchievementId String?
+  constructorCount     Int     @default(0)
+  scanCount            Int     @default(0)
+  chapterReadCount     Int     @default(0)
+  shareCount           Int     @default(0)
+  feedbackCount        Int     @default(0)
+  clickCount           Int     @default(0)
+  compositionViewLog   String? @default("[]")
+  annaDislikeCount     Int     @default(0)
+  annaChatCount        Int     @default(0)
+  globalProgress       Int     @default(0)
 
   dailyMetrics        DailyMetric[]
   dailyRatings        DailyRating[]
@@ -57,37 +57,49 @@ model User {
   userAchievements    UserAchievement[]
   eveningRituals      EveningRitual[]
 
-  telegramId          String?   @unique
-  telegramName        String?
-  telegramUsername    String?
-  purchasedAt         DateTime?
-  clubLinkedAt        DateTime?
+  telegramId       String?   @unique
+  telegramName     String?
+  telegramUsername String?
+  purchasedAt      DateTime?
+  clubLinkedAt     DateTime?
+  accessExpiresAt  DateTime?
 }
 
 model PurchaseToken {
-  id         String    @id @default(uuid())
-  token      String    @unique
-  email      String?
-  used       Boolean   @default(false)
+  id              String    @id @default(uuid())
+  token           String    @unique
+  email           String?
+  used            Boolean   @default(false)
+  telegramId      String?
+  usedAt          DateTime?
+  expiresAt       DateTime
+  accessStartsAt  DateTime?
+  externalOrderId String?
+  createdAt       DateTime  @default(now())
+}
+
+model AppLaunchToken {
+  id         String   @id @default(uuid())
+  token      String   @unique
   telegramId String?
-  usedAt     DateTime?
+  used       Boolean  @default(false)
+  createdAt  DateTime @default(now())
   expiresAt  DateTime
-  createdAt  DateTime  @default(now())
 }
 
 model DailyMetric {
-  id              String   @id @default(uuid())
-  userId          String
-  user            User     @relation(fields: [userId], references: [id])
-  date            DateTime @default(now())
-  dayIndex        Int
+  id       String   @id @default(uuid())
+  userId   String
+  user     User     @relation(fields: [userId], references: [id])
+  date     DateTime @default(now())
+  dayIndex Int
 
-  waterMl         Int      @default(0)
-  sleepMinutes    Int      @default(0)
-  mealCount       Int      @default(0)
-  habitsDone      Int      @default(0)
-  activityMinutes Int      @default(0)
-  steps           Int      @default(0)
+  waterMl         Int     @default(0)
+  sleepMinutes    Int     @default(0)
+  mealCount       Int     @default(0)
+  habitsDone      Int     @default(0)
+  activityMinutes Int     @default(0)
+  steps           Int     @default(0)
   waterEntries    String?
   sleepLogs       String?
   digestionLog    String?
@@ -107,7 +119,7 @@ model DailyRating {
   wellbeing    Int
   energy       Int
   lightness    Int
-  wellbeingLog String?  // JSON array of {time, val}
+  wellbeingLog String? // JSON array of {time, val}
   energyLog    String?
   lightnessLog String?
 
@@ -115,65 +127,62 @@ model DailyRating {
 }
 
 model BookRecipe {
-  type            String
-  id              Int
-  technicalName   String
-  emotionalName   String?
-  week            String?
-  page            Int?
-  day             Int?
-  timeOfDay       String?
+  type          String
+  id            Int
+  technicalName String
+  page          Int?
+  day           Int?
 
-  ingredients     String
-  instructions    String
-  kbju            String
+  ingredients  String
+  instructions String
+  kbju         String
 
-  progress  RecipeProgress[]
+  progress RecipeProgress[]
 
   @@id([type, id])
 }
 
 model RecipeProgress {
-  id              String   @id @default(uuid())
-  userId          String
-  user            User     @relation(fields: [userId], references: [id])
-  bookRecipeType  String
-  bookRecipeId    Int
-  bookRecipe      BookRecipe @relation(fields: [bookRecipeType, bookRecipeId], references: [type, id])
-  status          String     @default("base")
-  note            String?
-  tags            String?
-  dayIndex        Int?
-  createdAt       DateTime   @default(now())
-  updatedAt       DateTime   @updatedAt
+  id             String     @id @default(uuid())
+  userId         String
+  user           User       @relation(fields: [userId], references: [id])
+  bookRecipeType String
+  bookRecipeId   Int
+  bookRecipe     BookRecipe @relation(fields: [bookRecipeType, bookRecipeId], references: [type, id])
+  status         String     @default("base")
+  note           String?
+  tags           String?
+  dayIndex       Int?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
 
   @@unique([userId, bookRecipeType, bookRecipeId])
 }
 
 model SavedDish {
-  id              String   @id @default(uuid())
-  userId          String
-  user            User     @relation(fields: [userId], references: [id])
-  name            String
-  image           String?
-  category        String
-  tag             String?
-  createdAt       DateTime @default(now())
-  isFavorite      Boolean  @default(false)
-  dayIndex        Int?
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  name       String
+  image      String?
+  category   String
+  tag        String?
+  createdAt  DateTime @default(now())
+  isFavorite Boolean  @default(false)
+  dayIndex   Int?
 
-  isBookRecipe    Boolean  @default(false)
-  bookRecipeType  String?
-  bookRecipeId    Int?
-  sourceType      String?
-  ingredients     String?
-  calories        Int?
-  protein         String?
-  fiber           String?
-  fat             String?
-  annaTip         String?
-  annaComment     String?
-  isNew           Boolean  @default(true)
+  isBookRecipe   Boolean @default(false)
+  bookRecipeType String?
+  bookRecipeId   Int?
+  sourceType     String?
+  ingredients    String?
+  calories       Int?
+  protein        String?
+  fiber          String?
+  fat            String?
+  annaTip        String?
+  annaComment    String?
+  isNew          Boolean @default(true)
 }
 
 model DiaryEntry {
@@ -183,11 +192,11 @@ model DiaryEntry {
   dayIndex  Int
   createdAt DateTime @default(now())
 
-  note      String?
-  mood      String?
-  photo     String?
-  tags      String?
-  time      String?
+  note  String?
+  mood  String?
+  photo String?
+  tags  String?
+  time  String?
 }
 
 model ShoppingItem {
@@ -237,74 +246,45 @@ model AnnaOverlayMessage {
 }
 
 model Achievement {
-  id               String   @id
-  name             String
-  category         String
-  type             String
-  rarity           String
-  xp               Int
-  descriptionMale  String
+  id                String  @id
+  name              String
+  category          String
+  type              String
+  rarity            String
+  xp                Int
+  descriptionMale   String
   descriptionFemale String
-  image            String
-  isSecret         Boolean  @default(false)
-  availableFromDay Int      @default(1)
+  image             String
+  isSecret          Boolean @default(false)
+  availableFromDay  Int     @default(1)
 
   userAchievements UserAchievement[]
 }
 
 model UserAchievement {
-  id            String    @id @default(uuid())
+  id            String      @id @default(uuid())
   userId        String
-  user          User      @relation(fields: [userId], references: [id])
+  user          User        @relation(fields: [userId], references: [id])
   achievementId String
   achievement   Achievement @relation(fields: [achievementId], references: [id])
-  unlocked      Boolean   @default(false)
+  unlocked      Boolean     @default(false)
   unlockedAt    DateTime?
-  xp            Int       @default(0)
+  xp            Int         @default(0)
 
   @@unique([userId, achievementId])
+  @@index([userId])
 }
 
 model EveningRitual {
-  id              String   @id @default(uuid())
-  userId          String
-  user            User     @relation(fields: [userId], references: [id])
-  dayIndex        Int
-  answerBody      String
-  answerPsycho    String
+  id               String   @id @default(uuid())
+  userId           String
+  user             User     @relation(fields: [userId], references: [id])
+  dayIndex         Int
+  answerBody       String
+  answerPsycho     String
   answerUnexpected String
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   @@unique([userId, dayIndex])
-}
-
-model FoodItem {
-  id             String   @id @default(uuid())
-  fdcId          Int      @unique
-  name           String   // USDA Original description
-  russianName    String?  // Auto-learned Russian name 
-  
-  // КБЖУ (на 100г)
-  calories       Float    @default(0)
-  protein        Float    @default(0)
-  fat            Float    @default(0)
-  carbs          Float    @default(0)
-  fiber          Float    @default(0)
-  
-  // Микронутриенты (на 100г)
-  iron           Float?
-  zinc           Float?
-  magnesium      Float?
-  iodine         Float?
-  selenium       Float?
-  vitaminC       Float?
-  vitaminB9      Float?
-  lysine         Float?
-  methionine     Float?
-
-  wfpbStatus     String   @default("grey") // "allowed" | "forbidden" | "grey"
-
-  @@index([name])
-  @@index([russianName])
 }

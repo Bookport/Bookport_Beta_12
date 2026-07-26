@@ -339,6 +339,8 @@ export class DailyNutritionStore {
     // ==========================================
     const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Moscow" });
     const todayCustomDishes = (savedDishes || []).filter(dish => {
+      // Исключаем блюда Миксера — они не должны влиять на дневную аналитику
+      if (dish.sourceType === "mixer" || dish.category === "Миксер") return false;
       // Строгая фильтрация по индексу дня (календарю)
       if (dish.dayIndex !== undefined && dish.dayIndex !== null) {
         return dish.dayIndex === currentDayIndex || (dish as any).current_day === currentDayIndex;
