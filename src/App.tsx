@@ -1420,7 +1420,7 @@ export default function App() {
             >
               <DishAnalysisScreen 
                 ingredients={customMealIngredients || []}
-                onConfirm={(dishName, computedNutrients, annaComment) => {
+                onConfirm={(dishName, computedNutrients, annaComment, flatNutrients) => {
                   setMealCount(prev => Math.min(4, prev + 1));
                   useAppStore.getState().setClickCount(clickCount + 25);
                   setMeals(prev => prev.map((m, idx) => {
@@ -1469,6 +1469,7 @@ export default function App() {
                     protein: computedNutrients ? computedNutrients.protein : `${Math.floor(Math.random() * 5) + 6} г`,
                     fiber: computedNutrients ? computedNutrients.fiber : `${Math.floor(Math.random() * 4) + 5} г`,
                     fat: computedNutrients ? computedNutrients.fat : `${Math.floor(Math.random() * 3) + 2} г`,
+                    ...flatNutrients,
                     isNew: true,
                     categoryColor: getCategoryColor(determinedCategory).shadow,
                     dayIndex: currentDayIndex,
@@ -1494,13 +1495,10 @@ export default function App() {
                       isBookRecipe: false,
                       isFavorite: false,
                       ingredients: mappedIngredients,
-                      calories: newDish.calories,
-                      protein: newDish.protein,
-                      fiber: newDish.fiber,
-                      fat: newDish.fat,
                       dayIndex: currentDayIndex,
                       annaTip: annaComment || "",
                       isNew: true,
+                      ...flatNutrients,
                     },
                   }).catch(() => {});
 
