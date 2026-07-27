@@ -9,8 +9,10 @@ export type WFPBViolationCategory =
   | 'refined_oil'
   | 'honey'
   | 'refined_sugar'
-  | 'white_flour'
+  | 'refined_grains'
   | 'added_salt'
+  | 'alcohol'
+  | 'processed_foods'
 
 export type WFPBCheckResult = {
   compliant: boolean
@@ -28,9 +30,12 @@ const VIOLATION_RULES: ViolationRule[] = [
   {
     category: 'animal',
     keywords: [
-      'мясо', 'говядин', 'свинин', 'баранин', 'телят', 'крольчат',
+      'мясо', 'говядин', 'свинин', 'баранин', 'телят', 'ягнят',
+      'кролик', 'крольчат',
+      'конин', 'оленин',
       'куриц', 'курин', 'индейк', 'цыплен', 'утк', 'гус', 'индюш',
-      'перепел', 'птиц',
+      'перепел', 'цесарк', 'страус', 'птиц',
+      'печен', 'сердц', 'язык', 'почк', 'желудк',
       'стейк', 'антрекот', 'бифштекс', 'шницель',
       'желатин',
     ],
@@ -41,9 +46,13 @@ const VIOLATION_RULES: ViolationRule[] = [
     category: 'fish_seafood',
     keywords: [
       'рыб', 'лосос', 'ставрид', 'тунец', 'скумбр', 'селёд', 'сельд',
-      'семг', 'треск', 'креветк', 'кальмар', 'миди', 'мидии', 'краб',
-      'икр', 'шпрот', 'форел', 'камбал', 'палтус', 'морепродукт',
-      'осьминог', 'устриц', 'лангуст', 'омаров',
+      'семг', 'треск', 'минтай', 'горбуш', 'кета', 'хек', 'судак',
+      'щук', 'карп', 'карас', 'лещ', 'сом', 'осетр', 'стерляд',
+      'угор', 'сайр', 'кильк', 'анчоус',
+      'креветк', 'кальмар', 'миди', 'мидии', 'краб',
+      'икра', 'шпрот', 'форел', 'камбал', 'палтус', 'морепродукт',
+      'осьминог', 'устриц', 'лангуст', 'лобстер', 'омаров',
+      'гребешк',
     ],
   },
 
@@ -51,9 +60,13 @@ const VIOLATION_RULES: ViolationRule[] = [
   {
     category: 'dairy',
     keywords: [
-      'молок', 'молоч', 'сыр', 'творог', 'сливк', 'сметан', 'йогурт',
-      'кефир', 'ряженк', 'простокваш',
+      'молок', 'молоч', 'сыр', 'творог', 'сливк', 'сливочн', 'сметан', 'йогурт',
+      'кефир', 'ряженк', 'простокваш', 'варенец',
+      'морожен', 'сгущенк',
+      'топлен', 'гхи',
+      'сывороточн',
     ],
+    excludeIfNameContains: ['растительн', 'соев', 'кедров', 'маков', 'кокосов', 'веганск', 'миндальн'],
   },
 
   // Eggs
@@ -67,13 +80,15 @@ const VIOLATION_RULES: ViolationRule[] = [
     category: 'processed_meat',
     keywords: [
       'колбас', 'сосис', 'сардельк', 'ветчин', 'бекон', 'шпик', 'фарш',
+      'сало', 'паштет', 'карбонад', 'грудинк', 'буженин', 'шпикачк',
     ],
+    excludeIfNameContains: ['веганск'],
   },
 
-  // Refined Oils – exclude whole foods containing "масл" (olives, essential oils)
+  // Refined Oils & cooking fats
   {
     category: 'refined_oil',
-    keywords: ['масл', 'маргарин', 'спред', 'майонез'],
+    keywords: ['масл', 'маргарин', 'спред', 'майонез', 'кулинарн'],
     excludeIfNameContains: ['маслин', 'эфирн'],
   },
 
@@ -81,21 +96,25 @@ const VIOLATION_RULES: ViolationRule[] = [
   {
     category: 'honey',
     keywords: ['мёд', 'мед', 'прополис'],
+    excludeIfNameContains: ['финик', 'медж'],
   },
 
-  // Refined sugar & syrups
+  // Refined sugar, syrups & sweeteners
   {
     category: 'refined_sugar',
-    keywords: ['сахар', 'сироп'],
+    keywords: ['сахар', 'сироп', 'фруктоз', 'аспартам', 'сукралоз', 'сахарозаменител', 'стеви'],
   },
 
-  // White / refined flour
+  // Refined grains – exclude whole-grain variants
   {
-    category: 'white_flour',
+    category: 'refined_grains',
     keywords: [
       'мука пшеничная', 'пшеничная мука', 'мука в/с', 'белая мука',
       'рафинированная мука',
+      'мука блинн',
+      'хлеб бел', 'батон', 'макарон',
     ],
+    excludeIfNameContains: ['цельнозернов', 'полб', 'нут', 'чечевиц', 'гречнев', 'бобов'],
   },
 
   // Added salt – EXCEPT beans ("фасоль" contains "соль")
@@ -107,6 +126,19 @@ const VIOLATION_RULES: ViolationRule[] = [
     ],
     excludeIfNameContains: ['фасол'],
   },
+
+  // Alcohol
+  {
+    category: 'alcohol',
+    keywords: ['алкогол', 'пив', 'вин', 'водк'],
+    excludeIfNameContains: ['виноград'],
+  },
+
+  // Processed foods (juices, sodas, isolates, etc.)
+  {
+    category: 'processed_foods',
+    keywords: ['осветлен', 'восстановлен', 'лимонад', 'кола', 'изолят'],
+  },
 ]
 
 export function checkWFPB(ingredientName: string): WFPBCheckResult {
@@ -116,21 +148,23 @@ export function checkWFPB(ingredientName: string): WFPBCheckResult {
   // Normalize via alias mapper FIRST, as recommended
   const normalized = getIngredientAlias(raw).toLowerCase().trim()
 
-  // Always also scan the raw name in case aliasing discards a trigger
-  const haystackValues: string[] = [normalized, raw.toLowerCase().trim()]
+  const rawLower = raw.toLowerCase().trim()
+  // Aliased name (normalized) + raw: keywords match any, exclusions check only raw
+  const haystackValues: string[] = [normalized, rawLower]
 
   const found = new Set<WFPBViolationCategory>()
 
-  for (const haystack of haystackValues) {
-    for (const rule of VIOLATION_RULES) {
-      // Exclusion check – if any exclusion string matches, skip this rule for this haystack
-      if (rule.excludeIfNameContains?.some(ex => haystack.includes(ex))) {
-        continue
-      }
+  for (const rule of VIOLATION_RULES) {
+    // Exclusions against raw name only (avoids alias-context pollution)
+    if (rule.excludeIfNameContains?.some(ex => rawLower.includes(ex))) {
+      continue
+    }
 
-      // Keyword match
+    // Keyword match across any haystack
+    for (const haystack of haystackValues) {
       if (rule.keywords.some(kw => haystack.includes(kw))) {
         found.add(rule.category)
+        break
       }
     }
   }
@@ -142,19 +176,8 @@ export function checkWFPB(ingredientName: string): WFPBCheckResult {
 }
 
 export function classifyIngredient(name: string): {
-  isAnimal: boolean
-  isOil: boolean
-  isSalt: boolean
-  isSugar: boolean
+  isForbidden: boolean
 } {
   const result = checkWFPB(name)
-  const v = result.violations
-  return {
-    isAnimal: v.some(cat =>
-      ['animal', 'fish_seafood', 'dairy', 'egg', 'processed_meat', 'honey'].includes(cat)
-    ),
-    isOil: v.includes('refined_oil'),
-    isSalt: v.includes('added_salt'),
-    isSugar: v.includes('refined_sugar'),
-  }
+  return { isForbidden: result.violations.length > 0 }
 }

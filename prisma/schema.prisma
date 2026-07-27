@@ -275,6 +275,96 @@ model UserAchievement {
   @@index([userId])
 }
 
+model FoodItem {
+  id                String   @id @default(cuid())
+  fdcId             Int?
+  nameRu            String   @unique
+  nameEn            String
+  wfpbStatus        String   @default("green")
+  createdAt         DateTime @default(now())
+
+  // Макронутриенты (на 100г)
+  calories          Float    @default(0)
+  protein           Float    @default(0)
+  fat               Float    @default(0)
+  carbohydrates     Float    @default(0)
+  water             Float    @default(0)
+
+  // Углеводы детализация
+  fiber             Float    @default(0)
+  sugarTotal        Float    @default(0)
+  sucrose           Float    @default(0)
+  glucose           Float    @default(0)
+  fructose          Float    @default(0)
+  lactose           Float    @default(0)
+  maltose           Float    @default(0)
+
+  // Жиры детализация
+  saturatedFat       Float   @default(0)
+  monounsaturatedFat Float   @default(0)
+  polyunsaturatedFat Float   @default(0)
+  transFat           Float   @default(0)
+  cholesterol        Float   @default(0)
+  omega3             Float   @default(0)
+  omega6             Float   @default(0)
+  omega9             Float   @default(0)
+
+  // Минералы
+  calcium           Float    @default(0)
+  iron              Float    @default(0)
+  magnesium         Float    @default(0)
+  phosphorus        Float    @default(0)
+  potassium         Float    @default(0)
+  sodium            Float    @default(0)
+  zinc              Float    @default(0)
+  copper            Float    @default(0)
+  manganese         Float    @default(0)
+  iodine            Float    @default(0)
+  selenium          Float    @default(0)
+
+  // Витамины
+  vitaminC          Float    @default(0)
+  thiamin           Float    @default(0)
+  riboflavin        Float    @default(0)
+  niacin            Float    @default(0)
+  pantothenicAcid   Float    @default(0)
+  vitaminB6         Float    @default(0)
+  biotin            Float    @default(0)
+  folate            Float    @default(0)
+  vitaminB12        Float    @default(0)
+  vitaminA          Float    @default(0)
+  retinol           Float    @default(0)
+  betaCarotene      Float    @default(0)
+  vitaminD          Float    @default(0)
+  vitaminD2         Float    @default(0)
+  vitaminD3         Float    @default(0)
+  vitaminE          Float    @default(0)
+  vitaminK          Float    @default(0)
+
+  // Аминокислоты
+  lysine            Float    @default(0)
+  methionine        Float    @default(0)
+  tryptophan        Float    @default(0)
+  threonine         Float    @default(0)
+  isoleucine        Float    @default(0)
+  leucine           Float    @default(0)
+  cystine           Float    @default(0)
+  phenylalanine     Float    @default(0)
+  tyrosine          Float    @default(0)
+  valine            Float    @default(0)
+  arginine          Float    @default(0)
+  histidine         Float    @default(0)
+  alanine           Float    @default(0)
+  asparticAcid      Float    @default(0)
+  glutamicAcid      Float    @default(0)
+  glycine           Float    @default(0)
+  proline           Float    @default(0)
+  serine            Float    @default(0)
+
+  @@index([nameRu])
+  @@index([nameEn])
+}
+
 model EveningRitual {
   id               String   @id @default(uuid())
   userId           String

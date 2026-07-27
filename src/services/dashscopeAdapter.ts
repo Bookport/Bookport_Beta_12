@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import { directFetch } from "../utils/directFetch";
+import { getIngredientData } from "./FoodDataService";
 
 let dashClient: OpenAI | null = null;
 
@@ -14,8 +15,8 @@ function getDashClient(): OpenAI {
   return dashClient;
 }
 
-const PRIMARY_MODEL = "qwen-vl-max";
-const FALLBACK_MODEL = "qwen-vl-plus";
+const PRIMARY_MODEL = "qwen-vl-plus";
+const FALLBACK_MODEL = "qwen3-vl-plus";
 
 export async function analyzeFoodImage(
   imageBase64: string,
@@ -46,8 +47,28 @@ export async function analyzeFoodImage(
       });
 
       const text = response.choices?.[0]?.message?.content || "";
-      if (text) return text;
-      lastError = new Error("Empty response from " + model);
+      if (!text) {
+        lastError = new Error("Empty response from " + model);
+        continue;
+      }
+
+      // Парсим JSON, обогащаем нутриентами, возвращаем строку
+      try {
+        const parsed = JSON.parse(text);
+        if (parsed?.ingredients && Array.isArray(parsed.ingredients)) {
+          await Promise.allSettled(
+            parsed.ingredients.map(async (ing: any) => {
+              const name = ing.fullName || ing.name || "";
+              if (!name) return;
+              const nutrients = await getIngredientData(name);
+              if (nutrients) ing.nutrients = nutrients;
+            })
+          );
+        }
+        return JSON.stringify(parsed);
+      } catch {
+        return text;
+      }
     } catch (err) {
       lastError = err;
       console.warn(`[DashScope] Model ${model} failed:`, (err as any)?.message || err);

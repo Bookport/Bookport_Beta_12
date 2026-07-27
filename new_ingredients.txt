@@ -1,0 +1,576 @@
+абрикос свежий,green
+абрикосы,green
+авокадо,green
+агар-агар,green
+агар-агар хлопья,green
+айва,green
+алкоголь,forbidden
+алыча,green
+амарант,green
+амарантовая мука,green
+ананас,green
+анис,green
+анчоусы,forbidden
+апельсин,green
+арахис,green
+арахисовая паста,forbidden
+арбуз,green
+артишоки,green
+асафетида,green
+аспартам,forbidden
+бадьян,green
+базилик,green
+баклажан,green
+банан,green
+баранина,forbidden
+батат,green
+батон,forbidden
+бекон,forbidden
+белые грибы,green
+бобовая лапша,green
+бок-чой,green
+ботва моркови,green
+бразильский орех,green
+брокколи,green
+брюква,green
+буженина,forbidden
+булгур,green
+вакаме,green
+ваниль,green
+варенец,forbidden
+веганская сосиска,green
+веганский бургер,green
+веганский сыр,green
+ветчина,forbidden
+вешенки,green
+вино,forbidden
+виноград,green
+вишня,green
+вода,green
+водка,forbidden
+гарам масала,green
+гвоздика,green
+говядина,forbidden
+голубика,green
+горбуша,forbidden
+горох зеленый,green
+горчица,green
+горчичный порошок,green
+гранат,green
+грейпфрут,green
+грецкие орехи,green
+гречка,green
+гречка зеленая,green
+гречневая лапша,green
+гречневая мука,green
+грибной порошок,green
+грибы белые сушеные,green
+грибы мейтаке,green
+грибы портобелло,green
+грибы рейши порошок,green
+грибы шиитаке,green
+грибы эноки,green
+грудинка,forbidden
+грузди,green
+груша,green
+гуава,green
+гусь,forbidden
+гхи,forbidden
+дайкон,green
+дал желтый,green
+дал красный,green
+дикий рис,green
+дыня,green
+ежевика,green
+желудки куриные,forbidden
+жидкий дым,green
+зеленая фасоль,green
+зеленый горошек замороженный,forbidden
+зелёный лук,green
+иван-чай,green
+изолят соевого белка,forbidden
+изюм,green
+икра красная,forbidden
+икра минтая,forbidden
+икра черная,forbidden
+имбирь,green
+индейка,forbidden
+инжир,green
+йогурт,forbidden
+кабачок,green
+кабачок желтый,green
+кайенский перец,green
+какао-порошок,green
+кале,green
+калина,green
+калинджи семена,green
+кальмар,forbidden
+камбала,forbidden
+капуста белокочанная,green
+капуста брюссельская,green
+капуста квашеная,green
+капуста пекинская,green
+капуста савойская,green
+капуста цветная,green
+карась,forbidden
+карбонад,forbidden
+кардамон,green
+карп,forbidden
+карри порошок,green
+картофель,green
+кедровое молоко,green
+кедровые орехи,green
+кета,forbidden
+кефир,forbidden
+кешью,green
+кешью-жмых,green
+киви,green
+кизил,green
+килька,forbidden
+кимчи,green
+кинза,green
+кинза стебли,green
+киноа,green
+кленовый сироп,forbidden
+клубника,green
+клюква,green
+кокосовая стружка,green
+кокосовые сливки,green
+кокосовый амино соус,green
+кокосовый сахар,forbidden
+кола,forbidden
+колбаса вареная,forbidden
+колбаса копченая,forbidden
+кольраби,green
+комбу,green
+конина,forbidden
+конопляные семена,green
+корень петрушки,green
+корень сельдерея,forbidden
+кориандр,green
+корица,green
+краб,forbidden
+крабовые палочки,forbidden
+крапива,forbidden
+красный рис,green
+крахмал картофельный,green
+крахмал кукурузный,green
+крахмал тапиоковый,green
+креветки,forbidden
+кресс-салат,green
+кролик,forbidden
+крыжовник,green
+кукуруза,green
+кукуруза в початках,green
+кукурузная крупа,green
+кукурузная мука,green
+кулинарный жир,forbidden
+кунжут чёрный,green
+курага,green
+курица,forbidden
+куркума,green
+кус-кус,green
+кэроб,green
+лавровый лист,green
+лайм,green
+лайм свежий,green
+ламинария,green
+ламинария сушеная,green
+лангуст,forbidden
+лапша гречневая,green
+лещ,forbidden
+лимон,green
+лимонад,forbidden
+лисички,green
+листья редиса,green
+листья свёклы,green
+личи,green
+лобстер,forbidden
+ложка деревянная,green
+лосось,forbidden
+лук,green
+лук-батун,green
+лук красный,green
+луковый порошок,green
+лук-порей,green
+льняная мука,green
+майонез,forbidden
+макадамия,green
+макароны из мягких сортов пшеницы,forbidden
+макароны из нута,green
+макароны из полбы,green
+макароны из твердых сортов пшеницы,forbidden
+макароны из чечевицы,green
+макароны цельнозерновые,green
+маковое молоко,green
+малина,green
+мангольд,green
+мангольд стебли,green
+мандарин,green
+манная крупа цельнозерновая,green
+маракуйя,green
+маргарин,forbidden
+масло виноградной косточки,forbidden
+масло горчичное,forbidden
+масло грецкого ореха,forbidden
+масло какао,forbidden
+масло кокосовое,forbidden
+масло кукурузное,forbidden
+масло кунжутное,forbidden
+масло льняное,forbidden
+масло оливковое,forbidden
+масло пальмовое,forbidden
+масло подсолнечное,forbidden
+масло рапсовое,forbidden
+масло растительное,forbidden
+масло сливочное,forbidden
+масло соевое,forbidden
+масло топленое,forbidden
+масло тыквенное,forbidden
+маслята,forbidden
+маш,green
+меланж,forbidden
+мидии,forbidden
+микрозелень,green
+миндаль,green
+миндальная паста,forbidden
+миндальное молоко,green
+минтай,forbidden
+мисо,green
+мисо белое,green
+мисо красное,green
+мисо-паста,forbidden
+молоко козье,forbidden
+молоко коровье,forbidden
+молоко овечье,forbidden
+молоко сгущенное,forbidden
+молоко сухое,forbidden
+морковь,green
+морковь фиолетовая,green
+мороженое,forbidden
+морошка,green
+морская капуста,green
+морской гребешок,green
+моченые яблоки,green
+мука амарантовая,green
+мука блинная,forbidden
+мука бурого риса,green
+мука гороховая,green
+мука гречневая,green
+мука из грецкого ореха,green
+мука кокосовая,green
+мука кунжутная,green
+мука льняная,green
+мука миндальная,green
+мука нутовая,green
+мука обойная,green
+мука овсяная,green
+мука полбяная,green
+мука пшеничная высший сорт,forbidden
+мука пшеничная цельнозерновая,green
+мука ржаная,green
+мука ржаная обдирная,green
+мука соевая,green
+мука тыквенная,green
+мука чечевичная,green
+мука ячменная,green
+мускатный орех,green
+мята,green
+натто,green
+нектарин,green
+нори,green
+нут,green
+нут консервированный,green
+нутовая мука,green
+нут рисовый,green
+облепиха,green
+овсяная мука,green
+овсянка,green
+овсяные отруби,green
+овсяные хлопья,green
+огурец,green
+оленина,forbidden
+омар,green
+опята,green
+орегано,green
+осетр,forbidden
+острый перец,green
+осьминог,forbidden
+отруби овсяные,green
+отруби пшеничные,green
+отруби ржаные,green
+пак-чой,green
+палочка корицы,green
+палтус,forbidden
+папайя,green
+паприка,green
+паприка испанская,green
+паста из грецкого ореха,forbidden
+паста цельнозерновая,green
+пастернак,green
+патиссон,green
+паштет мясной,forbidden
+пекан,green
+перепел,forbidden
+перец белый,green
+перец душистый,green
+перец жёлтый,green
+перец красный,green
+перец острый красный,green
+перец розовый,green
+перец чили,green
+перловка,green
+персики,green
+петрушка,green
+петрушка сушеная,green
+печень говяжья,forbidden
+печень куриная,forbidden
+пиво,forbidden
+питайя,green
+пищевые неактивные дрожжи,green
+полба,green
+полбяная мука,green
+помидор,green
+помидоры черри,green
+порошок ламинарии,green
+порошок свёклы,green
+порошок сельдерея,forbidden
+почки,forbidden
+пророщенный нут,green
+простокваша,forbidden
+протеин сывороточный,forbidden
+псиллиум,green
+пшеница для проращивания,green
+пшённая мука,green
+пшено,green
+редис,green
+редька,green
+репа,green
+репа белая,green
+ржаная мука,green
+рис,green
+рис белый,green
+рис бурый,green
+рис дикий,green
+рис коричневый,green
+рис красный,green
+рис нешлифованный,green
+рисовая лапша,forbidden
+рисовые хлопья,green
+рис черный,green
+рис шлифованный,green
+розмарин,green
+розмарин свежий,green
+рыба белая,forbidden
+рыба красная,forbidden
+рыбные консервы,forbidden
+рябина,green
+ряженка,forbidden
+сайра,forbidden
+салат,green
+салат айсберг,green
+салат листья,green
+салат романо,green
+сало,forbidden
+салями,green
+сардельки,forbidden
+сахар,forbidden
+сахар белый,forbidden
+сахар коричневый,forbidden
+сахарная пудра,forbidden
+сахарозаменитель,forbidden
+сахар тростниковый,forbidden
+сванская соль,forbidden
+свекла,green
+свёкла золотая,green
+светло-красная рукола,forbidden
+светло-фиолетовая капуста,green
+свинина,forbidden
+сгущенка,forbidden
+сельдерей,forbidden
+сельдерей корневой очищенный,forbidden
+сельдь,forbidden
+семга,forbidden
+семена горчицы,green
+семена горчицы желтые,green
+семена кунжута белые,green
+семена кунжута жареные,green
+семена льна,green
+семена подсолнечника,green
+семена подсолнечника жареные,green
+семена расторопши,green
+семена тмина,green
+семена укропа,green
+семена фенхеля,green
+семена чиа белые,green
+сердце,forbidden
+сироп агавы,forbidden
+сироп глюкозный,forbidden
+сироп инвертный,forbidden
+сироп кукурузный,forbidden
+сироп топинамбура,forbidden
+скумбрия,forbidden
+сладкий перец,green
+слива,green
+сливки,forbidden
+смесь трав прованских,green
+сметана,forbidden
+смородина,green
+смородина белая,green
+смородина красная,green
+сныть,green
+соба,green
+сода,green
+соевое молоко несладкое,green
+соевые бобы,green
+соевый соус тамари,forbidden
+сок апельсиновый восстановленный,forbidden
+сок яблочный осветленный,forbidden
+соленые огурцы,forbidden
+сом,forbidden
+сорго,green
+сосиски,forbidden
+соус,green
+спирулина,green
+спред,forbidden
+стакан,green
+стевия (экстракт),forbidden
+стерлядь,forbidden
+страус,forbidden
+стручковая фасоль,green
+судак,forbidden
+сукралоза,forbidden
+сушеные яблоки,green
+сыворотка молочная,forbidden
+сыр,forbidden
+сыр адыгейский,forbidden
+сыр бри,forbidden
+сыр брынза,forbidden
+сыр гауда,forbidden
+сыр голландский,forbidden
+сыр дорблю,forbidden
+сыр камамбер,forbidden
+сыр козий,forbidden
+сыр маасдам,forbidden
+сыр маскарпоне,forbidden
+сыр моцарелла,forbidden
+сыр мягкий,forbidden
+сыр овечий,forbidden
+сыр пармезан,forbidden
+сыр плавленый,forbidden
+сыр полутвердый,forbidden
+сыр пошехонский,forbidden
+сыр рикотта,forbidden
+сыр рокфор,forbidden
+сыр российский,forbidden
+сыр сулугуни,forbidden
+сыр твердый,forbidden
+сыр творожный,forbidden
+сыр фета,forbidden
+сыр халуми,forbidden
+сыр чеддер,forbidden
+сыр эдам,forbidden
+тапиоковый крахмал,green
+тархун,green
+творог,forbidden
+телятина,forbidden
+темпе,green
+теф,green
+тимьян,green
+тимьян свежий,green
+тмин,green
+толокно,green
+томатная паста,green
+томаты вяленые,green
+топинамбур,green
+тофу,green
+тофу запеченный,forbidden
+тофу копченый,green
+тофу мягкий,green
+треска,forbidden
+тунец,forbidden
+тхина,green
+тыква,green
+тыква баттернат,green
+тыква хоккайдо,green
+тыквенные семечки,green
+угорь,forbidden
+укроп,green
+укроп свежий,green
+укроп сушеный,green
+уксус бальзамический,green
+урбеч из абрикосовых косточек,green
+урбеч из конопли,green
+урбеч из льна,green
+урюк,green
+устрицы,forbidden
+утка,forbidden
+фарш мясной,forbidden
+фасоль адзуки,green
+фасоль белая,green
+фасоль каннеллини,green
+фасоль красная,green
+фасоль лима,green
+фасоль мунг,green
+фасоль пестрая,green
+фасоль черная,green
+фейхоа,green
+фенхель,green
+филе рыбное,forbidden
+финики,green
+финики меджул,green
+финиковая паста,forbidden
+фисташки,green
+форель,forbidden
+фрике,green
+фруктоза,forbidden
+фундук,green
+фунчоза,green
+хек,forbidden
+хлеб белый,forbidden
+хрен,green
+хурма,green
+цесарка,forbidden
+цикорий,green
+цикорий растворимый,green
+цукини,green
+черешня,green
+черника,green
+черноглазый горох,green
+чернослив,green
+чёрный перец,green
+чеснок,green
+чесночный порошок,green
+чечевица,green
+чечевица зеленая,green
+чечевица коричневая,green
+чечевица красная,green
+чечевичная мука,green
+чиа,green
+шалфей,green
+шампиньоны,green
+шафран,green
+шиповник,green
+шпикачки,forbidden
+шпинат,green
+шпинат беби,green
+шпинат молодой,green
+шпроты,forbidden
+щука,forbidden
+эдамаме,green
+эндивий,green
+яблоко,green
+яблочное пюре,green
+яблочный уксус,green
+яблочный уксус с маткой,green
+ягнятина,forbidden
+язык говяжий,forbidden
+язык свиной,forbidden
+яичный белок,forbidden
+яичный желток,forbidden
+яичный порошок,forbidden
+яйцо гусиное,forbidden
+яйцо куриное,forbidden
+яйцо перепелиное,forbidden
+яйцо страусиное,forbidden
+яйцо утиное,forbidden
