@@ -1,0 +1,17 @@
+{
+  "buildCommand": "npx prisma generate && vite build",
+  "framework": null,
+  "installCommand": "npm install",
+  "functions": {
+    "api/index.ts": {
+      "memory": 512,
+      "maxDuration": 30
+    }
+  },
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "api/index.ts"
+    }
+  ]
+}
