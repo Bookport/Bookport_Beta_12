@@ -2,7 +2,7 @@ const dopuskImages = import.meta.glob("/src/assets/ingredients/dopusk/*.{webp,pn
 const zapretImages = import.meta.glob("/src/assets/ingredients/zapret/*.{webp,png}", { eager: true });
 import { getIngredientAlias } from "./ingredientAliasMapper";
 
-function normalize(name: string): string {
+export function normalize(name: string): string {
   return name
     .toLowerCase()
     .replace(/\.(webp|png)$/i, "")
@@ -98,7 +98,7 @@ const ALIASES: Record<string, string> = {
   "семечки тыквенные": "тыквенные семечки",
 };
 
-const imageMap: Record<string, string> = {};
+export const imageMap: Record<string, string> = {};
 
 for (const [filePath, mod] of Object.entries({ ...dopuskImages, ...zapretImages })) {
   const basename = filePath.split("/").pop()!;

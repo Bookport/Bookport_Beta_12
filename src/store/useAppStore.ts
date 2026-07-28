@@ -1,6 +1,20 @@
 import { create } from "zustand";
 import { getTelegramInitData } from "../utils/telegramClient";
 
+export interface FoodCacheItem {
+  id: string;
+  nameRu: string;
+  nameEn: string;
+  wfpbStatus: string;
+  fdcId: number | null;
+  calories: number;
+  protein: number;
+  fat: number;
+  carbohydrates: number;
+  fiber: number;
+  water: number;
+}
+
 export type Screen =
   | "welcome" | "my-page"
   | "digestion" | "my-day" | "habits-twenty" | "what-i-eat"
@@ -96,6 +110,8 @@ export interface AppNotification {
 
 interface AppState {
   screen: Screen;
+  foodCache: FoodCacheItem[];
+  foodCacheLoading: boolean;
   userProfile: UserProfile;
   telegramUser: TelegramUser | null;
   isCalendarOpen: boolean;
@@ -117,6 +133,7 @@ interface AppState {
   unshippedProgress: number;
   isGodMode: boolean;
 
+  fetchFoodCache: () => Promise<void>;
   setScreen: (screen: Screen) => void;
   setUserProfile: (profile: UserProfile) => void;
   setTelegramUser: (user: TelegramUser | null) => void;
@@ -143,6 +160,8 @@ interface AppState {
 
 export const useAppStore = create<AppState>((set) => ({
   screen: "welcome",
+  foodCache: [],
+  foodCacheLoading: false,
   userProfile: {},
   telegramUser: null,
   isCalendarOpen: false,
@@ -182,6 +201,20 @@ export const useAppStore = create<AppState>((set) => ({
   setCalendarNotes: (notes) => set({ calendarNotes: notes }),
   setCourseStartTimestamp: (ts) => set({ courseStartTimestamp: ts }),
   setIsGodMode: (v) => set({ isGodMode: v }),
+
+  fetchFoodCache: async () => {
+    try {
+      set({ foodCacheLoading: true });
+      const resp = await fetch("/api/food", {
+        headers: { "X-Telegram-Init-Data": getTelegramInitData() },
+      });
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const items: FoodCacheItem[] = await resp.json();
+      set({ foodCache: items, foodCacheLoading: false });
+    } catch {
+      set({ foodCacheLoading: false });
+    }
+  },
 
   initApp: async () => {
     try {

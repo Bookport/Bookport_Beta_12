@@ -1287,6 +1287,32 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
     }
   });
 
+  // GET /api/food — return all FoodItem records (essential fields)
+  app.get("/api/food", async (_req, res) => {
+    try {
+      const items = await prisma.foodItem.findMany({
+        select: {
+          id: true,
+          nameRu: true,
+          nameEn: true,
+          wfpbStatus: true,
+          fdcId: true,
+          calories: true,
+          protein: true,
+          fat: true,
+          carbohydrates: true,
+          fiber: true,
+          water: true,
+        },
+        orderBy: { nameRu: "asc" },
+      });
+      res.json(items);
+    } catch (err: any) {
+      console.error("[Food] GET error:", err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // POST /api/user/progress — batch-increment global progress counter
   app.post("/api/user/progress", async (req, res) => {
     if (!req.userId) return res.status(400).json({ error: "Missing device ID" });
