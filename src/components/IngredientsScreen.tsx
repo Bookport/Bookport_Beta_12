@@ -100,6 +100,17 @@ export default function IngredientsScreen({
     return result;
   }, [foodCache]);
 
+  const CATEGORY_COLORS: Record<string, string> = {
+    "Бобовые": "bg-lime-50",
+    "Злаки и псевдозлаки": "bg-amber-50",
+    "Орехи и кокосовая стружка": "bg-stone-50",
+    "Семена": "bg-orange-50/50",
+    "Специи и сухие ингредиенты": "bg-yellow-50",
+    "Свежие продукты - Овощи": "bg-emerald-50",
+    "Свежие продукты - Фрукты и ягоды": "bg-orange-50",
+    "Свежие продукты - Зелень и прочее": "bg-green-50",
+  };
+
   // Screen States
   const [selectedIngredients, setSelectedIngredients] = useState<SelectedIngredient[]>([]);
   const [selectedMethod, setSelectedMethod] = useState<string>("варка"); // Default cook method
@@ -264,7 +275,7 @@ export default function IngredientsScreen({
         </div>
 
         {/* ZONE A: ADDED INGREDIENTS LIST (PROMINENT UPPER CONTAINER) */}
-        <div className="bg-white rounded-[26px] border border-gray-150/55 p-4.5 mb-5 shadow-[0_8px_20px_-6px_rgba(0,0,0,0.03)]" id="added-ingredients-zone">
+        <div className="bg-[#f0fdf4] rounded-2xl shadow-sm p-4 mb-5" id="added-ingredients-zone">
           <div className="flex justify-between items-center mb-3">
             <span 
               className="text-[14.5px] font-extrabold text-text-dark tracking-tight flex items-center gap-1.5"
@@ -358,6 +369,16 @@ export default function IngredientsScreen({
           </AnimatePresence>
         </div>
 
+        {/* ZONE A2: Custom ingredient button */}
+        <button
+          type="button"
+          onClick={handleOpenCustomInput}
+          className="w-full border-2 border-dashed border-green-300 bg-green-50 text-green-700 font-medium rounded-xl py-3 mb-6 cursor-pointer flex items-center justify-center gap-2"
+        >
+          <PlusCircle className="w-5 h-5 shrink-0" />
+          <span>Ввести свой ингредиент</span>
+        </button>
+
         {/* ZONE B: CATEGORIES OF INGREDIENTS ACCORDION */}
         <div className="mb-6 flex flex-col gap-2.5 text-left" id="categories-accordion-section">
           <span 
@@ -373,13 +394,13 @@ export default function IngredientsScreen({
             return (
               <div 
                 key={catName} 
-                className="bg-white rounded-[22px] border border-gray-150/40 shadow-xs overflow-hidden transition-all duration-300"
+                className="rounded-xl shadow-sm overflow-hidden mb-3"
               >
                 {/* Category Header Toggler */}
                 <button
                   type="button"
                   onClick={() => toggleCategory(catName)}
-                  className="w-full flex items-center justify-between p-4 bg-white hover:bg-gray-50/40 active:bg-gray-50/80 transition-colors text-left font-extrabold text-[15px] text-text-dark cursor-pointer select-none"
+                  className={`w-full flex items-center justify-between p-4 ${CATEGORY_COLORS[catName] || 'bg-white'} transition-colors text-left font-extrabold text-[15px] text-text-dark cursor-pointer select-none`}
                   style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}
                 >
                   <span className="truncate">{catName}</span>
@@ -398,8 +419,8 @@ export default function IngredientsScreen({
                       transition={{ duration: 0.25 }}
                       className="overflow-hidden border-t border-gray-100"
                     >
-                      <div className="p-4 bg-gray-50/20 flex flex-col gap-3">
-                        <div className="grid grid-cols-3 gap-y-6 gap-x-4 max-h-[260px] overflow-y-auto pr-0.5">
+                      <div className="p-3 flex flex-col gap-3">
+                        <div className="grid grid-cols-3 gap-3 max-h-[260px] overflow-y-auto pr-0.5">
                           {items.length === 0 ? (
                             <div className="col-span-3 flex flex-col items-center justify-center py-6 text-text-placeholder select-none">
                               <span className="text-[12px] font-medium">
@@ -413,13 +434,13 @@ export default function IngredientsScreen({
                                 type="button"
                                 key={item.fullName}
                                 onClick={() => handleSelectPredefined(item, catName)}
-                                className={`flex flex-col items-center justify-start cursor-pointer gap-2 relative ${isSelected ? 'drop-shadow-md' : ''}`}
+                                className={`flex flex-col items-center justify-start cursor-pointer gap-2 relative active:scale-95 transition-transform ${isSelected ? 'drop-shadow-md' : ''}`}
                               >
-                                <div className="w-12 h-12 flex items-center justify-center shrink-0">
+                                <div className="w-16 h-16 flex items-center justify-center shrink-0">
                                   <img 
                                     src={getIngredientSrc(item.fullName, item.wfpbStatus)} 
                                     alt={item.shortName} 
-                                    className="w-11 h-11 rounded-lg object-contain bg-gray-50/70"
+                                    className="w-full h-full object-contain rounded-lg"
                                     onError={(e) => {
                                       const target = e.target as HTMLImageElement;
                                       if (!target.dataset.fallback) {
@@ -434,7 +455,7 @@ export default function IngredientsScreen({
                                     <Check className="w-3 h-3 text-white" />
                                   </div>
                                 )}
-                                <span className="text-xs md:text-sm font-medium text-center text-gray-800 leading-tight">
+                                <span className="text-[11px] text-gray-700 leading-tight text-center mt-1">
                                   {item.shortName}
                                 </span>
                               </button>
@@ -442,17 +463,7 @@ export default function IngredientsScreen({
                           })}
                         </div>
 
-                        {/* Prompt-defined mandatory action element: "Ввести свой ингредиент" inside the selection context */}
-                        <button
-                          type="button"
-                          onClick={handleOpenCustomInput}
-                          className="w-full py-3 px-4 rounded-[18px] border border-dashed border-brand-green-pure text-brand-green-pure bg-emerald-50/10 hover:bg-emerald-50/30 cursor-pointer flex items-center justify-center gap-1.5 text-[13.5px] font-bold tracking-tight transition-colors"
-                        >
-                          <PlusCircle className="w-4.5 h-4.5 shrink-0" />
-                          <span style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}>
-                            Ввести свой ингредиент
-                          </span>
-                        </button>
+
                       </div>
                     </motion.div>
                   )}
