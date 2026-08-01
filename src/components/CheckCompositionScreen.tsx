@@ -18,6 +18,8 @@ import BottomBar from "./BottomBar";
 import CalendarButton from "./CalendarButton";
 import { resolveAvatar } from "../utils/annaAvatarResolver";
 import { getIngredientImage } from "../utils/ingredientMapper";
+import ingrGreen from "../assets/ingredients/ingr_green.webp";
+import ingrRed from "../assets/ingredients/ingr_red.webp";
 import { checkWFPB } from "../utils/wfpbRules";
 import { matchDBStatus } from "../utils/wfpbMatch";
 import { useAppStore } from "../store/useAppStore";
@@ -803,11 +805,20 @@ export default function CheckCompositionScreen({
                       src={ingredientImageUrl} 
                       alt={c.shortName} 
                       className="w-full h-full object-contain"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        if (!target.dataset.fallback) {
+                          target.dataset.fallback = "1";
+                          target.src = isRed ? ingrRed : ingrGreen;
+                        }
+                      }}
                     />
                   ) : (
-                    <div className="w-full h-full rounded-xl bg-gray-100 flex items-center justify-center">
-                      <span className="text-lg font-bold text-gray-400">{c.shortName?.charAt(0) || '?'}</span>
-                    </div>
+                    <img 
+                      src={isRed ? ingrRed : ingrGreen} 
+                      alt={c.shortName} 
+                      className="w-full h-full object-contain"
+                    />
                   )}
                 </div>
 
@@ -944,12 +955,19 @@ export default function CheckCompositionScreen({
                     className="w-full bg-white hover:bg-[#FAFAFA] border border-[#EFF2F3] rounded-[16px] px-4 py-3 flex items-center justify-between text-left text-[14.5px] font-black text-[#2B3137] shadow-sm cursor-pointer select-none"
                   >
                     <div className="flex items-center gap-2.5 overflow-hidden pr-2">
-                      <div className="w-5 h-5 rounded-full overflow-hidden border border-white shadow-sm shrink-0 bg-gray-50 flex items-center justify-center">
+                      <div className="w-5 h-5 shrink-0 flex items-center justify-center">
                         <img 
                           src={getIngredientImage(editedShortName || editedFullName) || ''} 
                           alt="selected" 
                           referrerPolicy="no-referrer"
-                          className="w-full h-full object-cover" 
+                          className="w-full h-full object-contain" 
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            if (!target.dataset.fallback) {
+                              target.dataset.fallback = "1";
+                              target.src = ingrGreen;
+                            }
+                          }}
                         />
                       </div>
                       <span className="truncate">{editedFullName || "Выберите ингредиент из списка"}</span>
@@ -991,12 +1009,19 @@ export default function CheckCompositionScreen({
                           onClick={() => handleSelectOption(opt)}
                           className="w-full hover:bg-[#F3F9F4] rounded-[12px] p-2 flex items-center gap-2.5 text-left transition-colors duration-150 cursor-pointer text-[#2B3137] text-[13.5px] font-semibold"
                         >
-                          <div className="w-6 h-6 rounded-full overflow-hidden border border-[#EFF2F3] shadow-sm shrink-0 bg-transparent flex items-center justify-center">
+                          <div className="w-6 h-6 shrink-0 flex items-center justify-center">
                             <img 
                               src={getIngredientImage(opt.shortName || opt.fullName) || ''} 
                               alt={opt.shortName} 
                               referrerPolicy="no-referrer"
-                              className="w-full h-full object-cover" 
+                              className="w-full h-full object-contain" 
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                if (!target.dataset.fallback) {
+                                  target.dataset.fallback = "1";
+                                  target.src = ingrGreen;
+                                }
+                              }}
                             />
                           </div>
                           <div className="truncate flex flex-col">

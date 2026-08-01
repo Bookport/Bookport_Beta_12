@@ -334,14 +334,18 @@ export default function IngredientsScreen({
                     }`}
                   >
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-12 overflow-hidden bg-white shrink-0 border border-gray-100 flex items-center justify-center">
+                      <div className="w-10 h-10 shrink-0 flex items-center justify-center">
                         <img 
                           src={ing.image} 
                           alt={ing.shortName} 
                           referrerPolicy="no-referrer"
-                          className="w-full h-full object-cover"
+                          className="w-full h-full object-contain"
                           onError={(e) => {
-                            (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1547058886-f6d8174f85e4?auto=format&fit=crop&q=80&w=150";
+                            const target = e.target as HTMLImageElement;
+                            if (!target.dataset.fallback) {
+                              target.dataset.fallback = "1";
+                              target.src = ing.status === "error" ? ingrRed : ingrGreen;
+                            }
                           }}
                         />
                       </div>
