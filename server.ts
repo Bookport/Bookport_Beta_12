@@ -329,11 +329,17 @@ async function computeNutrientsFromDB(
   const total: Record<string, number> = {};
   NUTRIENT_FIELDS.forEach(f => (total[f] = 0));
 
-  console.log("[DEBUG INPUT] Received from frontend:", ingredients.map(i => ({
+  const payloadToLog = ingredients.map(i => ({
     name: i.fullName || i.shortName,
     weight: i.weight,
     dbKey: i.dbKey
-  })));
+  }));
+  console.log("[DEBUG INPUT] Received from frontend:", payloadToLog);
+  try {
+    await fs.writeFile("DEBUG_PAYLOAD.json", JSON.stringify(payloadToLog, null, 2), "utf8");
+  } catch (err) {
+    console.error("Failed to write debug payload", err);
+  }
 
   const items = await prisma.foodItem.findMany();
 
