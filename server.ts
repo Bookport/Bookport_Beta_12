@@ -329,26 +329,34 @@ async function computeNutrientsFromDB(
   const total: Record<string, number> = {};
   NUTRIENT_FIELDS.forEach(f => (total[f] = 0));
 
+  console.log("[DEBUG INPUT] Received from frontend:", ingredients.map(i => ({
+    name: i.fullName || i.shortName,
+    weight: i.weight,
+    dbKey: i.dbKey
+  })));
+
   const items = await prisma.foodItem.findMany();
 
-  // Кэш БД в нотации ingredientMappingCore (normalize/candidateKeys) — те же
-  // правила нечёткого поиска, что и на фронтенде (картинки, статусы).
-  const dbByKey = new Map<string, (typeof items)[number]>();
-  const dbKeys = new Set<string>();
+  const canonicalByKey = new Map<string, (typeof items)[number]>();
+  const fuzzyByKey = new Map<string, (typeof items)[number]>();
+  const fuzzyKeys = new Set<string>();
   const fdcById = new Map<number, (typeof items)[number]>();
 
   // 1) Канонические ключи (nameRu/nameEn) — приоритет точных имён.
   for (const item of items) {
     const canonical = normalize(item.nameRu);
-    if (canonical && !dbKeys.has(canonical)) {
-      dbKeys.add(canonical);
-      dbByKey.set(canonical, item);
+    if (canonical) {
+      canonicalByKey.set(canonical, item);
+      if (!fuzzyKeys.has(canonical)) {
+        fuzzyKeys.add(canonical);
+        fuzzyByKey.set(canonical, item);
+      }
     }
     if (item.nameEn) {
       const en = normalize(item.nameEn);
-      if (en && !dbKeys.has(en)) {
-        dbKeys.add(en);
-        dbByKey.set(en, item);
+      if (en && !fuzzyKeys.has(en)) {
+        fuzzyKeys.add(en);
+        fuzzyByKey.set(en, item);
       }
     }
     if (item.fdcId != null) fdcById.set(item.fdcId, item);
@@ -360,9 +368,9 @@ async function computeNutrientsFromDB(
   const sortedItems = [...items].sort((a, b) => a.nameRu.length - b.nameRu.length);
   for (const item of sortedItems) {
     for (const c of candidateKeys(item.nameRu)) {
-      if (c && !dbKeys.has(c)) {
-        dbKeys.add(c);
-        dbByKey.set(c, item);
+      if (c && !fuzzyKeys.has(c)) {
+        fuzzyKeys.add(c);
+        fuzzyByKey.set(c, item);
       }
     }
   }
@@ -370,15 +378,16 @@ async function computeNutrientsFromDB(
   // Приоритет: точный dbKey/fdcId от фронтенда → нечёткий маппер по строке Qwen.
   const resolveItem = (rawName: string, dbKey?: string, fdcId?: number) => {
     if (dbKey) {
-      const exact = dbByKey.get(normalize(dbKey));
+      // Ищем СТРОГО в канонических ключах
+      const exact = canonicalByKey.get(normalize(dbKey));
       if (exact) return exact;
     }
     if (fdcId != null) {
       const byFdc = fdcById.get(fdcId);
       if (byFdc) return byFdc;
     }
-    const key = resolveAgainstIndex(rawName, dbKeys);
-    return key ? dbByKey.get(key) || null : null;
+    const key = resolveAgainstIndex(rawName, fuzzyKeys);
+    return key ? fuzzyByKey.get(key) || null : null;
   };
 
   for (const ing of ingredients) {
