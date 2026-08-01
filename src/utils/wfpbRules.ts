@@ -136,10 +136,15 @@ const VIOLATION_RULES: ViolationRule[] = [
     excludeIfNameContains: ['виноград'],
   },
 
-  // Processed foods (juices, sodas, isolates, etc.)
+  // Processed foods (juices, sodas, isolates, fastfood & snacks)
   {
     category: 'processed_foods',
-    keywords: ['осветлен', 'восстановлен', 'лимонад', 'кола', 'изолят'],
+    keywords: [
+      'осветлен', 'восстановлен', 'лимонад', 'кола', 'изолят',
+      'бургер', 'фри', 'наггетс', 'хот-дог', 'чебурек', 'шаурм', 'пицц',
+      'чипс', 'крекер', 'энергетик', 'газировк', 'кетчуп',
+      'bbq соус', 'барбекю',
+    ],
   },
 ]
 
