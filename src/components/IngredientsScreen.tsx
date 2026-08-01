@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { getIngredientImage, normalize, imageMap } from "../utils/ingredientMapper";
 import { checkWFPB } from "../utils/wfpbRules";
+import { matchDBStatus } from "../utils/wfpbMatch";
 import { INGREDIENT_CATEGORY_MAP } from "../utils/ingredientCategoryMap";
 import { useAppStore, type FoodCacheItem } from "../store/useAppStore";
 import ingrGreen from "../assets/ingredients/ingr_green.webp";
@@ -52,7 +53,16 @@ export interface SelectedIngredient {
   isCustom?: boolean;
 }
 
-export function checkIngredientDisallowed(name: string): { disallowed: boolean; reason: string } {
+export function checkIngredientDisallowed(name: string, foodCache: { nameRu: string; wfpbStatus: string }[] = []): { disallowed: boolean; reason: string } {
+  // Авторитетный статус из БД: точное совпадение по nameRu безусловно
+  // перебивает любые текстовые эвристики.
+  const dbStatus = matchDBStatus(name, foodCache);
+  if (dbStatus) {
+    return dbStatus === "forbidden"
+      ? { disallowed: true, reason: "не соответствует WFPB (по базе продуктов)" }
+      : { disallowed: false, reason: "" };
+  }
+
   const result = checkWFPB(name);
   if (result.compliant) return { disallowed: false, reason: "" };
 
@@ -177,7 +187,7 @@ export default function IngredientsScreen({
   const handleConfirmWeight = () => {
     if (!weightModalItem) return;
 
-    const disallowedCheck = checkIngredientDisallowed(weightModalItem.fullName);
+    const disallowedCheck = checkIngredientDisallowed(weightModalItem.fullName, foodCache);
     const newIngredient: SelectedIngredient = {
       id: `${weightModalItem.fullName}-${Date.now()}`,
       fullName: weightModalItem.fullName,
@@ -727,7 +737,7 @@ export default function IngredientsScreen({
                  className="text-[13.5px] text-text-sec font-medium leading-relaxed mb-5"
                  style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}
                >
-                 Ингредиент <strong className="text-text-dark">«{pendingWarningItem.item.fullName}»</strong> содержит {checkIngredientDisallowed(pendingWarningItem.item.fullName).reason || "запрещенные элементы"}, что противоречит здоровой системе цельного растительного рациона без масла и соли (WFPB). 
+                  Ингредиент <strong className="text-text-dark">«{pendingWarningItem.item.fullName}»</strong> содержит {checkIngredientDisallowed(pendingWarningItem.item.fullName, foodCache).reason || "запрещенные элементы"}, что противоречит здоровой системе цельного растительного рациона без масла и соли (WFPB). 
                  <br />
                  <br />
                  Вы действительно хотите продолжить расчёт с этим ингредиентом?

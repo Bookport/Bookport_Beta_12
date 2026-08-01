@@ -1,4 +1,5 @@
 import { getIngredientAlias } from './ingredientAliasMapper'
+import { containsStemWithBoundaries } from './wfpbMatch'
 
 export type WFPBViolationCategory =
   | 'animal'
@@ -39,6 +40,7 @@ const VIOLATION_RULES: ViolationRule[] = [
       'стейк', 'антрекот', 'бифштекс', 'шницель',
       'желатин',
     ],
+    excludeIfNameContains: ['соев'],
   },
 
   // Fish & Seafood
@@ -66,7 +68,7 @@ const VIOLATION_RULES: ViolationRule[] = [
       'топлен', 'гхи',
       'сывороточн',
     ],
-    excludeIfNameContains: ['растительн', 'соев', 'кедров', 'маков', 'кокосов', 'веганск', 'миндальн'],
+    excludeIfNameContains: ['растительн', 'соев', 'кедров', 'маков', 'кокос', 'веганск', 'миндальн'],
   },
 
   // Eggs
@@ -82,7 +84,7 @@ const VIOLATION_RULES: ViolationRule[] = [
       'колбас', 'сосис', 'сардельк', 'ветчин', 'бекон', 'шпик', 'фарш',
       'сало', 'паштет', 'карбонад', 'грудинк', 'буженин', 'шпикачк',
     ],
-    excludeIfNameContains: ['веганск'],
+    excludeIfNameContains: ['веганск', 'соев'],
   },
 
   // Refined Oils & cooking fats
@@ -114,7 +116,7 @@ const VIOLATION_RULES: ViolationRule[] = [
       'мука блинн',
       'хлеб бел', 'батон', 'макарон',
     ],
-    excludeIfNameContains: ['цельнозернов', 'полб', 'нут', 'чечевиц', 'гречнев', 'бобов'],
+    excludeIfNameContains: ['цельнозернов', 'цельн', 'полб', 'нут', 'чечевиц', 'гречнев', 'бобов'],
   },
 
   // Added salt – EXCEPT beans ("фасоль" contains "соль")
@@ -160,9 +162,9 @@ export function checkWFPB(ingredientName: string): WFPBCheckResult {
       continue
     }
 
-    // Keyword match across any haystack
+    // Keyword match across any haystack (word-boundary-aware, Cyrillic)
     for (const haystack of haystackValues) {
-      if (rule.keywords.some(kw => haystack.includes(kw))) {
+      if (rule.keywords.some(kw => containsStemWithBoundaries(haystack, kw))) {
         found.add(rule.category)
         break
       }

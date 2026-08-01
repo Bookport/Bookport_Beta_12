@@ -830,11 +830,38 @@ async function startServer() {
         .map(ing => `- ${ing.fullName || ing.shortName}: ${ing.weight || 100}g`)
         .join("\n");
 
-      const forbiddenFound = findForbiddenInText(ingredientsDescription);
+      // WFPB compliance: authoritatively from local FoodItem DB (exact nameRu/nameEn),
+      // text heuristics only as a fallback for products absent from the base.
+      const forbiddenLines: string[] = [];
+      for (const ing of ingredients) {
+        const name = (ing.fullName || ing.shortName || "").toLowerCase().trim();
+
+        if (name) {
+          const dbItem = await prisma.foodItem.findFirst({
+            where: {
+              OR: [
+                { nameRu: { equals: name, mode: "insensitive" } },
+                { nameEn: { equals: name, mode: "insensitive" } },
+              ],
+            },
+          });
+          if (dbItem) {
+            if (dbItem.wfpbStatus === "forbidden") {
+              forbiddenLines.push(`- "${ing.fullName || ing.shortName}": не соответствует WFPB-стандарту (по базе продуктов).`);
+            }
+            continue;
+          }
+        }
+
+        const found = findForbiddenInText(name);
+        if (found.length > 0) {
+          forbiddenLines.push(...found.map(f => `- "${f.ingredient}": ${f.reason}`));
+        }
+      }
+
       let forbiddenWarning = "";
-      if (forbiddenFound.length > 0) {
-        const details = forbiddenFound.map(f => `- "${f.ingredient}": ${f.reason}`).join("\n");
-        forbiddenWarning = `⚠️ ВНИМАНИЕ: Среди ингредиентов обнаружены продукты, НЕ соответствующие WFPB-стандарту! Предупреди пользователя мягко, но прямо, и дай рекомендации по замене:\n${details}\n\nПожалуйста, отрази это в блоке "compliance" в ответе.\n\n`;
+      if (forbiddenLines.length > 0) {
+        forbiddenWarning = `⚠️ ВНИМАНИЕ: Среди ингредиентов обнаружены продукты, НЕ соответствующие WFPB-стандарту! Предупреди пользователя мягко, но прямо, и дай рекомендации по замене:\n${forbiddenLines.join("\n")}\n\nПожалуйста, отрази это в блоке "compliance" в ответе.\n\n`;
       }
 
       const promptText = `Ты — Анна, профессиональный нутрициолог для WFPB-приложения «Всё дело в еде!».
@@ -924,7 +951,7 @@ ${ingredientsDescription}
         insights: llmData?.insights || {
           strengths: { title: "Сильные стороны блюда", text: "Блюдо на основе цельных растительных ингредиентов." },
           improvements: { title: "Что можно улучшить", text: "Добавьте больше зелени и семян для баланса нутриентов." },
-          compliance: { title: "Соответствие растительному рациону", text: forbiddenFound.length > 0 ? "Обнаружены несоответствия WFPB." : "Блюдо соответствует WFPB-рациону." }
+          compliance: { title: "Соответствие растительному рациону", text: forbiddenLines.length > 0 ? "Обнаружены несоответствия WFPB." : "Блюдо соответствует WFPB-рациону." }
         },
       };
 
@@ -1003,10 +1030,32 @@ Only valid JSON, no markdown.`,
         resultData = retryResult.data;
       }
 
-      // Post-validation: force "error" status for any ingredient matching forbidden patterns
+      // Post-validation: force "error" status for any ingredient matching forbidden patterns.
+      // Авторитетный статус из БД (точное совпадение по nameRu/nameEn) безусловно
+      // перебивает текстовые эвристики.
       if (resultData?.ingredients && Array.isArray(resultData.ingredients)) {
         for (const ing of resultData.ingredients) {
-          const nameToCheck = ing.shortName || ing.fullName || "";
+          const nameToCheck = (ing.shortName || ing.fullName || "").toLowerCase().trim();
+
+          const dbItem = nameToCheck
+            ? await prisma.foodItem.findFirst({
+                where: {
+                  OR: [
+                    { nameRu: { equals: nameToCheck, mode: "insensitive" } },
+                    { nameEn: { equals: nameToCheck, mode: "insensitive" } },
+                  ],
+                },
+              })
+            : null;
+
+          if (dbItem) {
+            if (dbItem.wfpbStatus === "forbidden") {
+              ing.status = "error";
+              ing.reason = "Ингредиент не соответствует WFPB (по базе продуктов).";
+            }
+            continue;
+          }
+
           const forbiddenMatches = findForbiddenInText(nameToCheck);
           if (forbiddenMatches.length > 0) {
             ing.status = "error";

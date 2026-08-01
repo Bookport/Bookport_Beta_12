@@ -19,6 +19,7 @@ import CalendarButton from "./CalendarButton";
 import { resolveAvatar } from "../utils/annaAvatarResolver";
 import { getIngredientImage } from "../utils/ingredientMapper";
 import { checkWFPB } from "../utils/wfpbRules";
+import { matchDBStatus } from "../utils/wfpbMatch";
 import { useAppStore } from "../store/useAppStore";
 import { clientLogger } from "../utils/clientLogger";
 
@@ -318,10 +319,6 @@ Object.keys(INGREDIENTS_DATABASE).forEach(category => {
 });
 
 // Checks if the typed or chosen name complies with strict WFPB salt-free, oil-free guidelines
-const checkIsCompliant = (name: string): boolean => {
-  return checkWFPB(name).compliant;
-};
-
 export default function CheckCompositionScreen({
   initialIngredients = [],
   onAnalyzeComplete,
@@ -336,6 +333,22 @@ export default function CheckCompositionScreen({
   const dayNotes = propsDayNotes || {};
   const screen = propsScreen || useAppStore((s) => s.screen);
   const onOpenCalendar = propsOnOpenCalendar || (() => {});
+  // Base of products for authoritative wfpbStatus lookup
+  const foodCache = useAppStore((s) => s.foodCache);
+  const foodCacheLoading = useAppStore((s) => s.foodCacheLoading);
+  const fetchFoodCache = useAppStore((s) => s.fetchFoodCache);
+
+  useEffect(() => {
+    if (foodCache.length === 0 && !foodCacheLoading) fetchFoodCache();
+  }, []);
+
+  // Checks compliance: DB wfpbStatus (exact nameRu match) is authoritative,
+  // text heuristics apply only when the product is not in the base.
+  const checkIsCompliant = (name: string): boolean => {
+    const dbStatus = matchDBStatus(name, foodCache);
+    if (dbStatus) return dbStatus !== "forbidden";
+    return checkWFPB(name).compliant;
+  };
   // Start with a premium AI computer vision loading state
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(true);
   
