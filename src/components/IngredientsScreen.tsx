@@ -193,7 +193,7 @@ export default function IngredientsScreen({
       fullName: weightModalItem.fullName,
       shortName: weightModalItem.shortName,
       weight: weightValue,
-      image: getIngredientImage(weightModalItem.shortName) || getIngredientImage(weightModalItem.fullName) || '',
+      image: getIngredientImage(weightModalItem.shortName) || getIngredientImage(weightModalItem.fullName) || (disallowedCheck.disallowed ? ingrRed : ingrGreen),
       status: disallowedCheck.disallowed ? "error" : "green",
       isCustom: weightModalItem.isCustom
     };
@@ -336,7 +336,7 @@ export default function IngredientsScreen({
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 shrink-0 flex items-center justify-center">
                         <img 
-                          src={ing.image} 
+                          src={ing.image || (ing.status === "error" ? ingrRed : ingrGreen)} 
                           alt={ing.shortName} 
                           referrerPolicy="no-referrer"
                           className="w-full h-full object-contain"

@@ -537,7 +537,7 @@ export default function CheckCompositionScreen({
         id: `custom-${Date.now()}`,
         fullName: editedFullName,
         shortName: trimmedName,
-        image: editedImage || "https://images.unsplash.com/photo-1547058886-f6d8174f85e4?auto=format&fit=crop&q=80&w=150",
+        image: editedImage || (isCompliant ? ingrGreen : ingrRed),
         weight: editedWeight,
         status: isCompliant ? "green" : "error"
       };
@@ -957,7 +957,7 @@ export default function CheckCompositionScreen({
                     <div className="flex items-center gap-2.5 overflow-hidden pr-2">
                       <div className="w-5 h-5 shrink-0 flex items-center justify-center">
                         <img 
-                          src={getIngredientImage(editedShortName || editedFullName) || ''} 
+                          src={getIngredientImage(editedShortName || editedFullName) || ingrGreen} 
                           alt="selected" 
                           referrerPolicy="no-referrer"
                           className="w-full h-full object-contain" 
@@ -1011,7 +1011,7 @@ export default function CheckCompositionScreen({
                         >
                           <div className="w-6 h-6 shrink-0 flex items-center justify-center">
                             <img 
-                              src={getIngredientImage(opt.shortName || opt.fullName) || ''} 
+                              src={getIngredientImage(opt.shortName || opt.fullName) || ingrGreen} 
                               alt={opt.shortName} 
                               referrerPolicy="no-referrer"
                               className="w-full h-full object-contain" 
