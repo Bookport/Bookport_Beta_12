@@ -170,7 +170,8 @@ export function simulateLocalUSDAPlan(ingredients: any[]): MealAnalysisResult {
   });
 
   ingredients.forEach(ing => {
-    const w = ing.weight || 100;
+    const parsedW = parseFloat(String(ing.weight).replace(/[^\d.,]/g, '').replace(',', '.'));
+    const w = isNaN(parsedW) ? 100 : parsedW;
     const factor = w / 100;
     const nameLower = (ing.fullName || ing.shortName || "").toLowerCase();
 

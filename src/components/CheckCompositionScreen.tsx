@@ -366,7 +366,16 @@ export default function CheckCompositionScreen({
   
   const [cards, setCards] = useState<IngredientCard[]>(() => {
     if (initialIngredients && initialIngredients.length > 0) {
-      return initialIngredients;
+      // Принудительно прогоняем сырые данные Qwen через локальный чекер WFPB,
+      // чтобы жестко снять ошибочные статусы "error" с чистых продуктов (напр., специй).
+      return initialIngredients.map(ing => {
+        const nameToTest = (ing.fullName || ing.shortName || "").trim();
+        const compliant = checkIsCompliant(nameToTest);
+        return {
+          ...ing,
+          status: compliant && ing.status === "error" ? "green" : ing.status
+        };
+      });
     }
     return INITIAL_CARDS;
   });

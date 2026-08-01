@@ -140,7 +140,8 @@ function getUsdaFallbackData(ingredients: any[]) {
   let hasProhibited = false;
 
   ingredients.forEach(ing => {
-    const w = ing.weight || 100;
+    const parsedW = parseFloat(String(ing.weight).replace(/[^\d.,]/g, '').replace(',', '.'));
+    const w = isNaN(parsedW) ? 100 : parsedW;
     const factor = w / 100;
     const nameLower = (ing.fullName || ing.shortName || "").toLowerCase();
 
@@ -354,7 +355,10 @@ async function computeNutrientsFromDB(
   }
 
   // 2) Кандидатные формы (без модификаторов/усечение), только если ключ свободен.
-  for (const item of items) {
+  // Сортируем по длине имени (короткие первыми), чтобы у базовых ингредиентов
+  // был приоритет на захват кандидатных ключей (напр. "хлеб" захватит "хлеб" раньше, чем "хлеб с отрубями").
+  const sortedItems = [...items].sort((a, b) => a.nameRu.length - b.nameRu.length);
+  for (const item of sortedItems) {
     for (const c of candidateKeys(item.nameRu)) {
       if (c && !dbKeys.has(c)) {
         dbKeys.add(c);
@@ -381,7 +385,8 @@ async function computeNutrientsFromDB(
     const nameToLookup = (ing.fullName || ing.shortName || "").trim();
     if (!nameToLookup) continue;
 
-    const weight = Number(ing.weight) || 100;
+    const parsedWeight = parseFloat(String(ing.weight).replace(/[^\d.,]/g, '').replace(',', '.'));
+    const weight = isNaN(parsedWeight) ? 100 : parsedWeight;
     const factor = weight / 100;
 
     const foodItem = resolveItem(nameToLookup, ing.dbKey, ing.fdcId);
