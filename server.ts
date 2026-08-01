@@ -330,7 +330,8 @@ async function computeNutrientsFromDB(
   NUTRIENT_FIELDS.forEach(f => (total[f] = 0));
 
   const payloadToLog = ingredients.map(i => ({
-    name: i.fullName || i.shortName,
+    fullName: i.fullName,
+    shortName: i.shortName,
     weight: i.weight,
     dbKey: i.dbKey
   }));
@@ -397,20 +398,23 @@ async function computeNutrientsFromDB(
   };
 
   for (const ing of ingredients) {
-    const nameToLookup = (ing.fullName || ing.shortName || "").trim();
-    if (!nameToLookup) continue;
+    const rawShort = (ing.shortName || "").trim();
+    const rawFull = (ing.fullName || "").trim();
+    if (!rawShort && !rawFull) continue;
 
     const parsedWeight = parseFloat(String(ing.weight).replace(/[^\d.,]/g, '').replace(',', '.'));
     const weight = isNaN(parsedWeight) ? 100 : parsedWeight;
     const factor = weight / 100;
 
-    const foodItem = resolveItem(nameToLookup, ing.dbKey, ing.fdcId);
+    let foodItem = null;
+    if (rawShort) foodItem = resolveItem(rawShort, ing.dbKey, ing.fdcId);
+    if (!foodItem && rawFull) foodItem = resolveItem(rawFull, ing.dbKey, ing.fdcId);
 
     if (!foodItem) {
-      console.log(`[PIPELINE TRACE 2.1] Nutrition lookup MISS for "${nameToLookup}"${ing.dbKey ? ` (dbKey="${ing.dbKey}")` : ""}${ing.fdcId != null ? ` (fdcId=${ing.fdcId})` : ""}`);
+      console.log(`[PIPELINE TRACE 2.1] Nutrition lookup MISS for "${rawShort || rawFull}"${ing.dbKey ? ` (dbKey="${ing.dbKey}")` : ""}${ing.fdcId != null ? ` (fdcId=${ing.fdcId})` : ""}`);
       continue;
     }
-    console.log(`[PIPELINE TRACE 2.1] Nutrition lookup HIT "${nameToLookup}"${ing.dbKey ? ` (dbKey="${ing.dbKey}")` : ""}${ing.fdcId != null ? ` (fdcId=${ing.fdcId})` : ""} -> "${foodItem.nameRu}" (fdcId=${foodItem.fdcId}) weight=${weight}g`);
+    console.log(`[PIPELINE TRACE 2.1] Nutrition lookup HIT "${rawShort || rawFull}"${ing.dbKey ? ` (dbKey="${ing.dbKey}")` : ""}${ing.fdcId != null ? ` (fdcId=${ing.fdcId})` : ""} -> "${foodItem.nameRu}" (fdcId=${foodItem.fdcId}) weight=${weight}g`);
 
     for (const field of NUTRIENT_FIELDS) {
       const val = (foodItem as any)[field];

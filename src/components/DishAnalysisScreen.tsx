@@ -349,7 +349,7 @@ export default function DishAnalysisScreen({
       const parsedW = parseFloat(String(ing.weight).replace(/[^\d.,]/g, '').replace(',', '.'));
       const w = isNaN(parsedW) ? 100 : parsedW;
       const factor = w / 100;
-      const nameLower = ing.fullName.toLowerCase();
+      const nameLower = (ing.shortName || ing.fullName || "").toLowerCase();
 
       if (!checkWFPB(ing.fullName || ing.shortName || "").compliant) {
         hasNonCompliant = true;

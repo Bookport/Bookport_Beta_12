@@ -627,7 +627,7 @@ export default function CheckCompositionScreen({
     showToast("Анализ состава успешно проверен! Переходим к разбору... 🌿");
     setTimeout(() => {
       const enriched = cards.map(c => {
-        const dbKey = resolveAgainstIndex(c.fullName || c.shortName, dbKeyIndex);
+        const dbKey = resolveAgainstIndex(c.shortName || "", dbKeyIndex) || resolveAgainstIndex(c.fullName || "", dbKeyIndex);
         const hit = dbKey ? foodCache.find(i => normalize(i.nameRu) === dbKey) : undefined;
         return {
           ...c,
