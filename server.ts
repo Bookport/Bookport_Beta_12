@@ -5,6 +5,7 @@ import crypto from "crypto";
 import { Type } from "@google/genai";
 import dotenv from "dotenv";
 import { findForbiddenInText } from "./src/data/wfpb_forbidden_ingredients";
+import { normalize, candidateKeys, resolveAgainstIndex } from "./src/utils/ingredientMappingCore";
 import { analyzeFoodImage, transcribeAudio, generateAnnaAudio } from "./src/services/dashscopeAdapter";
 import { ANNA_REACTION_MATRIX } from "./src/prompts/annaReactionMatrix";
 import { callLLM } from "./src/services/llmAdapter";
@@ -322,28 +323,74 @@ function isEmptyNutrientObj(obj: Record<string, number>): boolean {
 }
 
 async function computeNutrientsFromDB(
-  ingredients: { fullName?: string; shortName?: string; weight?: number }[]
+  ingredients: { fullName?: string; shortName?: string; weight?: number; dbKey?: string; fdcId?: number }[]
 ): Promise<Record<string, number>> {
   const total: Record<string, number> = {};
   NUTRIENT_FIELDS.forEach(f => (total[f] = 0));
 
+  const items = await prisma.foodItem.findMany();
+
+  // Кэш БД в нотации ingredientMappingCore (normalize/candidateKeys) — те же
+  // правила нечёткого поиска, что и на фронтенде (картинки, статусы).
+  const dbByKey = new Map<string, (typeof items)[number]>();
+  const dbKeys = new Set<string>();
+  const fdcById = new Map<number, (typeof items)[number]>();
+
+  // 1) Канонические ключи (nameRu/nameEn) — приоритет точных имён.
+  for (const item of items) {
+    const canonical = normalize(item.nameRu);
+    if (canonical && !dbKeys.has(canonical)) {
+      dbKeys.add(canonical);
+      dbByKey.set(canonical, item);
+    }
+    if (item.nameEn) {
+      const en = normalize(item.nameEn);
+      if (en && !dbKeys.has(en)) {
+        dbKeys.add(en);
+        dbByKey.set(en, item);
+      }
+    }
+    if (item.fdcId != null) fdcById.set(item.fdcId, item);
+  }
+
+  // 2) Кандидатные формы (без модификаторов/усечение), только если ключ свободен.
+  for (const item of items) {
+    for (const c of candidateKeys(item.nameRu)) {
+      if (c && !dbKeys.has(c)) {
+        dbKeys.add(c);
+        dbByKey.set(c, item);
+      }
+    }
+  }
+
+  // Приоритет: точный dbKey/fdcId от фронтенда → нечёткий маппер по строке Qwen.
+  const resolveItem = (rawName: string, dbKey?: string, fdcId?: number) => {
+    if (dbKey) {
+      const exact = dbByKey.get(normalize(dbKey));
+      if (exact) return exact;
+    }
+    if (fdcId != null) {
+      const byFdc = fdcById.get(fdcId);
+      if (byFdc) return byFdc;
+    }
+    const key = resolveAgainstIndex(rawName, dbKeys);
+    return key ? dbByKey.get(key) || null : null;
+  };
+
   for (const ing of ingredients) {
-    const nameToLookup = (ing.fullName || ing.shortName || "").toLowerCase().trim();
+    const nameToLookup = (ing.fullName || ing.shortName || "").trim();
     if (!nameToLookup) continue;
 
-    const weight = ing.weight || 100;
+    const weight = Number(ing.weight) || 100;
     const factor = weight / 100;
 
-    const foodItem = await prisma.foodItem.findFirst({
-      where: {
-        OR: [
-          { nameRu: { equals: nameToLookup, mode: "insensitive" } },
-          { nameEn: { equals: nameToLookup, mode: "insensitive" } },
-        ],
-      },
-    });
+    const foodItem = resolveItem(nameToLookup, ing.dbKey, ing.fdcId);
 
-    if (!foodItem) continue;
+    if (!foodItem) {
+      console.log(`[PIPELINE TRACE 2.1] Nutrition lookup MISS for "${nameToLookup}"${ing.dbKey ? ` (dbKey="${ing.dbKey}")` : ""}${ing.fdcId != null ? ` (fdcId=${ing.fdcId})` : ""}`);
+      continue;
+    }
+    console.log(`[PIPELINE TRACE 2.1] Nutrition lookup HIT "${nameToLookup}"${ing.dbKey ? ` (dbKey="${ing.dbKey}")` : ""}${ing.fdcId != null ? ` (fdcId=${ing.fdcId})` : ""} -> "${foodItem.nameRu}" (fdcId=${foodItem.fdcId}) weight=${weight}g`);
 
     for (const field of NUTRIENT_FIELDS) {
       const val = (foodItem as any)[field];

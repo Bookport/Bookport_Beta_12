@@ -18,6 +18,7 @@ import BottomBar from "./BottomBar";
 import CalendarButton from "./CalendarButton";
 import { resolveAvatar } from "../utils/annaAvatarResolver";
 import { getIngredientImage } from "../utils/ingredientMapper";
+import { normalize, resolveAgainstIndex } from "../utils/ingredientMappingCore";
 import ingrGreen from "../assets/ingredients/ingr_green.webp";
 import ingrRed from "../assets/ingredients/ingr_red.webp";
 import { checkWFPB } from "../utils/wfpbRules";
@@ -53,6 +54,8 @@ interface IngredientCard {
   weight?: number; // undefined means not yet confirmed with a specified weight
   status: "green" | "error" | "blue"; // strictly green or red, blue is for non-food warning!
   manuallyAllowed?: boolean;
+  dbKey?: string; // resolved normalized DB nameRu key (from ingredientMappingCore)
+  fdcId?: number;
 }
 
 
@@ -344,6 +347,13 @@ export default function CheckCompositionScreen({
     if (foodCache.length === 0 && !foodCacheLoading) fetchFoodCache();
   }, []);
 
+  // Индекс канонических ключей БД (нормализованные nameRu) — для резолва dbKey
+  // теми же правилами нечёткого маппинга, что и картинки/статусы.
+  const dbKeyIndex = React.useMemo(
+    () => new Set(foodCache.map(i => normalize(i.nameRu))),
+    [foodCache]
+  );
+
   // Checks compliance: DB wfpbStatus (exact nameRu match) is authoritative,
   // text heuristics apply only when the product is not in the base.
   const checkIsCompliant = (name: string): boolean => {
@@ -607,7 +617,16 @@ export default function CheckCompositionScreen({
 
     showToast("Анализ состава успешно проверен! Переходим к разбору... 🌿");
     setTimeout(() => {
-      onAnalyzeComplete(cards);
+      const enriched = cards.map(c => {
+        const dbKey = resolveAgainstIndex(c.fullName || c.shortName, dbKeyIndex);
+        const hit = dbKey ? foodCache.find(i => normalize(i.nameRu) === dbKey) : undefined;
+        return {
+          ...c,
+          dbKey: dbKey || undefined,
+          fdcId: hit?.fdcId ?? undefined,
+        };
+      });
+      onAnalyzeComplete(enriched);
     }, 1200);
   };
 

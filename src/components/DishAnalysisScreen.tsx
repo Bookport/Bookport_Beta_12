@@ -36,6 +36,8 @@ interface IngredientCard {
   weight?: number;
   status: "green" | "error";
   manuallyAllowed?: boolean;
+  dbKey?: string;
+  fdcId?: number;
 }
 
 interface DishAnalysisScreenProps {
@@ -282,6 +284,8 @@ export default function DishAnalysisScreen({
             fullName: ing.fullName,
             shortName: ing.shortName,
             weight: ing.weight || 100,
+            dbKey: ing.dbKey,
+            fdcId: ing.fdcId,
           }))
         );
 
