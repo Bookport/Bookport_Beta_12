@@ -26,7 +26,7 @@ export interface SystemKeyDefinition {
 }
 
 export const SYSTEM_KEY_DEFS: SystemKeyDefinition[] = [
-  { id: "legumes", num: 1, name: "Бобовые", emoji: "🫘", category: "product", optimum: 2, maxCircles: 2, hasSuperlevel: true, portionSizeInGrams: 50 },
+  { id: "legumes", num: 1, name: "Бобовые", emoji: "🫛", category: "product", optimum: 2, maxCircles: 2, hasSuperlevel: true, portionSizeInGrams: 50 },
   { id: "whole_grains", num: 2, name: "Цельные злаки", emoji: "🌾", category: "product", optimum: 2, maxCircles: 2, hasSuperlevel: false, portionSizeInGrams: 40 },
   { id: "vegetables", num: 3, name: "Овощи", emoji: "🥕", category: "product", optimum: 4, maxCircles: 4, hasSuperlevel: true, portionSizeInGrams: 80 },
   { id: "leafy_greens", num: 4, name: "Листовые овощи и зелень", emoji: "🌿", category: "product", optimum: 5, maxCircles: 5, hasSuperlevel: true, portionSizeInGrams: 40 },
@@ -39,7 +39,7 @@ export const SYSTEM_KEY_DEFS: SystemKeyDefinition[] = [
   { id: "sprouts", num: 11, name: "Проростки", emoji: "🌱", category: "product", optimum: 1, maxCircles: 1, hasSuperlevel: true, portionSizeInGrams: 30 },
   { id: "must_have", num: 12, name: "MUST HAVE (ферментированные продукты)", emoji: "🧄", category: "product", optimum: 1, maxCircles: 1, hasSuperlevel: false, portionSizeInGrams: 50 },
   { id: "healthy_drinks", num: 13, name: "Полезные напитки", emoji: "🍵", category: "product", optimum: 3, maxCircles: 3, hasSuperlevel: false, portionSizeInGrams: 200 },
-  { id: "compliment", num: 14, name: "Комплимент дня", emoji: "💬", category: "action", optimum: 1, maxCircles: 1, portionSizeInGrams: 1 },
+  { id: "compliment", num: 14, name: "Комплимент дня", emoji: "🍲", category: "action", optimum: 1, maxCircles: 1, portionSizeInGrams: 1 },
   { id: "recipe", num: 15, name: "Рецепт дня", emoji: "🍳", category: "action", optimum: 1, maxCircles: 1, portionSizeInGrams: 1 },
   { id: "soaking", num: 16, name: "Замачивание ингредиентов", emoji: "💧", category: "action", optimum: 1, maxCircles: 1, portionSizeInGrams: 1 },
   { id: "no_oil_cook", num: 17, name: "Готовка без масла", emoji: "🍲", category: "action", optimum: 1, maxCircles: 1, portionSizeInGrams: 1 },
