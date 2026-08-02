@@ -366,16 +366,18 @@ export default function RecipesScreen({
                 {selectedDish.image ? (
                   <img src={selectedDish.image} alt={selectedDish.name} className="w-full h-full object-cover" />
                 ) : (
-                  <IngredientCollage ingredients={selectedDish.ingredients} containerHeight="h-48" />
+                  <div className="absolute inset-0 z-0">
+                    <IngredientCollage ingredients={selectedDish.ingredients} containerHeight="h-48" />
+                  </div>
                 )}
                 <button
                   onClick={() => setSelectedDishId(null)}
-                  className="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/30 backdrop-blur-sm flex items-center justify-center text-white hover:bg-black/50 transition-colors cursor-pointer"
+                  className="absolute top-3 right-3 w-8 h-8 z-50 rounded-full bg-black/30 backdrop-blur-sm flex items-center justify-center text-white hover:bg-black/50 transition-colors cursor-pointer"
                 >
                   <X className="w-4 h-4" />
                 </button>
-                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/50 to-transparent p-4 pt-8 relative z-10">
-                  <h2 className="text-xl font-extrabold text-white">{selectedDish.name}</h2>
+                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/50 to-transparent p-4 pt-8 relative z-30">
+                  <h2 className="text-xl font-extrabold text-white drop-shadow-lg">{selectedDish.name}</h2>
                 </div>
               </div>
 
