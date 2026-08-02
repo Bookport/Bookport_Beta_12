@@ -256,6 +256,10 @@ export class SystemKeysStore {
     // 3. Extract mapped ingredients auto weights
     const autoGramsMap = this.mapIngredientsToAutoGrams(dailyData.aggregatedIngredients);
 
+  // Manual-only keys: "sprouts" (Проростки) and "must_have" (ферментированные продукты)
+  // must NEVER be auto-filled by cooked recipes or auto-detected ingredients.
+  const manualOnlyKeys = new Set(["sprouts", "must_have"]);
+
     // Overwrite water progress with direct water log state if higher
     if (waterAmountMl > 0) {
       autoGramsMap["healthy_drinks"] = Math.max(autoGramsMap["healthy_drinks"] || 0, waterAmountMl);
@@ -297,6 +301,10 @@ export class SystemKeysStore {
 
       if (def.category === "product") {
         autoGrams = autoGramsMap[def.id] || 0;
+        // Block ANY automatic contribution for manual-only keys (sprouts / must_have)
+        if (manualOnlyKeys.has(def.id)) {
+          autoGrams = 0;
+        }
         manualGrams = manualInputs[def.id]?.manualGrams || 0;
       } else {
         checked = manualInputs[def.id]?.checked || false;

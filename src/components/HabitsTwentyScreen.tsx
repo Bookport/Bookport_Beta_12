@@ -747,8 +747,6 @@ export default function HabitsTwentyScreen({
                       <p className="text-[11.5px] sm:text-[12px] text-slate-400 font-medium leading-normal mt-1 max-w-[220px]">
                         {k.id === "healthy_drinks" && water > 0 && !hasWaterAuto
                           ? `Вода порция: ${water} мл`
-                          : (k.category === "product" && k.totalGrams > 0)
-                          ? `Съедено: ${Math.round(k.totalGrams)} г${k.autoGrams > 0 ? ` (авто ${Math.round(k.autoGrams)} г)` : ""}`
                           : SYSTEM_KEYS.find(sk => sk.id === k.id)?.subtext || ""
                         }
                       </p>
@@ -793,7 +791,6 @@ export default function HabitsTwentyScreen({
                           const circleVal = idx + 1;
                           const checked = currentVal >= circleVal;
                           const isSuper = k.hasSuperlevel && circleVal > k.optimum;
-                          const isFruitButton = k.id === "fruits";
 
                           return (
                             <button
@@ -801,9 +798,7 @@ export default function HabitsTwentyScreen({
                               key={idx}
                               type="button"
                               onClick={() => handleProductPortionClick(k.id, idx, currentVal, k.portionSizeInGrams, k.autoGrams)}
-                              className={`h-8 rounded-full border flex items-center justify-center font-black transition-all duration-200 cursor-pointer ${
-                                isFruitButton ? "px-3.5 text-[11px] whitespace-nowrap min-w-[84px]" : "w-8 text-[13px]"
-                              } ${
+                              className={`h-8 rounded-full border flex items-center justify-center font-black transition-all duration-200 cursor-pointer w-8 text-[13px] ${
                                 checked
                                   ? isSuper
                                     ? "bg-amber-500 border-amber-600 text-white shadow-sm shadow-amber-500/20"
@@ -813,7 +808,7 @@ export default function HabitsTwentyScreen({
                                   : "border-slate-200 text-slate-500 hover:bg-emerald-500/5 hover:border-emerald-500/20 bg-slate-50/30"
                               }`}
                             >
-                              {isSuper ? "★" : isFruitButton ? "120-180 гр" : circleVal}
+                              {isSuper ? "★" : circleVal}
                             </button>
                           );
                         })}
