@@ -374,7 +374,7 @@ export default function RecipesScreen({
                 >
                   <X className="w-4 h-4" />
                 </button>
-                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/50 to-transparent p-4 pt-8">
+                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/50 to-transparent p-4 pt-8 relative z-10">
                   <h2 className="text-xl font-extrabold text-white">{selectedDish.name}</h2>
                 </div>
               </div>
