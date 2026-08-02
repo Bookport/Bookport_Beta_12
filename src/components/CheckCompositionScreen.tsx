@@ -369,10 +369,23 @@ export default function CheckCompositionScreen({
       // Принудительно прогоняем сырые данные Qwen через локальный чекер WFPB,
       // чтобы жестко снять ошибочные статусы "error" с чистых продуктов (напр., специй).
       return initialIngredients.map(ing => {
-        const nameToTest = (ing.fullName || ing.shortName || "").trim();
+        let fullName = ing.fullName || "";
+        let shortName = ing.shortName || "";
+        const w = ing.weight || 100;
+
+        // Эвристика специй
+        if ((fullName.toLowerCase().includes("перец") || shortName.toLowerCase().includes("перец")) && w <= 10) {
+          fullName = "черный перец";
+          shortName = "черный перец";
+        }
+
+        const nameToTest = (fullName || shortName || "").trim();
         const compliant = checkIsCompliant(nameToTest);
+        
         return {
           ...ing,
+          fullName,
+          shortName,
           status: compliant && ing.status === "error" ? "green" : ing.status
         };
       });

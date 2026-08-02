@@ -58,7 +58,7 @@ export const DAILY_VALUES: Record<string, number | null> = {
 };
 
 export function calcOmegaRatio(omega6: number, omega3: number): string {
-  if (!omega3 || omega3 <= 0) return "—";
+  if (!omega3 || omega3 < 0.05) return "—";
   const ratio = omega6 / omega3;
   return `${ratio.toFixed(1)}:1`;
 }
