@@ -523,6 +523,7 @@ export default function App() {
                 fiber: d.fiber || "",
                 fat: d.fat || "",
                 annaTip: d.annaTip || "",
+                annaComment: d.annaComment || "",
                 isBookRecipe: d.isBookRecipe || false,
                 dayIndex: d.dayIndex ?? undefined,
                 bookRecipeRef: d.bookRecipeType ? { type: d.bookRecipeType, id: d.bookRecipeId, technicalName: "", emotionalName: "" } : undefined,
@@ -1497,6 +1498,7 @@ export default function App() {
                       ingredients: mappedIngredients,
                       dayIndex: currentDayIndex,
                       annaTip: annaComment || "",
+                      annaComment: annaComment || "",
                       isNew: true,
                       ...flatNutrients,
                     },
@@ -1516,19 +1518,7 @@ export default function App() {
                     }).catch(() => {});
                   }
 
-                  fetch("/api/anna-comment", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json", "X-Telegram-Init-Data": getTelegramInitData() },
-                    body: JSON.stringify({ dishName, ingredients: mappedIngredients })
-                  })
-                    .then(r => r.json())
-                    .then(data => {
-                      if (data.comment) {
-                        setSavedDishes(prev => prev.map(d => d.id === generatedId ? { ...d, annaTip: data.comment, annaComment: d.annaComment || data.comment } : d));
-                      }
-                    })
-                    .catch(() => {});
-                }}
+                  }}
                 onCancel={() => { setScreen("my-day"); }}
                 currentDayIndex={activeDayIndex}
               />
