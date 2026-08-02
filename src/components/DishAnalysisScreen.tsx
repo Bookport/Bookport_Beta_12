@@ -144,7 +144,7 @@ export default function DishAnalysisScreen({
   const [activeTab, setActiveTab] = useState<TabId>("minerals");
 
   useEffect(() => {
-    if (!ingredients.length) return;
+    if (!ingredients.length || !result?.dishName) return;
     const mapped = ingredients.map((i) => ({
       name: i.shortName || i.fullName,
       weight: i.weight?.toString() || "100",
@@ -157,14 +157,14 @@ export default function DishAnalysisScreen({
         "Content-Type": "application/json",
         "X-Telegram-Init-Data": getTelegramInitData(),
       },
-      body: JSON.stringify({ dishName: "", ingredients: mapped }),
+      body: JSON.stringify({ dishName: result.dishName, ingredients: mapped }),
     })
       .then((r) => r.json())
       .then((data) => {
         if (data.comment) setAiComment(data.comment);
       })
       .catch(() => {});
-  }, [ingredients]);
+  }, [ingredients, result]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
