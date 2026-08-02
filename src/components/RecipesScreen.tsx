@@ -212,8 +212,7 @@ export default function RecipesScreen({
       </div>
 
       {/* Dynamic Tabs */}
-      <div className="px-4 py-2 overflow-x-auto scrollbar-hide">
-        <div className="flex gap-2 pb-1">
+      <div className="px-4 py-2 overflow-x-auto flex flex-nowrap gap-2 pb-2 [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-thumb]:bg-gray-300 [&::-webkit-scrollbar-thumb]:rounded-full">
           {tabs.map((tab) => {
             const isActive = activeTab === tab;
             const col = tab === "Все" ? null : getCategoryColor(tab);
@@ -223,20 +222,14 @@ export default function RecipesScreen({
                 onClick={() => setActiveTab(tab)}
                 className={`shrink-0 px-4 py-1.5 rounded-full text-sm font-semibold transition-all cursor-pointer ${
                   isActive
-                    ? "text-white shadow-md"
+                    ? "bg-gray-200 text-gray-800 shadow-md"
                     : "bg-white text-gray-600 border border-gray-200 hover:border-gray-300"
                 }`}
-                style={
-                  isActive && col
-                    ? { backgroundColor: col.badge, boxShadow: `0 0 14px ${col.shadow}` }
-                    : {}
-                }
               >
                 {tab === "Все" && isActive ? "★ Все" : tab}
               </button>
             );
           })}
-        </div>
       </div>
 
       {/* Dish Grid */}
@@ -285,7 +278,7 @@ export default function RecipesScreen({
                 >
                   {dish.isNew && (
                     <div className="absolute -top-1.5 -right-1.5 z-10 bg-amber-500 text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-sm">
-                      NEW
+                      НОВОЕ
                     </div>
                   )}
                   <div className="w-full h-28 rounded-[14px] bg-gray-100 overflow-hidden relative">
