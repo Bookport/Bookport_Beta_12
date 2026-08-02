@@ -1501,8 +1501,11 @@ export default function App() {
                       annaComment: annaComment || "",
                       isNew: true,
                       ...flatNutrients,
+                      protein: flatNutrients?.protein != null ? `${flatNutrients.protein} г` : (computedNutrients ? String(computedNutrients.protein) : ""),
+                      fiber: flatNutrients?.fiber != null ? `${flatNutrients.fiber} г` : (computedNutrients ? String(computedNutrients.fiber) : ""),
+                      fat: flatNutrients?.fats != null ? `${flatNutrients.fats} г` : (flatNutrients?.fat != null ? `${flatNutrients.fat} г` : (computedNutrients ? String(computedNutrients.fat) : "")),
                     },
-                  }).catch(() => {});
+                  }).catch((err) => console.error("Failed to save dish to DB:", err));
 
                   // Persist cooking diary entry to DB (fire-and-forget)
                   if (currentDayIndex !== undefined) {
