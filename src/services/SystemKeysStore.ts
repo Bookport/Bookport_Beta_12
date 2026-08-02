@@ -26,7 +26,7 @@ export interface SystemKeyDefinition {
 }
 
 export const SYSTEM_KEY_DEFS: SystemKeyDefinition[] = [
-  { id: "legumes", num: 1, name: "Бобовые", emoji: "🫛", category: "product", optimum: 2, maxCircles: 2, hasSuperlevel: true, portionSizeInGrams: 50 },
+  { id: "legumes", num: 1, name: "Бобовые", emoji: "🥣", category: "product", optimum: 2, maxCircles: 2, hasSuperlevel: true, portionSizeInGrams: 50 },
   { id: "whole_grains", num: 2, name: "Цельные злаки", emoji: "🌾", category: "product", optimum: 2, maxCircles: 2, hasSuperlevel: false, portionSizeInGrams: 40 },
   { id: "vegetables", num: 3, name: "Овощи", emoji: "🥕", category: "product", optimum: 4, maxCircles: 4, hasSuperlevel: true, portionSizeInGrams: 80 },
   { id: "leafy_greens", num: 4, name: "Листовые овощи и зелень", emoji: "🌿", category: "product", optimum: 5, maxCircles: 5, hasSuperlevel: true, portionSizeInGrams: 40 },

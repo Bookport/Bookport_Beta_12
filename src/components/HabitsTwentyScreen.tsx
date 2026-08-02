@@ -49,7 +49,7 @@ const SYSTEM_KEYS: SystemKey[] = [
     id: "legumes",
     num: 1,
     name: "Бобовые",
-    emoji: "🫛",
+    emoji: "🥣",
     category: "product",
     optimum: 2,
     maxCircles: 2,
