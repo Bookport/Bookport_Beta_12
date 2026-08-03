@@ -21,21 +21,53 @@ import { getIngredientImage } from "../utils/ingredientMapper";
 import { normalize, resolveAgainstIndex } from "../utils/ingredientMappingCore";
 import ingrGreen from "../assets/ingredients/ingr_green.webp";
 import ingrRed from "../assets/ingredients/ingr_red.webp";
+import categorySoup from "../assets/categories/category_soup.webp";
+import categorySalad from "../assets/categories/category_salad.webp";
+import categoryMain from "../assets/categories/category_main.webp";
+import categoryDrink from "../assets/categories/category_drink.webp";
+import categorySmoothie from "../assets/categories/category_smoothie.webp";
+import categorySnack from "../assets/categories/category_snack.webp";
+import categorySauce from "../assets/categories/category_sauce.webp";
+import categoryDessert from "../assets/categories/category_dessert.webp";
+import categoryBakery from "../assets/categories/category_bakery.webp";
 import { checkWFPB } from "../utils/wfpbRules";
 import { matchDBStatus } from "../utils/wfpbMatch";
 import { useAppStore } from "../store/useAppStore";
 import { clientLogger } from "../utils/clientLogger";
+import type { MealSource } from "../services/aiLayer";
 
 const annaAvatarSrc = resolveAvatar({ toneGroup: 'reminder_caution', intent: 'caution' }).src;
+
+// 9 dish categories for the "Из того, что есть" module (image left + text right, pastel background)
+interface DishCategoryOption {
+  key: string;
+  image: string;
+  color: string;
+}
+
+const DISH_CATEGORIES: DishCategoryOption[] = [
+  { key: "Первые блюда", image: categorySoup, color: "#FFF0E5" },
+  { key: "Салаты", image: categorySalad, color: "#EBF5EA" },
+  { key: "Вторые блюда", image: categoryMain, color: "#FDF5E6" },
+  { key: "Напитки", image: categoryDrink, color: "#E8F4F8" },
+  { key: "Смузи", image: categorySmoothie, color: "#E2F0E9" },
+  { key: "Закуски", image: categorySnack, color: "#F5EEF8" },
+  { key: "Соусы", image: categorySauce, color: "#FCE4E4" },
+  { key: "Десерты", image: categoryDessert, color: "#F5E6ED" },
+  { key: "Выпечка", image: categoryBakery, color: "#FFF6DB" },
+];
 
 interface CheckCompositionScreenProps {
   onBack?: () => void;
   initialIngredients?: any[];
-  onAnalyzeComplete: (cards: any[]) => void;
+  onAnalyzeComplete: (cards: any[], meta?: { mealSource?: MealSource | null; dishCategory?: string | null }) => void;
   dayNotes?: Record<number, { text: string; time: string }[]>;
   currentDayIndex: number;
   screen?: string;
   onOpenCalendar?: () => void;
+  mealSource?: MealSource | null;
+  dishCategory?: string | null;
+  onDishCategoryChange?: (category: string | null) => void;
 }
 
 // Full ingredient details with short name mappings for cards
@@ -332,6 +364,9 @@ export default function CheckCompositionScreen({
   dayNotes: propsDayNotes,
   screen: propsScreen,
   onOpenCalendar: propsOnOpenCalendar,
+  mealSource,
+  dishCategory,
+  onDishCategoryChange,
 }: CheckCompositionScreenProps) {
   const setScreen = useAppStore((s) => s.setScreen);
   const onBack = propsOnBack || (() => setScreen("what-i-eat"));
@@ -628,6 +663,14 @@ export default function CheckCompositionScreen({
     setIsDropdownOpen(false);
   };
 
+  // Selected dish category (plate grid) for the "Из того, что есть" module
+  const [selectedDishCategory, setSelectedDishCategory] = useState<string | null>(dishCategory || null);
+
+  const handleDishCategorySelect = (category: string) => {
+    setSelectedDishCategory(category);
+    onDishCategoryChange?.(category);
+  };
+
   // Main CTA: Finish checkup & analyze
   const handleRunAnalysis = () => {
     // Audit ingredients before closing
@@ -648,7 +691,7 @@ export default function CheckCompositionScreen({
           fdcId: hit?.fdcId ?? undefined,
         };
       });
-      onAnalyzeComplete(enriched);
+      onAnalyzeComplete(enriched, { mealSource, dishCategory: selectedDishCategory });
     }, 1200);
   };
 
@@ -698,6 +741,9 @@ export default function CheckCompositionScreen({
   }
 
   const isControlPassed = !cards.some(c => c.status === "error");
+
+  // For the "Из того, что есть" module the CTA stays disabled until a category plate is chosen
+  const mainActionDisabled = mealSource === "from-what-is" && !selectedDishCategory;
 
   return (
     <div className="w-full flex flex-col justify-between min-h-[828px] bg-[#FAFBFB] relative" id="check-composition-screen">
@@ -903,6 +949,74 @@ export default function CheckCompositionScreen({
             </div>
           )}
         </div>
+
+        {/* DISH CATEGORY SELECTOR: 3x3 PASTEL PLATES (только для модуля «Из того, что есть») */}
+        {mealSource === "from-what-is" && (
+          <div className="mb-5" id="dish-category-selector">
+            <div className="flex items-center justify-between mb-1 text-left">
+              <h2
+                className="text-[18px] font-black text-[#2B3137]"
+                style={{ fontFamily: '"Calibri", sans-serif' }}
+              >
+                Категория блюда
+              </h2>
+              {selectedDishCategory && (
+                <span
+                  className="text-[10.5px] px-2.5 py-1 rounded-full font-bold uppercase tracking-wider block border bg-[#E8F8EE] text-[#16B551] border-[#D1F7E2]"
+                  style={{ fontFamily: '"Calibri", sans-serif' }}
+                >
+                  {selectedDishCategory}
+                </span>
+              )}
+            </div>
+            <p
+              className="text-[12px] text-[#737C86] font-medium leading-snug mb-2.5 text-left"
+              style={{ fontFamily: '"Calibri", sans-serif' }}
+            >
+              Выберите, к какому типу относится ваше блюдо, чтобы продолжить анализ 🌱
+            </p>
+
+            <div className="grid grid-cols-3 gap-2">
+              {DISH_CATEGORIES.map((cat) => {
+                const isSelected = selectedDishCategory === cat.key;
+                return (
+                  <div
+                    key={cat.key}
+                    onClick={() => handleDishCategorySelect(cat.key)}
+                    className={`relative flex items-center gap-1 rounded-[14px] px-1 py-1 overflow-hidden cursor-pointer select-none transition-all duration-200 active:scale-[0.97] ${
+                      isSelected
+                        ? "ring-2 ring-emerald-500 shadow-[0_4px_12px_rgba(22,181,81,0.18)]"
+                        : "ring-0"
+                    } ${selectedDishCategory && !isSelected ? "opacity-60" : "opacity-100"}`}
+                    style={{ backgroundColor: cat.color }}
+                  >
+                    {isSelected && (
+                      <div className="absolute right-1 top-1/2 -translate-y-1/2 w-[18px] h-[18px] bg-brand-green-pure rounded-full flex items-center justify-center z-10 shadow-sm">
+                        <Check className="w-[10px] h-[10px] text-white stroke-[3]" />
+                      </div>
+                    )}
+
+                    <div className="w-8 h-8 shrink-0 flex items-center justify-center">
+                      <img
+                        src={cat.image}
+                        alt={cat.key}
+                        referrerPolicy="no-referrer"
+                        className="w-full h-full object-contain"
+                      />
+                    </div>
+
+                    <span
+                      className="flex-1 min-w-0 whitespace-nowrap overflow-hidden text-[9.5px] font-extrabold tracking-tight text-[#2B3137] leading-none"
+                      style={{ fontFamily: '"Calibri", sans-serif' }}
+                    >
+                      {cat.key}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* SLIDING GLASS EDIT ACCORDION: ONLY VISIBLE WHEN A CARD IS ACTIVE */}
         <AnimatePresence>
@@ -1287,12 +1401,18 @@ export default function CheckCompositionScreen({
             <button
               type="button"
               onClick={handleRunAnalysis}
-              className="w-full bg-gradient-to-b from-[#10D150] via-[#16B551] to-[#0A8F3B] hover:brightness-[1.03] rounded-[22px] py-4 px-6 font-bold text-white shadow-[0_8px_20px_rgba(22,181,81,0.25),_inset_0_2.5px_4px_rgba(255,255,255,0.45),_0_-2.5px_0_rgba(8,91,36,0.45)_inset] flex items-center justify-center gap-2 relative overflow-hidden transition-all duration-300 hover:scale-[1.02] active:scale-[0.97] text-[17px] cursor-pointer select-none mb-2"
+              disabled={mainActionDisabled}
+              className={`w-full rounded-[22px] py-4 px-6 font-bold flex items-center justify-center gap-2 relative overflow-hidden transition-all duration-300 text-[17px] select-none mb-2 ${
+                mainActionDisabled
+                  ? "bg-gradient-to-b from-[#D8DDE2] via-[#C8CED4] to-[#B9C0C7] text-white/80 cursor-not-allowed shadow-none"
+                  : "bg-gradient-to-b from-[#10D150] via-[#16B551] to-[#0A8F3B] hover:brightness-[1.03] text-white shadow-[0_8px_20px_rgba(22,181,81,0.25),_inset_0_2.5px_4px_rgba(255,255,255,0.45),_0_-2.5px_0_rgba(8,91,36,0.45)_inset] hover:scale-[1.02] active:scale-[0.97] cursor-pointer"
+              }`}
             >
-              {/* Glossy glare highlight on button */}
-              <div className="absolute top-[1.8px] left-5 right-5 h-[28%] rounded-full bg-gradient-to-b from-white/35 to-transparent pointer-events-none" />
-              
-              <Sparkles className="w-[18px] h-[18px] text-white animate-pulse" />
+              {!mainActionDisabled && (
+                <div className="absolute top-[1.8px] left-5 right-5 h-[28%] rounded-full bg-gradient-to-b from-white/35 to-transparent pointer-events-none" />
+              )}
+
+              <Sparkles className={`w-[18px] h-[18px] ${mainActionDisabled ? "" : "animate-pulse"}`} />
               <span style={{ fontFamily: '"Calibri", sans-serif' }}>Сделать анализ</span>
             </button>
           )}

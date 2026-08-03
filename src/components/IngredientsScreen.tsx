@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { 
   ChevronLeft, 
@@ -15,7 +15,6 @@ import {
   PlusCircle,
   HelpCircle,
   Soup,
-  Flame,
   Scale
 } from "lucide-react";
 import { getIngredientImage, normalize, imageMap } from "../utils/ingredientMapper";
@@ -25,6 +24,7 @@ import { INGREDIENT_CATEGORY_MAP } from "../utils/ingredientCategoryMap";
 import { useAppStore, type FoodCacheItem } from "../store/useAppStore";
 import ingrGreen from "../assets/ingredients/ingr_green.webp";
 import ingrRed from "../assets/ingredients/ingr_red.webp";
+import { getDailyQuote } from "../data/dailyQuotes";
 import BottomBar from "./BottomBar";
 
 export interface IngredientsScreenProps {
@@ -105,7 +105,7 @@ export default function IngredientsScreen({
           items.push({ fullName: real.nameRu, shortName: real.nameRu, wfpbStatus: real.wfpbStatus });
         }
       }
-      result[cat] = items;
+      result[cat] = items.sort((a, b) => a.fullName.localeCompare(b.fullName, "ru"));
     }
     return result;
   }, [foodCache]);
@@ -123,7 +123,6 @@ export default function IngredientsScreen({
 
   // Screen States
   const [selectedIngredients, setSelectedIngredients] = useState<SelectedIngredient[]>([]);
-  const [selectedMethod, setSelectedMethod] = useState<string>("варка"); // Default cook method
 
   // Modal controls
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
@@ -134,18 +133,62 @@ export default function IngredientsScreen({
   const [weightModalItem, setWeightModalItem] = useState<{ fullName: string; shortName: string; isCustom?: boolean } | null>(null);
   const [weightValue, setWeightValue] = useState<number>(100);
 
+  // Press-and-hold auto-repeat for the weight stepper buttons (mouse + touch)
+  const weightHoldRef = useRef<{ timeout: ReturnType<typeof setTimeout> | null }>({ timeout: null });
+  const pressActiveRef = useRef(false);
+  const suppressNextClickRef = useRef(false);
+
+  // Recursive timer that scrolls the weight value with growing speed while held
+  const tickWeight = (updater: (prev: number) => number, delay: number) => {
+    setWeightValue(updater);
+    const next = Math.max(35, delay - 15);
+    weightHoldRef.current.timeout = setTimeout(() => tickWeight(updater, next), next);
+  };
+
+  const clearWeightHold = () => {
+    if (weightHoldRef.current.timeout !== null) {
+      clearTimeout(weightHoldRef.current.timeout);
+      weightHoldRef.current.timeout = null;
+    }
+  };
+
+  const handleWeightPress = (updater: (prev: number) => number) => {
+    if (pressActiveRef.current) return; // ignore duplicate press (touch + emulated mouse)
+    pressActiveRef.current = true;
+    suppressNextClickRef.current = false;
+    clearWeightHold();
+    setWeightValue(updater);
+    weightHoldRef.current.timeout = setTimeout(() => {
+      weightHoldRef.current.timeout = null;
+      tickWeight(updater, 120);
+    }, 350);
+  };
+
+  const handleWeightRelease = () => {
+    if (!pressActiveRef.current) return;
+    pressActiveRef.current = false;
+    clearWeightHold();
+    suppressNextClickRef.current = true;
+  };
+
+  const handleWeightClick = (updater: (prev: number) => number) => {
+    if (suppressNextClickRef.current) {
+      suppressNextClickRef.current = false;
+      return;
+    }
+    setWeightValue(updater);
+  };
+
+  // Stop any in-progress hold when the weight modal is closed
+  useEffect(() => {
+    if (!weightModalItem) clearWeightHold();
+  }, [weightModalItem]);
+
   // Warning modal controls for forbidden custom ingredients
   const [pendingWarningItem, setPendingWarningItem] = useState<{ item: SelectedIngredient } | null>(null);
 
-  // Expandable status of category list accordion
+  // Expandable status of category list accordion (all closed by default)
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
-
-  useEffect(() => {
-    const keys = Object.keys(CATEGORIES_DATA);
-    if (keys.length > 0 && Object.keys(expandedCategories).length === 0) {
-      setExpandedCategories({ [keys[0]]: true });
-    }
-  }, [CATEGORIES_DATA]);
 
   const toggleCategory = (catName: string) => {
     setExpandedCategories(prev => ({
@@ -487,42 +530,22 @@ export default function IngredientsScreen({
           })}
         </div>
 
-        {/* ZONE C: PREPARATION METHOD SELECTOR */}
-        <div className="bg-white rounded-[26px] border border-gray-150/40 p-4.5 mb-6 text-left shadow-[0_5px_15px_-4px_rgba(0,0,0,0.01)]" id="preparation-method-section">
-          <span 
-            className="text-[14.5px] font-extrabold text-text-dark tracking-tight flex items-center gap-1.5 mb-3"
+        {/* ZONE C: DAILY MOTIVATIONAL QUOTE */}
+        <div
+          className="bg-[#F4FAF6] rounded-[26px] p-4.5 mb-6 text-left flex items-start gap-3 shadow-[0_5px_15px_-4px_rgba(0,0,0,0.01)]"
+          id="daily-quote-section"
+        >
+          <img
+            src={ingrGreen}
+            alt="Система «Всё дело в еде!»"
+            className="w-11 h-11 shrink-0 object-contain select-none"
+          />
+          <p
+            className="text-[14px] text-text-sec leading-relaxed font-medium"
             style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}
           >
-            <Flame className="w-4.5 h-4.5 text-brand-green-pure shrink-0" />
-            Способ приготовления
-          </span>
-
-          <div className="grid grid-cols-3 gap-2" id="preparation-tabs">
-            {[
-              { id: "варка", label: "Варка", icon: "🍲" },
-              { id: "тушение", label: "Тушение", icon: "🥘" },
-              { id: "жарка без масла", label: "Без масла", icon: "🍳" }
-            ].map(method => (
-              <button
-                type="button"
-                key={method.id}
-                onClick={() => setSelectedMethod(method.id)}
-                className={`py-3 px-1 rounded-[18px] flex flex-col items-center justify-center border text-center transition-all duration-300 cursor-pointer select-none ${
-                  selectedMethod === method.id 
-                    ? "bg-[#E6F4EA]/80 border-brand-green-pure/75 text-brand-green-dark scale-102 shadow-xs" 
-                    : "bg-white border-gray-100 hover:bg-gray-50/40 text-text-sec"
-                }`}
-              >
-                <span className="text-[18px] mb-1 select-none">{method.icon}</span>
-                <span 
-                  className="text-[12.5px] font-extrabold tracking-tight"
-                  style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}
-                >
-                  {method.label}
-                </span>
-              </button>
-            ))}
-          </div>
+            {getDailyQuote()}
+          </p>
         </div>
 
         {/* ZONE D: CONFIRMATION GRAND CALC ACTION BUTTON */}
@@ -647,13 +670,23 @@ export default function IngredientsScreen({
 
                {/* Large beautiful digital view state input weight value */}
                <div className="flex items-center justify-center gap-5 mb-7 select-none animate-scale-up">
-                 <button
-                   type="button"
-                   onClick={() => setWeightValue(prev => Math.max(10, prev - 10))}
-                   className="w-13 h-13 rounded-full bg-gray-50 hover:bg-gray-100 text-text-dark border border-gray-150 flex items-center justify-center shadow-xs active:scale-95 transition-all text-[24px] font-bold cursor-pointer font-sans"
-                 >
-                   -
-                 </button>
+                  <button
+                    type="button"
+                    onClick={() => handleWeightClick(prev => Math.max(10, prev - 10))}
+                    onMouseDown={() => handleWeightPress(prev => Math.max(10, prev - 10))}
+                    onMouseUp={handleWeightRelease}
+                    onMouseLeave={handleWeightRelease}
+                    onTouchStart={(e) => {
+                      e.preventDefault();
+                      handleWeightPress(prev => Math.max(10, prev - 10));
+                    }}
+                    onTouchEnd={handleWeightRelease}
+                    onTouchCancel={handleWeightRelease}
+                    onContextMenu={(e) => e.preventDefault()}
+                    className="w-13 h-13 rounded-full bg-gray-50 hover:bg-gray-100 text-text-dark border border-gray-150 flex items-center justify-center shadow-xs active:scale-95 transition-all text-[24px] font-bold cursor-pointer font-sans select-none touch-none"
+                  >
+                    -
+                  </button>
 
                  <div className="flex flex-col items-center">
                    <div className="flex items-baseline gap-1">
@@ -669,13 +702,23 @@ export default function IngredientsScreen({
                    </span>
                  </div>
 
-                 <button
-                   type="button"
-                   onClick={() => setWeightValue(prev => Math.min(1000, prev + 10))}
-                   className="w-13 h-13 rounded-full bg-gray-50 hover:bg-gray-100 text-text-dark border border-gray-150 flex items-center justify-center shadow-xs active:scale-95 transition-all text-[24px] font-bold cursor-pointer font-sans"
-                 >
-                   +
-                 </button>
+                  <button
+                    type="button"
+                    onClick={() => handleWeightClick(prev => Math.min(1000, prev + 10))}
+                    onMouseDown={() => handleWeightPress(prev => Math.min(1000, prev + 10))}
+                    onMouseUp={handleWeightRelease}
+                    onMouseLeave={handleWeightRelease}
+                    onTouchStart={(e) => {
+                      e.preventDefault();
+                      handleWeightPress(prev => Math.min(1000, prev + 10));
+                    }}
+                    onTouchEnd={handleWeightRelease}
+                    onTouchCancel={handleWeightRelease}
+                    onContextMenu={(e) => e.preventDefault()}
+                    className="w-13 h-13 rounded-full bg-gray-50 hover:bg-gray-100 text-text-dark border border-gray-150 flex items-center justify-center shadow-xs active:scale-95 transition-all text-[24px] font-bold cursor-pointer font-sans select-none touch-none"
+                  >
+                    +
+                  </button>
                </div>
 
                <div className="grid grid-cols-3 gap-2 mb-6">

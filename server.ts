@@ -8,6 +8,7 @@ import { findForbiddenInText } from "./src/data/wfpb_forbidden_ingredients";
 import { normalize, candidateKeys, resolveAgainstIndex } from "./src/utils/ingredientMappingCore";
 import { analyzeFoodImage, transcribeAudio, generateAnnaAudio } from "./src/services/dashscopeAdapter";
 import { ANNA_REACTION_MATRIX } from "./src/prompts/annaReactionMatrix";
+import { DISH_PHILOSOPHY } from "./src/data/dishPhilosophy";
 import { callLLM } from "./src/services/llmAdapter";
 import { PromptCompiler } from "./src/services/promptCompiler";
 import { safeParseJSON } from "./src/utils/safeParseJSON";
@@ -886,7 +887,7 @@ async function startServer() {
   // API endpoint for true nutrient analysis — Edamam API with RU→EN translation proxy
   app.post("/api/analyze-dish", async (req, res) => {
     res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
-    const { ingredients, defaultDishName } = req.body || {};
+    const { ingredients, defaultDishName, mealSource, dishCategory } = req.body || {};
     console.log("[PIPELINE TRACE 1] Raw Input from Client:", JSON.stringify(ingredients?.map((i: any) => ({ name: i.fullName || i.shortName, weight: i.weight }))), "HasImage: false");
     try {
       if (!ingredients || !Array.isArray(ingredients) || ingredients.length === 0) {
@@ -935,7 +936,7 @@ async function startServer() {
         forbiddenWarning = `⚠️ ВНИМАНИЕ: Среди ингредиентов обнаружены продукты, НЕ соответствующие WFPB-стандарту! Предупреди пользователя мягко, но прямо, и дай рекомендации по замене:\n${forbiddenLines.join("\n")}\n\nПожалуйста, отрази это в блоке "compliance" в ответе.\n\n`;
       }
 
-      const promptText = `Ты — Анна, профессиональный нутрициолог для WFPB-приложения «Всё дело в еде!».
+      const basePromptText = `Ты — Анна, профессиональный нутрициолог для WFPB-приложения «Всё дело в еде!».
 
 ${forbiddenWarning}Пользователь подтвердил ингредиенты:
 ${ingredientsDescription}
@@ -949,6 +950,13 @@ ${ingredientsDescription}
 {"dishName": "string", "insights": {"strengths":{"title":"...","text":"..."},"improvements":{"title":"...","text":"..."},"compliance":{"title":"...","text":"..."}}}
 
 Важно: только JSON, без markdown, всё на русском.`;
+
+      // Module-specific naming micro-instruction (only for "Из того, что есть")
+      const moduleNamingInstruction = mealSource === "from-what-is" && dishCategory
+        ? `\n\nДополнительное требование: При генерации названия строго учитывай выбранную категорию блюда: "${dishCategory}". Название должно соответствовать этой категории (например, если категория "Первые блюда", используй слова "суп", "похлебка" и т.д.; если "Смузи" — "смузи"). Не добавляй ингредиенты, которых нет в списке.`
+        : "";
+
+      const promptText = basePromptText + moduleNamingInstruction;
 
       let llmData: any = { dishName: "", insights: null };
       try {
@@ -1014,8 +1022,12 @@ ${ingredientsDescription}
         };
       }
 
+      // Force the first character of the generated dish name to uppercase
+      const rawDishName = String(llmData?.dishName || defaultDishName || "Цельное растительное блюдо");
+      const dishName = rawDishName.charAt(0).toUpperCase() + rawDishName.slice(1);
+
       const resultData = {
-        dishName: llmData?.dishName || defaultDishName || "Цельное растительное блюдо",
+        dishName,
         nutrients,
         micronutrients,
         nutrientsFlat: nutrientsFlatResponse,
@@ -1223,7 +1235,7 @@ Only valid JSON, no markdown.`,
   // API endpoint for Anna's sarcastic dish comment using the reaction matrix
   app.post("/api/anna-comment", async (req, res) => {
     try {
-      const { dishName, ingredients } = req.body;
+      const { dishName, ingredients, mealSource, dishCategory } = req.body;
       const list = Array.isArray(ingredients) ? ingredients : [];
       const forcedList = list.filter((i: any) => i.manuallyAllowed && i.status === "red");
       const normalList = list.filter((i: any) => !(i.manuallyAllowed && i.status === "red"));
@@ -1236,6 +1248,14 @@ Only valid JSON, no markdown.`,
         .map((i: any) => `- ${i.name || i.shortName || i.fullName || "?"} (${i.weight || "?"} г, статус: ${i.status || "?"})`)
         .join("\n");
 
+      // Module-specific hidden philosophy context (only for "Из того, что есть")
+      const philosophyText = mealSource === "from-what-is" && dishCategory
+        ? DISH_PHILOSOPHY[dishCategory] || ""
+        : "";
+      const philosophyInstruction = philosophyText
+        ? `\n\nСкрытый контекст для Анны: Философия и скрытый смысл этого блюда (категория "${dishCategory}"): ${philosophyText} Используй этот контекст как глубинную призму при оценке ингредиентов и написании комментария.`
+        : "";
+
       const prompt = `${ANNA_REACTION_MATRIX}
 
 Analyze this dish:
@@ -1243,7 +1263,7 @@ Dish name: "${dishName || "блюдо"}"
 Ingredients:
 ${ingredientStr || "—"}${forcedStr}
 
-Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian). Use the tone logic based on the number of violations (status: "red" = violation, "yellow" = caution, "green" = clean). Pay special attention to forced ingredients — they indicate the user knowingly ignored WFPB rules.`;
+Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian). Use the tone logic based on the number of violations (status: "red" = violation, "yellow" = caution, "green" = clean). Pay special attention to forced ingredients — they indicate the user knowingly ignored WFPB rules.${philosophyInstruction}`;
 
       const result = await generateContentWithFallback({
         contents: { parts: [{ text: prompt }] },

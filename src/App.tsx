@@ -41,6 +41,7 @@ import {
 } from "./modules/achievements";
 import { achievementEngine } from "./modules/achievements/engine/AchievementEngine";
 import type { AchievementStateSnapshot } from "./modules/achievements";
+import type { MealSource } from "./services/aiLayer";
 import type { MixerConfig } from "./modules/mixer/types/mixer.types";
 import MixerScreen from "./modules/mixer/screens/MixerScreen";
 import ErrorBoundary from "./components/ErrorBoundary";
@@ -421,6 +422,8 @@ export default function App() {
 
   const [customMealIngredients, setCustomMealIngredients] = useState<any[] | null>(null);
   const [currentMealImage, setCurrentMealImage] = useState<string | null>(null);
+  const [mealSource, setMealSource] = useState<MealSource>("scan");
+  const [dishCategory, setDishCategory] = useState<string | null>(null);
 
   const [meals, setMeals] = useState<{ id: string; name: string; checked: boolean }[]>([
     { id: "breakfast", name: "Завтрак (Зелёный смузи)", checked: false },
@@ -1387,6 +1390,8 @@ export default function App() {
                 onVerifyComposition={(ingredients, imgBase64) => {
                   setCustomMealIngredients(ingredients);
                   setCurrentMealImage(imgBase64);
+                  setMealSource("scan");
+                  setDishCategory(null);
                   if (ingredients) setScreen("check-composition");
                 }}
                 currentDayIndex={activeDayIndex}
@@ -1403,11 +1408,16 @@ export default function App() {
             >
               <CheckCompositionScreen 
                 initialIngredients={customMealIngredients}
-                onAnalyzeComplete={(cards) => {
+                onAnalyzeComplete={(cards, meta) => {
                   setCustomMealIngredients(cards);
+                  if (meta?.mealSource) setMealSource(meta.mealSource);
+                  if (meta?.dishCategory !== undefined) setDishCategory(meta.dishCategory);
                   setScreen("dish-analysis");
                 }}
                 currentDayIndex={activeDayIndex}
+                mealSource={mealSource}
+                dishCategory={dishCategory}
+                onDishCategoryChange={setDishCategory}
               />
             </motion.div>
           ) : screen === "dish-analysis" ? (
@@ -1524,6 +1534,8 @@ export default function App() {
                   }}
                 onCancel={() => { setScreen("my-day"); }}
                 currentDayIndex={activeDayIndex}
+                mealSource={mealSource}
+                dishCategory={dishCategory}
               />
             </motion.div>
           ) : screen === "my-dishes" ? (
@@ -1555,6 +1567,8 @@ export default function App() {
                 onConfirmRecipe={(ingredients) => {
                   setCustomMealIngredients(ingredients);
                   setCurrentMealImage(null);
+                  setMealSource("from-what-is");
+                  setDishCategory(null);
                   setScreen("check-composition");
                 }}
               />

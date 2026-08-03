@@ -24,6 +24,13 @@ export interface AnnaTextResponse {
   tone: string;
 }
 
+export type MealSource = "scan" | "from-what-is";
+
+export interface MealAnalysisMeta {
+  mealSource?: MealSource;
+  dishCategory?: string | null;
+}
+
 export interface AnnaVoiceResponse {
   audioUrl?: string;
   voiceName: string;
@@ -412,15 +419,16 @@ export const AnnaVoiceProvider = {
  * DIETETIC & NUTRITIONAL PROFILE COMPOSER ROLE
  */
 export const MealAnalysisProvider = {
-  async aggregateNutrients(ingredients: any[]): Promise<MealAnalysisResult> {
+  async aggregateNutrients(ingredients: any[], meta?: MealAnalysisMeta): Promise<MealAnalysisResult> {
     const isServerMode = AISystemConfig.currentProvider === "server";
+    const body = JSON.stringify({ ingredients, ...meta });
     
     if (isServerMode) {
       try {
         const resp = await fetch("/api/analyze-dish", {
           method: "POST",
           headers: { "Content-Type": "application/json", "X-Telegram-Init-Data": getTelegramInitData() },
-          body: JSON.stringify({ ingredients })
+          body
         });
         if (resp.ok) {
           const data = await resp.json();
@@ -436,7 +444,7 @@ export const MealAnalysisProvider = {
       const resp = await fetch("/api/analyze-dish", {
         method: "POST",
         headers: { "Content-Type": "application/json", "X-Telegram-Init-Data": getTelegramInitData() },
-        body: JSON.stringify({ ingredients })
+        body
       });
       if (resp.ok) {
         const data = await resp.json();

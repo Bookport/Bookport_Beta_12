@@ -13,7 +13,7 @@ import CalendarButton from "./CalendarButton";
 import BriefNoteBlock from "./BriefNoteBlock";
 import IngredientCollage from "./IngredientCollage";
 import NutrientCard from "./NutrientCard";
-import { MealAnalysisProvider } from "../services/aiLayer";
+import { MealAnalysisProvider, type MealSource } from "../services/aiLayer";
 import { resolveAvatarForCompliance, resolveAvatar } from "../utils/annaAvatarResolver";
 import { checkWFPB } from "../utils/wfpbRules";
 import { useAppStore } from "../store/useAppStore";
@@ -50,6 +50,8 @@ interface DishAnalysisScreenProps {
   onOpenCalendar?: () => void;
   onConfirm: (dishName: string, computedNutrients: any, annaComment: string, flatNutrients?: Record<string, number>) => void;
   onCancel?: () => void;
+  mealSource?: MealSource | null;
+  dishCategory?: string | null;
 }
 
 interface MetricValue {
@@ -125,6 +127,8 @@ export default function DishAnalysisScreen({
   screen: propsScreen,
   onOpenCalendar: propsOnOpenCalendar,
   onCancel: propsOnCancel,
+  mealSource,
+  dishCategory,
 }: DishAnalysisScreenProps) {
   const setScreen = useAppStore((s) => s.setScreen);
   const onBack = propsOnBack || (() => setScreen("check-composition"));
@@ -157,7 +161,7 @@ export default function DishAnalysisScreen({
         "Content-Type": "application/json",
         "X-Telegram-Init-Data": getTelegramInitData(),
       },
-      body: JSON.stringify({ dishName: result.dishName, ingredients: mapped }),
+      body: JSON.stringify({ dishName: result.dishName, ingredients: mapped, mealSource, dishCategory }),
     })
       .then((r) => r.json())
       .then((data) => {
@@ -286,7 +290,8 @@ export default function DishAnalysisScreen({
             weight: ing.weight || 100,
             dbKey: ing.dbKey,
             fdcId: ing.fdcId,
-          }))
+          })),
+          { mealSource, dishCategory }
         );
 
         const elapsed = Date.now() - startTime;
