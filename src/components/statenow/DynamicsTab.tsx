@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { MOVEMENT_DAILY_TARGET_MIN } from "../../constants/movement";
 import { 
   Check, 
   ArrowRight, 
@@ -113,8 +114,8 @@ export default function DynamicsTab({
   const [selectedKeyId, setSelectedKeyId] = useState<string>("legumes");
   const [keysTrigger, setKeysTrigger] = useState<number>(0);
   
-  // Interactive simulator states
-  const [movementDone, setMovementDone] = useState<boolean>(habitsDone > 1);
+  const activityMinutes = Math.round((activityLogs || []).reduce((acc: number, log: any) => acc + (log.durationSeconds || 0), 0) / 60);
+  const movementDone = activityMinutes >= MOVEMENT_DAILY_TARGET_MIN;
 
   // Load and calculate 20 system keys in real-time
   useEffect(() => {
@@ -296,8 +297,7 @@ export default function DynamicsTab({
       interpretationText: "Сокращение икроножных мышц работает как второе сердце, облегчая возврат венозной крови и снижая нагрузку давления.",
       actionButtonLabel: "Выполнить прогулку / Разминку",
       onExecute: () => {
-        setMovementDone(true);
-        setLocalHabitsDone(prev => Math.min(habitsTarget, prev + 1));
+        // Will be wired to real movement module in Phase 2
       }
     },
     {

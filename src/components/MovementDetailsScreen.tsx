@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { motion } from "motion/react";
 import BottomBar from "./BottomBar";
+import { MOVEMENT_DAILY_TARGET_MIN } from "../constants/movement";
+import { getAnnaMovementCoaching } from "../utils/movementCoaching";
 import { 
   ArrowLeft, 
   Activity, 
@@ -150,7 +152,7 @@ export default function MovementDetailsScreen({
   const [noteSavedOrSkipped, setNoteSavedOrSkipped] = useState(false);
 
   // Daily physical target: 30 minutes of logged activity in minutes
-  const dailyTargetMin = 30;
+  const dailyTargetMin = MOVEMENT_DAILY_TARGET_MIN;
 
   const getDayEntries = (day: number) =>
     movementEntries.filter((e: MovementEntry) => e.dayIndex === day);
@@ -290,51 +292,17 @@ export default function MovementDetailsScreen({
       .catch((err) => console.warn("[MovementDetails] failed to load history:", err));
   }, []);
 
-  // Create personalized dynamic Anna coaching statements
-  const getAnnaMovementCoaching = () => {
-    const todayTotalMin = Math.round(todayEntries.reduce((sum, e) => sum + e.duration, 0) / 60);
-    const pronouns = userGender === "male" ? "дорогой" : "дорогая";
+  const todayTotalMin = Math.round(todayEntries.reduce((sum, e) => sum + e.duration, 0) / 60);
+  const latestActivityType = todayEntries.length > 0 ? todayEntries[todayEntries.length - 1].type : null;
 
-    if (todayTotalMin === 0) {
-      if (metrics.streak > 1) {
-        return {
-          status: "reminder",
-          label: "Прорыв ритма?",
-          glowBorderClass: "border-[#FACC15] shadow-[#FEF08A]/75 shadow-md",
-          statusBadge: "bg-[#FEF08A] text-[#854D0E]",
-          text: `Привет, ${userName}! Твоя великолепная серия из ${metrics.streak} активных дней сегодня на паузе. Помни, что WFPB и движение — неразделимы. Без соли сосуды мягкие, и даже 10 минут лёгкой растяжки или прогулки сразу снимут напряжение и взбодрят лимфу. Давай сделаем короткую активность прямо сейчас? 🌿`
-        };
-      }
-      return {
-        status: "motivate",
-        label: "Готовы начать?",
-        glowBorderClass: "border-[#94A3B8] shadow-slate-150/50 shadow-md",
-        statusBadge: "bg-slate-100 text-slate-700",
-        text: `Привет, ${userName}! Сегодня твоё тело ещё не почувствовало радость движения. В системе цельного растительного питания движение выполняет важнейшую роль транспорта питательных веществ к клеткам. Не нужно рекордов! Простая зарядка или прогулка на 15 минут заставит кровь двигаться быстрее. Выбирай комфортный вид движения и жми «Старт»! ☀️`
-      };
-    }
-
-    if (todayTotalMin >= dailyTargetMin) {
-      return {
-        status: "excellent",
-        label: "Цель достигнута!",
-        glowBorderClass: "border-[#10B981] shadow-[#A7F3D0]/75 shadow-md",
-        statusBadge: "bg-[#D1FAE5] text-[#065F46]",
-        text: `Потрясающий день, ${userName}! Ты сегодня двигаешься просто образцово. Твои ${todayTotalMin} минут активности — это феноменальный вклад в долголетие и поддержку твоего здорового веса. На чистом растительном рационе без лишней соли твоё сердце качает кровь легко и свободно. Горжусь тобой! Продолжай в том же духе. 🔥`
-      };
-    }
-
-    // Moderate activity (some logged, but not yet reached 30 min target)
-    return {
-      status: "progressing",
-      label: "Отличный темп!",
-      glowBorderClass: "border-[#A78BFA] shadow-[#DDD6FE]/75 shadow-md",
-      statusBadge: "bg-[#EDE9FE] text-[#6D28D9]",
-      text: `Чудесное начало, ${userName}! Ты уже набрал${userGender === "male" ? "" : "а"} ${todayTotalMin} минут движения сегодня. Осталось совсем немного до дневной WFPB нормы в 30 минут. Выбери расслабляющую йогу или пешую прогулку на свежем воздухе вечером, и твоя сегодняшняя норма будет полностью закрыта! 🌸`
-    };
-  };
-
-  const annaCoaching = getAnnaMovementCoaching();
+  const annaCoaching = useMemo(() => getAnnaMovementCoaching({
+    userName,
+    userGender: userGender as "female" | "male",
+    todayTotalMin,
+    dailyTargetMin,
+    streak: metrics.streak,
+    latestActivityType
+  }), [userName, userGender, todayTotalMin, dailyTargetMin, metrics.streak, latestActivityType]);
 
   return (
     <div className="w-full flex flex-col justify-between relative bg-[#FAF9FD]" id="movement-details-screen">

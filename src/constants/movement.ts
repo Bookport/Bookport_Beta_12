@@ -1,0 +1,2 @@
+export const MOVEMENT_DAILY_TARGET_MIN = 30;
+export const MOVEMENT_MAX_POINTS_PER_DAY = 60;

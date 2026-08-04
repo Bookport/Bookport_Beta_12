@@ -91,7 +91,7 @@ function pickAnnaTools(message: string, screenContext?: string, dayIndex?: numbe
     selected.add("get_user_achievements");
   }
 
-  if (/вода|сон|давлен|пульс|метрик|активн|движени|замер|самочувств/i.test(msg)) {
+  if (/вода|сон|давлен|пульс|метрик|активн|движени|трениров|устал|сил|энерги|замер|самочувств/i.test(msg)) {
     selected.add("get_daily_metrics");
     selected.add("get_user_profile");
   }

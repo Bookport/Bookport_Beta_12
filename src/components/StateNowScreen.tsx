@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { ChevronLeft, Sparkles, Droplet, Moon, Apple, Zap, Activity, Compass, Heart, Brain, Info, CheckCircle, TrendingUp, TrendingDown, BarChart3, Scale, Flame, Utensils } from "lucide-react";
 import { useAppStore } from "../store/useAppStore";
 import BottomBar from "./BottomBar";
+import { MOVEMENT_DAILY_TARGET_MIN } from "../constants/movement";
 import { 
   BREAKFAST_RECIPES, 
   LUNCH_RECIPES, 
@@ -515,8 +516,8 @@ export default function StateNowScreen({
   const sleepPct = Math.min(100, Math.round((effSleep / sleepTarget) * 100));
   const mealsPct = Math.min(100, Math.round((effMealCount / mealsTarget) * 100));
   const habitsPct = Math.min(100, Math.round((effHabitsDone / habitsTarget) * 100));
-  const activityPercent = Math.min(100, Math.round(((activityLogs || []).reduce((acc: number, log: any) => acc + (log.durationSeconds || 0), 0) / 60 / 30) * 100)); // % of 30 mins
-  const activityMinutes = Math.round((activityPercent / 100) * 30);
+  const activityPercent = Math.min(100, Math.round(((activityLogs || []).reduce((acc: number, log: any) => acc + (log.durationSeconds || 0), 0) / 60 / MOVEMENT_DAILY_TARGET_MIN) * 100)); // % of target mins
+  const activityMinutes = Math.round((activityPercent / 100) * MOVEMENT_DAILY_TARGET_MIN);
   const subjectiveEnergyPercent = (effRatingEnergy ?? 3) * 20; // 1–5 → 20–100%, default 3 = 60%
   const energyPct = Math.min(100, Math.round((activityPercent + subjectiveEnergyPercent) / 2));
   const zenPct = effRatingWellbeing * 20;
@@ -537,7 +538,7 @@ export default function StateNowScreen({
     habitsDone: effHabitsDone,
     habitsTarget,
     activityMinutes,
-    activityTarget: 30,
+    activityTarget: MOVEMENT_DAILY_TARGET_MIN,
     ratingEnergy: effRatingEnergy,
     ratingWellbeing: effRatingWellbeing,
     ratingLightness: effRatingLightness,

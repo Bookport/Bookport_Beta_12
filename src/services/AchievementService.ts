@@ -1,5 +1,6 @@
 import { calculateIntegralScore } from "../utils/integralScore";
 import { logger } from "../utils/logger";
+import { MOVEMENT_DAILY_TARGET_MIN } from "../constants/movement";
 
 export interface AchievementEvent {
   action: string;
@@ -264,7 +265,7 @@ export class AchievementService {
         // ── Existing movement / lifestyle / journal checks ──
         const todayActivity = movementEntries.filter((e: any) => e.dayIndex === currentDayIndex);
         const todayTotalSec = todayActivity.reduce((s: number, e: any) => s + (e.duration || 0), 0);
-        // this.tryUnlock("ach-048", todayTotalSec >= 1800, newlyUnlocked);
+        // this.tryUnlock("ach-048", todayTotalSec >= MOVEMENT_DAILY_TARGET_MIN * 60, newlyUnlocked);
         // this.tryUnlock("ach-049", todayTotalSec >= 3600, newlyUnlocked);
 
         let zeroDays = 0;
@@ -517,7 +518,7 @@ export class AchievementService {
         this.tryUnlock("ach-080", hasAnyMovement, newlyUnlocked);
 
         // ach-046: Полчаса огня
-        this.tryUnlock("ach-046", todayTotalSec >= 1800, newlyUnlocked);
+        this.tryUnlock("ach-046", todayTotalSec >= MOVEMENT_DAILY_TARGET_MIN * 60, newlyUnlocked);
 
         // ach-047: Спринтер
         this.tryUnlock("ach-047", todayTotalSec >= 3600, newlyUnlocked);
@@ -530,7 +531,7 @@ export class AchievementService {
             const mActive = m?.activityMinutes || 0;
             // Also add todayTotalSec / 60 if d === currentDayIndex
             const activeMin = d === currentDayIndex ? Math.max(mActive, Math.round(todayTotalSec / 60)) : mActive;
-            if (activeMin >= 30) marathonDays++;
+            if (activeMin >= MOVEMENT_DAILY_TARGET_MIN) marathonDays++;
             else break;
         }
         this.tryUnlock("ach-044", marathonDays >= 7, newlyUnlocked);

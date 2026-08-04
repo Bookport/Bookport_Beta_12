@@ -1,5 +1,6 @@
 import { prisma } from "../prisma";
 import { safeParseJSON } from "../utils/safeParseJSON";
+import { MOVEMENT_DAILY_TARGET_MIN } from "../constants/movement";
 
 function parseKbjuToNumbers(kbjuRaw: string | null): {
   calories: number | null;
@@ -278,25 +279,51 @@ export async function executeToolCall(
         if (dayIndex !== undefined) {
           where.dayIndex = dayIndex;
         }
+        
+        // Fetch requested metrics
         const metrics = await prisma.dailyMetric.findMany({
           where,
           orderBy: { date: "desc" },
           take: dayIndex !== undefined ? 1 : 7,
         });
+
+        // Compute streak (marathon days)
+        const recentHistory = await prisma.dailyMetric.findMany({
+          where: { userId },
+          orderBy: { date: "desc" },
+          take: 30, // Last 30 days is enough to calculate current streak
+        });
+        let activeStreak = 0;
+        let isFirst = true;
+        for (const record of recentHistory) {
+          if ((record.activityMinutes || 0) >= MOVEMENT_DAILY_TARGET_MIN) {
+            activeStreak++;
+          } else if (isFirst && (record.activityMinutes || 0) < MOVEMENT_DAILY_TARGET_MIN) {
+            // Skip today if the target is not met yet, don't break the streak
+          } else {
+            break;
+          }
+          isFirst = false;
+        }
+
         return {
           count: metrics.length,
-          metrics: metrics.map((m) => ({
-            dayIndex: m.dayIndex,
-            date: m.date,
-            waterMl: m.waterMl,
-            sleepMinutes: m.sleepMinutes,
-            mealCount: m.mealCount,
-            activityMinutes: m.activityMinutes,
-            habitsDone: m.habitsDone,
-            measurements: m.measurements,
-            digestionLog: m.digestionLog,
-            movementLog: m.movementLog,
-          })),
+          metrics: metrics.map((m) => {
+            const isMovementGoalMet = (m.activityMinutes || 0) >= MOVEMENT_DAILY_TARGET_MIN;
+            const movementSummary = `Активность: ${m.activityMinutes || 0} мин. Норма (${MOVEMENT_DAILY_TARGET_MIN} мин): ${isMovementGoalMet ? 'выполнена' : 'не выполнена'}. Активная серия дней: ${activeStreak}.`;
+
+            return {
+              dayIndex: m.dayIndex,
+              date: m.date,
+              waterMl: m.waterMl,
+              sleepMinutes: m.sleepMinutes,
+              mealCount: m.mealCount,
+              habitsDone: m.habitsDone,
+              measurements: m.measurements,
+              digestionLog: m.digestionLog,
+              movementSummary, // Replacing the raw arrays
+            };
+          }),
         };
       }
 

@@ -1,3 +1,5 @@
+import { MOVEMENT_DAILY_TARGET_MIN } from "../constants/movement";
+
 export interface IntegralScoreInput {
   waterMl: number;
   waterTarget: number;
@@ -18,7 +20,7 @@ const DEFAULTS = {
   sleepTarget: 480,
   mealsTarget: 4,
   habitsTarget: 20,
-  activityTarget: 30,
+  activityTarget: MOVEMENT_DAILY_TARGET_MIN,
 } as const;
 
 export function calculateIntegralScore(input: IntegralScoreInput): number {

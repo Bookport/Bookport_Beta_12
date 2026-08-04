@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
+import { MOVEMENT_DAILY_TARGET_MIN, MOVEMENT_MAX_POINTS_PER_DAY } from "../constants/movement";
 import { 
   Calendar, 
   Moon, 
@@ -427,14 +428,34 @@ export default function MyDayScreen({
 
   const [showMovementDetails, setShowMovementDetails] = useState(false);
   const [showFastMovement, setShowFastMovement] = useState(false);
+  const [movementEntryMode, setMovementEntryMode] = useState<"timer" | "manual">("timer");
+  const [manualMovementDuration, setManualMovementDuration] = useState<number>(30);
   const [selectedActivityForLaunch, setSelectedActivityForLaunch] = useState<string | null>("Walk");
 
-  // Running activity session trackers
-  const [activeActivity, setActiveActivity] = useState<string | null>(null);
-  
-  const [activityStartTime, setActivityStartTime] = useState<number | null>(null);
+  // Running activity session trackers (Persisted in localStorage)
+  const [movementSession, setMovementSession] = useState<{
+    activityType: string;
+    startTime: number;
+    accumulatedMs: number;
+    isPaused: boolean;
+  } | null>(() => {
+    try {
+      const stored = localStorage.getItem('wfpb_movement_session');
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  });
 
   const [activityElapsedTime, setActivityElapsedTime] = useState<number>(0);
+
+  useEffect(() => {
+    if (movementSession) {
+      localStorage.setItem('wfpb_movement_session', JSON.stringify(movementSession));
+    } else {
+      localStorage.removeItem('wfpb_movement_session');
+    }
+  }, [movementSession]);
 
   // Summary completed session visual helper
   const [showMovementSummaryCompleted, setShowMovementSummaryCompleted] = useState<{
@@ -491,18 +512,25 @@ export default function MyDayScreen({
   // Handle live stopwatch interval ticking
   useEffect(() => {
     let timerId: number | null = null;
-    if (activeActivity && activityStartTime !== null) {
+    if (movementSession && !movementSession.isPaused) {
+      // Tick every second to update UI
       timerId = window.setInterval(() => {
-        const elapsed = Math.floor((Date.now() - activityStartTime) / 1000);
-        setActivityElapsedTime(elapsed);
+        const totalMs = movementSession.accumulatedMs + (Date.now() - movementSession.startTime);
+        setActivityElapsedTime(Math.floor(totalMs / 1000));
       }, 1000);
+      
+      // Also update immediately on effect start
+      const totalMs = movementSession.accumulatedMs + (Date.now() - movementSession.startTime);
+      setActivityElapsedTime(Math.floor(totalMs / 1000));
+    } else if (movementSession && movementSession.isPaused) {
+      setActivityElapsedTime(Math.floor(movementSession.accumulatedMs / 1000));
     } else {
-      // resetting elapsed to 0 is handled when saving or canceling
+      setActivityElapsedTime(0);
     }
     return () => {
       if (timerId !== null) clearInterval(timerId);
     };
-  }, [activeActivity, activityStartTime]);
+  }, [movementSession]);
 
 
 
@@ -534,9 +562,7 @@ export default function MyDayScreen({
       };
     } else if (showMovementDetails) {
       subScreen = "Активность и Движение";
-      subScreenData = {
-        activity_index_pts: clickCount
-      };
+      subScreenData = {};
     } else if (showMeasurementsDetails) {
       subScreen = "Замеры Тела";
       subScreenData = {
@@ -570,7 +596,6 @@ export default function MyDayScreen({
         water_ml: water,
         sleep_minutes: sleep,
         meals_completed: mealCount,
-        activity_points: clickCount,
         habits_completed: habitsDone
       },
       active_modal_or_overlay: subScreen,
@@ -856,19 +881,27 @@ export default function MyDayScreen({
     if (!configObj) return;
 
     playMovementStartSound();
-    setActiveActivity(configObj.name);
-    const startTm = Date.now();
-    setActivityStartTime(startTm);
+    setMovementSession({
+      activityType: configObj.name,
+      startTime: Date.now(),
+      accumulatedMs: 0,
+      isPaused: false
+    });
     setActivityElapsedTime(0);
     setShowFastMovement(false);
   };
 
   const stopMovementActivity = () => {
-    if (!activeActivity || activityStartTime === null) return;
+    if (!movementSession) return;
 
     playMovementStopSound();
     const nowStamp = Date.now();
-    const durationSeconds = Math.max(15, Math.floor((nowStamp - activityStartTime) / 1000));
+    const totalMs = movementSession.isPaused 
+      ? movementSession.accumulatedMs 
+      : movementSession.accumulatedMs + (nowStamp - movementSession.startTime);
+      
+    const durationSeconds = Math.max(15, Math.floor(totalMs / 1000));
+    const activeActivity = movementSession.activityType;
     
     // Save to daily log entries
     const hour = new Date().getHours().toString().padStart(2, "0");
@@ -890,6 +923,7 @@ export default function MyDayScreen({
 
     // Persist movement log + total activity minutes to DB (fire-and-forget)
     const allLogsToday = [...movementEntries.filter((e: any) => e.dayIndex === currentDayIndex), newLogEntry];
+    const prevActivityMin = Math.round(movementEntries.filter(e => e.dayIndex === currentDayIndex).reduce((sum, e) => sum + e.duration, 0) / 60);
     const totalActivityMin = Math.round(allLogsToday.reduce((sum, e) => sum + e.duration, 0) / 60);
     api("/api/metrics/daily", {
       method: "POST",
@@ -901,9 +935,10 @@ export default function MyDayScreen({
       },
     }).catch(() => {});
 
-    // Calculate score points (e.g. +15 or +30 progress points!)
-    const pts = Math.min(30, Math.max(15, Math.ceil(durationSeconds / 4))); // scale reasonably up to 30 points
-    recordClick(pts);
+    // Honest math: 1 minute = 1 point, max MOVEMENT_MAX_POINTS_PER_DAY per day.
+    const prevPoints = Math.min(MOVEMENT_MAX_POINTS_PER_DAY, prevActivityMin);
+    const newTotalPoints = Math.min(MOVEMENT_MAX_POINTS_PER_DAY, totalActivityMin);
+    const pts = Math.max(0, newTotalPoints - prevPoints);
 
     // Trigger visual summary modal confirmation
     setShowMovementSummaryCompleted({
@@ -913,9 +948,86 @@ export default function MyDayScreen({
     });
 
     // Reset session
-    setActiveActivity(null);
-    setActivityStartTime(null);
+    setMovementSession(null);
     setActivityElapsedTime(0);
+  };
+
+  const pauseMovementActivity = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!movementSession || movementSession.isPaused) return;
+    setMovementSession({
+      ...movementSession,
+      accumulatedMs: movementSession.accumulatedMs + (Date.now() - movementSession.startTime),
+      isPaused: true,
+      startTime: Date.now()
+    });
+  };
+
+  const resumeMovementActivity = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!movementSession || !movementSession.isPaused) return;
+    setMovementSession({
+      ...movementSession,
+      startTime: Date.now(),
+      isPaused: false
+    });
+  };
+
+  const saveManualMovementActivity = () => {
+    if (!selectedActivityForLaunch) return;
+    const configObj = ACTIVITY_CONFIGS[selectedActivityForLaunch];
+    if (!configObj) return;
+
+    playMovementStopSound();
+    const nowStamp = Date.now();
+    const durationSeconds = manualMovementDuration * 60;
+    const activeActivity = configObj.name;
+    
+    // Save to daily log entries
+    const hour = new Date().getHours().toString().padStart(2, "0");
+    const min = new Date().getMinutes().toString().padStart(2, "0");
+    const timeStr = `${hour}:${min}`;
+
+    const newLogEntry = {
+      id: `m-log-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      dayIndex: currentDayIndex,
+      type: activeActivity,
+      activityType: activeActivity,
+      duration: durationSeconds,
+      durationSeconds,
+      timestamp: nowStamp,
+      timeString: timeStr,
+    };
+
+    addMovementEntry(newLogEntry);
+
+    // Persist movement log + total activity minutes to DB (fire-and-forget)
+    const allLogsToday = [...movementEntries.filter((e: any) => e.dayIndex === currentDayIndex), newLogEntry];
+    const prevActivityMin = Math.round(movementEntries.filter(e => e.dayIndex === currentDayIndex).reduce((sum, e) => sum + e.duration, 0) / 60);
+    const totalActivityMin = Math.round(allLogsToday.reduce((sum, e) => sum + e.duration, 0) / 60);
+    api("/api/metrics/daily", {
+      method: "POST",
+      body: {
+        date: new Date().toISOString().split("T")[0],
+        dayIndex: currentDayIndex,
+        movementLog: [newLogEntry],
+        activityMinutes: totalActivityMin,
+      },
+    }).catch(() => {});
+
+    // Honest math: 1 minute = 1 point, max MOVEMENT_MAX_POINTS_PER_DAY per day.
+    const prevPoints = Math.min(MOVEMENT_MAX_POINTS_PER_DAY, prevActivityMin);
+    const newTotalPoints = Math.min(MOVEMENT_MAX_POINTS_PER_DAY, totalActivityMin);
+    const pts = Math.max(0, newTotalPoints - prevPoints);
+
+    // Trigger visual summary modal confirmation
+    setShowMovementSummaryCompleted({
+      activityType: activeActivity,
+      durationSeconds: durationSeconds,
+      pointsEarned: pts
+    });
+
+    setShowFastMovement(false);
   };
 
   // --- MEASUREMENTS GESTURES & LOGIC ---
@@ -1765,7 +1877,7 @@ export default function MyDayScreen({
   const waterGoal = currentWeightForDay * 30;
   const sleepGoal = 480;
   const mealGoal = 4;
-  const activityGoal = 30;
+  const activityGoal = MOVEMENT_DAILY_TARGET_MIN;
 
   const srcWater = (dbMetric?.waterMl ?? 0) + water;
   const srcSleep = (dbMetric?.sleepMinutes ?? 0) + sleep;
@@ -2350,7 +2462,7 @@ export default function MyDayScreen({
               onMouseUp={cancelMovementLongPress}
               onTouchStart={startMovementLongPress}
               onTouchEnd={cancelMovementLongPress}
-              animate={activeActivity ? {
+              animate={movementSession ? {
                 scale: [1, 1.03, 1],
                 boxShadow: [
                   "0 0 0 6px rgba(245,158,11,0.3), 0 4px 14px -2px rgba(0,0,0,0.08)",
@@ -2359,7 +2471,7 @@ export default function MyDayScreen({
                 ]
               } : { scale: 1, boxShadow: "0 4px 14px -2px rgba(0,0,0,0.08)" }}
               transition={{
-                repeat: activeActivity ? Infinity : 0,
+                repeat: movementSession ? Infinity : 0,
                 duration: 2.2,
                 ease: "easeInOut"
               }}
@@ -3007,8 +3119,33 @@ export default function MyDayScreen({
                 </button>
               </div>
 
+              <div className="flex gap-2 p-1 bg-slate-100 rounded-[20px] mb-2 mt-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setMovementEntryMode("timer")}
+                  className={`flex-1 py-2 text-[13px] font-extrabold rounded-[16px] transition-all cursor-pointer ${
+                    movementEntryMode === "timer" 
+                      ? "bg-white text-indigo-700 shadow-sm" 
+                      : "text-slate-500 hover:text-slate-700"
+                  }`}
+                >
+                  Таймер
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMovementEntryMode("manual")}
+                  className={`flex-1 py-2 text-[13px] font-extrabold rounded-[16px] transition-all cursor-pointer ${
+                    movementEntryMode === "manual" 
+                      ? "bg-white text-indigo-700 shadow-sm" 
+                      : "text-slate-500 hover:text-slate-700"
+                  }`}
+                >
+                  Ввести вручную
+                </button>
+              </div>
+
               {/* Grid of custom activity choices */}
-              <div className="grid grid-cols-2 gap-3 max-h-[300px] overflow-y-auto pr-1">
+              <div className="grid grid-cols-2 gap-3 max-h-[300px] min-h-[140px] overflow-y-auto pr-1 shrink-0">
                 {Object.entries(ACTIVITY_CONFIGS).map(([key, config]) => {
                   const isSelected = selectedActivityForLaunch === key;
                   return (
@@ -3041,13 +3178,61 @@ export default function MyDayScreen({
                 })}
               </div>
 
-              {/* Biological context prompt advice inside selector screen */}
-              <div className="bg-indigo-50/50 rounded-2xl p-3 border border-indigo-100 text-[11.5px] leading-relaxed text-indigo-950 font-semibold mb-1">
-                📌 <b className="text-indigo-900 font-extrabold">WFPB-факт:</b> Свободное движение без соли — это лучшая гигиена межклеточного пространства. Вы можете начать в один клик!
-              </div>
+              {movementEntryMode === "manual" ? (
+                <div className="mt-2 mb-1 bg-indigo-50/40 p-4 rounded-[24px] border border-indigo-100/50 shrink-0">
+                  <span className="text-[11px] font-black text-indigo-900 tracking-wider uppercase block mb-3 text-center">Продолжительность</span>
+                  <div className="flex items-center justify-center gap-4 mb-4">
+                    <button
+                      type="button"
+                      onClick={() => setManualMovementDuration(prev => Math.max(1, prev - 5))}
+                      className="w-12 h-12 rounded-[16px] bg-white hover:bg-slate-50 text-indigo-900 border border-indigo-200/60 flex items-center justify-center shadow-xs active:scale-95 transition-all text-[24px] font-bold cursor-pointer select-none"
+                    >
+                      -
+                    </button>
+
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-[38px] font-black text-indigo-600 leading-none tracking-tight font-sans">
+                        {manualMovementDuration}
+                      </span>
+                      <span className="text-[13px] font-extrabold text-indigo-400 uppercase leading-none font-sans">
+                        мин
+                      </span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setManualMovementDuration(prev => Math.min(300, prev + 5))}
+                      className="w-12 h-12 rounded-[16px] bg-white hover:bg-slate-50 text-indigo-900 border border-indigo-200/60 flex items-center justify-center shadow-xs active:scale-95 transition-all text-[24px] font-bold cursor-pointer select-none"
+                    >
+                      +
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-4 gap-2">
+                    {[15, 30, 45, 60].map(val => (
+                      <button
+                        type="button"
+                        key={val}
+                        onClick={() => setManualMovementDuration(val)}
+                        className={`py-2 px-1 rounded-xl text-[13px] font-extrabold border transition-all cursor-pointer ${
+                          manualMovementDuration === val 
+                            ? "bg-indigo-500 border-indigo-600 text-white shadow-sm" 
+                            : "bg-white border-indigo-200/60 text-indigo-700 hover:bg-indigo-50"
+                        }`}
+                      >
+                        {val}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-indigo-50/50 rounded-2xl p-3 border border-indigo-100 text-[11.5px] leading-relaxed text-indigo-950 font-semibold mb-1 mt-2 shrink-0">
+                  📌 <b className="text-indigo-900 font-extrabold">WFPB-факт:</b> Свободное движение без соли — это лучшая гигиена межклеточного пространства. Вы можете начать в один клик!
+                </div>
+              )}
 
               {/* Giant Launch Controls */}
-              <div className="flex gap-3">
+              <div className="flex gap-3 shrink-0">
                 <button
                   type="button"
                   onClick={() => setShowFastMovement(false)}
@@ -3059,14 +3244,18 @@ export default function MyDayScreen({
                 <button
                   type="button"
                   onClick={() => {
-                    if (selectedActivityForLaunch) {
-                      startMovementActivity(selectedActivityForLaunch);
+                    if (movementEntryMode === "timer") {
+                      if (selectedActivityForLaunch) {
+                        startMovementActivity(selectedActivityForLaunch);
+                      }
+                    } else {
+                      saveManualMovementActivity();
                     }
                   }}
                   className="flex-[2] py-3.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-600 hover:brightness-105 text-white font-black rounded-2.5xl text-[15px] shadow-[0_5px_15px_rgba(99,102,241,0.25)] transition-all cursor-pointer active:scale-97 flex items-center justify-center gap-1.5"
                 >
-                  <span>Старт</span>
-                  <span className="text-[16px] animate-bounce">⏱️</span>
+                  <Sparkles className="w-5 h-5 opacity-90" />
+                  {movementEntryMode === "timer" ? "Старт" : "Сохранить"}
                 </button>
               </div>
             </motion.div>
@@ -3076,7 +3265,7 @@ export default function MyDayScreen({
 
       {/* 11. ACTIVE MOVING ACTIVITY STOPWATCH FLOATING BUTTON Overlay */}
       <AnimatePresence>
-        {activeActivity && (
+        {movementSession && (
           <div className="absolute bottom-22 right-6 z-50 pointer-events-auto" id="floating-active-stopwatch">
             <motion.div
               initial={{ scale: 0, opacity: 0, y: 50 }}
@@ -3084,7 +3273,7 @@ export default function MyDayScreen({
                 scale: 1, 
                 opacity: 1, 
                 y: 0,
-                boxShadow: [
+                boxShadow: movementSession.isPaused ? "0 4px 20px rgba(99,102,241,0.35)" : [
                   "0 4px 20px rgba(99,102,241,0.35), 0 0 0 0px rgba(99,102,241,0.2)",
                   "0 4px 20px rgba(99,102,241,0.35), 0 0 0 14px rgba(99,102,241,0.25)",
                   "0 4px 20px rgba(99,102,241,0.35), 0 0 0 0px rgba(99,102,241,0.2)"
@@ -3092,19 +3281,18 @@ export default function MyDayScreen({
               }}
               exit={{ scale: 0, opacity: 0, y: 50 }}
               transition={{
-                boxShadow: { repeat: Infinity, duration: 1.8, ease: "easeInOut" },
+                boxShadow: movementSession.isPaused ? {} : { repeat: Infinity, duration: 1.8, ease: "easeInOut" },
                 scale: { type: "spring", damping: 15 }
               }}
-              className="bg-gradient-to-br from-indigo-900 via-slate-800 to-indigo-950 rounded-full py-2.5 px-3.5 border border-white/20 text-white shadow-xl flex items-center gap-3 cursor-pointer select-none"
-              onClick={stopMovementActivity}
+              className={`bg-gradient-to-br from-indigo-900 via-slate-800 to-indigo-950 rounded-[28px] py-2.5 px-3.5 border text-white shadow-xl flex items-center gap-2 cursor-default select-none ${movementSession.isPaused ? "border-amber-400/50" : "border-white/20"}`}
             >
-              <div className="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center text-[16px] animate-pulse">
-                {Object.values(ACTIVITY_CONFIGS).find(cfg => cfg.name === activeActivity)?.icon || "🏃‍♂️"}
+              <div className={`w-8 h-8 rounded-full ${movementSession.isPaused ? "bg-slate-600 grayscale" : "bg-indigo-500 animate-pulse"} flex items-center justify-center text-[16px] shrink-0`}>
+                {Object.values(ACTIVITY_CONFIGS).find(cfg => cfg.name === movementSession.activityType)?.icon || "🏃‍♂️"}
               </div>
               
-              <div className="flex flex-col text-left mr-1">
-                <span className="text-[10px] font-black tracking-widest text-indigo-300 uppercase leading-none block">
-                  АКТИВНО: {activeActivity}
+              <div className="flex flex-col text-left mr-1 min-w-[70px]">
+                <span className={`text-[9.5px] font-black tracking-widest uppercase leading-none block ${movementSession.isPaused ? "text-amber-400" : "text-indigo-300"}`}>
+                  {movementSession.isPaused ? "ПАУЗА" : "АКТИВНО"}
                 </span>
                 <span className="text-[14px] font-black font-mono leading-none mt-1 text-white">
                   {Math.floor(activityElapsedTime / 60).toString().padStart(2, "0")}:
@@ -3112,9 +3300,30 @@ export default function MyDayScreen({
                 </span>
               </div>
 
-              {/* Click to stop flag */}
-              <div className="w-6 h-6 rounded-full bg-rose-500 flex items-center justify-center text-[9px] font-bold shadow-xs hover:bg-rose-600 transition-colors">
-                ⏹️
+              <div className="flex gap-1.5 shrink-0 ml-1">
+                {movementSession.isPaused ? (
+                  <button 
+                    onClick={resumeMovementActivity}
+                    className="w-8 h-8 rounded-full bg-amber-500 flex items-center justify-center text-[14px] shadow-xs hover:bg-amber-600 active:scale-95 transition-all text-white font-mono"
+                  >
+                    ▶️
+                  </button>
+                ) : (
+                  <button 
+                    onClick={pauseMovementActivity}
+                    className="w-8 h-8 rounded-full bg-slate-600/80 flex items-center justify-center text-[11px] font-bold shadow-xs hover:bg-slate-500 active:scale-95 transition-all"
+                  >
+                    ⏸️
+                  </button>
+                )}
+                
+                {/* Click to stop flag */}
+                <button 
+                  onClick={(e) => { e.stopPropagation(); stopMovementActivity(); }}
+                  className="w-8 h-8 rounded-full bg-rose-500 flex items-center justify-center text-[11px] font-bold shadow-xs hover:bg-rose-600 active:scale-95 transition-all"
+                >
+                  ⏹️
+                </button>
               </div>
             </motion.div>
           </div>
