@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { motion } from "motion/react";
 import BottomBar from "./BottomBar";
-import { MOVEMENT_DAILY_TARGET_MIN } from "../constants/movement";
+import { MOVEMENT_DAILY_TARGET_MIN, ACTIVITY_CONFIGS } from "../constants/movement";
+import { getMovementAssetPath, getMovementMarkerPath, getMovementAwardPath, getMovementStreakPath } from "../utils/movementAssets";
 import { getAnnaMovementCoaching } from "../utils/movementCoaching";
 import { 
   ArrowLeft, 
@@ -37,108 +38,6 @@ interface MovementDetailsScreenProps {
   setDayNotes: React.Dispatch<React.SetStateAction<Record<number, { text: string; time: string; source?: string; tags?: string[]; isVoice?: boolean }[]>>>;
 }
 
-// Config lists matching our beautiful activity list
-export const ACTIVITY_CONFIGS: Record<string, {
-  name: string;
-  icon: string;
-  gradient: string;
-  bgColor: string;
-  textColor: string;
-  badgeBg: string;
-  borderGlow: string;
-}> = {
-  "Walk": {
-    name: "Прогулка",
-    icon: "🚶‍♂️",
-    gradient: "from-emerald-500 to-teal-400",
-    bgColor: "bg-emerald-50/70",
-    textColor: "text-emerald-800",
-    badgeBg: "bg-emerald-100/50",
-    borderGlow: "border-emerald-200/65 shadow-emerald-100"
-  },
-  "Gymnastics": {
-    name: "Зарядка",
-    icon: "🤸",
-    gradient: "from-amber-400 to-orange-500",
-    bgColor: "bg-amber-50/70",
-    textColor: "text-amber-800",
-    badgeBg: "bg-amber-100/50",
-    borderGlow: "border-amber-200/65 shadow-amber-100"
-  },
-  "Stretching": {
-    name: "Растяжка",
-    icon: "🧘‍♀️",
-    gradient: "from-sky-450 to-indigo-450",
-    bgColor: "bg-sky-50/75",
-    textColor: "text-sky-850",
-    badgeBg: "bg-sky-100/50",
-    borderGlow: "border-sky-200/65 shadow-sky-100"
-  },
-  "Yoga": {
-    name: "Йога",
-    icon: "🧘",
-    gradient: "from-violet-500 to-indigo-500",
-    bgColor: "bg-violet-50/70",
-    textColor: "text-violet-800",
-    badgeBg: "bg-violet-100/50",
-    borderGlow: "border-violet-200/65 shadow-violet-100"
-  },
-  "Cardio": {
-    name: "Кардио",
-    icon: "🏃‍♂️",
-    gradient: "from-rose-500 to-orange-500",
-    bgColor: "bg-rose-50/70",
-    textColor: "text-rose-850",
-    badgeBg: "bg-rose-100/50",
-    borderGlow: "border-rose-250/65 shadow-rose-100"
-  },
-  "Strength": {
-    name: "Силовая",
-    icon: "💪",
-    gradient: "from-slate-700 to-slate-900",
-    bgColor: "bg-slate-100/70",
-    textColor: "text-slate-800",
-    badgeBg: "bg-slate-200/65",
-    borderGlow: "border-slate-300/65 shadow-slate-200"
-  },
-  "Cycling": {
-    name: "Велосипед",
-    icon: "🚴",
-    gradient: "from-amber-500 to-lime-500",
-    bgColor: "bg-lime-50/70",
-    textColor: "text-lime-850",
-    badgeBg: "bg-lime-100/50",
-    borderGlow: "border-lime-200/65 shadow-lime-100"
-  },
-  "Dancing": {
-    name: "Танцы",
-    icon: "💃",
-    gradient: "from-fuchsia-500 to-pink-500",
-    bgColor: "bg-fuchsia-50/70",
-    textColor: "text-fuchsia-850",
-    badgeBg: "bg-fuchsia-100/50",
-    borderGlow: "border-fuchsia-200/65 shadow-fuchsia-100"
-  },
-  "Mobility": {
-    name: "Мобилити",
-    icon: "🔄",
-    gradient: "from-cyan-400 to-blue-500",
-    bgColor: "bg-cyan-50/70",
-    textColor: "text-cyan-850",
-    badgeBg: "bg-cyan-100/50",
-    borderGlow: "border-cyan-200/65 shadow-cyan-100"
-  },
-  "Custom": {
-    name: "Своя активность",
-    icon: "🔥",
-    gradient: "from-neutral-500 to-neutral-700",
-    bgColor: "bg-neutral-50/80",
-    textColor: "text-neutral-800",
-    badgeBg: "bg-neutral-200/60",
-    borderGlow: "border-neutral-300/60 shadow-neutral-100"
-  }
-};
-
 export default function MovementDetailsScreen({
   currentDayIndex,
   userName,
@@ -164,7 +63,7 @@ export default function MovementDetailsScreen({
     const timeStr = now.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
     
     const newNote = {
-      text: noteText.trim() || "Зафиксирована тренировка Движение 🏃‍♂️",
+      text: noteText.trim() || "Зафиксирована тренировка Движение",
       time: timeStr,
       source: "movement",
       tags: selectedTags,
@@ -349,7 +248,7 @@ export default function MovementDetailsScreen({
                 </span>
                 <span className="text-[14px] font-bold text-slate-600">минут</span>
               </div>
-              <div className="absolute right-2 bottom-2 text-[20px] opacity-45">⏱️</div>
+              <img src={getMovementMarkerPath()} alt="Время" className="w-8 h-8 object-contain opacity-45 absolute right-2 bottom-1.5" />
             </div>
 
             {/* Right box: counts */}
@@ -359,7 +258,7 @@ export default function MovementDetailsScreen({
                 <span className="text-[26px] font-black text-emerald-950 font-mono">{todayEntries.length}</span>
                 <span className="text-[14px] font-bold text-slate-600">сессий</span>
               </div>
-              <div className="absolute right-2 bottom-2 text-[20px] opacity-45">🔥</div>
+              <img src={getMovementMarkerPath()} alt="Сессии" className="w-8 h-8 object-contain opacity-45 absolute right-2 bottom-1.5" />
             </div>
           </div>
 
@@ -396,7 +295,7 @@ export default function MovementDetailsScreen({
           {todayEntries.length > 0 ? (
             <div className="mt-1.5 bg-indigo-50/30 border border-indigo-100 p-3 rounded-2xl flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="text-[22px]">💪</span>
+                <img src={getMovementAssetPath(latestActivityType || "Walk", userGender)} className="w-8 h-8 object-contain" />
                 <div className="text-left">
                   <span className="text-[11px] block font-semibold text-slate-400 uppercase tracking-widest leading-none">ПОСЛЕДНЯЯ ЗАПИСЬ</span>
                   <span className="text-[14px] font-bold text-slate-800">
@@ -436,8 +335,8 @@ export default function MovementDetailsScreen({
                     className="w-full h-full object-cover"
                   />
                 </div>
-                <div className="absolute -bottom-1 -right-1 w-4.5 h-4.5 rounded-full bg-indigo-600 border border-white flex items-center justify-center text-[9px]">
-                  🏃‍♂️
+                <div className="absolute -bottom-1 -right-1 w-4.5 h-4.5 rounded-full bg-indigo-600 border border-white flex items-center justify-center p-0.5">
+                  <img src={getMovementMarkerPath()} className="w-full h-full object-contain" />
                 </div>
               </div>
               <div className="flex flex-col">
@@ -541,13 +440,21 @@ export default function MovementDetailsScreen({
             {selectedDayEntries.length > 0 ? (
               <div className="flex flex-col gap-1.5">
                 {selectedDayEntries.map((entry, index) => {
+                  const cfgKey = Object.keys(ACTIVITY_CONFIGS).find(k => ACTIVITY_CONFIGS[k].name === entry.type) || "Walk";
+                  const cfg = ACTIVITY_CONFIGS[cfgKey];
                   return (
                     <div 
                       key={entry.id || index}
-                      className="bg-white rounded-xl p-2.5 border border-slate-100 flex justify-between items-center text-[13px] shadow-xs"
+                      style={{ backgroundColor: cfg.hexColor }}
+                      className="rounded-xl p-2.5 border border-slate-100 flex justify-between items-center text-[13px] shadow-xs"
                     >
                       <div className="flex items-center gap-2">
-                        <span className="text-base">🏃</span>
+                        <img 
+                          src={getMovementAssetPath(entry.type, userGender)} 
+                          alt={entry.type} 
+                          className="w-6 h-6 object-contain"
+                          onError={(e) => (e.currentTarget.style.display='none')}
+                        />
                         <span className="font-extrabold text-slate-800">{entry.type}</span>
                       </div>
                       <div className="font-mono text-indigo-700 font-bold flex items-center gap-1.5">
@@ -595,7 +502,9 @@ export default function MovementDetailsScreen({
             <span className="text-[11px] font-bold text-slate-400 mt-2 block">
               Рекорд курса: {metrics.maxStreak} дн.
             </span>
-            <div className="absolute right-2.5 bottom-2 text-2xl animate-pulse">⚡</div>
+            <div className="absolute right-2 bottom-2 animate-pulse">
+              <img src={getMovementStreakPath()} alt="Серия" className="w-8 h-8 object-contain opacity-80" />
+            </div>
           </div>
 
           {/* Total Minutes aggregate */}
@@ -607,8 +516,8 @@ export default function MovementDetailsScreen({
                   {metrics.totalMinutes} минут
                 </p>
               </div>
-              <div className="w-[52px] h-[52px] rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-600 text-[24px] shrink-0">
-                🏅
+              <div className="w-[52px] h-[52px] rounded-2xl bg-indigo-50 flex items-center justify-center shrink-0">
+                <img src={getMovementAwardPath()} alt="Награда" className="w-8 h-8 object-contain" />
               </div>
             </div>
             <div className="border-t border-slate-100/90 mt-2.5 pt-2 flex justify-between text-[11px] font-extrabold text-[#059669]">
