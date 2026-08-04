@@ -18,7 +18,6 @@ import {
   Flame,
   ListFilter
 } from "lucide-react";
-import BriefNoteBlock from "./BriefNoteBlock";
 import { resolveAvatar } from "../utils/annaAvatarResolver";
 import { useAppStore, type MovementEntry } from "../store/useAppStore";
 import { api } from "../utils/api";
@@ -48,37 +47,12 @@ export default function MovementDetailsScreen({
 }: MovementDetailsScreenProps) {
   const movementEntries = useAppStore((s) => s.movementEntries);
   const [selectedGraphDay, setSelectedGraphDay] = useState<number>(currentDayIndex);
-  const [noteSavedOrSkipped, setNoteSavedOrSkipped] = useState(false);
 
   // Daily physical target: 30 minutes of logged activity in minutes
   const dailyTargetMin = MOVEMENT_DAILY_TARGET_MIN;
 
   const getDayEntries = (day: number) =>
     movementEntries.filter((e: MovementEntry) => e.dayIndex === day);
-
-  const handleSaveMovementNote = (noteText: string, selectedTags: string[], isVoice: boolean) => {
-    if (!noteText.trim() && selectedTags.length === 0) return;
-    
-    const now = new Date();
-    const timeStr = now.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
-    
-    const newNote = {
-      text: noteText.trim() || "Зафиксирована тренировка Движение",
-      time: timeStr,
-      source: "movement",
-      tags: selectedTags,
-      isVoice
-    };
-
-    setDayNotes(prev => {
-      const todayArr = prev[currentDayIndex] || [];
-      return {
-        ...prev,
-        [currentDayIndex]: [newNote, ...todayArr]
-      };
-    });
-    setNoteSavedOrSkipped(true);
-  };
 
   // Initial movement logs are passed as props, defaulting to {} from parent
 
@@ -240,7 +214,10 @@ export default function MovementDetailsScreen({
 
           <div className="grid grid-cols-2 gap-3.5 mt-1">
             {/* Left box: sum */}
-            <div className="bg-gradient-to-r from-indigo-50/40 to-violet-50/30 rounded-2xl p-3 border border-indigo-100/40 relative overflow-hidden">
+            <div 
+              style={{ backgroundColor: "#E8F0FE" }}
+              className="rounded-2xl p-3 border border-indigo-100/40 relative overflow-hidden"
+            >
               <span className="text-[11px] text-slate-500 font-bold block mb-1">Всего времени</span>
               <div className="flex items-baseline gap-1">
                 <span className="text-[26px] font-black text-indigo-950 font-mono">
@@ -252,7 +229,10 @@ export default function MovementDetailsScreen({
             </div>
 
             {/* Right box: counts */}
-            <div className="bg-gradient-to-r from-emerald-50/40 to-teal-50/30 rounded-2xl p-3 border border-emerald-150/40 relative overflow-hidden">
+            <div 
+              style={{ backgroundColor: "#E6F4EA" }}
+              className="rounded-2xl p-3 border border-emerald-150/40 relative overflow-hidden"
+            >
               <span className="text-[11px] text-slate-500 font-bold block mb-1">Списков активностей</span>
               <div className="flex items-baseline gap-1">
                 <span className="text-[26px] font-black text-emerald-950 font-mono">{todayEntries.length}</span>
@@ -292,12 +272,17 @@ export default function MovementDetailsScreen({
           </div>
 
           {/* Details of last session */}
-          {todayEntries.length > 0 ? (
-            <div className="mt-1.5 bg-indigo-50/30 border border-indigo-100 p-3 rounded-2xl flex items-center justify-between">
+          {todayEntries.length > 0 ? (() => {
+            const latestCfgKey = Object.keys(ACTIVITY_CONFIGS).find(k => ACTIVITY_CONFIGS[k].name === latestActivityType || k === latestActivityType) || "Walk";
+            return (
+            <div 
+              style={{ backgroundColor: ACTIVITY_CONFIGS[latestCfgKey].hexColor }}
+              className="mt-1.5 border border-indigo-100 p-3 rounded-2xl flex items-center justify-between"
+            >
               <div className="flex items-center gap-2">
                 <img src={getMovementAssetPath(latestActivityType || "Walk", userGender)} className="w-8 h-8 object-contain" />
                 <div className="text-left">
-                  <span className="text-[11px] block font-semibold text-slate-400 uppercase tracking-widest leading-none">ПОСЛЕДНЯЯ ЗАПИСЬ</span>
+                  <span className="text-[11px] block font-semibold text-slate-500 uppercase tracking-widest leading-none">ПОСЛЕДНЯЯ ЗАПИСЬ</span>
                   <span className="text-[14px] font-bold text-slate-800">
                     {todayEntries[todayEntries.length - 1].type}
                   </span>
@@ -307,21 +292,14 @@ export default function MovementDetailsScreen({
                 <span className="text-[14px] font-black font-mono text-indigo-700">
                   {Math.round(todayEntries[todayEntries.length - 1].duration / 60)} мин
                 </span>
-                <span className="text-[10px] block text-slate-400 font-bold">
+                <span className="text-[10px] block text-slate-500 font-bold">
                   в {todayEntries[todayEntries.length - 1].timeString}
                 </span>
               </div>
             </div>
-          ) : null}
+            );
+          })() : null}
         </div>
-
-        {todayEntries.length > 0 && !noteSavedOrSkipped && (
-          <BriefNoteBlock
-            moduleKey="movement"
-            onSave={handleSaveMovementNote}
-            onSkip={() => setNoteSavedOrSkipped(true)}
-          />
-        )}
 
         {/* 2. MIDDLE PART: ANNA'S MOTIVATIONAL ADVICE BOX */}
         <div className={`rounded-[28px] p-4 text-left flex flex-col gap-3 transition-all duration-500 relative z-10 mb-5 ${annaCoaching.glowBorderClass}`} id="anna-movement-coaching-box">
