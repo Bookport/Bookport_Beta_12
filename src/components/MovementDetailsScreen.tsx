@@ -506,7 +506,7 @@ export default function MovementDetailsScreen({
                 </p>
               </div>
               <div className="w-[52px] h-[52px] flex items-center justify-center shrink-0">
-                <img src={getMovementAwardPath()} alt="Награда" className="w-8 h-8 object-contain" />
+                <img src={getMovementAwardPath()} alt="Награда" className="w-14 h-14 object-contain" />
               </div>
             </div>
             <div className="border-t border-slate-100/90 mt-2.5 pt-2 flex justify-between text-[11px] font-extrabold text-[#059669]">
