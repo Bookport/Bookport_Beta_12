@@ -216,7 +216,7 @@ export default function MovementDetailsScreen({
             {/* Left box: sum */}
             <div 
               style={{ backgroundColor: "#E8F0FE" }}
-              className="rounded-2xl p-3 border border-indigo-100/40 relative overflow-hidden"
+              className="rounded-2xl p-3 shadow-sm relative overflow-hidden"
             >
               <span className="text-[11px] text-slate-500 font-bold block mb-1">Всего времени</span>
               <div className="flex items-baseline gap-1">
@@ -231,7 +231,7 @@ export default function MovementDetailsScreen({
             {/* Right box: counts */}
             <div 
               style={{ backgroundColor: "#E6F4EA" }}
-              className="rounded-2xl p-3 border border-emerald-150/40 relative overflow-hidden"
+              className="rounded-2xl p-3 shadow-sm relative overflow-hidden"
             >
               <span className="text-[11px] text-slate-500 font-bold block mb-1">Списков активностей</span>
               <div className="flex items-baseline gap-1">
@@ -494,7 +494,7 @@ export default function MovementDetailsScreen({
                   {metrics.totalMinutes} минут
                 </p>
               </div>
-              <div className="w-[52px] h-[52px] rounded-2xl bg-indigo-50 flex items-center justify-center shrink-0">
+              <div className="w-[52px] h-[52px] flex items-center justify-center shrink-0">
                 <img src={getMovementAwardPath()} alt="Награда" className="w-8 h-8 object-contain" />
               </div>
             </div>
