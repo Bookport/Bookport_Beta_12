@@ -3,6 +3,7 @@ import { motion } from "motion/react";
 import BottomBar from "./BottomBar";
 import { MOVEMENT_DAILY_TARGET_MIN, ACTIVITY_CONFIGS } from "../constants/movement";
 import { getMovementAssetPath, getMovementMarkerPath, getMovementAwardPath, getMovementStreakPath } from "../utils/movementAssets";
+import { getPlural } from "../utils/pluralize";
 import { getAnnaMovementCoaching } from "../utils/movementCoaching";
 import { 
   ArrowLeft, 
@@ -457,41 +458,51 @@ export default function MovementDetailsScreen({
         <div className="grid grid-cols-2 gap-3.5 mb-6 text-left">
           
           {/* Favorite Activity Type Card */}
-          <div className="bg-white rounded-[24px] p-3.5 border border-gray-100/90 shadow-sm flex flex-col justify-between">
+          <div 
+            style={{ backgroundColor: "#F4F0FF" }}
+            className="rounded-[24px] p-3.5 shadow-sm flex items-center justify-between"
+          >
             <div>
               <span className="text-[10px] uppercase font-black text-slate-400 tracking-wider">ЛЮБИМЫЙ ТИП</span>
               <p className="text-[17px] font-black text-slate-800 mt-1" style={{ fontFamily: '"Calibri", sans-serif' }}>
                 {metrics.favoriteType}
               </p>
+              <span className="text-[11px] font-bold text-indigo-500 mt-2 block">
+                Чаще всего выбираете
+              </span>
             </div>
-            <span className="text-[11px] font-bold text-indigo-500 mt-2 block">
-              Чаще всего выбираете
-            </span>
+            <img src={getMovementAssetPath(metrics.favoriteType || "Walk", userGender)} alt="Любимый тип" className="w-14 h-14 object-contain shrink-0" />
           </div>
 
           {/* Current streak tracker */}
-          <div className="bg-white rounded-[24px] p-3.5 border border-gray-100/90 shadow-sm flex flex-col justify-between relative overflow-hidden">
+          <div 
+            style={{ backgroundColor: "#FDF2F8" }}
+            className="rounded-[24px] p-3.5 shadow-sm flex items-center justify-between relative overflow-hidden"
+          >
             <div>
               <span className="text-[10px] uppercase font-black text-slate-400 tracking-wider">АКТИВНАЯ СЕРИЯ</span>
               <p className="text-[24px] font-black text-indigo-950 mt-1 font-mono">
-                {metrics.streak} <span className="text-xs font-semibold text-slate-500">дн.</span>
+                {metrics.streak} <span className="text-xs font-semibold text-slate-500">{getPlural(metrics.streak, ['день', 'дня', 'дней'])}</span>
               </p>
+              <span className="text-[11px] font-bold text-slate-400 mt-2 block">
+                Рекорд курса: {metrics.maxStreak} {getPlural(metrics.maxStreak, ['день', 'дня', 'дней'])}
+              </span>
             </div>
-            <span className="text-[11px] font-bold text-slate-400 mt-2 block">
-              Рекорд курса: {metrics.maxStreak} дн.
-            </span>
-            <div className="absolute right-2 bottom-2 animate-pulse">
-              <img src={getMovementStreakPath()} alt="Серия" className="w-8 h-8 object-contain opacity-80" />
+            <div className="animate-pulse shrink-0 flex items-center justify-center">
+              <img src={getMovementStreakPath()} alt="Серия" className="w-14 h-14 object-contain opacity-80" />
             </div>
           </div>
 
           {/* Total Minutes aggregate */}
-          <div className="bg-white rounded-[24px] p-3.5 border border-gray-100/90 shadow-sm flex flex-col justify-between col-span-2">
+          <div 
+            style={{ backgroundColor: "#EAF8F5" }}
+            className="rounded-[24px] p-3.5 shadow-sm flex flex-col justify-between col-span-2"
+          >
             <div className="flex justify-between items-center">
               <div>
                 <span className="text-[10px] uppercase font-black text-slate-400 tracking-wider">Всего движения за курс</span>
                 <p className="text-[26px] font-extrabold text-slate-800 mt-0.5" style={{ fontFamily: '"Calibri", sans-serif' }}>
-                  {metrics.totalMinutes} минут
+                  {metrics.totalMinutes} {getPlural(metrics.totalMinutes, ['минута', 'минуты', 'минут'])}
                 </p>
               </div>
               <div className="w-[52px] h-[52px] flex items-center justify-center shrink-0">
