@@ -19,7 +19,23 @@ import statSuccessTargetImg from "../assets/images/water/stat_success_target.web
 import statStreakWaveImg from "../assets/images/water/stat_streak_wave.webp";
 import statMedalImg from "../assets/images/water/stat_medal.webp";
 
+import volumeDrop1Img from "../assets/images/water/volume_drop_1.webp";
+import volumeGlassSmallImg from "../assets/images/water/volume_glass_small.webp";
+import volumeGlassLargeImg from "../assets/images/water/volume_glass_large.webp";
+import volumeBottleImg from "../assets/images/water/volume_bottle.webp";
+import volumeThermosImg from "../assets/images/water/volume_thermos.webp";
+import volumePitcherImg from "../assets/images/water/volume_pitcher.webp";
+
 const annaAvatarSrc = resolveAvatar({ toneGroup: 'reminder_caution', intent: 'reminder' }).src;
+
+const getVolumeIcon = (amt: number) => {
+  if (amt >= 1000) return volumePitcherImg;
+  if (amt >= 750) return volumeThermosImg;
+  if (amt >= 500) return volumeBottleImg;
+  if (amt >= 300) return volumeGlassLargeImg;
+  if (amt >= 200) return volumeGlassSmallImg;
+  return volumeDrop1Img;
+};
 
 interface WaterLogEntry {
   id: string;
@@ -460,15 +476,45 @@ export default function WaterDetailsScreen({
           </div>
 
           {/* Interactive selected bar summary row */}
-          <div className="bg-slate-50 p-3 rounded-2xl border border-gray-100 flex items-center justify-between text-[13px]">
-            <div className="flex items-center gap-1.5 text-text-sec font-medium">
-              <CheckCircle2 className="w-4.5 h-4.5 text-sky-500" />
-              <span>День {selectedGraphDay} {selectedGraphDay > currentDayIndex ? "(будущий день)" : ""}:</span>
-            </div>
+          <div className="flex flex-col gap-3 mt-1">
+            <h3 className="text-[12px] font-extrabold text-slate-400 tracking-wider uppercase ml-1">
+              ЖУРНАЛ ГИДРАТАЦИИ ЗА ДЕНЬ {selectedGraphDay}
+            </h3>
             
-            <span className="font-bold text-text-dark font-mono">
-              {graphDaySum} мл выпито из {graphDayGoal} мл ({graphDayPercent}%)
-            </span>
+            {graphDayEntries.length > 0 ? (
+              <div className="flex flex-col gap-2">
+                {graphDayEntries.map((entry, index) => {
+                  const opacity = 0.05 + (index * 0.08);
+                  return (
+                    <div 
+                      key={entry.id || index}
+                      className="flex items-center justify-between p-3.5 rounded-[20px] transition-all"
+                      style={{ backgroundColor: `rgba(59, 130, 246, ${opacity})` }}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-white/60 flex items-center justify-center shadow-sm">
+                          <img 
+                            src={getVolumeIcon(entry.amount)} 
+                            alt="Объем" 
+                            className="w-6 h-6 object-contain drop-shadow-sm" 
+                          />
+                        </div>
+                        <span className="text-[16px] font-bold text-slate-800 font-mono">
+                          {entry.amount} мл
+                        </span>
+                      </div>
+                      <span className="text-[14px] font-bold text-slate-500 font-mono opacity-80">
+                        {entry.time}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="bg-slate-50 p-4 rounded-2xl border border-gray-100 flex items-center justify-center text-[13px] text-slate-400 font-medium">
+                Нет записей о воде за этот день
+              </div>
+            )}
           </div>
         </div>
 
