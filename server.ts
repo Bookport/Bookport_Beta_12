@@ -96,6 +96,10 @@ function pickAnnaTools(message: string, screenContext?: string, dayIndex?: numbe
     selected.add("get_user_profile");
   }
 
+  if (/вода|водн|баланс|жажд|пить|выпит|норм.*вод|сколько.*вод/i.test(msg)) {
+    selected.add("get_water_analytics");
+  }
+
   if (/что ты знаешь обо мне|кто я|профил|о мне|здоров|цель/i.test(msg)) {
     selected.add("get_user_profile");
   }

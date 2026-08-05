@@ -154,6 +154,17 @@ export const ANNA_TOOL_DEFINITIONS = [
       },
     },
   },
+  {
+    type: "function" as const,
+    function: {
+      name: "get_water_analytics",
+      description: "Используй эту функцию ТОЛЬКО тогда, когда пользователь задает вопросы про выпитую им воду, его водный баланс, норму воды или жажду.",
+      parameters: {
+        type: "object" as const,
+        properties: {},
+      },
+    },
+  },
 ];
 
 export async function executeToolCall(
@@ -463,6 +474,50 @@ export async function executeToolCall(
           totalFat: Math.round(totalFat * 10) / 10,
           totalFiber: Math.round(totalFiber * 10) / 10,
           items,
+        };
+      }
+
+      case "get_water_analytics": {
+        const user = await prisma.user.findUnique({ where: { id: userId } });
+        const weight = user?.weight ?? user?.initialWeight ?? 65;
+        const dailyGoal = Math.round(weight * 30);
+
+        // Determine today's dayIndex from user's current course day
+        const todayIndex = user?.currentDayIndex ?? 1;
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const metric = await prisma.dailyMetric.findFirst({
+          where: { userId, date: { gte: today } },
+          orderBy: { date: "desc" },
+        });
+
+        const sessionMetric = metric ?? await prisma.dailyMetric.findFirst({
+          where: { userId, dayIndex: todayIndex },
+          orderBy: { date: "desc" },
+        });
+
+        const drankToday = sessionMetric?.waterMl ?? 0;
+
+        let lastDrinkTime: string | null = null;
+        const rawWaterEntries = sessionMetric?.waterEntries;
+        if (rawWaterEntries) {
+          try {
+            const entries = safeParseJSON<Array<{ time?: string; timestamp?: number }>>(rawWaterEntries);
+            if (Array.isArray(entries) && entries.length > 0) {
+              const last = entries[entries.length - 1];
+              lastDrinkTime = last?.time || null;
+            }
+          } catch {
+            // ignore parse errors
+          }
+        }
+
+        return {
+          drank_today: drankToday,
+          daily_goal: dailyGoal,
+          last_drink_time: lastDrinkTime,
+          SYSTEM_INSTRUCTION: "ИНСТРУКЦИЯ ДЛЯ ФОРМИРОВАНИЯ ОТВЕТА: При озвучивании объемов воды категорически запрещено использовать цифры и сокращения (л, мл). Все числовые значения объема переводи в текстовый формат (прописью). Пример: вместо '1.2 л' ты обязана написать 'один литр двести граммов'. Вместо '500 мл' пиши 'пятьсот миллилитров'.",
         };
       }
 
