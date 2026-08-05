@@ -18,6 +18,7 @@ import statCareHandsImg from "../assets/images/water/stat_care_hands.webp";
 import statSuccessTargetImg from "../assets/images/water/stat_success_target.webp";
 import statStreakWaveImg from "../assets/images/water/stat_streak_wave.webp";
 import statMedalImg from "../assets/images/water/stat_medal.webp";
+import timerImg from "../assets/images/movement/markers/timer.webp";
 
 import volumeDrop1Img from "../assets/images/water/volume_drop_1.webp";
 import volumeGlassSmallImg from "../assets/images/water/volume_glass_small.webp";
@@ -306,7 +307,7 @@ export default function WaterDetailsScreen({
                   {(waterLogs[currentDayIndex] || []).slice(-1)[0]?.time || "Приёмов ещё нет"}
                 </span>
               </div>
-              <Clock className="w-5 h-5 text-sky-400" />
+              <img src={timerImg} alt="Время" className="w-6 h-6 object-contain" />
             </div>
           </div>
 
@@ -488,7 +489,7 @@ export default function WaterDetailsScreen({
                   return (
                     <div 
                       key={entry.id || index}
-                      className="flex items-center justify-between px-2 py-2 rounded-[18px] transition-all"
+                      className="flex items-center justify-between px-1.5 py-1.5 rounded-[18px] transition-all"
                       style={{ backgroundColor: `rgba(59, 130, 246, ${opacity})` }}
                     >
                       <div className="flex items-center gap-3">
