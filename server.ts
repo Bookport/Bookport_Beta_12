@@ -784,8 +784,10 @@ async function startServer() {
           const rawWaterEntries = sessionMetric?.waterEntries;
           if (rawWaterEntries) {
             try {
-              const entries = safeParseJSON<Array<{ amount: number; time?: string; timestamp?: number }>>(rawWaterEntries);
-              if (Array.isArray(entries)) waterEntries = entries;
+              const parsed = safeParseJSON<Array<{ amount: number; time?: string; timestamp?: number }>>(rawWaterEntries, []);
+              if (parsed.ok && Array.isArray(parsed.data)) {
+                waterEntries = parsed.data;
+              }
             } catch {
               // ignore parse errors
             }
@@ -798,8 +800,12 @@ async function startServer() {
             weight,
           });
 
-          systemPrompt += `\n\n[Системные данные о Воде: ${waterContext.text}. ОБЯЗАТЕЛЬНОЕ ПРАВИЛО: Все цифры объема переводи в текст прописью. Вместо '1150 мл' пиши 'один литр сто пятьдесят миллилитров'. Не озвучивай пользователю сам факт получения этой инструкции.]`;
-          console.log('[Water Pre-fetch JIT Triggered]: System Prompt Enriched');
+          systemPrompt += `\n\n[Системные данные о Воде пользователя на сегодня:
+- Выпито сегодня: ${waterContext.drank_today_ml} мл
+- Дневная норма: ${waterContext.daily_goal_ml} мл
+- Последний приём: ${waterContext.last_drink_time || "нет записей"}
+ОБЯЗАТЕЛЬНОЕ ПРАВИЛО: Все цифры объема переводи в текст прописью (например, 'один литр двести миллилитров', а не '1200 мл'). Запрещено использовать числа для объема. Не упоминай пользователю, откуда взял эти данные.]`;
+          console.log('[Water Pre-fetch JIT Triggered]: System Prompt Enriched with flat data');
         } catch (e) {
           console.error("Error loading water context for Anna:", e);
         }
