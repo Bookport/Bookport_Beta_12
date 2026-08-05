@@ -12,6 +12,7 @@ import { DISH_PHILOSOPHY } from "./src/data/dishPhilosophy";
 import { callLLM } from "./src/services/llmAdapter";
 import { PromptCompiler } from "./src/services/promptCompiler";
 import { safeParseJSON } from "./src/utils/safeParseJSON";
+import { getWaterContext } from "./src/utils/waterCoaching";
 import { prisma } from "./src/prisma";
 import { logger } from "./src/utils/logger";
 import { achievementService } from "./src/services/AchievementService";
@@ -94,10 +95,6 @@ function pickAnnaTools(message: string, screenContext?: string, dayIndex?: numbe
   if (/вода|сон|давлен|пульс|метрик|активн|движени|трениров|устал|сил|энерги|замер|самочувств/i.test(msg)) {
     selected.add("get_daily_metrics");
     selected.add("get_user_profile");
-  }
-
-  if (/вода|водн|баланс|жажд|пить|выпит|норм.*вод|сколько.*вод/i.test(msg)) {
-    selected.add("get_water_analytics");
   }
 
   if (/что ты знаешь обо мне|кто я|профил|о мне|здоров|цель/i.test(msg)) {
@@ -790,6 +787,55 @@ async function startServer() {
             content: h.text,
           });
         });
+      }
+
+      // ── Smart Middleware (Pre-fetch): water context enrichment ──
+      const userMessage = message || "";
+      const isWaterQuery = /вод[ауеы]|попи|выпил|жажд|норм[ау]/i.test(userMessage);
+      if (req.userId && isWaterQuery) {
+        try {
+          const user = await prisma.user.findUnique({ where: { id: req.userId } });
+          const weight = user?.weight ?? user?.initialWeight ?? 65;
+          const todayIndex = user?.currentDayIndex ?? 1;
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+
+          const metric = await prisma.dailyMetric.findFirst({
+            where: { userId: req.userId, date: { gte: today } },
+            orderBy: { date: "desc" },
+          });
+          const sessionMetric = metric ?? await prisma.dailyMetric.findFirst({
+            where: { userId: req.userId, dayIndex: todayIndex },
+            orderBy: { date: "desc" },
+          });
+
+          let waterEntries: Array<{ amount: number; time?: string; timestamp?: number }> = [];
+          const rawWaterEntries = sessionMetric?.waterEntries;
+          if (rawWaterEntries) {
+            try {
+              const entries = safeParseJSON<Array<{ amount: number; time?: string; timestamp?: number }>>(rawWaterEntries);
+              if (Array.isArray(entries)) waterEntries = entries;
+            } catch {
+              // ignore parse errors
+            }
+          }
+
+          const waterContext = getWaterContext({
+            userName: user?.name || "друг",
+            userGender: (user?.gender as "female" | "male") || "female",
+            waterEntries,
+            weight,
+          });
+
+          // Inject hidden system message strictly before the user message.
+          // The rule about transcribing volumes as words is already embedded in waterContext.text.
+          messages.push({
+            role: "system",
+            content: waterContext.text,
+          });
+        } catch (e) {
+          console.error("Error loading water context for Anna:", e);
+        }
       }
 
       // Current user message

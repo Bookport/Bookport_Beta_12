@@ -1,7 +1,6 @@
 import { prisma } from "../prisma";
 import { safeParseJSON } from "../utils/safeParseJSON";
 import { MOVEMENT_DAILY_TARGET_MIN } from "../constants/movement";
-import { getWaterContext } from "../utils/waterCoaching";
 
 function parseKbjuToNumbers(kbjuRaw: string | null): {
   calories: number | null;
@@ -152,17 +151,6 @@ export const ANNA_TOOL_DEFINITIONS = [
           dayIndex: { type: "number", description: "Номер дня (0-based), за который нужно подсчитать КБЖУ" },
         },
         required: ["dayIndex"],
-      },
-    },
-  },
-  {
-    type: "function" as const,
-    function: {
-      name: "get_water_analytics",
-      description: "КРИТИЧЕСКИ ВАЖНО: Ты ОБЯЗАНА вызывать эту функцию ВСЕГДА, когда пользователь упоминает воду, жажду, выпитый объем или норму гидратации. СТРОГО ЗАПРЕЩЕНО выдумывать, предполагать или генерировать цифры по воде самостоятельно. Получи реальные данные только через эту функцию.",
-      parameters: {
-        type: "object" as const,
-        properties: {},
       },
     },
   },
@@ -476,44 +464,6 @@ export async function executeToolCall(
           totalFiber: Math.round(totalFiber * 10) / 10,
           items,
         };
-      }
-
-      case "get_water_analytics": {
-        const user = await prisma.user.findUnique({ where: { id: userId } });
-        const weight = user?.weight ?? user?.initialWeight ?? 65;
-
-        // Determine today's dayIndex from user's current course day
-        const todayIndex = user?.currentDayIndex ?? 1;
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        const metric = await prisma.dailyMetric.findFirst({
-          where: { userId, date: { gte: today } },
-          orderBy: { date: "desc" },
-        });
-
-        const sessionMetric = metric ?? await prisma.dailyMetric.findFirst({
-          where: { userId, dayIndex: todayIndex },
-          orderBy: { date: "desc" },
-        });
-
-        let waterEntries: Array<{ amount: number; time?: string; timestamp?: number }> = [];
-        const rawWaterEntries = sessionMetric?.waterEntries;
-        if (rawWaterEntries) {
-          try {
-            const entries = safeParseJSON<Array<{ amount: number; time?: string; timestamp?: number }>>(rawWaterEntries);
-            if (Array.isArray(entries)) waterEntries = entries;
-          } catch {
-            // ignore parse errors
-          }
-        }
-
-        return getWaterContext({
-          userName: user?.name || "друг",
-          userGender: (user?.gender as "female" | "male") || "female",
-          waterEntries,
-          weight,
-        });
       }
 
       default:
