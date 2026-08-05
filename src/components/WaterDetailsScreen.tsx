@@ -488,17 +488,15 @@ export default function WaterDetailsScreen({
                   return (
                     <div 
                       key={entry.id || index}
-                      className="flex items-center justify-between p-3.5 rounded-[20px] transition-all"
+                      className="flex items-center justify-between px-3.5 py-2.5 rounded-[18px] transition-all"
                       style={{ backgroundColor: `rgba(59, 130, 246, ${opacity})` }}
                     >
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-white/60 flex items-center justify-center shadow-sm">
-                          <img 
-                            src={getVolumeIcon(entry.amount)} 
-                            alt="Объем" 
-                            className="w-6 h-6 object-contain drop-shadow-sm" 
-                          />
-                        </div>
+                        <img 
+                          src={getVolumeIcon(entry.amount)} 
+                          alt="Объем" 
+                          className="w-7 h-7 object-contain drop-shadow-sm" 
+                        />
                         <span className="text-[16px] font-bold text-slate-800 font-mono">
                           {entry.amount} мл
                         </span>
