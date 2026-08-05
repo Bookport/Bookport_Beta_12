@@ -27,6 +27,7 @@ import { SystemKeysStore } from "../services/SystemKeysStore";
 import { calculateIntegralScore } from "../utils/integralScore";
 import { api } from "../utils/api";
 import { getPlural } from "../utils/pluralize";
+import { getDailyWaterTip } from "../utils/waterTips";
 import waterImg from "../assets/images/buttons/вода.webp";
 import foodImg from "../assets/images/buttons/еда.webp";
 import movementImg from "../assets/images/buttons/движение.webp";
@@ -2694,14 +2695,13 @@ export default function MyDayScreen({
 
             {/* Sliding Panel */}
             <motion.div
-              initial={{ y: "100%" }}
-              animate={{ y: 0 }}
-              exit={{ y: "100%" }}
+              initial={{ opacity: 0, scale: 0.96, y: 12 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96, y: 12 }}
               transition={{ type: "spring", damping: 25, stiffness: 220 }}
-              className="absolute bottom-0 inset-x-0 bg-white rounded-t-[36px] shadow-[0_-12px_40px_rgba(15,23,42,0.18)] border-t border-slate-100 z-50 p-6 flex flex-col text-left text-text-dark max-h-[80dvh] overflow-y-auto overscroll-contain"
+              className="absolute inset-0 flex items-center justify-center px-5 py-6 z-50 pointer-events-none"
             >
-              {/* Drag handles decorative pill */}
-              <div className="w-12 h-1.5 bg-slate-200 rounded-full mx-auto mb-4" />
+              <div className="w-full max-w-md bg-white rounded-3xl shadow-[0_-12px_40px_rgba(15,23,42,0.18),0_12px_40px_rgba(15,23,42,0.25)] border border-slate-100 p-6 flex flex-col text-left text-text-dark max-h-[80dvh] overflow-y-auto overscroll-contain pointer-events-auto">
 
               <div className="flex justify-between items-center mb-5">
                 <div className="flex flex-col">
@@ -2791,7 +2791,7 @@ export default function MyDayScreen({
                             : "bg-slate-50 text-slate-800 border-slate-100 hover:bg-slate-100/80 active:scale-95"
                         }`}
                       >
-                        <span className="text-[22px] leading-none">{dropletEmoji}</span>
+                        <span className="text-[38px] leading-none">{dropletEmoji}</span>
                         <span className="text-[14px] font-bold font-mono">
                           {amt < 1000 ? `${amt} мл` : `1.0 л`}
                         </span>
@@ -2804,7 +2804,7 @@ export default function MyDayScreen({
               {/* Information Hint */}
               <div className="flex items-center gap-2 bg-sky-500/5 px-4 py-3 rounded-2xl border border-sky-100/40 text-[12.5px] leading-snug font-medium text-sky-800 my-4 text-left">
                 <HelpCircle className="w-4.5 h-4.5 text-sky-500 shrink-0" />
-                <span>Двойной клик или зажатие кнопки «Вода» на главном экране откроют аналитический экран гидратации.</span>
+                <span>{getDailyWaterTip()}</span>
               </div>
 
               {/* Large Confirm primary action button */}
@@ -2818,6 +2818,7 @@ export default function MyDayScreen({
               >
                 Подтвердить выбор (+{tempSelectedFastAmount < 1000 ? `${tempSelectedFastAmount} мл` : `1.0 л`})
               </button>
+              </div>
             </motion.div>
           </>
         )}
