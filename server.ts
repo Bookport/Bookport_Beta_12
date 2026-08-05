@@ -800,12 +800,19 @@ async function startServer() {
             weight,
           });
 
-          systemPrompt += `\n\n[Системные данные о Воде пользователя на сегодня:
+          const waterInjectionText = `\n\n[Системные данные о Воде пользователя на сегодня:
 - Выпито сегодня: ${waterContext.drank_today_ml} мл
 - Дневная норма: ${waterContext.daily_goal_ml} мл
 - Последний приём: ${waterContext.last_drink_time || "нет записей"}
 ОБЯЗАТЕЛЬНОЕ ПРАВИЛО: Все цифры объема переводи в текст прописью (например, 'один литр двести миллилитров', а не '1200 мл'). Запрещено использовать числа для объема. Не упоминай пользователю, откуда взял эти данные.]`;
-          console.log('[Water Pre-fetch JIT Triggered]: System Prompt Enriched with flat data');
+
+          systemPrompt += waterInjectionText;
+          console.log('[Water Pre-fetch JIT Triggered]:', {
+            isWaterQuery,
+            message: userMessage,
+            injectedText: waterInjectionText,
+            drank_today: waterContext.drank_today_ml
+          });
         } catch (e) {
           console.error("Error loading water context for Anna:", e);
         }
