@@ -10,6 +10,7 @@ import {
   Droplet
 } from "lucide-react";
 import BottomBar from "./BottomBar";
+import { getAnnaWaterPhrase } from "../utils/waterPhrases";
 import { resolveAvatar } from "../utils/annaAvatarResolver";
 import ingrGreenImg from "../assets/ingredients/ingr_green.webp";
 import volumeSplashCircleImg from "../assets/images/water/volume_splash_circle.webp";
@@ -109,9 +110,7 @@ export default function WaterDetailsScreen({
     // Generate advice based on current ratios
     const weight = getResolvedWeightForDay(currentDayIndex);
     const target = weight * 30;
-    const ratio = water / target;
     const todayLogs = waterLogs[currentDayIndex] || [];
-    const entryCount = todayLogs.length;
 
     const hoursSinceLastDrink = (() => {
       if (todayLogs.length === 0) return 99
@@ -119,34 +118,21 @@ export default function WaterDetailsScreen({
       return (Date.now() - last.timestamp) / (1000 * 60 * 60)
     })()
 
-    const isFemale = userGender === "female";
-    const ending = isFemale ? "заметила" : "заметил";
-    const pleased = isFemale ? "рада" : "рад";
-    const statePhrase = isFemale ? "готова" : "готов";
+    const lastDrinkVolume = todayLogs.length > 0 ? todayLogs[todayLogs.length - 1].amount : 0;
 
-    let text = "";
+    const text = getAnnaWaterPhrase(water, target, hoursSinceLastDrink, lastDrinkVolume);
+
     let mood: "good" | "neutral" | "warning" | "alert" = "neutral";
-
-    if (ratio >= 1.0) {
-      mood = "good";
-      const alternatives = [
-        `Потрясающе, ${userName}! Твоя дневная цель по чистой воде перевыполнена. Ткани твоего тела полностью расправились, кровоток летит легко и беспрепятственно. Капилляры получили необходимый объём без капли напряжения. Настоящий канон движения лимфы! 🌊`,
-        `Это триумф чистоты, ${userName}! Водный баланс закрыт на 100%. Цельная растительная пища и достаточный объём жидкостей идеально питают твои почки и сосуды. Клетки буквально сияют чистотой. Продолжай в том же духе! ✨`,
-        `Я невероятно ${pleased} за твой режим сегодня! Кровеносное русло насыщено, органы детоксикации работают безупречно. Почки поют, а суставные хрящи получили качественный амортизирующий объём. Ты — пример для подражания! 🚀`
-      ];
-      text = alternatives[Math.floor(Math.random() * alternatives.length)];
-    } else if (hoursSinceLastDrink < 2) {
-      mood = "good";
-      text = `${userName}, ты только что пополнил${isFemale ? "а" : ""} водный баланс (${water} мл). Вода усваивается, клетки получают влагу. До нормы осталось ${Math.round(target - water)} мл — просто распредели равномерно до вечера.`;
-    } else if (hoursSinceLastDrink < 4) {
-      mood = "neutral";
-      text = `${userName}, прошло ${Math.round(hoursSinceLastDrink)} ч. с последнего стакана. Уровень ${water} мл из ${target} мл. Клетчатка в кишечнике начинает уплотняться без влаги. Сделай глоток, чтобы поддержать перистальтику.`;
-    } else if (entryCount > 0) {
-      mood = "warning";
-      text = `${userName}, прошло уже ${Math.round(hoursSinceLastDrink)} ч. без воды (всего ${water} мл из ${target} мл). Это сгущает лимфу и замедляет доставку нутриентов к тканям. Выпей стакан чистой воды прямо сейчас! ⚠️`;
-    } else {
+    if (water === 0) {
       mood = "alert";
-      text = `Внимание, ${userName}! Я ${ending}, что за сегодня не введено ни одного миллилитра воды! Это экстренный режим дефицита для почек. Сосуды сжимаются, чтобы удержать давление. Пожалуйста, окажи помощь организму — выпей стакан чистой воды прямо сейчас! 🚨`;
+    } else if (water >= target) {
+      mood = "good";
+    } else if (water >= target * 0.85) {
+      mood = "good";
+    } else if (hoursSinceLastDrink > 2.5) {
+      mood = "warning";
+    } else {
+      mood = "good";
     }
 
     setAnnaAdvice({ text, mood });
