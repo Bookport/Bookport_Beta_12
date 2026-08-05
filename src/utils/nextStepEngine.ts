@@ -1,4 +1,5 @@
 import { NormalizedIngredient } from "../services/DailyNutritionStore";
+import { getPlural } from "./pluralize";
 
 export interface NextStepInput {
   water: number;
@@ -240,7 +241,7 @@ export function getRecommendedNextStep(input: NextStepInput): NextStepRecommenda
   if (mealCount >= 2 && aggregatedIngredients.filter(i => i.status === "green").length < 5) {
     return {
       title: "Сырьевое разнообразие",
-      desc: `За день приготовлено ${mealCount} блюд, но использовано только ${aggregatedIngredients.filter(i => i.status === "green").length} видов зелёного сырья. Постарайся включить в следующий приём овощ из новой группы — бобовые, крестоцветные или листовую зелень.`,
+      desc: `За день приготовлено ${mealCount} ${getPlural(mealCount, ['блюдо', 'блюда', 'блюд'])}, но использовано только ${aggregatedIngredients.filter(i => i.status === "green").length} видов зелёного сырья. Постарайся включить в следующий приём овощ из новой группы — бобовые, крестоцветные или листовую зелень.`,
       icon: "🥗",
       btnText: "Открыть книгу рецептов",
       actionType: "book-recipes",

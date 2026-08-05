@@ -3,6 +3,7 @@ import { Moon, Droplet, Apple, Activity, Zap, Award } from "lucide-react";
 import { motion } from "motion/react";
 import AnnaTabSpoiler from "./AnnaTabSpoiler";
 import { NextStepRecommendation } from "../../utils/nextStepEngine";
+import { getPlural } from "../../utils/pluralize";
 
 interface ScalesTabProps {
   key?: any;
@@ -399,7 +400,7 @@ export default function ScalesTab({
             <span className="text-[11px] font-extrabold text-slate-400 uppercase block tracking-wider">Кулинарное меню дня</span>
             <div className="flex items-baseline gap-1 mt-1">
               <span className="text-[30px] font-black text-slate-800 leading-none">{todayCookedBookCount}</span>
-              <span className="text-[14px] text-slate-400 font-bold">/ {todayTotalBookMenuCount} блюд</span>
+              <span className="text-[14px] text-slate-400 font-bold">/ {todayTotalBookMenuCount} {getPlural(todayTotalBookMenuCount, ['блюдо', 'блюда', 'блюд'])}</span>
             </div>
             <p className="text-[11px] text-gray-400 mt-1.5 leading-snug">
               Рецептов из меню Дня {currentDayIndex} отмечено как приготовлено за сегодня.

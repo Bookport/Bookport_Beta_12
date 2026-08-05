@@ -28,6 +28,7 @@ import { resolveAvatarForTab, resolveGeneralAvatar } from "../utils/annaAvatarRe
 import { api } from "../utils/api";
 import { getBookMacros } from "../utils/bookMacros";
 import { getRecipeImagePath } from "../utils/recipeImageMapper";
+import { getPlural } from "../utils/pluralize";
 
 interface StateNowScreenProps {
   dayNotes: Record<number, { text: string; time: string }[]>;
@@ -601,7 +602,7 @@ export default function StateNowScreen({
     if (totalDishes > 0) {
       const topIngredients = aggregatedIngredients.slice(0, 3).map(i => i.name.toLowerCase()).join(", ");
       const ingredientsAddon = topIngredients ? ` на базе биоактивных компонентов: ${topIngredients}` : "";
-      foodParagraph = `Сегодня в архив вашего рациона занесено ${totalDishes} блюд${ingredientsAddon}. Мы обеспечили клетки питательным объемом в ${totalCalories} ккал, ${totalProtein} г целевого белка и ${totalFiber} г терапевтической растительной клетчатки. `;
+      foodParagraph = `Сегодня в архив вашего рациона занесено ${totalDishes} ${getPlural(totalDishes, ['блюдо', 'блюда', 'блюд'])}${ingredientsAddon}. Мы обеспечили клетки питательным объемом в ${totalCalories} ккал, ${totalProtein} г целевого белка и ${totalFiber} г терапевтической растительной клетчатки. `;
     } else {
       foodParagraph = `В архиве питания пока нет подтвержденных блюд за сегодня. Постарайтесь записать приготовленный завтрак или обед из книги курса либо отсканировать состав в модуле «Сделай сам». `;
     }
@@ -609,7 +610,7 @@ export default function StateNowScreen({
     let progressParagraph = "";
     const bookCookedToday = cookedBookDishes.length;
     if (bookCookedToday > 0) {
-      progressParagraph = `Ваш прогресс по курсу книги сегодня: ${bookCookedToday} шагов дневного меню выполнено на текущем Дне ${currentDayIndex}. Каждое такое попадание формирует правильный состав кишечной микробиоты, поддерживая тонкий баланс иммунных клеток. Всего по курсу вами приготовлено уже ${totalCookedBookRecipesCount} эксклюзивных рецептов. `;
+      progressParagraph = `Ваш прогресс по курсу книги сегодня: ${bookCookedToday} ${getPlural(bookCookedToday, ['шаг', 'шага', 'шагов'])} дневного меню выполнено на текущем Дне ${currentDayIndex}. Каждое такое попадание формирует правильный состав кишечной микробиоты, поддерживая тонкий баланс иммунных клеток. Всего по курсу вами приготовлено уже ${totalCookedBookRecipesCount} ${getPlural(totalCookedBookRecipesCount, ['рецепт', 'рецепта', 'рецептов'])}. `;
     } else {
       progressParagraph = `Сегодня отличный момент, чтобы свериться со страницей Дня ${currentDayIndex} в книге рецептов и сделать первый шаг. Приготовление даже одного цельного блюда дня — мощная поддержка ваших сосудов. `;
     }

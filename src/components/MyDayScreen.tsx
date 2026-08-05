@@ -26,6 +26,7 @@ import { useAppStore } from "../store/useAppStore";
 import { SystemKeysStore } from "../services/SystemKeysStore";
 import { calculateIntegralScore } from "../utils/integralScore";
 import { api } from "../utils/api";
+import { getPlural } from "../utils/pluralize";
 import waterImg from "../assets/images/buttons/вода.webp";
 import foodImg from "../assets/images/buttons/еда.webp";
 import movementImg from "../assets/images/buttons/движение.webp";
@@ -1930,14 +1931,14 @@ export default function MyDayScreen({
 
     const lowHabitsPhrases = [
       `Отличное начало! Уже ${habitsDone} из 20 ключей выполнены. Наш сосуд начинает наполняться, продолжаем! 🔥`,
-      `Прекрасный старт дня, ${name || "дорогой друг"}! ${habitsDone} ключей позади. Зелень, вода и движение — это твои проводники к долголетию. 🌿`,
+      `Прекрасный старт дня, ${name || "дорогой друг"}! ${habitsDone} ${getPlural(habitsDone, ['ключ', 'ключа', 'ключей'])} позади. Зелень, вода и движение — это твои проводники к долголетию. 🌿`,
       `Вижу твою заботу о клетках! ${habitsDone} отметок наполнили сосуд. Давай добавим ещё растительной пользы! 🔋`
     ];
 
     const midHabitsPhrases = [
       `Твоя шкала ключей позеленела! ${habitsDone} из 20 — прекрасный ритм. Организм говорит тебе спасибо за чистую растительную пищу! 🍃`,
-      `Какая лёгкость и осознанность, ${namePrefix || ""}ты наполняешься энергией на ${habitsDone} делений. Впереди новые здоровые рекорды сегодня! 🌟`,
-      `Я невероятно ${pleasedWord} твоим упорством! ${habitsDone} ключей выполнены без капли соли и масла. Твой сосуд заряжен больше чем наполовину! 💚`
+      `Какая лёгкость и осознанность, ${namePrefix || ""}ты наполняешься энергией на ${habitsDone} ${getPlural(habitsDone, ['деление', 'деления', 'делений'])}. Впереди новые здоровые рекорды сегодня! 🌟`,
+      `Я невероятно ${pleasedWord} твоим упорством! ${habitsDone} ${getPlural(habitsDone, ['ключ', 'ключа', 'ключей'])} выполнены без капли соли и масла. Твой сосуд заряжен больше чем наполовину! 💚`
     ];
 
     const highHabitsPhrases = [
@@ -3361,7 +3362,7 @@ export default function MyDayScreen({
                 <div className="text-center border-l border-indigo-100/60">
                   <span className="text-[10px] text-slate-500 font-bold block">Вклад в прогресс</span>
                   <span className="text-[18px] font-extrabold text-emerald-600 font-mono">
-                    +{showMovementSummaryCompleted.pointsEarned} баллов
+                    +{showMovementSummaryCompleted.pointsEarned} {getPlural(showMovementSummaryCompleted.pointsEarned, ['балл', 'балла', 'баллов'])}
                   </span>
                 </div>
               </div>
