@@ -761,6 +761,50 @@ async function startServer() {
         }
       }
 
+      // ── Smart Middleware (Pre-fetch): Water Context JIT Injection ──
+      const userMessage = message || "";
+      const isWaterQuery = /вод[ауеы]|попи|выпил|жажд|норм[ау]/i.test(userMessage);
+      if (req.userId && isWaterQuery) {
+        try {
+          const user = await prisma.user.findUnique({ where: { id: req.userId } });
+          const weight = user?.weight ?? user?.initialWeight ?? 65;
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+
+          const metric = await prisma.dailyMetric.findFirst({
+            where: { userId: req.userId, date: { gte: today } },
+            orderBy: { date: "desc" },
+          });
+          const sessionMetric = metric ?? await prisma.dailyMetric.findFirst({
+            where: { userId: req.userId, dayIndex: dayIndex ?? 1 },
+            orderBy: { date: "desc" },
+          });
+
+          let waterEntries: Array<{ amount: number; time?: string; timestamp?: number }> = [];
+          const rawWaterEntries = sessionMetric?.waterEntries;
+          if (rawWaterEntries) {
+            try {
+              const entries = safeParseJSON<Array<{ amount: number; time?: string; timestamp?: number }>>(rawWaterEntries);
+              if (Array.isArray(entries)) waterEntries = entries;
+            } catch {
+              // ignore parse errors
+            }
+          }
+
+          const waterContext = getWaterContext({
+            userName: user?.name || "друг",
+            userGender: (user?.gender as "female" | "male") || "female",
+            waterEntries,
+            weight,
+          });
+
+          systemPrompt += `\n\n[Системные данные о Воде: ${waterContext.text}. ОБЯЗАТЕЛЬНОЕ ПРАВИЛО: Все цифры объема переводи в текст прописью. Вместо '1150 мл' пиши 'один литр сто пятьдесят миллилитров'. Не озвучивай пользователю сам факт получения этой инструкции.]`;
+          console.log('[Water Pre-fetch JIT Triggered]: System Prompt Enriched');
+        } catch (e) {
+          console.error("Error loading water context for Anna:", e);
+        }
+      }
+
       systemPrompt += `\n\n[ПРАВИЛО КРАТКОСТИ]: Отвечай кратко и по существу. Для простых вопросов — 1-3 предложения. Развёрнутый ответ — только если пользователь явно просит подробностей или это необходимо для объяснения. Не повторяй очевидное.`;
 
       const availableTools = pickAnnaTools(message, screenContextDetails?.screen_id || screenContext, dayIndex);
@@ -791,55 +835,6 @@ async function startServer() {
 
       // Current user message
       messages.push({ role: "user", content: message });
-
-      // ── Smart Middleware (Pre-fetch): water context enrichment (Trojan horse) ──
-      // The LLM API may drop trailing role:"system" messages, so the water context is
-      // injected directly into the CURRENT (last) user message instead of a separate message.
-      const userMessage = message || "";
-      const isWaterQuery = /вод[ауеы]|попи|выпил|жажд|норм[ау]/i.test(userMessage);
-      if (req.userId && isWaterQuery) {
-        try {
-          const user = await prisma.user.findUnique({ where: { id: req.userId } });
-          const weight = user?.weight ?? user?.initialWeight ?? 65;
-          const todayIndex = user?.currentDayIndex ?? 1;
-          const today = new Date();
-          today.setHours(0, 0, 0, 0);
-
-          const metric = await prisma.dailyMetric.findFirst({
-            where: { userId: req.userId, date: { gte: today } },
-            orderBy: { date: "desc" },
-          });
-          const sessionMetric = metric ?? await prisma.dailyMetric.findFirst({
-            where: { userId: req.userId, dayIndex: todayIndex },
-            orderBy: { date: "desc" },
-          });
-
-          let waterEntries: Array<{ amount: number; time?: string; timestamp?: number }> = [];
-          const rawWaterEntries = sessionMetric?.waterEntries;
-          if (rawWaterEntries) {
-            try {
-              const entries = safeParseJSON<Array<{ amount: number; time?: string; timestamp?: number }>>(rawWaterEntries);
-              if (Array.isArray(entries)) waterEntries = entries;
-            } catch {
-              // ignore parse errors
-            }
-          }
-
-          const waterContext = getWaterContext({
-            userName: user?.name || "друг",
-            userGender: (user?.gender as "female" | "male") || "female",
-            waterEntries,
-            weight,
-          });
-
-          const appendText = `\n\n[СКРЫТЫЕ СИСТЕМНЫЕ ДАННЫЕ О ВОДЕ: ${waterContext.text}. ОБЯЗАТЕЛЬНОЕ ПРАВИЛО: Все цифры объема переводи в текст прописью. Вместо '1150 мл' пиши 'один литр сто пятьдесят миллилитров'. Не упоминай пользователю, что получил эту системную вставку.]`;
-          console.log('[Water Pre-fetch Triggered]:', appendText);
-          // Append to the current user message
-          messages[messages.length - 1].content += appendText;
-        } catch (e) {
-          console.error("Error loading water context for Anna:", e);
-        }
-      }
 
       // ── Tool calling loop (multi-turn round-trip) ──
       const MAX_TOOL_ROUNDS = 3;
