@@ -6,12 +6,12 @@ import {
   Clock, 
   Plus, 
   Minus, 
-  CheckCircle2
+  CheckCircle2,
+  Droplet
 } from "lucide-react";
 import BottomBar from "./BottomBar";
 import { resolveAvatar } from "../utils/annaAvatarResolver";
 import ingrGreenImg from "../assets/ingredients/ingr_green.webp";
-import statCalendarImg from "../assets/images/water/stat_calendar.webp";
 import volumeSplashCircleImg from "../assets/images/water/volume_splash_circle.webp";
 import statCareHandsImg from "../assets/images/water/stat_care_hands.webp";
 import statSuccessTargetImg from "../assets/images/water/stat_success_target.webp";
@@ -244,11 +244,7 @@ export default function WaterDetailsScreen({
         
         {/* Decorative dynamic icon */}
         <div className="w-12 h-12 rounded-2xl bg-sky-50 flex items-center justify-center shadow-sm">
-          <img
-            src={statCalendarImg}
-            alt="Календарь курса"
-            className="w-11 h-11 object-contain"
-          />
+          <Droplet className="w-7 h-7 text-sky-500 fill-sky-500/20" strokeWidth={2.5} />
         </div>
       </div>
 
