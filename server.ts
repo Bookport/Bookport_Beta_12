@@ -789,7 +789,12 @@ async function startServer() {
         });
       }
 
-      // ── Smart Middleware (Pre-fetch): water context enrichment ──
+      // Current user message
+      messages.push({ role: "user", content: message });
+
+      // ── Smart Middleware (Pre-fetch): water context enrichment (Trojan horse) ──
+      // The LLM API may drop trailing role:"system" messages, so the water context is
+      // injected directly into the CURRENT (last) user message instead of a separate message.
       const userMessage = message || "";
       const isWaterQuery = /вод[ауеы]|попи|выпил|жажд|норм[ау]/i.test(userMessage);
       if (req.userId && isWaterQuery) {
@@ -827,19 +832,14 @@ async function startServer() {
             weight,
           });
 
-          // Inject hidden system message strictly before the user message.
-          // The rule about transcribing volumes as words is already embedded in waterContext.text.
-          messages.push({
-            role: "system",
-            content: waterContext.text,
-          });
+          const appendText = `\n\n[СКРЫТЫЕ СИСТЕМНЫЕ ДАННЫЕ О ВОДЕ: ${waterContext.text}. ОБЯЗАТЕЛЬНОЕ ПРАВИЛО: Все цифры объема переводи в текст прописью. Вместо '1150 мл' пиши 'один литр сто пятьдесят миллилитров'. Не упоминай пользователю, что получил эту системную вставку.]`;
+          console.log('[Water Pre-fetch Triggered]:', appendText);
+          // Append to the current user message
+          messages[messages.length - 1].content += appendText;
         } catch (e) {
           console.error("Error loading water context for Anna:", e);
         }
       }
-
-      // Current user message
-      messages.push({ role: "user", content: message });
 
       // ── Tool calling loop (multi-turn round-trip) ──
       const MAX_TOOL_ROUNDS = 3;
