@@ -885,8 +885,22 @@ async function startServer() {
         annaCache.set(cacheKey, { reply: finalReply, ts: Date.now() });
       }
 
-      return res.json({ reply: finalReply });
+      // ── Send final answer exactly ONCE, at the very end after all tool rounds ──
+      // Plain REST transport: the client awaits the full JSON body and never sees
+      // intermediate tool-round text (it is suppressed above via content:null).
+      // Guard against double-send so a single /api/anna-chat request produces one response.
+      if (res.headersSent) {
+        console.warn("[Anna Final Reply] Response already sent — skipping second send.");
+      } else {
+        console.log('[Anna Final Reply]:', finalReply);
+        return res.json({ reply: finalReply });
+      }
     } catch (err: any) {
+      if (res.headersSent) {
+        console.warn("[Anna Final Reply] Error after response sent:", err?.message || err);
+        return;
+      }
+      console.log('[Anna Final Reply]:', "Ошибка — возврат запасного ответа");
       return res.json({ reply: "Привет! Всё отлично! Я всегда рядом, чтобы поддержать твой путь к здоровью и чистой энергии всей душой! 🌿" });
     }
   });
