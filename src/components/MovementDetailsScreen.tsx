@@ -3,12 +3,12 @@ import { motion } from "motion/react";
 import BottomBar from "./BottomBar";
 import { MOVEMENT_DAILY_TARGET_MIN, ACTIVITY_CONFIGS } from "../constants/movement";
 import { getMovementAssetPath, getMovementMarkerPath, getMovementAwardPath, getMovementStreakPath } from "../utils/movementAssets";
-import { getPlural } from "../utils/pluralize";
 import { getAnnaMovementCoaching } from "../utils/movementCoaching";
+import { getPlural } from "../utils/pluralize";
+import ingrGreenImg from "../assets/ingredients/ingr_green.webp";
 import { 
   ArrowLeft, 
   Activity, 
-  Sparkles, 
   Clock, 
   Award, 
   TrendingUp, 
@@ -222,9 +222,11 @@ export default function MovementDetailsScreen({
               <span className="text-[11px] text-slate-500 font-bold block mb-1">Всего времени</span>
               <div className="flex items-baseline gap-1">
                 <span className="text-[26px] font-black text-indigo-950 font-mono">
-                  {Math.round(todayEntries.reduce((sum, e) => sum + e.duration, 0) / 60)}
+                  {todayTotalMin}
                 </span>
-                <span className="text-[14px] font-bold text-slate-600">минут</span>
+                <span className="text-[14px] font-bold text-slate-600">
+                  {getPlural(todayTotalMin, ['минута', 'минуты', 'минут'])}
+                </span>
               </div>
               <img src={getMovementMarkerPath()} alt="Время" className="w-8 h-8 object-contain opacity-45 absolute right-2 bottom-1.5" />
             </div>
@@ -237,7 +239,7 @@ export default function MovementDetailsScreen({
               <span className="text-[11px] text-slate-500 font-bold block mb-1">Списков активностей</span>
               <div className="flex items-baseline gap-1">
                 <span className="text-[26px] font-black text-emerald-950 font-mono">{todayEntries.length}</span>
-                <span className="text-[14px] font-bold text-slate-600">сессий</span>
+                <span className="text-[14px] font-bold text-slate-600">{getPlural(todayEntries.length, ['сессия', 'сессии', 'сессий'])}</span>
               </div>
               <img src={getMovementMarkerPath()} alt="Сессии" className="w-8 h-8 object-contain opacity-45 absolute right-2 bottom-1.5" />
             </div>
@@ -246,7 +248,7 @@ export default function MovementDetailsScreen({
           {/* Activity Progress indicator */}
           <div className="flex flex-col gap-1.5 mt-1">
             <div className="flex justify-between items-baseline text-[12px] font-bold text-slate-500">
-              <span className="font-extrabold text-indigo-600">Цель: {dailyTargetMin} минут движения</span>
+              <span className="font-extrabold text-indigo-600">Цель: {dailyTargetMin} {getPlural(dailyTargetMin, ['минута', 'минуты', 'минут'])} движения</span>
               <span className="font-mono">{selectedDayPercent}% выполнено</span>
             </div>
             
@@ -327,7 +329,7 @@ export default function MovementDetailsScreen({
               </div>
             </div>
             
-            <Sparkles className="w-5 h-5 text-indigo-500 animate-pulse" />
+            <img src={ingrGreenImg} alt="Anna Logo" className="w-6 h-6 object-contain animate-pulse" />
           </div>
 
           <div className="bg-white/80 backdrop-blur-xs p-3.5 rounded-2xl text-[14px] leading-relaxed font-semibold text-slate-800">

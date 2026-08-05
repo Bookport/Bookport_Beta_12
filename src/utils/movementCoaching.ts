@@ -1,3 +1,5 @@
+import { getPlural } from "./pluralize";
+
 export interface MovementCoachingParams {
   userName: string;
   userGender: "female" | "male";
@@ -18,6 +20,7 @@ interface CoachingResult {
 export function getAnnaMovementCoaching(params: MovementCoachingParams): CoachingResult {
   const { userName, userGender, todayTotalMin, dailyTargetMin, streak, latestActivityType } = params;
   const genderEnd = userGender === "male" ? "" : "а";
+  const genderSya = userGender === "male" ? "ся" : "сь";
 
   const rand = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
 
@@ -29,7 +32,7 @@ export function getAnnaMovementCoaching(params: MovementCoachingParams): Coachin
       statusBadge: "bg-[#FFEDD5] text-[#C2410C]",
       text: rand([
         `Невероятно, ${userName}! Больше часа в движении — это феноменальная выносливость. В системе WFPB мы бережём сосуды и сердце, поэтому помни: качественный отдых так же важен, как и тренировка. Дай телу восстановиться! 🌟`,
-        `Ого, ${userName}! Твоей энергии сегодня можно позавидовать. Ты много двигал${genderEnd}сь, а значит, лимфоток сейчас в идеальном состоянии. Обязательно восполни гидробаланс и хорошо отдохни. 💧`,
+        `Ого, ${userName}! Твоей энергии сегодня можно позавидовать. Ты много двигал${genderEnd}${genderSya}, а значит, лимфоток сейчас в идеальном состоянии. Обязательно восполни гидробаланс и хорошо отдохни. 💧`,
         `Отличная работа, ${userName}! Более 60 минут активности — это серьезно. Не забывай, что главное в нашем подходе — это долгосрочная регулярность, а не разовые рекорды. Поблагодари себя за труд и позволь себе расслабление. 🧘`
       ])
     };
@@ -42,9 +45,9 @@ export function getAnnaMovementCoaching(params: MovementCoachingParams): Coachin
       glowBorderClass: "border-[#10B981] shadow-[#A7F3D0]/75 shadow-md",
       statusBadge: "bg-[#D1FAE5] text-[#065F46]",
       text: rand([
-        `Потрясающий день, ${userName}! Ты сегодня двигаешь${userGender === "male" ? "ся" : "ся"} просто образцово. Твои ${todayTotalMin} минут активности — это мощный вклад в здоровый вес и поддержку сосудов. Так держать! 🔥`,
-        `Норма выполнена, ${userName}! ${todayTotalMin} минут движения — это твоя личная победа сегодня. Благодаря отсутствию лишней соли, твое сердце работает легко и свободно. Отличная дисциплина! 🌿`,
-        `Браво, ${userName}! Дневная цель по активности закрыта. ${todayTotalMin} минут пролетели не зря. Горжусь твоей стабильностью, это лучший подарок для твоего долголетия. ✨`
+        `Потрясающий день, ${userName}! Ты сегодня двигаешься просто образцово. Твои ${todayTotalMin} ${getPlural(todayTotalMin, ['минута', 'минуты', 'минут'])} активности — это мощный вклад в здоровый вес и поддержку сосудов. Так держать! 🔥`,
+        `Норма выполнена, ${userName}! ${todayTotalMin} ${getPlural(todayTotalMin, ['минута', 'минуты', 'минут'])} движения — это твоя личная победа сегодня. Благодаря отсутствию лишней соли, твое сердце работает легко и свободно. Отличная дисциплина! 🌿`,
+        `Браво, ${userName}! Дневная цель по активности закрыта. ${todayTotalMin} ${getPlural(todayTotalMin, ['минута', 'минуты', 'минут'])} пролетели не зря. Горжусь твоей стабильностью, это лучший подарок для твоего долголетия. ✨`
       ])
     };
   }
@@ -58,7 +61,7 @@ export function getAnnaMovementCoaching(params: MovementCoachingParams): Coachin
         statusBadge: "bg-[#FEF08A] text-[#854D0E]",
         text: rand([
           `Привет, ${userName}! Твоя серия из ${streak} активных дней на паузе. WFPB и движение — неразделимы. Давай сделаем 10-15 минут лёгкой растяжки, чтобы не терять набранный ритм? 🌿`,
-          `Эй, ${userName}! Вчера ты отлично справлял${genderEnd}сь, а сегодня организм просит небольшого заряда бодрости. Даже легкая прогулка поможет разогнать кровь. Попробуем? 🚶‍♀️`,
+          `Эй, ${userName}! Вчера ты отлично справлял${genderEnd}${genderSya}, а сегодня организм просит небольшого заряда бодрости. Даже легкая прогулка поможет разогнать кровь. Попробуем? 🚶‍♀️`,
           `${userName}, твоя впечатляющая серия в ${streak} дней заслуживает продолжения. Тело уже привыкло к хорошему, давай подарим ему немного движения, чтобы поддержать сосуды в тонусе! 🌟`
         ])
       };
@@ -94,9 +97,9 @@ export function getAnnaMovementCoaching(params: MovementCoachingParams): Coachin
     glowBorderClass: "border-[#A78BFA] shadow-[#DDD6FE]/75 shadow-md",
     statusBadge: "bg-[#EDE9FE] text-[#6D28D9]",
     text: rand([
-      `Чудесное начало, ${userName}! Ты уже набрал${genderEnd} ${todayTotalMin} минут движения сегодня.${activityContext} Осталось совсем немного до нормы в ${dailyTargetMin} мин. 🌸`,
-      `Процесс пошел, ${userName}! Первые ${todayTotalMin} минут в копилке.${activityContext} Сохраняй темп, и норма в ${dailyTargetMin} минут будет взята без труда. ✨`,
-      `Хороший разогрев, ${userName}! На счету ${todayTotalMin} минут.${activityContext} Вечером можно добавить спокойную прогулку, чтобы окончательно закрыть дневную цель! 🌿`
+      `Чудесное начало, ${userName}! Ты уже набрал${genderEnd} ${todayTotalMin} ${getPlural(todayTotalMin, ['минуту', 'минуты', 'минут'])} движения сегодня.${activityContext} Осталось совсем немного до нормы в ${dailyTargetMin} мин. 🌸`,
+      `Процесс пошел, ${userName}! Первые ${todayTotalMin} ${getPlural(todayTotalMin, ['минута', 'минуты', 'минут'])} в копилке.${activityContext} Сохраняй темп, и норма в ${dailyTargetMin} минут будет взята без труда. ✨`,
+      `Хороший разогрев, ${userName}! На счету ${todayTotalMin} ${getPlural(todayTotalMin, ['минута', 'минуты', 'минут'])}.${activityContext} Вечером можно добавить спокойную прогулку, чтобы окончательно закрыть дневную цель! 🌿`
     ])
   };
 }

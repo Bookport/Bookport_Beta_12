@@ -114,6 +114,10 @@ export class PromptCompiler {
 
     const sd = ctx.screenContextDetails;
     if (sd) {
+      const gender = sd.userGender || sd.user_gender;
+      if (gender) {
+        lines.push(`[Пол пользователя]: ${gender === "male" ? "Мужской (строго используй мужские окончания в глаголах: сделал, двигался)" : "Женский (строго используй женские окончания в глаголах: сделала, двигалась)"}`);
+      }
       if (sd.screen_title) {
         lines.push(`[Текущий экран]: "${sd.screen_title}"`);
       }

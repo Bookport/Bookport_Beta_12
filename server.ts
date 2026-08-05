@@ -12,8 +12,10 @@ import { DISH_PHILOSOPHY } from "./src/data/dishPhilosophy";
 import { callLLM } from "./src/services/llmAdapter";
 import { PromptCompiler } from "./src/services/promptCompiler";
 import { safeParseJSON } from "./src/utils/safeParseJSON";
-import { getWaterContext } from "./src/utils/waterCoaching";
+import { getPlural } from "./src/utils/pluralize";
 import { prisma } from "./src/prisma";
+import { MOVEMENT_DAILY_TARGET_MIN } from "./src/constants/movement";
+import { getWaterContext } from "./src/utils/waterCoaching";
 import { logger } from "./src/utils/logger";
 import { achievementService } from "./src/services/AchievementService";
 import { ANNA_TOOL_DEFINITIONS, executeToolCall } from "./src/services/annaTools";
@@ -758,6 +760,51 @@ async function startServer() {
           } catch (e) {
             console.error("Error loading ritual for Anna:", e);
           }
+        }
+      }
+
+      // Inject movement module data
+      if (req.userId) {
+        try {
+          let dailyMetric;
+          if (dayIndex) {
+            dailyMetric = await prisma.dailyMetric.findFirst({
+              where: { userId: req.userId, dayIndex },
+              orderBy: { date: "desc" }
+            });
+          } else {
+            const metrics = await prisma.dailyMetric.findMany({
+              where: { userId: req.userId },
+              orderBy: { date: "desc" },
+              take: 1
+            });
+            dailyMetric = metrics[0];
+          }
+
+          if (dailyMetric) {
+            const movementLogRaw = dailyMetric.movementLog ? JSON.parse(dailyMetric.movementLog) : [];
+            const sessionsCount = movementLogRaw.length;
+            const activityMinutes = dailyMetric.activityMinutes || 0;
+            const normPercentage = Math.min(100, Math.round((activityMinutes / MOVEMENT_DAILY_TARGET_MIN) * 100));
+            
+            let sessionsListStr = "Нет сессий.";
+            if (movementLogRaw.length > 0) {
+              sessionsListStr = movementLogRaw.map((log: any) => {
+                const mins = Math.max(1, Math.round((log.durationSeconds || log.duration) / 60));
+                return `${log.timeString} — ${log.type} (${mins} мин)`;
+              }).join("\n  ");
+            }
+
+            systemPrompt += `\n\n[Системные данные о Движении пользователя на сегодня:
+- Суммарное время движения за день: ${activityMinutes} ${getPlural(activityMinutes, ['минута', 'минуты', 'минут'])}
+- Выполнение дневной нормы: ${normPercentage}%
+- Количество сессий активности: ${sessionsCount}
+- Журнал сессий за сегодня:
+  ${sessionsListStr}
+Используй эти данные, если пользователь спрашивает об активности, тренировках, движении или конкретных сессиях за сегодня.]`;
+          }
+        } catch (e) {
+          console.error("Error loading movement for Anna:", e);
         }
       }
 
@@ -2236,16 +2283,19 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
 
       // Save newly unlocked achievements to DB silently
       if (result.unlocked.length > 0) {
-        try {
-          for (const id of result.unlocked) {
+        for (const id of result.unlocked) {
+          try {
             await prisma.userAchievement.upsert({
               where: { userId_achievementId: { userId: req.userId, achievementId: id } },
               update: { unlocked: true, unlockedAt: new Date() },
               create: { userId: req.userId, achievementId: id, unlocked: true, unlockedAt: new Date(), xp: 0 },
             });
+          } catch (err) {
+            logger.error(`[Achievements] Failed to upsert achievement ${id}:`, err);
           }
+        }
           
-          // Append new IDs to pendingAchievementId queue
+        // Append new IDs to pendingAchievementId queue
           let pendingStr = user.pendingAchievementId || "";
           const pendingArr = pendingStr ? pendingStr.split(",") : [];
           for (const id of result.unlocked) {
@@ -2257,9 +2307,6 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
           });
 
           logger.info(`[Achievements] Queued ${result.unlocked.length} new achievements for user ${req.userId}`);
-        } catch (dbErr: any) {
-          logger.error("[Achievements] Failed to save to DB:", dbErr.message);
-        }
       }
 
       // Return empty array to completely suppress instant overlays

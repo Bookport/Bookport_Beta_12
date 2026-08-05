@@ -19,7 +19,10 @@ import {
   Scale,
   HelpCircle,
   Minus,
-  Plus
+  Plus,
+  Play,
+  Pause,
+  Square
 } from "lucide-react";
 import { resolveAvatar } from "../utils/annaAvatarResolver";
 import { useAppStore } from "../store/useAppStore";
@@ -64,9 +67,11 @@ import BottomBar from "./BottomBar";
 import CalendarButton from "./CalendarButton";
 import WaterDetailsScreen from "./WaterDetailsScreen";
 import SleepDetailsScreen, { SleepLogEntry } from "./SleepDetailsScreen";
-import MovementDetailsScreen, { ACTIVITY_CONFIGS } from "./MovementDetailsScreen";
+import MovementDetailsScreen from "./MovementDetailsScreen";
 import MeasurementsDetailsScreen, { MeasurementLogEntry } from "./MeasurementsDetailsScreen";
 import DigestionScreen, { DigestionLogEntry, BristolIcon } from "./DigestionScreen";
+import { ACTIVITY_CONFIGS } from "../constants/movement";
+import { getMovementAssetPath } from "../utils/movementAssets";
 
 interface WaterLogEntry {
   id: string;
@@ -964,7 +969,10 @@ export default function MyDayScreen({
     // Honest math: 1 minute = 1 point, max MOVEMENT_MAX_POINTS_PER_DAY per day.
     const prevPoints = Math.min(MOVEMENT_MAX_POINTS_PER_DAY, prevActivityMin);
     const newTotalPoints = Math.min(MOVEMENT_MAX_POINTS_PER_DAY, totalActivityMin);
-    const pts = Math.max(0, newTotalPoints - prevPoints);
+    let pts = Math.max(0, newTotalPoints - prevPoints);
+    if (pts === 0 && prevPoints < MOVEMENT_MAX_POINTS_PER_DAY) {
+      pts = 1; // Minimum 1 point for any short session, unless daily cap is reached
+    }
 
     // Trigger visual summary modal confirmation
     setShowMovementSummaryCompleted({
@@ -1044,7 +1052,10 @@ export default function MyDayScreen({
     // Honest math: 1 minute = 1 point, max MOVEMENT_MAX_POINTS_PER_DAY per day.
     const prevPoints = Math.min(MOVEMENT_MAX_POINTS_PER_DAY, prevActivityMin);
     const newTotalPoints = Math.min(MOVEMENT_MAX_POINTS_PER_DAY, totalActivityMin);
-    const pts = Math.max(0, newTotalPoints - prevPoints);
+    let pts = Math.max(0, newTotalPoints - prevPoints);
+    if (pts === 0 && prevPoints < MOVEMENT_MAX_POINTS_PER_DAY) {
+      pts = 1; // Minimum 1 point for any short session, unless daily cap is reached
+    }
 
     // Trigger visual summary modal confirmation
     setShowMovementSummaryCompleted({
@@ -3125,16 +3136,16 @@ export default function MyDayScreen({
       {/* 10. FAST MOVEMENT ACTIVITY LAUNCH SELECTOR SHEET */}
       <AnimatePresence>
         {showFastMovement && (
-          <div className="absolute inset-0 bg-black/45 backdrop-blur-xs flex items-end justify-center z-[65]" id="fast-movement-sheet-overlay">
+          <div className="absolute inset-0 bg-black/45 backdrop-blur-xs flex items-center justify-center p-4 z-[65]" id="fast-movement-sheet-overlay">
             {/* Dark background click back cover dismissal */}
             <div className="absolute inset-0 z-0" onClick={() => setShowFastMovement(false)} />
 
             <motion.div
-              initial={{ y: "100%" }}
-              animate={{ y: 0 }}
-              exit={{ y: "100%" }}
-              transition={{ type: "spring", damping: 25, stiffness: 220 }}
-              className="bg-white rounded-t-[36px] w-full max-w-[420px] p-5.5 text-left border-t border-slate-100 shadow-[0_-15px_35px_rgba(0,0,0,0.12)] relative z-10 max-h-[92%] overflow-y-auto scrollbar-none flex flex-col gap-4 text-slate-800"
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              className="bg-white rounded-[32px] w-full max-w-[420px] p-5 text-left shadow-[0_25px_50px_rgba(0,0,0,0.25)] relative z-10 flex flex-col gap-4 text-slate-800"
             >
               <div className="flex justify-between items-center pb-1">
                 <div>
@@ -3176,33 +3187,37 @@ export default function MyDayScreen({
               </div>
 
               {/* Grid of custom activity choices */}
-              <div className="grid grid-cols-2 gap-3 max-h-[300px] min-h-[140px] overflow-y-auto pr-1 shrink-0">
+              <div className="grid grid-cols-2 gap-2 shrink-0">
                 {Object.entries(ACTIVITY_CONFIGS).map(([key, config]) => {
                   const isSelected = selectedActivityForLaunch === key;
+                  // To safely extract color prefix for border (e.g. text-emerald-800 -> emerald)
+                  const colorMatch = config.textColor.match(/text-([a-z]+)-\d+/);
+                  const colorPrefix = colorMatch ? colorMatch[1] : "indigo";
+                  
                   return (
                     <button
                       key={key}
                       type="button"
                       onClick={() => setSelectedActivityForLaunch(key)}
-                      className={`rounded-2xl p-3 text-left border transition-all duration-300 flex items-center gap-3 relative cursor-pointer ${
+                      style={{ backgroundColor: config.hexColor }}
+                      className={`rounded-2xl p-2.5 text-left border transition-all duration-300 flex items-center gap-2.5 relative cursor-pointer ${
                         isSelected 
-                          ? "bg-white border-indigo-500 shadow-[0_4px_16px_rgba(99,102,241,0.15)] ring-2 ring-indigo-500/10 scale-102"
-                          : "bg-[#FBFBFF] hover:bg-slate-50 border-slate-100"
+                          ? `border-${colorPrefix}-400 shadow-[0_2px_8px_rgba(0,0,0,0.06)] ring-2 ring-${colorPrefix}-400/20 scale-102 z-10`
+                          : "border-transparent opacity-90 hover:opacity-100"
                       }`}
                     >
-                      <div className="text-[26.5px] select-none shrink-0">{config.icon}</div>
+                      <div className="w-10 h-10 shrink-0">
+                        <img src={getMovementAssetPath(key, userGender)} alt={config.name} className="w-full h-full object-contain" />
+                      </div>
                       <div className="flex flex-col">
-                        <span className="text-[14px] font-extrabold text-slate-800 leading-tight">
+                        <span className="text-[13px] font-extrabold text-slate-800 leading-tight">
                           {config.name}
-                        </span>
-                        <span className="text-[9.5px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
-                          норма 30м
                         </span>
                       </div>
 
                       {/* Tick or indicator on selected */}
                       {isSelected && (
-                        <div className="absolute right-2 top-2 w-2 h-2 rounded-full bg-indigo-500 animate-ping" />
+                        <div className={`absolute right-2 top-2 w-2 h-2 rounded-full bg-${colorPrefix}-500 animate-ping`} />
                       )}
                     </button>
                   );
@@ -3296,7 +3311,9 @@ export default function MyDayScreen({
 
       {/* 11. ACTIVE MOVING ACTIVITY STOPWATCH FLOATING BUTTON Overlay */}
       <AnimatePresence>
-        {movementSession && (
+        {movementSession && (() => {
+          const activeConfig = Object.values(ACTIVITY_CONFIGS).find(cfg => cfg.name === movementSession.activityType) || Object.values(ACTIVITY_CONFIGS)[0];
+          return (
           <div className="absolute bottom-22 right-6 z-50 pointer-events-auto" id="floating-active-stopwatch">
             <motion.div
               initial={{ scale: 0, opacity: 0, y: 50 }}
@@ -3304,10 +3321,10 @@ export default function MyDayScreen({
                 scale: 1, 
                 opacity: 1, 
                 y: 0,
-                boxShadow: movementSession.isPaused ? "0 4px 20px rgba(99,102,241,0.35)" : [
-                  "0 4px 20px rgba(99,102,241,0.35), 0 0 0 0px rgba(99,102,241,0.2)",
-                  "0 4px 20px rgba(99,102,241,0.35), 0 0 0 14px rgba(99,102,241,0.25)",
-                  "0 4px 20px rgba(99,102,241,0.35), 0 0 0 0px rgba(99,102,241,0.2)"
+                boxShadow: movementSession.isPaused ? "0 4px 20px rgba(0,0,0,0.1)" : [
+                  "0 4px 20px rgba(0,0,0,0.1), 0 0 0 0px rgba(0,0,0,0.05)",
+                  "0 4px 20px rgba(0,0,0,0.1), 0 0 0 10px rgba(0,0,0,0.1)",
+                  "0 4px 20px rgba(0,0,0,0.1), 0 0 0 0px rgba(0,0,0,0.05)"
                 ]
               }}
               exit={{ scale: 0, opacity: 0, y: 50 }}
@@ -3315,50 +3332,50 @@ export default function MyDayScreen({
                 boxShadow: movementSession.isPaused ? {} : { repeat: Infinity, duration: 1.8, ease: "easeInOut" },
                 scale: { type: "spring", damping: 15 }
               }}
-              className={`bg-gradient-to-br from-indigo-900 via-slate-800 to-indigo-950 rounded-[28px] py-2.5 px-3.5 border text-white shadow-xl flex items-center gap-2 cursor-default select-none ${movementSession.isPaused ? "border-amber-400/50" : "border-white/20"}`}
+              style={{ backgroundColor: activeConfig.hexColor }}
+              className="rounded-[28px] py-2 px-4 shadow-xl flex items-center gap-3 cursor-default select-none border border-slate-200/50"
             >
-              <div className={`w-8 h-8 rounded-full ${movementSession.isPaused ? "bg-slate-600 grayscale" : "bg-indigo-500 animate-pulse"} flex items-center justify-center text-[16px] shrink-0`}>
-                {Object.values(ACTIVITY_CONFIGS).find(cfg => cfg.name === movementSession.activityType)?.icon || "🏃‍♂️"}
+              <div className={`w-10 h-10 flex items-center justify-center shrink-0 ${movementSession.isPaused ? "grayscale opacity-80" : "animate-pulse"}`}>
+                <img src={getMovementAssetPath(movementSession.activityType, userGender)} alt={movementSession.activityType} className="w-full h-full object-contain" />
               </div>
               
-              <div className="flex flex-col text-left mr-1 min-w-[70px]">
-                <span className={`text-[9.5px] font-black tracking-widest uppercase leading-none block ${movementSession.isPaused ? "text-amber-400" : "text-indigo-300"}`}>
+              <div className="flex flex-col text-left mr-2 min-w-[70px]">
+                <span className="text-[10px] font-black tracking-widest uppercase leading-none block mb-0.5 text-slate-500">
                   {movementSession.isPaused ? "ПАУЗА" : "АКТИВНО"}
                 </span>
-                <span className="text-[14px] font-black font-mono leading-none mt-1 text-white">
+                <span className="text-[18px] font-black font-mono leading-none text-slate-800">
                   {Math.floor(activityElapsedTime / 60).toString().padStart(2, "0")}:
                   {(activityElapsedTime % 60).toString().padStart(2, "0")}
                 </span>
               </div>
 
-              <div className="flex gap-1.5 shrink-0 ml-1">
+              <div className="flex gap-3 shrink-0 ml-1 items-center">
                 {movementSession.isPaused ? (
                   <button 
                     onClick={resumeMovementActivity}
-                    className="w-8 h-8 rounded-full bg-amber-500 flex items-center justify-center text-[14px] shadow-xs hover:bg-amber-600 active:scale-95 transition-all text-white font-mono"
+                    className="flex items-center justify-center text-emerald-600 hover:text-emerald-700 active:scale-90 transition-all"
                   >
-                    ▶️
+                    <Play className="w-8 h-8 fill-current" />
                   </button>
                 ) : (
                   <button 
                     onClick={pauseMovementActivity}
-                    className="w-8 h-8 rounded-full bg-slate-600/80 flex items-center justify-center text-[11px] font-bold shadow-xs hover:bg-slate-500 active:scale-95 transition-all"
+                    className="flex items-center justify-center text-slate-600 hover:text-slate-700 active:scale-90 transition-all"
                   >
-                    ⏸️
+                    <Pause className="w-8 h-8 fill-current" />
                   </button>
                 )}
                 
-                {/* Click to stop flag */}
                 <button 
                   onClick={(e) => { e.stopPropagation(); stopMovementActivity(); }}
-                  className="w-8 h-8 rounded-full bg-rose-500 flex items-center justify-center text-[11px] font-bold shadow-xs hover:bg-rose-600 active:scale-95 transition-all"
+                  className="flex items-center justify-center text-rose-600 hover:text-rose-700 active:scale-90 transition-all"
                 >
-                  ⏹️
+                  <Square className="w-8 h-8 fill-current" />
                 </button>
               </div>
             </motion.div>
           </div>
-        )}
+        )})()}
       </AnimatePresence>
 
       {/* 12. DETAILED SUMMARY OF COMPLETED SESSION POPUP MODAL */}
@@ -3371,9 +3388,9 @@ export default function MyDayScreen({
               exit={{ scale: 0.94, opacity: 0 }}
               className="bg-white rounded-[32px] border border-gray-100 p-5.5 w-full max-w-[325px] text-center shadow-[0_22px_60px_rgba(0,0,0,0.18)] flex flex-col gap-4 text-slate-800 text-left"
             >
-              <div className="flex flex-col gap-1 text-center">
-                <div className="text-[44px] justify-self-center my-0.5 select-none animate-bounce">
-                  {Object.values(ACTIVITY_CONFIGS).find(cfg => cfg.name === showMovementSummaryCompleted.activityType)?.icon || "🏆"}
+              <div className="flex flex-col gap-1 text-center items-center">
+                <div className="w-20 h-20 justify-self-center my-1 select-none animate-bounce">
+                  <img src={getMovementAssetPath(showMovementSummaryCompleted.activityType, userGender)} alt="Успех" className="w-full h-full object-contain" />
                 </div>
                 <span className="text-[11px] font-extrabold text-indigo-600 tracking-widest uppercase mt-1">ОТЛИЧНАЯ ТРЕНИРОВКА!</span>
                 <h3 className="text-[19px] font-black text-slate-800 leading-tight" style={{ fontFamily: '"Calibri", sans-serif' }}>
