@@ -795,7 +795,7 @@ async function startServer() {
       // Current user message
       messages.push({ role: "user", content: message });
 
-      // ── Tool calling loop ──
+      // ── Tool calling loop (multi-turn round-trip) ──
       const MAX_TOOL_ROUNDS = 3;
       let finalReply = "";
 
@@ -818,14 +818,14 @@ async function startServer() {
           break;
         }
 
-        // Record assistant message with tool_calls
+        // Record assistant message with tool_calls (content MUST be null in OpenAI format)
         messages.push({
           role: "assistant",
-          content: result.text || "",
+          content: null,
           tool_calls: toolCalls,
         });
 
-        // Execute each tool and feed result back
+        // Execute each tool and feed result back with role "tool"
         for (const tc of toolCalls) {
           const call = tc as any;
           const { id, name, arguments: argsJson } = call.function;
@@ -844,6 +844,24 @@ async function startServer() {
         }
 
         console.log(`[AnnaTools] Round ${round + 1}: ${toolCalls.length} tool(s) called — ${toolCalls.map((t: any) => t.function.name).join(", ")}`);
+      }
+
+      // Guarantee a final text answer: if tool rounds exhausted without a text reply,
+      // make one last plain LLM call so the model reads tool results and answers.
+      if (!finalReply) {
+        try {
+          const finalResult = await generateContentWithFallback({
+            messages,
+            config: {
+              systemInstruction: systemPrompt,
+              temperature: 0.8,
+              maxOutputTokens: 500,
+            },
+          });
+          finalReply = finalResult.text?.trim() || "";
+        } catch (err: any) {
+          console.warn("[AnnaTools] Final fallback LLM call failed:", err?.message || err);
+        }
       }
 
       if (!finalReply) {

@@ -1,6 +1,7 @@
 import { prisma } from "../prisma";
 import { safeParseJSON } from "../utils/safeParseJSON";
 import { MOVEMENT_DAILY_TARGET_MIN } from "../constants/movement";
+import { getWaterContext } from "../utils/waterCoaching";
 
 function parseKbjuToNumbers(kbjuRaw: string | null): {
   calories: number | null;
@@ -480,7 +481,6 @@ export async function executeToolCall(
       case "get_water_analytics": {
         const user = await prisma.user.findUnique({ where: { id: userId } });
         const weight = user?.weight ?? user?.initialWeight ?? 65;
-        const dailyGoal = Math.round(weight * 30);
 
         // Determine today's dayIndex from user's current course day
         const todayIndex = user?.currentDayIndex ?? 1;
@@ -497,30 +497,23 @@ export async function executeToolCall(
           orderBy: { date: "desc" },
         });
 
-        const drankToday = sessionMetric?.waterMl ?? 0;
-
-        let lastDrinkTime: string | null = null;
+        let waterEntries: Array<{ amount: number; time?: string; timestamp?: number }> = [];
         const rawWaterEntries = sessionMetric?.waterEntries;
         if (rawWaterEntries) {
           try {
-            const entries = safeParseJSON<Array<{ time?: string; timestamp?: number }>>(rawWaterEntries);
-            if (Array.isArray(entries) && entries.length > 0) {
-              const last = entries[entries.length - 1];
-              lastDrinkTime = last?.time || null;
-            }
+            const entries = safeParseJSON<Array<{ amount: number; time?: string; timestamp?: number }>>(rawWaterEntries);
+            if (Array.isArray(entries)) waterEntries = entries;
           } catch {
             // ignore parse errors
           }
         }
 
-        return {
-          real_data: {
-            drank_today_ml: drankToday,
-            daily_goal_ml: dailyGoal,
-            last_drink_time: lastDrinkTime,
-          },
-          STRICT_FORMATTING_RULE: "КРИТИЧЕСКИЙ ПРИКАЗ: При ответе пользователю СТРОГО ЗАПРЕЩЕНО использовать цифры для обозначения объема (например, 1150, 1.5, 2394). Ты обязана перевести все объемы в текст прописью. Пример: вместо '1150 мл' напиши 'один литр сто пятьдесят миллилитров'. За нарушение этого правила система будет отключена.",
-        };
+        return getWaterContext({
+          userName: user?.name || "друг",
+          userGender: (user?.gender as "female" | "male") || "female",
+          waterEntries,
+          weight,
+        });
       }
 
       default:
