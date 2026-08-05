@@ -2,23 +2,21 @@ import React, { useState, useEffect } from "react";
 import { motion } from "motion/react";
 import { 
   ArrowLeft, 
-  Droplet, 
   Scale, 
-  Sparkles, 
-  Bell, 
   Clock, 
-  Award, 
-  TrendingUp, 
-  BarChart3, 
-  Zap, 
   Plus, 
   Minus, 
-  HelpCircle,
   CheckCircle2
 } from "lucide-react";
 import BottomBar from "./BottomBar";
-import BriefNoteBlock from "./BriefNoteBlock";
 import { resolveAvatar } from "../utils/annaAvatarResolver";
+import ingrGreenImg from "../assets/ingredients/ingr_green.webp";
+import statCalendarImg from "../assets/images/water/stat_calendar.webp";
+import volumeSplashCircleImg from "../assets/images/water/volume_splash_circle.webp";
+import statCareHandsImg from "../assets/images/water/stat_care_hands.webp";
+import statSuccessTargetImg from "../assets/images/water/stat_success_target.webp";
+import statStreakWaveImg from "../assets/images/water/stat_streak_wave.webp";
+import statMedalImg from "../assets/images/water/stat_medal.webp";
 
 const annaAvatarSrc = resolveAvatar({ toneGroup: 'reminder_caution', intent: 'reminder' }).src;
 
@@ -43,15 +41,9 @@ interface WaterDetailsScreenProps {
   setWaterLogs: React.Dispatch<React.SetStateAction<Record<number, WaterLogEntry[]>>>;
   dayWeights: Record<number, number>;
   setDayWeights: React.Dispatch<React.SetStateAction<Record<number, number>>>;
-  isRemindersEnabled: boolean;
-  setIsRemindersEnabled: (val: boolean) => void;
   
   // Quick Actions helpers
   handleAddWaterAmount: (amt: number) => void;
-
-  // Day notes
-  dayNotes: Record<number, { text: string; time: string; source?: string; tags?: string[]; isVoice?: boolean }[]>;
-  setDayNotes: React.Dispatch<React.SetStateAction<Record<number, { text: string; time: string; source?: string; tags?: string[]; isVoice?: boolean }[]>>>;
 }
 
 export default function WaterDetailsScreen({
@@ -66,40 +58,11 @@ export default function WaterDetailsScreen({
   setWaterLogs,
   dayWeights,
   setDayWeights,
-  isRemindersEnabled,
-  setIsRemindersEnabled,
-  handleAddWaterAmount,
-  dayNotes,
-  setDayNotes
+  handleAddWaterAmount
 }: WaterDetailsScreenProps) {
   
   // Active selected day in the historical graph to view statistics (defaults to today)
   const [selectedGraphDay, setSelectedGraphDay] = useState<number>(currentDayIndex);
-  const [noteSavedOrSkipped, setNoteSavedOrSkipped] = useState(false);
-
-  const handleSaveWaterNote = (noteText: string, selectedTags: string[], isVoice: boolean) => {
-    if (!noteText.trim() && selectedTags.length === 0) return;
-    
-    const now = new Date();
-    const timeStr = now.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
-    
-    const newNote = {
-      text: noteText.trim() || "Зафиксирован приём чистой воды 💧",
-      time: timeStr,
-      source: "water",
-      tags: selectedTags,
-      isVoice
-    };
-
-    setDayNotes(prev => {
-      const todayArr = prev[currentDayIndex] || [];
-      return {
-        ...prev,
-        [currentDayIndex]: [newNote, ...todayArr]
-      };
-    });
-    setNoteSavedOrSkipped(true);
-  };
   
   // Resolved weights for calculation
   const getResolvedWeightForDay = (dayIdx: number): number => {
@@ -174,7 +137,7 @@ export default function WaterDetailsScreen({
       text = alternatives[Math.floor(Math.random() * alternatives.length)];
     } else if (hoursSinceLastDrink < 2) {
       mood = "good";
-      text = `${userName}, ты только что пополнил(а) водный баланс (${water} мл). Вода усваивается, клетки получают влагу. До нормы осталось ${Math.round(target - water)} мл — просто распредели равномерно до вечера.`;
+      text = `${userName}, ты только что пополнил${isFemale ? "а" : ""} водный баланс (${water} мл). Вода усваивается, клетки получают влагу. До нормы осталось ${Math.round(target - water)} мл — просто распредели равномерно до вечера.`;
     } else if (hoursSinceLastDrink < 4) {
       mood = "neutral";
       text = `${userName}, прошло ${Math.round(hoursSinceLastDrink)} ч. с последнего стакана. Уровень ${water} мл из ${target} мл. Клетчатка в кишечнике начинает уплотняться без влаги. Сделай глоток, чтобы поддержать перистальтику.`;
@@ -280,15 +243,19 @@ export default function WaterDetailsScreen({
         </div>
         
         {/* Decorative dynamic icon */}
-        <div className="w-10 h-10 rounded-2xl bg-sky-50 flex items-center justify-center text-sky-500 border border-sky-100/60 shadow-sm">
-          <Droplet className="w-5 h-5 fill-sky-100" />
+        <div className="w-12 h-12 rounded-2xl bg-sky-50 flex items-center justify-center shadow-sm">
+          <img
+            src={statCalendarImg}
+            alt="Календарь курса"
+            className="w-11 h-11 object-contain"
+          />
         </div>
       </div>
 
       <div className="px-5 py-4 flex-1 overflow-y-auto flex flex-col gap-5">
 
         {/* 1. UPPER PART: TODAY'S DETAILED STATS */}
-        <div className="bg-gradient-to-b from-sky-50/50 via-white to-white rounded-[32px] border border-sky-100/40 p-5 shadow-[0_12px_32px_-8px_rgba(14,165,233,0.08)] text-left flex flex-col gap-4 relative overflow-hidden">
+        <div className="rounded-[32px] p-5 text-left flex flex-col gap-4 relative overflow-hidden shadow-sm" style={{ backgroundColor: "#F0F9FF" }}>
           {/* Specular glass gloss accent */}
           <div className="absolute top-0 left-0 right-0 h-28 bg-gradient-to-b from-sky-100/20 to-transparent pointer-events-none" />
           
@@ -322,19 +289,19 @@ export default function WaterDetailsScreen({
 
           {/* Detailed stats grids */}
           <div className="grid grid-cols-2 gap-3 mt-1">
-            <div className="bg-slate-50/80 rounded-2xl p-3 border border-gray-100 flex flex-col gap-1.5">
+            <div className="rounded-2xl p-3 flex flex-col gap-1.5 shadow-sm" style={{ backgroundColor: "#F2FBF9" }}>
               <span className="text-[11px] text-text-muted font-bold tracking-tight block uppercase">ОСТАЛОСЬ ДО ЦЕЛИ</span>
               <span className="text-[15px] font-black text-text-dark">
                 {Math.max(0, waterGoalToday - water)} мл
               </span>
             </div>
-            <div className="bg-slate-50/80 rounded-2xl p-3 border border-gray-100 flex flex-col gap-1.5">
+            <div className="rounded-2xl p-3 flex flex-col gap-1.5 shadow-sm" style={{ backgroundColor: "#F5F7FF" }}>
               <span className="text-[11px] text-text-muted font-bold tracking-tight block uppercase">КОЛ-ВО ПРИЁМОВ</span>
               <span className="text-[15px] font-black text-text-dark">
                 {(waterLogs[currentDayIndex] || []).length} р / сутки
               </span>
             </div>
-            <div className="bg-slate-50/80 rounded-2xl p-3 border border-gray-100 flex flex-col gap-1.5 col-span-2 flex-row justify-between items-center flex">
+            <div className="rounded-2xl p-3 flex flex-col gap-1.5 col-span-2 flex-row justify-between items-center flex shadow-sm" style={{ backgroundColor: "#FAFAFF" }}>
               <div className="flex flex-col gap-0.5">
                 <span className="text-[11px] text-text-muted font-bold tracking-tight block uppercase">ПОСЛЕДНИЙ ПРИЁМ</span>
                 <span className="text-[14px] font-bold text-text-dark font-mono">
@@ -348,7 +315,7 @@ export default function WaterDetailsScreen({
           <div className="h-[1px] bg-slate-100 w-full" />
 
           {/* Live Weight Adjuster (Crucial Requirement for 30ml/kg automatic calculation!) */}
-          <div className="flex justify-between items-center bg-sky-500/5 hover:bg-sky-500/10 transition-colors p-3.5 rounded-[22px] border border-sky-200/50">
+          <div className="flex justify-between items-center hover:brightness-95 transition-all p-3.5 rounded-[22px] shadow-sm" style={{ backgroundColor: "#F0FDF4" }}>
             <div className="flex flex-col gap-0.5">
               <span className="text-[12px] font-bold text-sky-700 tracking-tight flex items-center gap-1">
                 <Scale className="w-3.5 h-3.5" /> ВЕС ДЛЯ РАСЧЁТА НОРМЫ
@@ -380,15 +347,7 @@ export default function WaterDetailsScreen({
           </div>
         </div>
 
-        {water > 0 && !noteSavedOrSkipped && (
-          <BriefNoteBlock
-            moduleKey="water"
-            onSave={handleSaveWaterNote}
-            onSkip={() => setNoteSavedOrSkipped(true)}
-          />
-        )}
-
-        {/* 2. MIDDLE PART: ANNA'S BLOCK + SMART REMINDERS */}
+        {/* 2. MIDDLE PART: ANNA'S BLOCK */}
         <div className={`rounded-[28px] p-4.5 text-left flex flex-col gap-3.5 transition-all duration-500 relative z-10 ${glowBorderClass}`}>
           
           <div className="flex justify-between items-center">
@@ -414,42 +373,15 @@ export default function WaterDetailsScreen({
               </div>
             </div>
             
-            <Sparkles className="w-5 h-5 text-brand-green-bright animate-pulse" />
+            <img
+              src={ingrGreenImg}
+              alt="Система"
+              className="w-7 h-7 object-contain shrink-0"
+            />
           </div>
 
           <div className="bg-white/80 backdrop-blur-xs p-3 rounded-2xl text-[14px] leading-relaxed font-semibold text-slate-800">
             {annaAdvice.text}
-          </div>
-
-          <div className="h-[1px] bg-sky-200/20 w-full" />
-
-          {/* Smart Reminders Toggle Switch Row */}
-          <div className="flex justify-between items-center bg-white/45 p-2 rounded-2xl border border-white/30">
-            <div className="flex items-center gap-2.5 pl-1">
-              <div className="w-8 h-8 rounded-xl bg-sky-500/10 text-sky-600 flex items-center justify-center">
-                <Bell className="w-4.5 h-4.5" />
-              </div>
-              <div className="flex flex-col">
-                <span className="text-[13px] font-bold text-slate-900 leading-none">Умные напоминания</span>
-                <span className="text-[10px] text-text-muted mt-0.5">Уведомлять при задержке приёма</span>
-              </div>
-            </div>
-
-            {/* Premium iOS style slider toggle */}
-            <button
-              id="reminders-switch"
-              type="button"
-              onClick={() => setIsRemindersEnabled(!isRemindersEnabled)}
-              className={`w-12 h-6.5 rounded-full transition-colors relative duration-300 cursor-pointer ${
-                isRemindersEnabled ? "bg-[#16B551]" : "bg-slate-200"
-              }`}
-            >
-              <div 
-                className={`absolute top-0.5 w-5.5 h-5.5 rounded-full bg-white shadow-md transition-transform duration-300 ${
-                  isRemindersEnabled ? "left-6" : "left-0.5"
-                }`} 
-              />
-            </button>
           </div>
         </div>
 
@@ -565,41 +497,71 @@ export default function WaterDetailsScreen({
           <div className="grid grid-cols-2 gap-3 text-left">
             
             {/* Box 1: Total Volume */}
-            <div className="bg-white rounded-2xl border border-gray-100 p-3.5 shadow-sm flex flex-col gap-1 relative overflow-hidden">
-              <Award className="w-5 h-5 text-amber-500 mb-1" />
-              <span className="text-[11px] text-text-muted font-bold block">ВЫПИТО ВСЕГО</span>
-              <span className="text-[17px] font-black text-text-dark mt-0.5">{(totals.totalVolume / 1000).toFixed(1)} л</span>
-              <span className="text-[9px] text-text-muted">за все дни курса</span>
+            <div className="rounded-2xl p-3.5 flex items-center justify-between gap-2 shadow-sm relative overflow-hidden" style={{ backgroundColor: "#EAF8F5" }}>
+              <div className="flex flex-col gap-1 min-w-0">
+                <span className="text-[11px] text-text-muted font-bold block">ВЫПИТО ВСЕГО</span>
+                <span className="text-[17px] font-black text-text-dark mt-0.5">{(totals.totalVolume / 1000).toFixed(1)} л</span>
+                <span className="text-[9px] text-text-muted">за все дни курса</span>
+              </div>
+              <img
+                src={volumeSplashCircleImg}
+                alt="Выпито всего"
+                className="w-14 h-14 object-contain shrink-0"
+              />
             </div>
 
             {/* Box 2: Average dynamic volume */}
-            <div className="bg-white rounded-2xl border border-gray-100 p-3.5 shadow-sm flex flex-col gap-1 relative overflow-hidden">
-              <TrendingUp className="w-5 h-5 text-sky-500 mb-1" />
-              <span className="text-[11px] text-text-muted font-bold block">СРЕДНЕЕ В ДЕНЬ</span>
-              <span className="text-[17px] font-black text-text-dark mt-0.5">{totals.average} мл</span>
-              <span className="text-[9px] text-text-muted">динамика усреднения</span>
+            <div className="rounded-2xl p-3.5 flex items-center justify-between gap-2 shadow-sm relative overflow-hidden" style={{ backgroundColor: "#F0F7FF" }}>
+              <div className="flex flex-col gap-1 min-w-0">
+                <span className="text-[11px] text-text-muted font-bold block">СРЕДНЕЕ В ДЕНЬ</span>
+                <span className="text-[17px] font-black text-text-dark mt-0.5">{totals.average} мл</span>
+                <span className="text-[9px] text-text-muted">динамика усреднения</span>
+              </div>
+              <img
+                src={statCareHandsImg}
+                alt="Среднее в день"
+                className="w-14 h-14 object-contain shrink-0"
+              />
             </div>
 
             {/* Box 3: Goal success rate counter */}
-            <div className="bg-white rounded-2xl border border-gray-100 p-3.5 shadow-sm flex flex-col gap-1 relative overflow-hidden">
-              <div className="w-5 h-5 flex items-center justify-center text-[18px] mb-1">🎯</div>
-              <span className="text-[11px] text-text-muted font-bold block">УСПЕШНЫХ ДНЕЙ</span>
-              <span className="text-[17px] font-black text-emerald-600 mt-0.5">{totals.completedDays} дн</span>
-              <span className="text-[9px] text-text-muted">цель достигнута</span>
+            <div className="rounded-2xl p-3.5 flex items-center justify-between gap-2 shadow-sm relative overflow-hidden" style={{ backgroundColor: "#F4F0FF" }}>
+              <div className="flex flex-col gap-1 min-w-0">
+                <span className="text-[11px] text-text-muted font-bold block">УСПЕШНЫХ ДНЕЙ</span>
+                <span className="text-[17px] font-black text-emerald-600 mt-0.5">{totals.completedDays} дн</span>
+                <span className="text-[9px] text-text-muted">цель достигнута</span>
+              </div>
+              <img
+                src={statSuccessTargetImg}
+                alt="Успешных дней"
+                className="w-14 h-14 object-contain shrink-0"
+              />
             </div>
 
             {/* Box 4: Streaks check */}
-            <div className="bg-white rounded-2xl border border-gray-100 p-3.5 shadow-sm flex flex-col gap-1 relative overflow-hidden">
-              <Zap className="w-5 h-5 text-orange-500 mb-1 fill-orange-50" />
-              <span className="text-[11px] text-text-muted font-bold block">АКТИВНАЯ СЕРИЯ</span>
-              <span className="text-[17px] font-black text-orange-600 mt-0.5">+{totals.currentStreak} дн</span>
-              <span className="text-[9px] text-[#A2A4A6] font-bold">лучшая: {totals.bestStreak} дн</span>
+            <div className="rounded-2xl p-3.5 flex items-center justify-between gap-2 shadow-sm relative overflow-hidden" style={{ backgroundColor: "#FDF2F8" }}>
+              <div className="flex flex-col gap-1 min-w-0">
+                <span className="text-[11px] text-text-muted font-bold block">АКТИВНАЯ СЕРИЯ</span>
+                <span className="text-[17px] font-black text-orange-600 mt-0.5">+{totals.currentStreak} дн</span>
+                <span className="text-[9px] text-[#A2A4A6] font-bold">лучшая: {totals.bestStreak} дн</span>
+              </div>
+              <img
+                src={statStreakWaveImg}
+                alt="Активная серия"
+                className="w-14 h-14 object-contain shrink-0"
+              />
             </div>
 
             {/* Banner: Best Volume recorded overall */}
-            <div className="col-span-2 bg-gradient-to-r from-[#F0FDF4] to-[#ECFDF5] rounded-2xl border border-[#D1FAE5] p-3.5 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <span className="text-[24px]">👑</span>
+            <div className="col-span-2 rounded-2xl p-3.5 flex items-center justify-between shadow-sm" style={{ backgroundColor: "#EAF8F5" }}>
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="shrink-0">
+                  <img
+                    src={statMedalImg}
+                    alt="Рекордный день"
+                    className="w-12 h-12 object-contain"
+                  />
+                </div>
                 <div className="flex flex-col">
                   <span className="text-[11px] text-[#047857] font-bold tracking-tight uppercase">РЕКОРДНЫЙ ДЕНЬ</span>
                   <span className="text-[14px] font-bold text-[#065F46] mt-0.5">День {totals.bestDayIndex}: выпито {totals.bestDayVolume} мл жидкости</span>

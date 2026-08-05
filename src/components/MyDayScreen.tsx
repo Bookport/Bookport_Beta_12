@@ -29,6 +29,14 @@ import { api } from "../utils/api";
 import { getPlural } from "../utils/pluralize";
 import { getDailyWaterTip } from "../utils/waterTips";
 import waterImg from "../assets/images/buttons/вода.webp";
+import volumeDrop1Img from "../assets/images/water/volume_drop_1.webp";
+import volumeDrop2Img from "../assets/images/water/volume_drop_2.webp";
+import volumeDrop3Img from "../assets/images/water/volume_drop_3.webp";
+import volumeGlassSmallImg from "../assets/images/water/volume_glass_small.webp";
+import volumeGlassLargeImg from "../assets/images/water/volume_glass_large.webp";
+import volumeBottleImg from "../assets/images/water/volume_bottle.webp";
+import volumeThermosImg from "../assets/images/water/volume_thermos.webp";
+import volumePitcherImg from "../assets/images/water/volume_pitcher.webp";
 import foodImg from "../assets/images/buttons/еда.webp";
 import movementImg from "../assets/images/buttons/движение.webp";
 import sleepImg from "../assets/images/buttons/сон.webp";
@@ -345,6 +353,22 @@ export default function MyDayScreen({
   const [tempSelectedFastAmount, setTempSelectedFastAmount] = useState(250);
 
   const [waterLogs, setWaterLogs] = useState<Record<number, WaterLogEntry[]>>({});
+
+  // Load ALL available course days' water entries from localStorage cache on mount,
+  // so the 28-day hydration chart and record day reflect full course history.
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('wfpb_daily_water_entries_v3');
+      if (raw) {
+        const allLogs = JSON.parse(raw);
+        if (allLogs && typeof allLogs === 'object') {
+          setWaterLogs(prev => ({ ...prev, ...(allLogs as Record<number, WaterLogEntry[]>) }));
+        }
+      }
+    } catch (e) {
+      console.error("Failed to hydrate waterLogs from localStorage:", e);
+    }
+  }, []);
 
   const [dayWeights, setDayWeights] = useState<Record<number, number>>({});
 
@@ -1998,11 +2022,7 @@ export default function MyDayScreen({
         setWaterLogs={setWaterLogs}
         dayWeights={dayWeights}
         setDayWeights={setDayWeights}
-        isRemindersEnabled={isRemindersEnabled}
-        setIsRemindersEnabled={setIsRemindersEnabled}
         handleAddWaterAmount={handleAddWaterAmount}
-        dayNotes={dayNotes}
-        setDayNotes={setDayNotes}
       />
     );
   }
@@ -2776,9 +2796,14 @@ export default function MyDayScreen({
                   {[100, 150, 200, 250, 300, 400, 500, 750, 1000].map((amt) => {
                     const isPref = amt === tempSelectedFastAmount;
                     
-                    let dropletEmoji = "💧";
-                    if (amt >= 750) dropletEmoji = "🥃";
-                    else if (amt <= 150) dropletEmoji = "💦";
+                    let volumeImg = volumeDrop1Img;
+                    if (amt >= 1000) volumeImg = volumePitcherImg;
+                    else if (amt >= 750) volumeImg = volumeThermosImg;
+                    else if (amt >= 500) volumeImg = volumeBottleImg;
+                    else if (amt >= 300) volumeImg = volumeGlassLargeImg;
+                    else if (amt === 250) volumeImg = volumeGlassSmallImg;
+                    else if (amt === 200) volumeImg = volumeDrop3Img;
+                    else if (amt === 150) volumeImg = volumeDrop2Img;
 
                     return (
                       <button
@@ -2791,7 +2816,11 @@ export default function MyDayScreen({
                             : "bg-slate-50 text-slate-800 border-slate-100 hover:bg-slate-100/80 active:scale-95"
                         }`}
                       >
-                        <span className="text-[38px] leading-none">{dropletEmoji}</span>
+                        <img
+                          src={volumeImg}
+                          alt={`${amt} мл`}
+                          className="w-14 h-14 object-contain"
+                        />
                         <span className="text-[14px] font-bold font-mono">
                           {amt < 1000 ? `${amt} мл` : `1.0 л`}
                         </span>
