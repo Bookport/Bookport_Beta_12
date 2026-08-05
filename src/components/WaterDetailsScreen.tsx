@@ -488,7 +488,7 @@ export default function WaterDetailsScreen({
                   return (
                     <div 
                       key={entry.id || index}
-                      className="flex items-center justify-between px-3.5 py-2.5 rounded-[18px] transition-all"
+                      className="flex items-center justify-between px-2 py-2 rounded-[18px] transition-all"
                       style={{ backgroundColor: `rgba(59, 130, 246, ${opacity})` }}
                     >
                       <div className="flex items-center gap-3">
