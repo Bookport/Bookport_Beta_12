@@ -448,7 +448,7 @@ export default function MeasurementsDetailsScreen({
           <div className="relative pt-4 pb-2 px-1 h-44 outline-none border-none focus:outline-none focus:ring-0" style={{ outline: 'none', border: 'none' }}>
             <ResponsiveContainer width="100%" height="100%" className="outline-none border-none focus:outline-none focus:ring-0" style={{ outline: 'none', border: 'none' }}>
               {activeChartMetric === "weight" || activeChartMetric === "pulse" ? (
-                <LineChart key={activeChartMetric} data={chartData} margin={{ top: 5, right: 5, left: -25, bottom: 0 }} onClick={(e) => e?.activeLabel && setSelectedGraphDay(Number(e.activeLabel))} className="outline-none border-none focus:outline-none focus:ring-0" style={{ outline: 'none', border: 'none' }}>
+                <LineChart data={chartData} margin={{ top: 5, right: 5, left: -25, bottom: 0 }} onClick={(e) => e?.activeLabel && setSelectedGraphDay(Number(e.activeLabel))} className="outline-none border-none focus:outline-none focus:ring-0" style={{ outline: 'none', border: 'none' }}>
                   <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: "#94a3b8" }} />
                   <YAxis 
                     domain={activeChartMetric === "weight" ? ['dataMin - 1', 'dataMax + 1'] : ['auto', 'auto']} 
@@ -458,7 +458,7 @@ export default function MeasurementsDetailsScreen({
                   />
                   <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#E8F5E9', strokeWidth: 2 }} wrapperStyle={{ outline: 'none', border: 'none' }} />
                   {activeChartMetric === "pulse" && <ReferenceArea y1={55} y2={75} fill="#E8F5E9" fillOpacity={0.5} />}
-                  <Line 
+                  <Line isAnimationActive={false} 
                     type="monotone" 
                     dataKey={activeChartMetric} 
                     stroke={activeChartMetric === "weight" ? "#006064" : "#1B5E20"} 
@@ -469,11 +469,11 @@ export default function MeasurementsDetailsScreen({
                   />
                 </LineChart>
               ) : (
-                <BarChart key={activeChartMetric} data={chartData} margin={{ top: 5, right: 5, left: 0, bottom: 0 }} onClick={(e) => e?.activeLabel && setSelectedGraphDay(Number(e.activeLabel))} className="outline-none border-none focus:outline-none focus:ring-0" style={{ outline: 'none', border: 'none' }}>
+                <BarChart data={chartData} margin={{ top: 5, right: 5, left: 0, bottom: 0 }} onClick={(e) => e?.activeLabel && setSelectedGraphDay(Number(e.activeLabel))} className="outline-none border-none focus:outline-none focus:ring-0" style={{ outline: 'none', border: 'none' }}>
                   <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: "#94a3b8" }} />
                   <YAxis hide type="number" domain={[0, 3]} />
                   <Tooltip content={<CustomTooltip />} cursor={{ fill: '#F4FBF7' }} wrapperStyle={{ outline: 'none', border: 'none' }} />
-                  <Bar 
+                  <Bar isAnimationActive={false} 
                     dataKey={activeChartMetric} 
                     fill={activeChartMetric === "energy" ? "#C5E1A5" : activeChartMetric === "mood" ? "#B2DFDB" : "#A5D6A7"} 
                     radius={[4, 4, 0, 0]}
