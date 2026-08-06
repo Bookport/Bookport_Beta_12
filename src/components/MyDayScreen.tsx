@@ -3559,24 +3559,24 @@ export default function MyDayScreen({
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.96, y: 12 }}
               transition={{ type: "spring", damping: 25, stiffness: 220 }}
-              className="bg-white rounded-[32px] w-full max-w-[420px] p-5.5 text-left border border-slate-100 shadow-[0_-15px_35px_rgba(0,0,0,0.12)] relative z-10 max-h-[92%] overflow-y-auto scrollbar-none flex flex-col gap-4 text-slate-800"
+              className="bg-white rounded-[32px] w-full max-w-[420px] p-5 text-left border border-slate-100 shadow-[0_-15px_35px_rgba(0,0,0,0.12)] relative z-10 max-h-[92%] overflow-y-auto scrollbar-none flex flex-col gap-3 text-slate-800"
             >
-              <div className="flex justify-between items-center pb-1">
+              <div className="flex justify-between items-center">
                 <div>
-                  <span className="text-[11px] font-black text-rose-600 tracking-wider uppercase block mb-0.5">ВЫБОР СОСТОЯНИЯ</span>
+                  <span className="text-[11px] font-black text-emerald-600 tracking-wider uppercase block mb-0.5">ВЫБОР СОСТОЯНИЯ</span>
                   <h3 className="text-[20px] font-black text-slate-850" style={{ fontFamily: '"Calibri", sans-serif' }}>Замеры организма</h3>
                 </div>
                 <button 
                   type="button"
                   onClick={() => setShowFastMeasurements(false)} 
-                  className="w-8 h-8 rounded-full bg-rose-50 border border-rose-100/50 flex items-center justify-center text-rose-500 hover:bg-rose-100 active:scale-90 transition-all text-xs font-bold font-mono"
+                  className="w-8 h-8 rounded-full bg-emerald-50 border border-emerald-100/60 flex items-center justify-center text-emerald-500 hover:bg-emerald-100 active:scale-90 transition-all text-xs font-bold font-mono"
                 >
                   ✕
                 </button>
               </div>
 
               {/* 1. Энергия / Настроение / Самочувствие — циклические 2D-миниатюры */}
-              <div className="flex flex-row justify-around items-start">
+              <div className="flex flex-row justify-around items-start bg-emerald-50/50 rounded-2xl p-2">
                 {[
                   { title: "ЭНЕРГИЯ", states: ENERGY_STATES, current: fastEnergy, onClick: cycleEnergy },
                   { title: "НАСТРОЕНИЕ", states: MOOD_STATES, current: fastMood, onClick: cycleMood },
@@ -3588,7 +3588,7 @@ export default function MyDayScreen({
                       key={cat.title}
                       type="button"
                       onClick={cat.onClick}
-                      className="flex flex-col items-center gap-1.5 cursor-pointer bg-transparent border-0 outline-none"
+                      className="flex flex-col items-center gap-0.5 cursor-pointer bg-transparent border-0 outline-none"
                     >
                       <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">{cat.title}</span>
                       <img
@@ -3604,16 +3604,16 @@ export default function MyDayScreen({
               </div>
 
               {/* 2. Пульс, Вес, Давление — крупные степперы с удержанием */}
-              <div className="flex flex-col gap-4 mt-1 border-t border-slate-100 pt-4">
+              <div className="flex flex-col gap-2.5 border-t border-slate-100 pt-3">
 
                 {/* Pulse */}
-                <div className="flex flex-col gap-1.5">
+                <div className="flex flex-col gap-0.5">
                   <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-widest px-1">Пульс (ЧСС)</span>
                   <div className="flex items-center justify-center gap-4 select-none">
                     <HoldStepperButton
                       disabled={fastPulse <= 40}
                       onStep={() => setFastPulse(prev => Math.max(40, prev - 1))}
-                      className="w-14 h-14 rounded-2xl bg-white border-2 border-slate-200 shadow-sm flex items-center justify-center text-slate-700 active:scale-90 hover:border-rose-300 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                      className="w-14 h-14 rounded-2xl bg-white border-2 border-slate-200 shadow-sm flex items-center justify-center text-slate-700 active:scale-90 hover:border-emerald-300 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
                     >
                       <Minus className="w-6 h-6" />
                     </HoldStepperButton>
@@ -3624,7 +3624,7 @@ export default function MyDayScreen({
                     <HoldStepperButton
                       disabled={fastPulse >= 180}
                       onStep={() => setFastPulse(prev => Math.min(180, prev + 1))}
-                      className="w-14 h-14 rounded-2xl bg-white border-2 border-slate-200 shadow-sm flex items-center justify-center text-slate-700 active:scale-90 hover:border-rose-300 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                      className="w-14 h-14 rounded-2xl bg-white border-2 border-slate-200 shadow-sm flex items-center justify-center text-slate-700 active:scale-90 hover:border-emerald-300 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
                     >
                       <Plus className="w-6 h-6" />
                     </HoldStepperButton>
@@ -3632,13 +3632,13 @@ export default function MyDayScreen({
                 </div>
 
                 {/* Weight */}
-                <div className="flex flex-col gap-1.5">
+                <div className="flex flex-col gap-0.5">
                   <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-widest px-1">Вес (кг)</span>
                   <div className="flex items-center justify-center gap-4 select-none">
                     <HoldStepperButton
                       disabled={fastWeight <= 30}
                       onStep={() => setFastWeight(prev => Math.max(30, Number((prev - 0.1).toFixed(1))))}
-                      className="w-14 h-14 rounded-2xl bg-white border-2 border-slate-200 shadow-sm flex items-center justify-center text-slate-700 active:scale-90 hover:border-rose-300 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                      className="w-14 h-14 rounded-2xl bg-white border-2 border-slate-200 shadow-sm flex items-center justify-center text-slate-700 active:scale-90 hover:border-emerald-300 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
                     >
                       <Minus className="w-6 h-6" />
                     </HoldStepperButton>
@@ -3649,7 +3649,7 @@ export default function MyDayScreen({
                     <HoldStepperButton
                       disabled={fastWeight >= 250}
                       onStep={() => setFastWeight(prev => Math.min(250, Number((prev + 0.1).toFixed(1))))}
-                      className="w-14 h-14 rounded-2xl bg-white border-2 border-slate-200 shadow-sm flex items-center justify-center text-slate-700 active:scale-90 hover:border-rose-300 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                      className="w-14 h-14 rounded-2xl bg-white border-2 border-slate-200 shadow-sm flex items-center justify-center text-slate-700 active:scale-90 hover:border-emerald-300 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
                     >
                       <Plus className="w-6 h-6" />
                     </HoldStepperButton>
@@ -3657,13 +3657,13 @@ export default function MyDayScreen({
                 </div>
 
                 {/* Systolic */}
-                <div className="flex flex-col gap-1.5">
+                <div className="flex flex-col gap-0.5">
                   <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-widest px-1">Верхнее давление (систола)</span>
                   <div className="flex items-center justify-center gap-4 select-none">
                     <HoldStepperButton
                       disabled={fastSystolic <= 60}
                       onStep={() => setFastSystolic(prev => Math.max(60, prev - 1))}
-                      className="w-14 h-14 rounded-2xl bg-white border-2 border-slate-200 shadow-sm flex items-center justify-center text-slate-700 active:scale-90 hover:border-rose-300 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                      className="w-14 h-14 rounded-2xl bg-white border-2 border-slate-200 shadow-sm flex items-center justify-center text-slate-700 active:scale-90 hover:border-emerald-300 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
                     >
                       <Minus className="w-6 h-6" />
                     </HoldStepperButton>
@@ -3674,7 +3674,7 @@ export default function MyDayScreen({
                     <HoldStepperButton
                       disabled={fastSystolic >= 220}
                       onStep={() => setFastSystolic(prev => Math.min(220, prev + 1))}
-                      className="w-14 h-14 rounded-2xl bg-white border-2 border-slate-200 shadow-sm flex items-center justify-center text-slate-700 active:scale-90 hover:border-rose-300 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                      className="w-14 h-14 rounded-2xl bg-white border-2 border-slate-200 shadow-sm flex items-center justify-center text-slate-700 active:scale-90 hover:border-emerald-300 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
                     >
                       <Plus className="w-6 h-6" />
                     </HoldStepperButton>
@@ -3682,13 +3682,13 @@ export default function MyDayScreen({
                 </div>
 
                 {/* Diastolic */}
-                <div className="flex flex-col gap-1.5">
+                <div className="flex flex-col gap-0.5">
                   <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-widest px-1">Нижнее давление (диастола)</span>
                   <div className="flex items-center justify-center gap-4 select-none">
                     <HoldStepperButton
                       disabled={fastDiastolic <= 30}
                       onStep={() => setFastDiastolic(prev => Math.max(30, prev - 1))}
-                      className="w-14 h-14 rounded-2xl bg-white border-2 border-slate-200 shadow-sm flex items-center justify-center text-slate-700 active:scale-90 hover:border-rose-300 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                      className="w-14 h-14 rounded-2xl bg-white border-2 border-slate-200 shadow-sm flex items-center justify-center text-slate-700 active:scale-90 hover:border-emerald-300 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
                     >
                       <Minus className="w-6 h-6" />
                     </HoldStepperButton>
@@ -3699,7 +3699,7 @@ export default function MyDayScreen({
                     <HoldStepperButton
                       disabled={fastDiastolic >= 140}
                       onStep={() => setFastDiastolic(prev => Math.min(140, prev + 1))}
-                      className="w-14 h-14 rounded-2xl bg-white border-2 border-slate-200 shadow-sm flex items-center justify-center text-slate-700 active:scale-90 hover:border-rose-300 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                      className="w-14 h-14 rounded-2xl bg-white border-2 border-slate-200 shadow-sm flex items-center justify-center text-slate-700 active:scale-90 hover:border-emerald-300 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
                     >
                       <Plus className="w-6 h-6" />
                     </HoldStepperButton>
@@ -3709,7 +3709,7 @@ export default function MyDayScreen({
               </div>
 
               {/* Status and warnings info box inside sheet */}
-              <div className="bg-rose-50/40 rounded-2xl p-3 border border-rose-100/65 text-[11.5px] leading-relaxed text-rose-955 font-bold mt-1">
+              <div className="bg-emerald-50 rounded-2xl p-3 border border-emerald-100/60 text-[11.5px] leading-relaxed text-emerald-800 font-bold">
                 💡 {getDailyMeasurementTip()}
               </div>
 
