@@ -14,8 +14,10 @@ import {
   Calendar,
   HelpCircle
 } from "lucide-react";
-import BriefNoteBlock from "./BriefNoteBlock";
 import { useAppStore } from "../store/useAppStore";
+import { resolveAvatar } from "../utils/annaAvatarResolver";
+
+const annaAvatarSrc = resolveAvatar({ toneGroup: 'neutral_thoughtful', intent: 'clear_explanation' }).src;
 
 import stateEnergyHigh from "../assets/images/measurements/state_energy_high.webp";
 import stateEnergyNormal from "../assets/images/measurements/state_energy_normal.webp";
@@ -103,31 +105,6 @@ export default function MeasurementsDetailsScreen({
 }: MeasurementsDetailsScreenProps) {
   // Analytical chart default selected day is today
   const [selectedGraphDay, setSelectedGraphDay] = useState<number>(currentDayIndex);
-  const [noteSavedOrSkipped, setNoteSavedOrSkipped] = useState(false);
-
-  const handleSaveMeasurementsNote = (noteText: string, selectedTags: string[], isVoice: boolean) => {
-    if (!noteText.trim() && selectedTags.length === 0) return;
-    
-    const now = new Date();
-    const timeStr = now.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
-    
-    const newNote = {
-      text: noteText.trim() || "Зафиксированы замеры и тонус организма 📊",
-      time: timeStr,
-      source: "measurements",
-      tags: selectedTags,
-      isVoice
-    };
-
-    setDayNotes(prev => {
-      const todayArr = prev[currentDayIndex] || [];
-      return {
-        ...prev,
-        [currentDayIndex]: [newNote, ...todayArr]
-      };
-    });
-    setNoteSavedOrSkipped(true);
-  };
   
   // Active selected chart metric tab inside analytics
   // "wellbeing" | "energy" | "pulse" | "weight"
@@ -386,25 +363,31 @@ export default function MeasurementsDetailsScreen({
           )}
         </div>
 
-        {todayList.length > 0 && !noteSavedOrSkipped && (
-          <BriefNoteBlock
-            moduleKey="measurements"
-            onSave={handleSaveMeasurementsNote}
-            onSkip={() => setNoteSavedOrSkipped(true)}
-          />
-        )}
-
         {/* 2. MIDDLE PART: ANNA'S MOTIVATIONAL ADVICE BOX */}
         <div className="bg-[#F4FBF7] shadow-sm rounded-[28px] p-4 text-left flex flex-col gap-3 relative z-10 mb-5" id="anna-measurements-advice-box">
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-2.5">
-              <img src={ingrGreen} alt="Анна советует" className="w-6 h-6 object-contain" />
+              <div className="relative shrink-0">
+                <div className="w-11 h-11 rounded-full overflow-hidden border border-emerald-100/60 shadow-md">
+                  <img 
+                    src={annaAvatarSrc}
+                    alt="Анна советует" 
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <div className="absolute -bottom-1 -right-1 w-4.5 h-4.5 rounded-full bg-emerald-600 border border-white flex items-center justify-center text-[9px]">
+                  🩺
+                </div>
+              </div>
               <div className="flex flex-col text-left">
                 <span className="text-[15px] font-black text-slate-900 leading-none">Анна</span>
                 <span className="text-[11px] font-bold text-slate-500 mt-0.5 leading-none">Советник WFPB</span>
               </div>
             </div>
+            
+            <img src={ingrGreen} alt="Логотип WFPB" className="w-6 h-6 object-contain" />
           </div>
+
           <div className="bg-white/80 backdrop-blur-xs p-3.5 rounded-2xl text-[13.5px] leading-relaxed font-semibold text-slate-800">
             Анализирую динамику...
           </div>
