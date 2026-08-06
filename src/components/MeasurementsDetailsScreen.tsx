@@ -298,6 +298,17 @@ export default function MeasurementsDetailsScreen({
           <div className="w-10 h-10" />
         </div>
 
+        
+        {/* Style to forcefully remove Recharts focus outlines */}
+        <style>{`
+          .recharts-wrapper, .recharts-wrapper:focus, 
+          .recharts-surface, .recharts-surface:focus {
+            outline: none !important;
+            border: none !important;
+            box-shadow: none !important;
+          }
+        `}</style>
+
         {/* 1. UPPER PART: TODAY'S CURRENT STATE */}
         <div className="bg-white rounded-[32px] border border-gray-100/90 p-4.5 shadow-[0_5px_15px_-3px_rgba(43,49,55,0.02)] flex flex-col gap-4 text-left mb-5">
           <div className="flex justify-between items-start">
@@ -437,7 +448,7 @@ export default function MeasurementsDetailsScreen({
           <div className="relative pt-4 pb-2 px-1 h-44 outline-none border-none focus:outline-none focus:ring-0" style={{ outline: 'none', border: 'none' }}>
             <ResponsiveContainer width="100%" height="100%" className="outline-none border-none focus:outline-none focus:ring-0" style={{ outline: 'none', border: 'none' }}>
               {activeChartMetric === "weight" || activeChartMetric === "pulse" ? (
-                <LineChart data={chartData} margin={{ top: 5, right: 5, left: -25, bottom: 0 }} onClick={(e) => e?.activeLabel && setSelectedGraphDay(Number(e.activeLabel))} className="outline-none border-none focus:outline-none focus:ring-0" style={{ outline: 'none', border: 'none' }}>
+                <LineChart key={activeChartMetric} data={chartData} margin={{ top: 5, right: 5, left: -25, bottom: 0 }} onClick={(e) => e?.activeLabel && setSelectedGraphDay(Number(e.activeLabel))} className="outline-none border-none focus:outline-none focus:ring-0" style={{ outline: 'none', border: 'none' }}>
                   <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: "#94a3b8" }} />
                   <YAxis 
                     domain={activeChartMetric === "weight" ? ['dataMin - 1', 'dataMax + 1'] : ['auto', 'auto']} 
@@ -458,7 +469,7 @@ export default function MeasurementsDetailsScreen({
                   />
                 </LineChart>
               ) : (
-                <BarChart data={chartData} margin={{ top: 5, right: 5, left: -30, bottom: 0 }} onClick={(e) => e?.activeLabel && setSelectedGraphDay(Number(e.activeLabel))} className="outline-none border-none focus:outline-none focus:ring-0" style={{ outline: 'none', border: 'none' }}>
+                <BarChart key={activeChartMetric} data={chartData} margin={{ top: 5, right: 5, left: 0, bottom: 0 }} onClick={(e) => e?.activeLabel && setSelectedGraphDay(Number(e.activeLabel))} className="outline-none border-none focus:outline-none focus:ring-0" style={{ outline: 'none', border: 'none' }}>
                   <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: "#94a3b8" }} />
                   <YAxis hide type="number" domain={[0, 3]} />
                   <Tooltip content={<CustomTooltip />} cursor={{ fill: '#F4FBF7' }} wrapperStyle={{ outline: 'none', border: 'none' }} />
