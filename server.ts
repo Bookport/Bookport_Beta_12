@@ -1755,6 +1755,35 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
       const currentMeasurements = existing?.measurements ? JSON.parse(existing.measurements) : [];
       const newMeasurements = measurements ? [...currentMeasurements, ...measurements] : currentMeasurements;
 
+      // Extract the latest incoming measurement for direct access via dedicated columns.
+      const latestMeasurement = measurements && Array.isArray(measurements) && measurements.length > 0
+        ? measurements[measurements.length - 1] as any
+        : null;
+
+      const metricColumns: { pulse?: number; weight?: number; systolic?: number; diastolic?: number; tonus?: string } = {};
+      if (latestMeasurement) {
+        if (typeof latestMeasurement.pulse === "number" && latestMeasurement.pulse > 0) metricColumns.pulse = latestMeasurement.pulse;
+        if (typeof latestMeasurement.weight === "number" && latestMeasurement.weight > 0) metricColumns.weight = latestMeasurement.weight;
+        if (typeof latestMeasurement.systolic === "number" && latestMeasurement.systolic > 0) metricColumns.systolic = latestMeasurement.systolic;
+        if (typeof latestMeasurement.diastolic === "number" && latestMeasurement.diastolic > 0) metricColumns.diastolic = latestMeasurement.diastolic;
+        if (typeof latestMeasurement.tonus === "string" && latestMeasurement.tonus) metricColumns.tonus = latestMeasurement.tonus;
+      }
+
+      // Sync the latest entered measurement (weight / blood pressure) to the User profile
+      // so the measurement modal is a first-class source of the user's current biometrics.
+      if (latestMeasurement) {
+        const profileUpdate: Record<string, number> = {};
+        if (typeof latestMeasurement?.weight === "number" && latestMeasurement.weight > 0) profileUpdate.weight = latestMeasurement.weight;
+        if (typeof latestMeasurement?.systolic === "number" && latestMeasurement.systolic > 0) profileUpdate.systolic = latestMeasurement.systolic;
+        if (typeof latestMeasurement?.diastolic === "number" && latestMeasurement.diastolic > 0) profileUpdate.diastolic = latestMeasurement.diastolic;
+        if (Object.keys(profileUpdate).length > 0) {
+          await prisma.user.update({
+            where: { id: req.userId },
+            data: profileUpdate,
+          }).catch((err: any) => console.error("[DailyMetric] User profile sync error:", err.message));
+        }
+      }
+
       const record = await prisma.dailyMetric.upsert({
         where: { userId_date: { userId: req.userId, date: new Date(date) } },
         update: {
@@ -1770,6 +1799,7 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
           digestionLog: JSON.stringify(newDigestionLog),
           movementLog: JSON.stringify(newMovementLog),
           measurements: JSON.stringify(newMeasurements),
+          ...metricColumns,
           dayMood: dayMood ?? undefined,
           dayBookmark: dayBookmark ?? undefined,
         },
@@ -1788,6 +1818,11 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
           digestionLog: JSON.stringify(newDigestionLog),
           movementLog: JSON.stringify(newMovementLog),
           measurements: JSON.stringify(newMeasurements),
+          pulse: metricColumns.pulse ?? null,
+          weight: metricColumns.weight ?? null,
+          systolic: metricColumns.systolic ?? null,
+          diastolic: metricColumns.diastolic ?? null,
+          tonus: metricColumns.tonus ?? null,
           dayMood: dayMood ?? null,
           dayBookmark: dayBookmark ?? null,
         },

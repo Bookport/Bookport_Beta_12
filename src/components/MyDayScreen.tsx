@@ -142,6 +142,49 @@ const VESSEL_BUBBLES = [
   { id: 8, size: 4, left: "64%", duration: 4.5, delay: 3.3 }
 ];
 
+interface HoldStepperButtonProps {
+  onStep: () => void;
+  disabled?: boolean;
+  children: React.ReactNode;
+  className?: string;
+}
+
+// Stepper button that fast-scrolls the value while held with a pointer.
+function HoldStepperButton({ onStep, disabled, children, className }: HoldStepperButtonProps) {
+  const timerRef = React.useRef<number | null>(null);
+
+  const stop = React.useCallback(() => {
+    if (timerRef.current !== null) {
+      window.clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+  }, []);
+
+  // Guarantee no leak / runaway scrolling on unmount
+  React.useEffect(() => stop, [stop]);
+
+  const start = (e: React.PointerEvent) => {
+    e.preventDefault();
+    if (disabled) return;
+    onStep();
+    timerRef.current = window.setInterval(onStep, 90);
+  };
+
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onPointerDown={start}
+      onPointerUp={stop}
+      onPointerLeave={stop}
+      onClick={(e) => e.preventDefault()}
+      className={className}
+    >
+      {children}
+    </button>
+  );
+}
+
 export default function MyDayScreen({
   dayNotes,
   setDayNotes,
@@ -155,6 +198,7 @@ export default function MyDayScreen({
   const setScreen = useAppStore((s) => s.setScreen);
   const screen = useAppStore((s) => s.screen);
   const profile = useAppStore((s) => s.userProfile);
+  const setUserProfile = useAppStore((s) => s.setUserProfile);
 
   // Local state for metrics (will be saved via API)
   const [water, setWater] = useState(0);
@@ -328,9 +372,18 @@ export default function MyDayScreen({
   const [ratingWellbeing, setRatingWellbeing] = useState(5);
   const [ratingEnergy, setRatingEnergy] = useState(5);
   const [ratingLightness, setRatingLightness] = useState(5);
-  const setWeight = (val: number | ((prev: number) => number)) => {};
-  const setSystolic = (val: number | ((prev: number) => number)) => {};
-  const setDiastolic = (val: number | ((prev: number) => number)) => {};
+  const setWeight = (val: number | ((prev: number) => number)) => {
+    const next = typeof val === "function" ? val(profile.weight || 0) : val;
+    setUserProfile({ ...profile, weight: next });
+  };
+  const setSystolic = (val: number | ((prev: number) => number)) => {
+    const next = typeof val === "function" ? val(profile.systolic || 0) : val;
+    setUserProfile({ ...profile, systolic: next });
+  };
+  const setDiastolic = (val: number | ((prev: number) => number)) => {
+    const next = typeof val === "function" ? val(profile.diastolic || 0) : val;
+    setUserProfile({ ...profile, diastolic: next });
+  };
 
   // Navigation helpers
   const onBack = () => setScreen("my-page");
@@ -508,9 +561,7 @@ export default function MyDayScreen({
   const [showFastMeasurements, setShowFastMeasurements] = useState(false);
 
   // States to hold currently selected/entering metrics on the fast entry sheet
-  const [fastEnergy, setFastEnergy] = useState<"высокая" | "спокойная" | "сниженная" | "">("");
-  const [fastMood, setFastMood] = useState<"лёгкое" | "ровное" | "тяжёлое" | "">("");
-  const [fastWellbeing, setFastWellbeing] = useState<"хорошее" | "среднее" | "плохое" | "">("");
+  const [fastTonus, setFastTonus] = useState<"отличный" | "нормальный" | "тяжёлый" | "">("");
   const [fastPulse, setFastPulse] = useState<number>(68); 
   const [fastWeight, setFastWeight] = useState<number>(weight);
   const [fastSystolic, setFastSystolic] = useState<number>(systolic);
@@ -1125,9 +1176,7 @@ export default function MyDayScreen({
         // Prefill from the latest measurement across all days, fall back to profile
         const allEntries = Object.values(measurementLogs).flat();
         const lastEntry = allEntries.length > 0 ? allEntries.reduce((a, b) => a.timestamp > b.timestamp ? a : b) : null;
-        setFastEnergy("");
-        setFastMood("");
-        setFastWellbeing("");
+        setFastTonus("");
         setFastPulse(lastEntry?.pulse ?? 68);
         setFastWeight(lastEntry?.weight ?? weight);
         setFastSystolic(lastEntry?.systolic ?? systolic);
@@ -1166,9 +1215,10 @@ export default function MyDayScreen({
       dayIndex: currentDayIndex,
       timestamp: nowStamp,
       timeString: timeStr,
-      energy: fastEnergy,
-      mood: fastMood,
-      wellbeing: fastWellbeing,
+      energy: "",
+      mood: "",
+      wellbeing: "",
+      tonus: fastTonus,
       pulse: fastPulse > 30 ? fastPulse : null,
       weight: fastWeight > 10 ? Number(fastWeight.toFixed(1)) : null,
       systolic: fastSystolic > 30 ? fastSystolic : null,
@@ -3462,16 +3512,16 @@ export default function MyDayScreen({
       {/* 12. FAST MEASUREMENTS SLOT SHEET */}
       <AnimatePresence>
         {showFastMeasurements && (
-          <div className="absolute inset-0 bg-black/45 backdrop-blur-xs flex items-end justify-center z-[65]" id="fast-measurements-sheet-overlay">
+          <div className="absolute inset-0 bg-black/45 backdrop-blur-xs flex items-center justify-center z-[65] px-5 py-6" id="fast-measurements-sheet-overlay">
             {/* Backdrop click to dismiss */}
             <div className="absolute inset-0 z-0" onClick={() => setShowFastMeasurements(false)} />
 
             <motion.div
-              initial={{ y: "100%" }}
-              animate={{ y: 0 }}
-              exit={{ y: "100%" }}
+              initial={{ opacity: 0, scale: 0.96, y: 12 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96, y: 12 }}
               transition={{ type: "spring", damping: 25, stiffness: 220 }}
-              className="bg-white rounded-t-[36px] w-full max-w-[420px] p-5.5 text-left border-t border-slate-100 shadow-[0_-15px_35px_rgba(0,0,0,0.12)] relative z-10 max-h-[92%] overflow-y-auto scrollbar-none flex flex-col gap-4 text-slate-800"
+              className="bg-white rounded-[32px] w-full max-w-[420px] p-5.5 text-left border border-slate-100 shadow-[0_-15px_35px_rgba(0,0,0,0.12)] relative z-10 max-h-[92%] overflow-y-auto scrollbar-none flex flex-col gap-4 text-slate-800"
             >
               <div className="flex justify-between items-center pb-1">
                 <div>
@@ -3487,22 +3537,22 @@ export default function MyDayScreen({
                 </button>
               </div>
 
-              {/* 1. Энергия Selection */}
+              {/* 1. Тонус — единый субъективный блок */}
               <div className="flex flex-col gap-1.5">
-                <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-widest px-1">Энергия</span>
+                <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-widest px-1">Тонус</span>
                 <div className="grid grid-cols-3 gap-2">
                   {[
-                    { id: "высокая", val: "⚡ Высокая", bg: "active:bg-amber-100 text-amber-900 border-amber-200 bg-amber-50/40" },
-                    { id: "спокойная", val: "🍃 Спокойная", bg: "active:bg-emerald-100 text-emerald-950 border-emerald-250/30 bg-emerald-50/40" },
-                    { id: "сниженная", val: "💤 Сниженная", bg: "active:bg-slate-200 text-slate-900 border-slate-300 bg-slate-100/40" }
+                    { id: "отличный", val: "☀️ Отличный", bg: "active:bg-amber-100 text-amber-900 border-amber-200 bg-amber-50/40" },
+                    { id: "нормальный", val: "⛅ Нормальный", bg: "active:bg-emerald-100 text-emerald-950 border-emerald-250/30 bg-emerald-50/40" },
+                    { id: "тяжёлый", val: "🌧️ Тяжёлый", bg: "active:bg-slate-200 text-slate-900 border-slate-300 bg-slate-100/40" }
                   ].map(item => {
-                    const active = fastEnergy === item.id;
+                    const active = fastTonus === item.id;
                     return (
                       <button
                         key={item.id}
                         type="button"
-                        onClick={() => setFastEnergy(item.id as any)}
-                        className={`py-2 px-1 rounded-xl text-xs font-bold text-center border transition-all cursor-pointer ${
+                        onClick={() => setFastTonus(item.id as any)}
+                        className={`py-2.5 px-1 rounded-xl text-xs font-bold text-center border transition-all cursor-pointer ${
                           active 
                             ? "bg-gradient-to-r from-rose-500 to-pink-500 text-white border-transparent shadow-xs scale-102"
                             : item.bg
@@ -3515,170 +3565,106 @@ export default function MyDayScreen({
                 </div>
               </div>
 
-              {/* 2. Настроение Selection */}
-              <div className="flex flex-col gap-1.5">
-                <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-widest px-1">Настроение</span>
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    { id: "лёгкое", val: "✨ Лёгкое", bg: "active:bg-pink-100 text-pink-900 border-pink-200 bg-pink-50/30" },
-                    { id: "ровное", val: "☀️ Ровное", bg: "active:bg-teal-100 text-teal-905 border-teal-200 bg-teal-50/30" },
-                    { id: "тяжёлое", val: "🌧️ Тяжёлое", bg: "active:bg-slate-250 text-slate-900 border-slate-300 bg-slate-100/30" }
-                  ].map(item => {
-                    const active = fastMood === item.id;
-                    return (
-                      <button
-                        key={item.id}
-                        type="button"
-                        onClick={() => setFastMood(item.id as any)}
-                        className={`py-2 px-1 rounded-xl text-xs font-bold text-center border transition-all cursor-pointer ${
-                          active 
-                            ? "bg-gradient-to-r from-rose-500 to-pink-500 text-white border-transparent shadow-xs scale-102"
-                            : item.bg
-                        }`}
-                      >
-                        {item.val}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* 3. Самочувствие Selection */}
-              <div className="flex flex-col gap-1.5">
-                <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-widest px-1">Самочувствие</span>
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    { id: "хорошее", val: "🌟 Хорошее", bg: "active:bg-rose-100 text-rose-955 border-rose-200 bg-rose-50/20" },
-                    { id: "среднее", val: "⚡ Среднее", bg: "active:bg-amber-100 text-amber-900 border-amber-250/30 bg-amber-50/20" },
-                    { id: "плохое", val: "❤️‍🩹 Плохое", bg: "active:bg-slate-200 text-slate-900 border-slate-300 bg-slate-150/20" }
-                  ].map(item => {
-                    const active = fastWellbeing === item.id;
-                    return (
-                      <button
-                        key={item.id}
-                        type="button"
-                        onClick={() => setFastWellbeing(item.id as any)}
-                        className={`py-2 px-1 rounded-xl text-xs font-bold text-center border transition-all cursor-pointer ${
-                          active 
-                            ? "bg-gradient-to-r from-rose-500 to-pink-500 text-white border-transparent shadow-xs scale-102"
-                            : item.bg
-                        }`}
-                      >
-                        {item.val}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* 4. Пульс, Вес, Давление — крупные степперы */}
+              {/* 2. Пульс, Вес, Давление — крупные степперы с удержанием */}
               <div className="flex flex-col gap-4 mt-1 border-t border-slate-100 pt-4">
 
                 {/* Pulse */}
                 <div className="flex flex-col gap-1.5">
                   <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-widest px-1">Пульс (ЧСС)</span>
-                  <div className="flex items-center justify-center gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setFastPulse(prev => Math.max(40, prev - 1))}
+                  <div className="flex items-center justify-center gap-4 select-none">
+                    <HoldStepperButton
                       disabled={fastPulse <= 40}
-                      className="w-12 h-12 rounded-xl bg-white border-2 border-slate-200 shadow-sm flex items-center justify-center text-slate-700 active:scale-90 hover:border-rose-300 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                      onStep={() => setFastPulse(prev => Math.max(40, prev - 1))}
+                      className="w-14 h-14 rounded-2xl bg-white border-2 border-slate-200 shadow-sm flex items-center justify-center text-slate-700 active:scale-90 hover:border-rose-300 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
                     >
-                      <Minus className="w-5 h-5" />
-                    </button>
-                    <div className="flex flex-col items-center min-w-[80px]">
-                      <span className="font-mono font-black text-[20px] text-slate-800">{fastPulse}</span>
-                      <span className="text-[8px] font-extrabold text-slate-400 leading-none">уд/мин</span>
+                      <Minus className="w-6 h-6" />
+                    </HoldStepperButton>
+                    <div className="flex flex-col items-center min-w-[90px]">
+                      <span className="font-mono font-bold text-3xl text-slate-800">{fastPulse}</span>
+                      <span className="text-[9px] font-extrabold text-slate-400 leading-none">уд/мин</span>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => setFastPulse(prev => Math.min(180, prev + 1))}
+                    <HoldStepperButton
                       disabled={fastPulse >= 180}
-                      className="w-12 h-12 rounded-xl bg-white border-2 border-slate-200 shadow-sm flex items-center justify-center text-slate-700 active:scale-90 hover:border-rose-300 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                      onStep={() => setFastPulse(prev => Math.min(180, prev + 1))}
+                      className="w-14 h-14 rounded-2xl bg-white border-2 border-slate-200 shadow-sm flex items-center justify-center text-slate-700 active:scale-90 hover:border-rose-300 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
                     >
-                      <Plus className="w-5 h-5" />
-                    </button>
+                      <Plus className="w-6 h-6" />
+                    </HoldStepperButton>
                   </div>
                 </div>
 
                 {/* Weight */}
                 <div className="flex flex-col gap-1.5">
                   <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-widest px-1">Вес (кг)</span>
-                  <div className="flex items-center justify-center gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setFastWeight(prev => Math.max(30, Number((prev - 0.1).toFixed(1))))}
+                  <div className="flex items-center justify-center gap-4 select-none">
+                    <HoldStepperButton
                       disabled={fastWeight <= 30}
-                      className="w-12 h-12 rounded-xl bg-white border-2 border-slate-200 shadow-sm flex items-center justify-center text-slate-700 active:scale-90 hover:border-rose-300 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                      onStep={() => setFastWeight(prev => Math.max(30, Number((prev - 0.1).toFixed(1))))}
+                      className="w-14 h-14 rounded-2xl bg-white border-2 border-slate-200 shadow-sm flex items-center justify-center text-slate-700 active:scale-90 hover:border-rose-300 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
                     >
-                      <Minus className="w-5 h-5" />
-                    </button>
-                    <div className="flex flex-col items-center min-w-[80px]">
-                      <span className="font-mono font-black text-[20px] text-slate-800">{fastWeight.toFixed(1)}</span>
-                      <span className="text-[8px] font-extrabold text-slate-400 leading-none">кг</span>
+                      <Minus className="w-6 h-6" />
+                    </HoldStepperButton>
+                    <div className="flex flex-col items-center min-w-[90px]">
+                      <span className="font-mono font-bold text-3xl text-slate-800">{fastWeight.toFixed(1)}</span>
+                      <span className="text-[9px] font-extrabold text-slate-400 leading-none">кг</span>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => setFastWeight(prev => Math.min(250, Number((prev + 0.1).toFixed(1))))}
+                    <HoldStepperButton
                       disabled={fastWeight >= 250}
-                      className="w-12 h-12 rounded-xl bg-white border-2 border-slate-200 shadow-sm flex items-center justify-center text-slate-700 active:scale-90 hover:border-rose-300 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                      onStep={() => setFastWeight(prev => Math.min(250, Number((prev + 0.1).toFixed(1))))}
+                      className="w-14 h-14 rounded-2xl bg-white border-2 border-slate-200 shadow-sm flex items-center justify-center text-slate-700 active:scale-90 hover:border-rose-300 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
                     >
-                      <Plus className="w-5 h-5" />
-                    </button>
+                      <Plus className="w-6 h-6" />
+                    </HoldStepperButton>
                   </div>
                 </div>
 
                 {/* Systolic */}
                 <div className="flex flex-col gap-1.5">
                   <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-widest px-1">Верхнее давление (систола)</span>
-                  <div className="flex items-center justify-center gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setFastSystolic(prev => Math.max(60, prev - 5))}
+                  <div className="flex items-center justify-center gap-4 select-none">
+                    <HoldStepperButton
                       disabled={fastSystolic <= 60}
-                      className="w-12 h-12 rounded-xl bg-white border-2 border-slate-200 shadow-sm flex items-center justify-center text-slate-700 active:scale-90 hover:border-rose-300 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                      onStep={() => setFastSystolic(prev => Math.max(60, prev - 1))}
+                      className="w-14 h-14 rounded-2xl bg-white border-2 border-slate-200 shadow-sm flex items-center justify-center text-slate-700 active:scale-90 hover:border-rose-300 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
                     >
-                      <Minus className="w-5 h-5" />
-                    </button>
-                    <div className="flex flex-col items-center min-w-[80px]">
-                      <span className="font-mono font-black text-[20px] text-slate-800">{fastSystolic}</span>
-                      <span className="text-[8px] font-extrabold text-slate-400 leading-none">мм рт.ст.</span>
+                      <Minus className="w-6 h-6" />
+                    </HoldStepperButton>
+                    <div className="flex flex-col items-center min-w-[90px]">
+                      <span className="font-mono font-bold text-3xl text-slate-800">{fastSystolic}</span>
+                      <span className="text-[9px] font-extrabold text-slate-400 leading-none">мм рт.ст.</span>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => setFastSystolic(prev => Math.min(220, prev + 5))}
+                    <HoldStepperButton
                       disabled={fastSystolic >= 220}
-                      className="w-12 h-12 rounded-xl bg-white border-2 border-slate-200 shadow-sm flex items-center justify-center text-slate-700 active:scale-90 hover:border-rose-300 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                      onStep={() => setFastSystolic(prev => Math.min(220, prev + 1))}
+                      className="w-14 h-14 rounded-2xl bg-white border-2 border-slate-200 shadow-sm flex items-center justify-center text-slate-700 active:scale-90 hover:border-rose-300 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
                     >
-                      <Plus className="w-5 h-5" />
-                    </button>
+                      <Plus className="w-6 h-6" />
+                    </HoldStepperButton>
                   </div>
                 </div>
 
                 {/* Diastolic */}
                 <div className="flex flex-col gap-1.5">
                   <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-widest px-1">Нижнее давление (диастола)</span>
-                  <div className="flex items-center justify-center gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setFastDiastolic(prev => Math.max(30, prev - 5))}
+                  <div className="flex items-center justify-center gap-4 select-none">
+                    <HoldStepperButton
                       disabled={fastDiastolic <= 30}
-                      className="w-12 h-12 rounded-xl bg-white border-2 border-slate-200 shadow-sm flex items-center justify-center text-slate-700 active:scale-90 hover:border-rose-300 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                      onStep={() => setFastDiastolic(prev => Math.max(30, prev - 1))}
+                      className="w-14 h-14 rounded-2xl bg-white border-2 border-slate-200 shadow-sm flex items-center justify-center text-slate-700 active:scale-90 hover:border-rose-300 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
                     >
-                      <Minus className="w-5 h-5" />
-                    </button>
-                    <div className="flex flex-col items-center min-w-[80px]">
-                      <span className="font-mono font-black text-[20px] text-slate-800">{fastDiastolic}</span>
-                      <span className="text-[8px] font-extrabold text-slate-400 leading-none">мм рт.ст.</span>
+                      <Minus className="w-6 h-6" />
+                    </HoldStepperButton>
+                    <div className="flex flex-col items-center min-w-[90px]">
+                      <span className="font-mono font-bold text-3xl text-slate-800">{fastDiastolic}</span>
+                      <span className="text-[9px] font-extrabold text-slate-400 leading-none">мм рт.ст.</span>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => setFastDiastolic(prev => Math.min(140, prev + 5))}
+                    <HoldStepperButton
                       disabled={fastDiastolic >= 140}
-                      className="w-12 h-12 rounded-xl bg-white border-2 border-slate-200 shadow-sm flex items-center justify-center text-slate-700 active:scale-90 hover:border-rose-300 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                      onStep={() => setFastDiastolic(prev => Math.min(140, prev + 1))}
+                      className="w-14 h-14 rounded-2xl bg-white border-2 border-slate-200 shadow-sm flex items-center justify-center text-slate-700 active:scale-90 hover:border-rose-300 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
                     >
-                      <Plus className="w-5 h-5" />
-                    </button>
+                      <Plus className="w-6 h-6" />
+                    </HoldStepperButton>
                   </div>
                 </div>
 

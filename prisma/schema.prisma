@@ -105,6 +105,11 @@ model DailyMetric {
   digestionLog    String?
   movementLog     String?
   measurements    String?
+  pulse           Int?
+  weight          Float?
+  systolic        Int?
+  diastolic       Int?
+  tonus           String?
   dayMood         String?
   dayBookmark     String?
 

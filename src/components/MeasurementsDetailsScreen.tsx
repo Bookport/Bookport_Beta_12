@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import BriefNoteBlock from "./BriefNoteBlock";
 import { resolveAvatar } from "../utils/annaAvatarResolver";
+import { useAppStore } from "../store/useAppStore";
 
 const annaAvatarSrc = resolveAvatar({ toneGroup: 'neutral_thoughtful', intent: 'clear_explanation' }).src;
 
@@ -30,6 +31,7 @@ export interface MeasurementLogEntry {
   energy: "высокая" | "спокойная" | "сниженная" | "";
   mood: "лёгкое" | "ровное" | "тяжёлое" | "";
   wellbeing: "хорошее" | "среднее" | "плохое" | "";
+  tonus?: "отличный" | "нормальный" | "тяжёлый" | "";
   
   // Objective
   pulse: number | null;
@@ -95,13 +97,16 @@ export default function MeasurementsDetailsScreen({
 
   // Initial measurement logs are passed as props, defaulting to {} from parent
 
+  // Real "starting weight" from the global user profile (set at registration/onboarding).
+  const profileInitialWeight = useAppStore((s) => s.userProfile?.initialWeight);
+
   // Aggregate stats over the 28-day course
   const getGlobalMeasurementMetrics = () => {
     let totalLogsCount = 0;
     let daysWithLogsCount = 0;
     
     // Track weights for calculations
-    let initialWeight: number | null = null;
+    let firstLoggedWeight: number | null = null;
     let finalWeight: number | null = null;
     let minPulse = 200;
     let maxPulse = 0;
@@ -120,7 +125,7 @@ export default function MeasurementsDetailsScreen({
 
         dailyList.forEach(item => {
           if (item.weight !== null) {
-            if (initialWeight === null) initialWeight = item.weight;
+            if (firstLoggedWeight === null) firstLoggedWeight = item.weight;
             finalWeight = item.weight;
           }
           if (item.pulse !== null && item.pulse > 30) {
@@ -135,9 +140,13 @@ export default function MeasurementsDetailsScreen({
       }
     }
 
-    const weightLoss = initialWeight !== null && finalWeight !== null 
-      ? Number((initialWeight - finalWeight).toFixed(1)) 
+    const weightLoss = firstLoggedWeight !== null && finalWeight !== null 
+      ? Number((firstLoggedWeight - finalWeight).toFixed(1)) 
       : 0;
+
+    // "Вес на старте": the first logged measurement wins; otherwise fall back to the
+    // real initial weight from the user profile (set at registration/onboarding).
+    const startingWeight = firstLoggedWeight ?? profileInitialWeight ?? 0;
 
     return {
       totalLogsCount,
@@ -146,8 +155,8 @@ export default function MeasurementsDetailsScreen({
       minPulse: minPulse === 200 ? 58 : minPulse,
       maxPulse: maxPulse === 0 ? 86 : maxPulse,
       weightLoss,
-      initialWeight: initialWeight || 74.0,
-      currentWeight: finalWeight || 74.0,
+      initialWeight: startingWeight,
+      currentWeight: finalWeight || startingWeight,
       highEnergyPercent: totalLogsCount > 0 ? Math.round((highEnergyDays / totalLogsCount) * 100) : 0,
       goodWellbeingPercent: totalLogsCount > 0 ? Math.round((goodWellbeingDays / totalLogsCount) * 100) : 0
     };
