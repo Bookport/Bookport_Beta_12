@@ -10,7 +10,8 @@ import {
   Droplet
 } from "lucide-react";
 import BottomBar from "./BottomBar";
-import { getAnnaWaterPhrase } from "../utils/waterPhrases";
+import { generateWaterSummary } from "../utils/waterCoaching";
+import { WaterContext } from "../utils/waterPhrases";
 import { resolveAvatar } from "../utils/annaAvatarResolver";
 import ingrGreenImg from "../assets/ingredients/ingr_green.webp";
 import volumeSplashCircleImg from "../assets/images/water/volume_splash_circle.webp";
@@ -137,7 +138,15 @@ export default function WaterDetailsScreen({
 
     const lastDrinkVolume = todayLogs.length > 0 ? todayLogs[todayLogs.length - 1].amount : 0;
 
-    const text = getAnnaWaterPhrase(water, target, hoursSinceLastDrink, lastDrinkVolume);
+    const ctx: WaterContext = {
+      userName: userName,
+      userGender: userGender,
+      waterAmount: water,
+      waterGoal: target,
+      pulse: null,
+      weightDelta: null
+    };
+    const text = generateWaterSummary(ctx);
 
     let mood: "good" | "neutral" | "warning" | "alert" = "neutral";
     if (water === 0) {

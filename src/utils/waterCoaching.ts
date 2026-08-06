@@ -1,65 +1,30 @@
-export interface WaterCoachingParams {
-  userName: string;
-  userGender: "female" | "male";
-  waterEntries: Array<{ amount: number; time?: string; timestamp?: number }>;
-  weight: number;
-}
+import { WaterContext, getRandomPhrase } from "./waterPhrases";
 
-interface WaterCoachingResult {
-  status: string;
-  label: string;
-  drank_today_ml: number;
-  daily_goal_ml: number;
-  last_drink_time: string | null;
-  text: string;
-}
+export const generateWaterSummary = (ctx: WaterContext): string => {
+  if (ctx.waterAmount === 0) return "Сделай свой первый глоток воды сегодня, чтобы запустить метаболизм!";
+  
+  const percent = ctx.waterGoal > 0 ? (ctx.waterAmount / ctx.waterGoal) * 100 : 0;
 
-export function getWaterContext(params: WaterCoachingParams): WaterCoachingResult {
-  const { userName, userGender, waterEntries, weight } = params;
-  const entries = Array.isArray(waterEntries) ? waterEntries : [];
-  const drankToday = entries.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
-  const dailyGoal = Math.round((weight || 65) * 30);
-  const lastEntry = entries.length > 0 ? entries[entries.length - 1] : null;
-  const lastDrinkTime = lastEntry?.time || null;
-
-  const genderEnd = userGender === "male" ? "" : "а";
-  const rule = "ОБЯЗАТЕЛЬНОЕ ПРАВИЛО: Все цифры объема переводи в текст прописью. Вместо '1150 мл' пиши 'один литр сто пятьдесят миллилитров'. Запрещено озвучивать числа в формате 'мл' или 'л'.";
-
-  const text = `[Системные данные о Воде пользователя на сегодня:
-- Выпито сегодня: ${drankToday} мл
-- Дневная норма: ${dailyGoal} мл
-- Последний приём: ${lastDrinkTime || "нет записей"}
-Используй эти данные, когда пользователь спрашивает о воде, водном балансе, норме гидратации или жажде.
-${rule}]`;
-
-  if (drankToday >= dailyGoal) {
-    return {
-      status: "excellent",
-      label: "Норма выполнена!",
-      drank_today_ml: drankToday,
-      daily_goal_ml: dailyGoal,
-      last_drink_time: lastDrinkTime,
-      text: `Отлично, ${userName}! Ты закрыл${genderEnd} дневную норму воды. ${text}`,
-    };
+  if (percent < 50) {
+    if (ctx.pulse !== null && ctx.pulse > 75) return getRandomPhrase("waterCritical_HighPulse", ctx);
+    if (ctx.weightDelta !== null && ctx.weightDelta >= 0) return getRandomPhrase("waterCritical_WeightGain", ctx);
+    return getRandomPhrase("waterCritical_Base", ctx);
   }
+  
+  if (percent >= 50 && percent < 100) return getRandomPhrase("waterProgress", ctx);
+  
+  if (ctx.weightDelta !== null && ctx.weightDelta < 0) return getRandomPhrase("waterGoalReached_WeightLoss", ctx);
+  return getRandomPhrase("waterGoalReached_Base", ctx);
+};
 
-  if (drankToday === 0) {
-    return {
-      status: "motivate",
-      label: "Готовы начать?",
-      drank_today_ml: 0,
-      daily_goal_ml: dailyGoal,
-      last_drink_time: null,
-      text: `Привет, ${userName}! Сегодня ещё не было записей о воде. ${text}`,
-    };
-  }
-
+export function getWaterContext(params: any): any {
+  const entries = params.waterEntries || [];
+  const drankToday = entries.reduce((sum: number, e: any) => sum + (Number(e.amount) || 0), 0);
+  const goal = (params.weight || 70) * 30;
   return {
-    status: "progressing",
-    label: "Есть прогресс!",
     drank_today_ml: drankToday,
-    daily_goal_ml: dailyGoal,
-    last_drink_time: lastDrinkTime,
-    text: `Хороший темп, ${userName}! ${text}`,
+    daily_goal_ml: goal,
+    last_drink_time: entries.length > 0 ? entries[entries.length - 1].time : null,
+    text: ""
   };
 }
