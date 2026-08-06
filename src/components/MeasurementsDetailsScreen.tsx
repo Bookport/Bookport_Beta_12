@@ -18,6 +18,26 @@ import { useAppStore } from "../store/useAppStore";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, ReferenceArea, Tooltip, ResponsiveContainer } from "recharts";
 import { resolveAvatar } from "../utils/annaAvatarResolver";
 
+const CustomPulseDot = (props: any) => {
+  const { cx, cy, payload } = props;
+  if (!cx || !cy || !payload.pulse) return null;
+  return (
+    <svg x={cx - 8} y={cy - 8} width={16} height={16} className="animate-pulse outline-none">
+      <image href={iconPulse} width={16} height={16} />
+    </svg>
+  );
+};
+
+const CustomPulseActiveDot = (props: any) => {
+  const { cx, cy, payload } = props;
+  if (!cx || !cy || !payload.pulse) return null;
+  return (
+    <svg x={cx - 10} y={cy - 10} width={20} height={20} className="animate-pulse outline-none drop-shadow-md">
+      <image href={iconPulse} width={20} height={20} />
+    </svg>
+  );
+};
+
 const annaAvatarSrc = resolveAvatar({ toneGroup: 'neutral_thoughtful', intent: 'clear_explanation' }).src;
 
 import stateEnergyHigh from "../assets/images/measurements/state_energy_high.webp";
@@ -416,10 +436,10 @@ export default function MeasurementsDetailsScreen({
             })}
           </div>
 
-          <div className="relative pt-4 pb-2 px-1 h-44">
-            <ResponsiveContainer width="100%" height="100%">
+          <div className="relative pt-4 pb-2 px-1 h-44 outline-none border-none">
+            <ResponsiveContainer width="100%" height="100%" className="outline-none border-none">
               {activeChartMetric === "weight" || activeChartMetric === "pulse" ? (
-                <LineChart data={chartData} margin={{ top: 5, right: 5, left: -25, bottom: 0 }} onClick={(e) => e?.activeLabel && setSelectedGraphDay(Number(e.activeLabel))}>
+                <LineChart data={chartData} margin={{ top: 5, right: 5, left: -25, bottom: 0 }} onClick={(e) => e?.activeLabel && setSelectedGraphDay(Number(e.activeLabel))} className="outline-none border-none">
                   <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: "#94a3b8" }} />
                   <YAxis 
                     domain={activeChartMetric === "weight" ? ['dataMin - 1', 'dataMax + 1'] : ['auto', 'auto']} 
@@ -427,23 +447,23 @@ export default function MeasurementsDetailsScreen({
                     tickLine={false} 
                     tick={{ fontSize: 10, fill: "#94a3b8" }} 
                   />
-                  <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#E8F5E9', strokeWidth: 2 }} />
+                  <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#E8F5E9', strokeWidth: 2 }} wrapperStyle={{ outline: 'none' }} />
                   {activeChartMetric === "pulse" && <ReferenceArea y1={55} y2={75} fill="#E8F5E9" fillOpacity={0.5} />}
                   <Line 
                     type="monotone" 
                     dataKey={activeChartMetric} 
                     stroke={activeChartMetric === "weight" ? "#006064" : "#1B5E20"} 
                     strokeWidth={3}
-                    dot={{ r: 4, fill: activeChartMetric === "weight" ? "#006064" : "#1B5E20" }} 
-                    activeDot={{ r: 6, fill: activeChartMetric === "weight" ? "#006064" : "#1B5E20" }} 
+                    dot={activeChartMetric === "pulse" ? <CustomPulseDot /> : { r: 4, fill: "#006064", strokeWidth: 0 }} 
+                    activeDot={activeChartMetric === "pulse" ? <CustomPulseActiveDot /> : { r: 6, fill: "#006064", strokeWidth: 0 }} 
                     connectNulls
                   />
                 </LineChart>
               ) : (
-                <BarChart data={chartData} margin={{ top: 5, right: 5, left: -30, bottom: 0 }} onClick={(e) => e?.activeLabel && setSelectedGraphDay(Number(e.activeLabel))}>
+                <BarChart data={chartData} margin={{ top: 5, right: 5, left: -30, bottom: 0 }} onClick={(e) => e?.activeLabel && setSelectedGraphDay(Number(e.activeLabel))} className="outline-none border-none">
                   <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: "#94a3b8" }} />
-                  <YAxis domain={[0, 3]} axisLine={false} tickLine={false} tick={false} />
-                  <Tooltip content={<CustomTooltip />} cursor={{ fill: '#F4FBF7' }} />
+                  <YAxis type="number" domain={[0, 3]} axisLine={false} tickLine={false} tick={false} />
+                  <Tooltip content={<CustomTooltip />} cursor={{ fill: '#F4FBF7' }} wrapperStyle={{ outline: 'none' }} />
                   <Bar 
                     dataKey={activeChartMetric} 
                     fill={activeChartMetric === "energy" ? "#C5E1A5" : activeChartMetric === "mood" ? "#B2DFDB" : "#A5D6A7"} 
