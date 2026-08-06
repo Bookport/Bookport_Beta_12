@@ -32,6 +32,17 @@ import kolichestvoImg from "../assets/images/water/kolichestvo.webp";
 
 const annaAvatarSrc = resolveAvatar({ toneGroup: 'reminder_caution', intent: 'reminder' }).src;
 
+const CustomWaterTooltip = ({ active, dayNum, dSum }: { active: boolean; dayNum: number; dSum: number }) => {
+  if (!active) return null;
+  return (
+    <div className="absolute bottom-full mb-1.5 bg-[#F1F8FE] shadow-sm rounded-xl px-3 py-2 text-xs font-bold border-none outline-none whitespace-nowrap z-40 transform -translate-x-0">
+      <div className="text-slate-700">День {dayNum}</div>
+      <div className="text-[#0EA5E9]">{dSum} мл</div>
+    </div>
+  );
+};
+
+
 const getVolumeIcon = (amt: number) => {
   if (amt >= 1000) return volumePitcherImg;
   if (amt >= 750) return volumeThermosImg;
@@ -450,12 +461,7 @@ export default function WaterDetailsScreen({
                     className="flex-1 h-full flex flex-col justify-end items-center group relative cursor-pointer"
                   >
                     {/* Tooltip on hover/active */}
-                    {active && (
-                      <div className="absolute bottom-full mb-1.5 bg-[#1F2328] text-white text-[9px] py-1 px-1.5 rounded-lg font-bold font-mono whitespace-nowrap shadow-md z-40 transform -translate-x-0">
-                        Д{dayNum}: {dSum}мл
-                        <div className="w-1.5 h-1.5 bg-[#1F2328] rotate-45 mx-auto -mb-1 mt-0.5" />
-                      </div>
-                    )}
+                    <CustomWaterTooltip active={active} dayNum={dayNum} dSum={dSum} />
 
                     {/* Cylinder column element */}
                     <div 
