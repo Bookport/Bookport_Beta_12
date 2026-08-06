@@ -422,9 +422,6 @@ export default function MeasurementsDetailsScreen({
                     className="w-full h-full object-cover"
                   />
                 </div>
-                <div className="absolute -bottom-1 -right-1 w-4.5 h-4.5 rounded-full bg-emerald-600 border border-white flex items-center justify-center text-[9px]">
-                  🩺
-                </div>
               </div>
               <div className="flex flex-col text-left">
                 <span className="text-[15px] font-black text-slate-900 leading-none">Анна</span>

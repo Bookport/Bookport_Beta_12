@@ -247,19 +247,6 @@ export default function WaterDetailsScreen({
   // Color mappings for Anna's block glow and labels
   const glowBorderClass = "border-[#E3F2FD] bg-[#E3F2FD] shadow-sm";
 
-  const statusBadge = {
-    good: "bg-emerald-500 text-white shadow-emerald-200",
-    neutral: "bg-sky-500 text-white shadow-sky-200",
-    warning: "bg-amber-500 text-white shadow-amber-200",
-    alert: "bg-red-500 text-white shadow-red-200"
-  }[annaAdvice.mood];
-
-  const statusLabel = {
-    good: "Отличный баланс 🌱",
-    neutral: "Умеренный ритм 🌊",
-    warning: "Лёгкое отставание ⚠️",
-    alert: "Экстренный дефицит! 🚨"
-  }[annaAdvice.mood];
 
   return (
     <div className="flex-1 flex flex-col justify-between select-none pointer-events-auto">
@@ -396,16 +383,10 @@ export default function WaterDetailsScreen({
                     className="w-full h-full object-cover"
                   />
                 </div>
-                <div className="absolute -bottom-1 -right-1 w-4.5 h-4.5 rounded-full bg-brand-green-bright border border-white flex items-center justify-center text-[9px]">
-                  💧
-                </div>
               </div>
               <div className="flex flex-col animate-[fadeIn_0.3s_ease]">
                 <span className="text-[15px] font-black leading-none">Анна</span>
                 <span className="text-[11px] font-bold text-text-muted mt-0.5 leading-none">Советник WFPB</span>
-                <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full inline-block mt-1 tracking-wider uppercase ${statusBadge}`}>
-                  {statusLabel}
-                </span>
               </div>
             </div>
             
