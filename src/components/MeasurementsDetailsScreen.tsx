@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import BottomBar from "./BottomBar";
 import { 
@@ -214,25 +214,34 @@ export default function MeasurementsDetailsScreen({
   const latestSelectedDayLog = selectedDayList.length > 0 ? selectedDayList[selectedDayList.length - 1] : null;
 
   // Anna Context logic
-  const pTonus = latestSelectedDayLog ? parseTonus(latestSelectedDayLog.tonus) : { energy: "0", mood: "0", wellbeing: "0" };
   const usedInitialWeight = stats.initialWeight || null;
-  const currentWeightDelta = (latestSelectedDayLog?.weight && usedInitialWeight) 
-    ? latestSelectedDayLog.weight - usedInitialWeight 
-    : null;
+  const annaComment = useMemo(() => {
+    const pTonus = latestSelectedDayLog ? parseTonus(latestSelectedDayLog.tonus) : { energy: "0", mood: "0", wellbeing: "0" };
+    const currentWeightDelta = (latestSelectedDayLog?.weight && usedInitialWeight) 
+      ? latestSelectedDayLog.weight - usedInitialWeight 
+      : null;
 
-  const annaCtx = {
-    userName: userName,
-    userGender: userGender,
-    pulse: latestSelectedDayLog?.pulse || null,
-    weight: latestSelectedDayLog?.weight || null,
-    initialWeight: usedInitialWeight,
-    weightDelta: currentWeightDelta,
-    tonusEnergy: ENERGY_STATES[parseInt(pTonus.energy)]?.label || null,
-    tonusMood: MOOD_STATES[parseInt(pTonus.mood)]?.label || null,
-    tonusWellbeing: WELLBEING_STATES[parseInt(pTonus.wellbeing)]?.label || null,
-  };
+    const annaCtx = {
+      userName: userName,
+      userGender: userGender,
+      pulse: latestSelectedDayLog?.pulse || null,
+      weight: latestSelectedDayLog?.weight || null,
+      initialWeight: usedInitialWeight,
+      weightDelta: currentWeightDelta,
+      tonusEnergy: ENERGY_STATES[parseInt(pTonus.energy)]?.label || null,
+      tonusMood: MOOD_STATES[parseInt(pTonus.mood)]?.label || null,
+      tonusWellbeing: WELLBEING_STATES[parseInt(pTonus.wellbeing)]?.label || null,
+    };
 
-  const annaComment = generateCrossModuleSummary(annaCtx);
+    return generateCrossModuleSummary(annaCtx);
+  }, [
+    latestSelectedDayLog?.pulse,
+    latestSelectedDayLog?.weight,
+    latestSelectedDayLog?.tonus,
+    usedInitialWeight,
+    userGender,
+    userName
+  ]);
 
   // Draw 28-day column charts based on selected metric
   
