@@ -27,6 +27,8 @@ import volumeGlassLargeImg from "../assets/images/water/volume_glass_large.webp"
 import volumeBottleImg from "../assets/images/water/volume_bottle.webp";
 import volumeThermosImg from "../assets/images/water/volume_thermos.webp";
 import volumePitcherImg from "../assets/images/water/volume_pitcher.webp";
+import ostalosImg from "../assets/images/water/ostalos.webp";
+import kolichestvoImg from "../assets/images/water/kolichestvo.webp";
 
 const annaAvatarSrc = resolveAvatar({ toneGroup: 'reminder_caution', intent: 'reminder' }).src;
 
@@ -215,12 +217,7 @@ export default function WaterDetailsScreen({
   }, [waterLogs, dayWeights, currentDayIndex]);
 
   // Color mappings for Anna's block glow and labels
-  const glowBorderClass = {
-    good: "border-brand-green-bright bg-gradient-to-b from-emerald-50/70 to-emerald-100/30 text-emerald-950 shadow-[0_10px_25px_-5px_rgba(22,181,81,0.15),_inset_0_2px_4px_rgba(255,255,255,0.7)]",
-    neutral: "border-sky-300 bg-gradient-to-b from-sky-50/70 to-sky-100/30 text-sky-950 shadow-[0_10px_25px_-5px_rgba(56,189,248,0.15),_inset_0_2px_4px_rgba(255,255,255,0.7)]",
-    warning: "border-amber-400 bg-gradient-to-b from-amber-50/70 to-amber-100/30 text-amber-950 shadow-[0_10px_25px_-5px_rgba(245,158,11,0.15),_inset_0_2px_4px_rgba(255,255,255,0.7)]",
-    alert: "border-red-400 bg-gradient-to-b from-red-50/70 to-red-100/30 text-red-950 shadow-[0_10px_25px_-5px_rgba(239,68,68,0.15),_inset_0_2px_4px_rgba(255,255,255,0.7)]"
-  }[annaAdvice.mood];
+  const glowBorderClass = "border-[#1e3a8a] bg-gradient-to-b from-[#1e40af] to-[#1e3a8a] text-white shadow-lg";
 
   const statusBadge = {
     good: "bg-emerald-500 text-white shadow-emerald-200",
