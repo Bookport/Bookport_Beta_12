@@ -295,9 +295,7 @@ export default function MeasurementsDetailsScreen({
             <span className="text-[12px] font-black text-slate-400 uppercase tracking-widest leading-none">Дневник</span>
             <span className="text-[18px] font-black text-slate-800" style={{ fontFamily: '"Calibri", sans-serif' }}>Замеры & Тонус</span>
           </div>
-          <div className="w-10 h-10 rounded-full bg-rose-50 border border-rose-100 flex items-center justify-center">
-            <Heart className="w-6 h-6 text-rose-500 fill-rose-100 animate-pulse" />
-          </div>
+          <div className="w-10 h-10" />
         </div>
 
         {/* 1. UPPER PART: TODAY'S CURRENT STATE */}
@@ -436,10 +434,10 @@ export default function MeasurementsDetailsScreen({
             })}
           </div>
 
-          <div className="relative pt-4 pb-2 px-1 h-44 outline-none border-none">
-            <ResponsiveContainer width="100%" height="100%" className="outline-none border-none">
+          <div className="relative pt-4 pb-2 px-1 h-44 outline-none border-none focus:outline-none focus:ring-0" style={{ outline: 'none', border: 'none' }}>
+            <ResponsiveContainer width="100%" height="100%" className="outline-none border-none focus:outline-none focus:ring-0" style={{ outline: 'none', border: 'none' }}>
               {activeChartMetric === "weight" || activeChartMetric === "pulse" ? (
-                <LineChart data={chartData} margin={{ top: 5, right: 5, left: -25, bottom: 0 }} onClick={(e) => e?.activeLabel && setSelectedGraphDay(Number(e.activeLabel))} className="outline-none border-none">
+                <LineChart data={chartData} margin={{ top: 5, right: 5, left: -25, bottom: 0 }} onClick={(e) => e?.activeLabel && setSelectedGraphDay(Number(e.activeLabel))} className="outline-none border-none focus:outline-none focus:ring-0" style={{ outline: 'none', border: 'none' }}>
                   <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: "#94a3b8" }} />
                   <YAxis 
                     domain={activeChartMetric === "weight" ? ['dataMin - 1', 'dataMax + 1'] : ['auto', 'auto']} 
@@ -447,7 +445,7 @@ export default function MeasurementsDetailsScreen({
                     tickLine={false} 
                     tick={{ fontSize: 10, fill: "#94a3b8" }} 
                   />
-                  <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#E8F5E9', strokeWidth: 2 }} wrapperStyle={{ outline: 'none' }} />
+                  <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#E8F5E9', strokeWidth: 2 }} wrapperStyle={{ outline: 'none', border: 'none' }} />
                   {activeChartMetric === "pulse" && <ReferenceArea y1={55} y2={75} fill="#E8F5E9" fillOpacity={0.5} />}
                   <Line 
                     type="monotone" 
@@ -460,10 +458,10 @@ export default function MeasurementsDetailsScreen({
                   />
                 </LineChart>
               ) : (
-                <BarChart data={chartData} margin={{ top: 5, right: 5, left: -30, bottom: 0 }} onClick={(e) => e?.activeLabel && setSelectedGraphDay(Number(e.activeLabel))} className="outline-none border-none">
+                <BarChart data={chartData} margin={{ top: 5, right: 5, left: -30, bottom: 0 }} onClick={(e) => e?.activeLabel && setSelectedGraphDay(Number(e.activeLabel))} className="outline-none border-none focus:outline-none focus:ring-0" style={{ outline: 'none', border: 'none' }}>
                   <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: "#94a3b8" }} />
-                  <YAxis type="number" domain={[0, 3]} axisLine={false} tickLine={false} tick={false} />
-                  <Tooltip content={<CustomTooltip />} cursor={{ fill: '#F4FBF7' }} wrapperStyle={{ outline: 'none' }} />
+                  <YAxis hide type="number" domain={[0, 3]} />
+                  <Tooltip content={<CustomTooltip />} cursor={{ fill: '#F4FBF7' }} wrapperStyle={{ outline: 'none', border: 'none' }} />
                   <Bar 
                     dataKey={activeChartMetric} 
                     fill={activeChartMetric === "energy" ? "#C5E1A5" : activeChartMetric === "mood" ? "#B2DFDB" : "#A5D6A7"} 
