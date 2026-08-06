@@ -31,6 +31,7 @@ import { calculateIntegralScore } from "../utils/integralScore";
 import { api } from "../utils/api";
 import { getPlural } from "../utils/pluralize";
 import { getDailyWaterTip } from "../utils/waterTips";
+import { getDailyMeasurementTip } from "../utils/measurementsTips";
 import waterImg from "../assets/images/buttons/вода.webp";
 import volumeDrop1Img from "../assets/images/water/volume_drop_1.webp";
 import volumeDrop2Img from "../assets/images/water/volume_drop_2.webp";
@@ -3672,14 +3673,7 @@ export default function MyDayScreen({
 
               {/* Status and warnings info box inside sheet */}
               <div className="bg-rose-50/40 rounded-2xl p-3 border border-rose-100/65 text-[11.5px] leading-relaxed text-rose-955 font-bold mt-1">
-                📌 {(() => {
-                  const dayList = measurementLogs[currentDayIndex] || [];
-                  return dayList.length > 0 ? (
-                    <span>Сегодня сделано замеров: {dayList.length}. Последний в {dayList[dayList.length - 1].timeString}. Замеры сохраняются отдельно для полной аналитики.</span>
-                  ) : (
-                    <span>Это будет ваш первый замер за сегодня! Он обновит текущее зафиксированное состояние.</span>
-                  );
-                })()}
+                💡 {getDailyMeasurementTip()}
               </div>
 
               {/* Large glorious Save trigger and cancel button */}
@@ -3687,7 +3681,7 @@ export default function MyDayScreen({
                 <button
                   type="button"
                   onClick={() => setShowFastMeasurements(false)}
-                  className="flex-1 py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-600 font-extrabold rounded-2.5xl text-[14px] transition-all cursor-pointer active:scale-97 text-center"
+                  className="flex-1 py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold rounded-2xl text-[14px] transition-all cursor-pointer active:scale-97 text-center"
                 >
                   Отмена
                 </button>
@@ -3695,10 +3689,9 @@ export default function MyDayScreen({
                 <button
                   type="button"
                   onClick={submitFastMeasurement}
-                  className="flex-[2] py-3.5 bg-gradient-to-r from-rose-500 via-pink-500 to-rose-600 hover:brightness-105 text-white font-black rounded-2.5xl text-[15px] shadow-[0_5px_15px_rgba(244,63,94,0.25)] transition-all cursor-pointer active:scale-97 flex items-center justify-center gap-1.5"
+                  className="flex-[2] py-3.5 bg-emerald-500 hover:bg-emerald-600 text-white font-black rounded-2xl text-[15px] transition-all cursor-pointer active:scale-97 flex items-center justify-center"
                 >
-                  <span>Записать замер</span>
-                  <span className="text-[16px] animate-bounce">📊</span>
+                  Записать замер
                 </button>
               </div>
             </motion.div>
