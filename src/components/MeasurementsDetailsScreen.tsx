@@ -3,7 +3,6 @@ import { motion, AnimatePresence } from "motion/react";
 import BottomBar from "./BottomBar";
 import { 
   ArrowLeft, 
-  Sparkles, 
   Heart, 
   Scale, 
   Smile, 
@@ -16,10 +15,49 @@ import {
   HelpCircle
 } from "lucide-react";
 import BriefNoteBlock from "./BriefNoteBlock";
-import { resolveAvatar } from "../utils/annaAvatarResolver";
 import { useAppStore } from "../store/useAppStore";
 
-const annaAvatarSrc = resolveAvatar({ toneGroup: 'neutral_thoughtful', intent: 'clear_explanation' }).src;
+import stateEnergyHigh from "../assets/images/measurements/state_energy_high.webp";
+import stateEnergyNormal from "../assets/images/measurements/state_energy_normal.webp";
+import stateEnergyLow from "../assets/images/measurements/state_energy_low.webp";
+import stateMoodGood from "../assets/images/measurements/state_mood_good.webp";
+import stateMoodNormal from "../assets/images/measurements/state_mood_normal.webp";
+import stateMoodBad from "../assets/images/measurements/state_mood_bad.webp";
+import stateWellbeingExcellent from "../assets/images/measurements/state_wellbeing_excellent.webp";
+import stateWellbeingNormal from "../assets/images/measurements/state_wellbeing_normal.webp";
+import stateWellbeingPoor from "../assets/images/measurements/state_wellbeing_poor.webp";
+import iconPulse from "../assets/images/measurements/icon_pulse.webp";
+import iconWeight from "../assets/images/measurements/icon_weight.webp";
+import ingrGreen from "../assets/ingredients/ingr_green.webp";
+
+const ENERGY_STATES = [
+  { label: "Высокая", img: stateEnergyHigh },
+  { label: "Спокойная", img: stateEnergyNormal },
+  { label: "Сниженная", img: stateEnergyLow }
+];
+const MOOD_STATES = [
+  { label: "Лёгкое", img: stateMoodGood },
+  { label: "Ровное", img: stateMoodNormal },
+  { label: "Тяжёлое", img: stateMoodBad }
+];
+const WELLBEING_STATES = [
+  { label: "Хорошее", img: stateWellbeingExcellent },
+  { label: "Среднее", img: stateWellbeingNormal },
+  { label: "Плохое", img: stateWellbeingPoor }
+];
+
+export const parseTonus = (tonusString: string | undefined | null): { energy: string; mood: string; wellbeing: string } => {
+  if (!tonusString) return { energy: "0", mood: "0", wellbeing: "0" };
+  const parts = tonusString.split("|").map(p => p.trim());
+  const energyIdx = ENERGY_STATES.findIndex(s => s.label === parts[0]);
+  const moodIdx = MOOD_STATES.findIndex(s => s.label === parts[1]);
+  const wellbeingIdx = WELLBEING_STATES.findIndex(s => s.label === parts[2]);
+  return {
+    energy: energyIdx >= 0 ? String(energyIdx) : "0",
+    mood: moodIdx >= 0 ? String(moodIdx) : "0",
+    wellbeing: wellbeingIdx >= 0 ? String(wellbeingIdx) : "0"
+  };
+};
 
 export interface MeasurementLogEntry {
   id: string;
@@ -171,79 +209,6 @@ export default function MeasurementsDetailsScreen({
   const latestTodayLog = todayList.length > 0 ? todayList[todayList.length - 1] : null;
   const latestSelectedDayLog = selectedDayList.length > 0 ? selectedDayList[selectedDayList.length - 1] : null;
 
-  // Render text-based wellness summary label for today's last measurement
-  const getSubjectiveSummaryText = (log: MeasurementLogEntry | null) => {
-    if (!log) return "Замеров сегодня ещё не проводилось. Сделайте первый!";
-    
-    const energyLabel = log.energy === "высокая" ? "высокий заряд бодрости" : log.energy === "спокойная" ? "спокойное ресурсное состояние" : "сниженный тонус";
-    const moodLabel = log.mood === "лёгкое" ? "очень лёгкое радостное настроение" : log.mood === "ровное" ? "сбалансированный эмоциональный фон" : "эмоциональное напряжение";
-    const wellbeingLabel = log.wellbeing === "хорошее" ? "отличное физическое самочувствие" : log.wellbeing === "среднее" ? "умеренное самочувствие" : "сниженный физический тонус";
-
-    return `Сейчас у вас ${wellbeingLabel}, ${energyLabel} и ${moodLabel}. Отличная база для WFPB принципов.`;
-  };
-
-  // Dedicated dynamic Anna whole foods coaching
-  const getAnnaMeasurementCoaching = () => {
-    const pronouns = userGender === "male" ? "дорогой" : "дорогая";
-    const lastLog = latestTodayLog;
-
-    if (!lastLog) {
-      return {
-        label: "Начнём замеры?",
-        bgStyle: "bg-[#FFF1F2] border-[#FDA4AF] text-[#881337]",
-        text: `Привет, ${userName}! Твой дневник замеров сегодня пока пуст. Замеры помогают увидеть, как бережные растительные рецепты без соли снижают отёчность и гармонизируют пульс. Сделай первый замер за сегодня — это займёт ровно 4 секунды! 🌸`
-      };
-    }
-
-    const { energy, wellbeing, pulse, weight } = lastLog;
-
-    // Check if pulse is optimal
-    const hasPulse = pulse !== null;
-    const isCalmPulse = hasPulse && pulse <= 72;
-    const isFastPulse = hasPulse && pulse > 82;
-
-    // Analyze sodium-free plant based effect
-    if (wellbeing === "плохое" || energy === "сниженная") {
-      return {
-        label: "Бережная перезагрузка",
-        bgStyle: "bg-amber-50/90 border-[#FBBF24] text-[#78350F]",
-        text: `Чувствую твою усталость, ${userName}. Если тонус снижен, не переживай. На растительном рационе (WFPB) без соли почки максимально быстро снимают токсическую задержку воды, что высвобождает ресурсы сердца. Выпей стакан тёплой чистой воды прямо сейчас и сделай 5 глубоких вдохов. Твоё тело перестраивается на чистый вид энергии. 🌿`
-      };
-    }
-
-    if (isFastPulse) {
-      return {
-        label: "Внимание к пульсу",
-        bgStyle: "bg-red-50/90 border-red-200 text-red-950",
-        text: `Заметила повышенный пульс (${pulse} уд/мин), ${userName}. На чистом растительном питании без добавления поваренной соли тонус сосудов расслабляется сам собой за 3-5 дней. Проверь, не закралась ли соль в готовые соусы или консервы — хлорид натрия мгновенно задерживает воду, сужает капилляры и повышает нагрузку на миокард. Всё наладится! ❤️`
-      };
-    }
-
-    if (wellbeing === "хорошее" && isCalmPulse) {
-      return {
-        label: "Великолепный баланс",
-        bgStyle: "bg-emerald-50/90 border-emerald-200 text-emerald-950",
-        text: `Потрясающий профиль, ${userName}! Твой пульс спокойный (${pulse || 65} уд/мин), а самочувствие великолепно. Сердце работает в оптимальном, мягком режиме. Отсутствие соли полностью разгрузило сосудистое русло, а чистые цельные растительные углеводы плавно питают митохондрии. Твоё состояние — эталон долголетия! 🌟`
-      };
-    }
-
-    if (stats.weightLoss > 1.5) {
-      return {
-        label: "Эффект очищения",
-        bgStyle: "bg-indigo-50/90 border-indigo-200 text-indigo-950",
-        text: `Поразительно! За время курса твой вес зафиксировал уменьшение отёков на -${stats.weightLoss} кг. Это не просто жировая ткань, это ушедшая лишняя межклеточная жидкость, которую раньше мертвой хваткой удерживала соль в организме. Дышать стало легче, а суставы скажут спасибо! Настоящий триумф WFPB питания! 🚀`
-      };
-    }
-
-    return {
-      label: "Равномерный темп",
-      bgStyle: "bg-violet-50/90 border-violet-200 text-slate-800",
-      text: `Замечательная динамика, ${userName}! Твои параметры сна, движения и питания отлично укладываются в ритм. Без резких скачков веса и давления организм находится в глубоком режиме самовосстановления. Помни, каждый замер создаёт наглядную карту твоего преображения! ☀️`
-    };
-  };
-
-  const annaAdvice = getAnnaMeasurementCoaching();
-
   // Draw 28-day column charts based on selected metric
   const renderChartBar = (dayNum: number, idx: number) => {
     const list = measurementLogs[dayNum] || [];
@@ -360,7 +325,7 @@ export default function MeasurementsDetailsScreen({
               <span className="text-[11px] font-black text-rose-600 tracking-wider uppercase block mb-0.5">СОСТОЯНИЕ НА СЕГОДНЯ</span>
               <h2 className="text-[20px] font-black text-slate-800" style={{ fontFamily: '"Calibri", sans-serif' }}>Текущий замер</h2>
             </div>
-            <div className="bg-gradient-to-tr from-rose-50 to-pink-50 text-rose-800 px-3 py-1 rounded-2xl text-[12px] font-bold border border-rose-250/30">
+            <div className="bg-[#E8F5E9] text-[#1B5E20] shadow-sm rounded-full px-3 py-1.5 text-[12px] font-bold">
               {todayList.length} замер{todayList.length === 1 ? "" : todayList.length > 1 && todayList.length < 5 ? "а" : "ов"} сегодня
             </div>
           </div>
@@ -369,63 +334,41 @@ export default function MeasurementsDetailsScreen({
           {latestTodayLog ? (
             <div className="flex flex-col gap-3">
               
-              {/* Dynamic summary text box */}
-              <div className="text-[13px] leading-relaxed text-slate-600 bg-rose-50/20 rounded-2xl p-3 border border-rose-100/30 font-semibold">
-                ✨ {getSubjectiveSummaryText(latestTodayLog)}
-              </div>
-
-              {/* Grid of parameters */}
-              <div className="grid grid-cols-3 gap-2 mt-0.5">
-                {/* Wellbeing */}
-                <div className="bg-[#FAF9FD] rounded-2xl p-2.5 border border-slate-100 flex flex-col items-center text-center">
-                  <span className="text-[9px] text-slate-400 font-extrabold uppercase tracking-wide">Самочувствие</span>
-                  <span className="text-[20px] my-1 select-none">
-                    {latestTodayLog.wellbeing === "хорошее" ? "🌟" : latestTodayLog.wellbeing === "среднее" ? "⚡" : "❤️‍🩹"}
-                  </span>
-                  <span className="text-[12px] font-black text-slate-700 capitalize">
-                    {latestTodayLog.wellbeing || "—"}
-                  </span>
-                </div>
-
-                {/* Energy */}
-                <div className="bg-[#FAF9FD] rounded-2xl p-2.5 border border-slate-100 flex flex-col items-center text-center">
-                  <span className="text-[9px] text-slate-400 font-extrabold uppercase tracking-wide">Энергия</span>
-                  <span className="text-[20px] my-1 select-none">
-                    {latestTodayLog.energy === "высокая" ? "⚡" : latestTodayLog.energy === "спокойная" ? "🍃" : "💤"}
-                  </span>
-                  <span className="text-[12px] font-black text-slate-700 capitalize">
-                    {latestTodayLog.energy || "—"}
-                  </span>
-                </div>
-
-                {/* Mood */}
-                <div className="bg-[#FAF9FD] rounded-2xl p-2.5 border border-slate-100 flex flex-col items-center text-center">
-                  <span className="text-[9px] text-slate-400 font-extrabold uppercase tracking-wide">Настроение</span>
-                  <span className="text-[20px] my-1 select-none">
-                    {latestTodayLog.mood === "лёгкое" ? "✨" : latestTodayLog.mood === "ровное" ? "☀️" : "🌧️"}
-                  </span>
-                  <span className="text-[12px] font-black text-slate-700 capitalize">
-                    {latestTodayLog.mood || "—"}
-                  </span>
-                </div>
+              {/* Subjective states: horizontal row of miniatures */}
+              <div className="flex flex-row justify-around gap-2 pt-4">
+                {[
+                  { title: "САМОЧУВСТВИЕ", idx: +parseTonus(latestTodayLog.tonus).wellbeing, states: WELLBEING_STATES },
+                  { title: "ЭНЕРГИЯ", idx: +parseTonus(latestTodayLog.tonus).energy, states: ENERGY_STATES },
+                  { title: "НАСТРОЕНИЕ", idx: +parseTonus(latestTodayLog.tonus).mood, states: MOOD_STATES }
+                ].map((s) => {
+                  const stateIdx = s.idx >= 0 && s.idx < s.states.length ? s.idx : 0;
+                  const item = s.states[stateIdx];
+                  return (
+                    <div key={s.title} className="flex flex-col items-center gap-1">
+                      <span className="text-[10px] text-[#4CAF50] font-black uppercase tracking-wide">{s.title}</span>
+                      <img src={item.img} alt={item.label} className="w-16 h-16 object-contain" />
+                      <span className="text-[12px] font-black text-slate-700">{item.label}</span>
+                    </div>
+                  );
+                })}
               </div>
 
               {/* Physical objective numbers panel layout */}
-              <div className="grid grid-cols-2 gap-3 bg-slate-50/60 p-3 rounded-2xl border border-slate-100">
-                <div className="flex items-center gap-2 px-1">
-                  <div className="w-8 h-8 rounded-lg bg-pink-50 flex items-center justify-center text-pink-600 text-sm">❤️</div>
+              <div className="grid grid-cols-2 gap-3 mt-1">
+                <div className="bg-[#F1F8E9] shadow-sm rounded-2xl p-3 flex items-center gap-3">
+                  <img src={iconPulse} alt="Пульс" className="w-10 h-10 object-contain" />
                   <div className="flex flex-col text-left">
-                    <span className="text-[9px] text-slate-400 font-extrabold uppercase">Пульс (ЧСС)</span>
+                    <span className="text-[10px] text-[#4CAF50] font-black uppercase tracking-wide">Пульс</span>
                     <span className="text-[14px] font-black text-slate-800 font-mono">
                       {latestTodayLog.pulse ? `${latestTodayLog.pulse} уд/мин` : "Не указан"}
                     </span>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 px-1 border-l border-slate-250/40">
-                  <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600 text-sm">⚖️</div>
+                <div className="bg-[#E0F2F1] shadow-sm rounded-2xl p-3 flex items-center gap-3">
+                  <img src={iconWeight} alt="Вес" className="w-10 h-10 object-contain" />
                   <div className="flex flex-col text-left">
-                    <span className="text-[9px] text-slate-400 font-extrabold uppercase">Текущий вес</span>
+                    <span className="text-[10px] text-[#00796B] font-black uppercase tracking-wide">Вес</span>
                     <span className="text-[14px] font-black text-slate-800 font-mono">
                       {latestTodayLog.weight ? `${latestTodayLog.weight} кг` : "Не указан"}
                     </span>
@@ -452,35 +395,18 @@ export default function MeasurementsDetailsScreen({
         )}
 
         {/* 2. MIDDLE PART: ANNA'S MOTIVATIONAL ADVICE BOX */}
-        <div className={`rounded-[28px] p-4 text-left flex flex-col gap-3 transition-all duration-500 relative z-10 mb-5 ${annaAdvice.bgStyle}`} id="anna-measurements-advice-box">
+        <div className="bg-[#F4FBF7] shadow-sm rounded-[28px] p-4 text-left flex flex-col gap-3 relative z-10 mb-5" id="anna-measurements-advice-box">
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-2.5">
-              <div className="relative shrink-0">
-                <div className="w-11 h-11 rounded-full overflow-hidden border border-rose-100/60 shadow-md">
-                  <img 
-                    src={annaAvatarSrc}
-                    alt="Анна советует" 
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-                <div className="absolute -bottom-1 -right-1 w-4.5 h-4.5 rounded-full bg-rose-600 border border-white flex items-center justify-center text-[9px]">
-                  🩺
-                </div>
-              </div>
+              <img src={ingrGreen} alt="Анна советует" className="w-6 h-6 object-contain" />
               <div className="flex flex-col text-left">
                 <span className="text-[15px] font-black text-slate-900 leading-none">Анна</span>
-                <span className="text-[11px] font-bold text-text-muted mt-0.5 leading-none">Советник WFPB</span>
-                <span className="text-[10px] font-extrabold px-2.2 py-0.5 rounded-full inline-block mt-1 tracking-wider uppercase bg-white/70 shadow-xs border border-rose-100 self-start text-rose-800">
-                  {annaAdvice.label}
-                </span>
+                <span className="text-[11px] font-bold text-slate-500 mt-0.5 leading-none">Советник WFPB</span>
               </div>
             </div>
-            
-            <Sparkles className="w-5 h-5 text-rose-500 animate-pulse" />
           </div>
-
           <div className="bg-white/80 backdrop-blur-xs p-3.5 rounded-2xl text-[13.5px] leading-relaxed font-semibold text-slate-800">
-            {annaAdvice.text}
+            Анализирую динамику...
           </div>
         </div>
 
