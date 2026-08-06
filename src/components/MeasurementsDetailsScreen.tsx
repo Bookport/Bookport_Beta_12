@@ -15,6 +15,7 @@ import {
   HelpCircle
 } from "lucide-react";
 import { useAppStore } from "../store/useAppStore";
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, ReferenceArea, Tooltip, ResponsiveContainer } from "recharts";
 import { resolveAvatar } from "../utils/annaAvatarResolver";
 
 const annaAvatarSrc = resolveAvatar({ toneGroup: 'neutral_thoughtful', intent: 'clear_explanation' }).src;
@@ -190,82 +191,69 @@ export default function MeasurementsDetailsScreen({
   const latestSelectedDayLog = selectedDayList.length > 0 ? selectedDayList[selectedDayList.length - 1] : null;
 
   // Draw 28-day column charts based on selected metric
-  const renderChartBar = (dayNum: number, idx: number) => {
-    const list = measurementLogs[dayNum] || [];
-    const active = dayNum === selectedGraphDay;
-    const isFuture = dayNum > currentDayIndex;
+  
+  const prepareChartData = () => {
+    const data = [];
+    for (let d = 1; d <= 28; d++) {
+      const list = measurementLogs[d] || [];
+      let point: any = { day: d };
+      
+      if (list.length > 0) {
+        const validPulses = list.filter(e => e.pulse !== null).map(e => e.pulse as number);
+        point.pulse = validPulses.length > 0 ? Math.round(validPulses.reduce((a, b) => a + b, 0) / validPulses.length) : null;
+        
+        const validWeights = list.filter(e => e.weight !== null).map(e => e.weight as number);
+        point.weight = validWeights.length > 0 ? Number((validWeights.reduce((a, b) => a + b, 0) / validWeights.length).toFixed(1)) : null;
 
-    let heightPct = 6; // default fallback minimal block
-    let valueString = "—";
-    let barBg = "bg-slate-100 border border-slate-200";
+        const latestLog = list[list.length - 1];
+        const parsed = parseTonus(latestLog.tonus);
 
-    if (list.length > 0) {
-      const latestLog = list[list.length - 1];
-      const parsed = parseTonus(latestLog.tonus);
+        const mapToScore = (idxStr: string) => {
+          const i = parseInt(idxStr, 10);
+          if (i === 0) return 3;
+          if (i === 1) return 2;
+          if (i === 2) return 1;
+          return 0;
+        };
 
-      const mapToScore = (idxStr: string) => {
-        const i = parseInt(idxStr, 10);
-        if (i === 0) return 3;
-        if (i === 1) return 2;
-        if (i === 2) return 1;
-        return 0;
-      };
-
-      if (activeChartMetric === "energy") {
-        const score = mapToScore(parsed.energy);
-        heightPct = score === 3 ? 100 : score === 2 ? 66 : score === 1 ? 33 : 6;
-        barBg = "bg-[#4CAF50]";
-      } else if (activeChartMetric === "mood") {
-        const score = mapToScore(parsed.mood);
-        heightPct = score === 3 ? 100 : score === 2 ? 66 : score === 1 ? 33 : 6;
-        barBg = "bg-[#00897B]";
-      } else if (activeChartMetric === "wellbeing") {
-        const score = mapToScore(parsed.wellbeing);
-        heightPct = score === 3 ? 100 : score === 2 ? 66 : score === 1 ? 33 : 6;
-        barBg = "bg-[#689F38]";
-      } else if (activeChartMetric === "pulse") {
-        const validPulses = list.filter(e => e.pulse !== null) as { pulse: number }[];
-        if (validPulses.length > 0) {
-          const avgP = validPulses.reduce((sum, e) => sum + e.pulse, 0) / validPulses.length;
-          heightPct = Math.min(100, Math.max(15, Math.round(((avgP - 50) / 50) * 100)));
-          barBg = "bg-[#388E3C]";
-        }
-      } else if (activeChartMetric === "weight") {
-        const validWeights = list.filter(e => e.weight !== null) as { weight: number }[];
-        if (validWeights.length > 0) {
-          const avgW = validWeights[validWeights.length - 1].weight;
-          const baseOfScale = userGender === "female" ? 50 : 68;
-          heightPct = Math.min(100, Math.max(20, Math.round(((avgW - baseOfScale) / 30) * 100)));
-          barBg = "bg-[#2E7D32]";
-        }
+        point.energy = mapToScore(parsed.energy);
+        point.mood = mapToScore(parsed.mood);
+        point.wellbeing = mapToScore(parsed.wellbeing);
+        
+        point.energyLabel = ENERGY_STATES[parseInt(parsed.energy, 10)]?.label || "";
+        point.moodLabel = MOOD_STATES[parseInt(parsed.mood, 10)]?.label || "";
+        point.wellbeingLabel = WELLBEING_STATES[parseInt(parsed.wellbeing, 10)]?.label || "";
+      } else {
+        point.pulse = null;
+        point.weight = null;
+        point.energy = null;
+        point.mood = null;
+        point.wellbeing = null;
       }
+      data.push(point);
     }
+    return data;
+  };
+  const chartData = prepareChartData();
 
-    return (
-      <button
-        key={dayNum}
-        type="button"
-        disabled={isFuture}
-        onClick={() => setSelectedGraphDay(dayNum)}
-        className="flex-1 flex flex-col items-center h-full group focus:outline-none cursor-pointer"
-      >
-        <div className="w-full h-full flex items-end relative rounded-full overflow-hidden bg-slate-50/50">
-          <motion.div 
-            initial={{ height: "0%" }}
-            animate={{ height: `${heightPct}%` }}
-            transition={{ duration: 0.4 }}
-            className={`w-full rounded-full transition-all duration-300 ${barBg} ${
-              active ? "ring-2 ring-emerald-500 ring-offset-1 brightness-105" : "group-hover:opacity-90"
-            }`}
-          />
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      const val = payload[0];
+      const metric = val.dataKey;
+      
+      let displayVal = val.value;
+      if (metric === "energy") displayVal = val.payload.energyLabel;
+      if (metric === "mood") displayVal = val.payload.moodLabel;
+      if (metric === "wellbeing") displayVal = val.payload.wellbeingLabel;
+      
+      return (
+        <div className="bg-[#F4FBF7] shadow-sm rounded-xl px-3 py-2 text-xs font-bold text-slate-800 border-none">
+          <div>День {label}</div>
+          <div className="text-[#4CAF50]">{displayVal}</div>
         </div>
-        <span className={`text-[8.5px] mt-1.5 font-mono font-bold leading-none ${
-          active ? "text-emerald-600 font-black scale-110" : "text-slate-400"
-        }`}>
-          {dayNum}
-        </span>
-      </button>
-    );
+      );
+    }
+    return null;
   };
 
   return (
@@ -404,13 +392,13 @@ export default function MeasurementsDetailsScreen({
           </div>
 
           {/* Metric selector pill bar */}
-          <div className="grid grid-cols-5 gap-1 bg-white p-1 rounded-2xl border border-slate-100">
+          <div className="flex flex-row justify-between gap-1 w-full bg-white p-1 rounded-2xl border border-slate-100">
             {[
-              { id: "energy", label: "Энергия", activeClass: "bg-[#C8E6C9] text-[#1B5E20] shadow-sm" },
-              { id: "mood", label: "Настроение", activeClass: "bg-[#B2DFDB] text-[#004D40] shadow-sm" },
-              { id: "wellbeing", label: "Самочувствие", activeClass: "bg-[#DCEDC8] text-[#33691E] shadow-sm" },
-              { id: "pulse", label: "Пульс", activeClass: "bg-[#C8E6C9] text-[#1B5E20] shadow-sm" },
-              { id: "weight", label: "Вес", activeClass: "bg-[#C8E6C9] text-[#0D5302] shadow-sm" }
+              { id: "energy", label: "Энергия", activeClass: "bg-[#C5E1A5] text-[#33691E]" },
+              { id: "mood", label: "Настроение", activeClass: "bg-[#B2DFDB] text-[#004D40]" },
+              { id: "wellbeing", label: "Самочувствие", activeClass: "bg-[#A5D6A7] text-[#1B5E20]" },
+              { id: "pulse", label: "Пульс", activeClass: "bg-[#81C784] text-[#1B5E20]" },
+              { id: "weight", label: "Вес", activeClass: "bg-[#B2EBF2] text-[#006064]" }
             ].map(tab => {
               const isActive = activeChartMetric === tab.id;
               return (
@@ -418,8 +406,8 @@ export default function MeasurementsDetailsScreen({
                   key={tab.id}
                   type="button"
                   onClick={() => setActiveChartMetric(tab.id as any)}
-                  className={`flex items-center justify-center py-1.5 rounded-xl text-sm font-semibold tracking-tight transition-all cursor-pointer ${
-                    isActive ? tab.activeClass : "bg-[#F4FBF7] text-[#81C784] hover:brightness-95"
+                  className={`flex-1 whitespace-nowrap overflow-hidden text-ellipsis text-center py-2 rounded-xl text-[10px] sm:text-xs font-semibold transition-colors cursor-pointer ${
+                    isActive ? tab.activeClass : "bg-[#F4FBF7] text-[#81C784]"
                   }`}
                 >
                   {tab.label}
@@ -428,15 +416,43 @@ export default function MeasurementsDetailsScreen({
             })}
           </div>
 
-          <div className="relative pt-6 pb-2 px-1">
-            {/* Guide markers background lines */}
-            <div className="absolute top-[35%] left-0 right-0 border-t border-dashed border-emerald-100 flex justify-end z-0">
-              <span className="text-[7.5px] text-slate-400 bg-white px-1 -mt-1 font-mono">Стабильный фон</span>
-            </div>
-
-            <div className="flex justify-between items-end gap-[4px] h-32 relative z-10">
-              {Array.from({ length: 28 }).map((_, idx) => renderChartBar(idx + 1, idx))}
-            </div>
+          <div className="relative pt-4 pb-2 px-1 h-44">
+            <ResponsiveContainer width="100%" height="100%">
+              {activeChartMetric === "weight" || activeChartMetric === "pulse" ? (
+                <LineChart data={chartData} margin={{ top: 5, right: 5, left: -25, bottom: 0 }} onClick={(e) => e?.activeLabel && setSelectedGraphDay(Number(e.activeLabel))}>
+                  <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: "#94a3b8" }} />
+                  <YAxis 
+                    domain={activeChartMetric === "weight" ? ['dataMin - 1', 'dataMax + 1'] : ['auto', 'auto']} 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{ fontSize: 10, fill: "#94a3b8" }} 
+                  />
+                  <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#E8F5E9', strokeWidth: 2 }} />
+                  {activeChartMetric === "pulse" && <ReferenceArea y1={55} y2={75} fill="#E8F5E9" fillOpacity={0.5} />}
+                  <Line 
+                    type="monotone" 
+                    dataKey={activeChartMetric} 
+                    stroke={activeChartMetric === "weight" ? "#006064" : "#1B5E20"} 
+                    strokeWidth={3}
+                    dot={{ r: 4, fill: activeChartMetric === "weight" ? "#006064" : "#1B5E20" }} 
+                    activeDot={{ r: 6, fill: activeChartMetric === "weight" ? "#006064" : "#1B5E20" }} 
+                    connectNulls
+                  />
+                </LineChart>
+              ) : (
+                <BarChart data={chartData} margin={{ top: 5, right: 5, left: -30, bottom: 0 }} onClick={(e) => e?.activeLabel && setSelectedGraphDay(Number(e.activeLabel))}>
+                  <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: "#94a3b8" }} />
+                  <YAxis domain={[0, 3]} axisLine={false} tickLine={false} tick={false} />
+                  <Tooltip content={<CustomTooltip />} cursor={{ fill: '#F4FBF7' }} />
+                  <Bar 
+                    dataKey={activeChartMetric} 
+                    fill={activeChartMetric === "energy" ? "#C5E1A5" : activeChartMetric === "mood" ? "#B2DFDB" : "#A5D6A7"} 
+                    radius={[4, 4, 0, 0]}
+                    maxBarSize={20}
+                  />
+                </BarChart>
+              )}
+            </ResponsiveContainer>
           </div>
 
           {/* Selected day list inspection block */}
