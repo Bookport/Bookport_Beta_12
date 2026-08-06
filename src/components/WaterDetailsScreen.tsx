@@ -183,6 +183,18 @@ export default function WaterDetailsScreen({
   }, [water, currentDayIndex, waterLogs, userGender, userName]);
 
   // Calculations for past history cycle
+
+  const chartData = React.useMemo(() => {
+    return Array.from({ length: 28 }).map((_, idx) => {
+      const dayNum = idx + 1;
+      const dWeight = dayWeights[dayNum] || getResolvedWeightForDay(dayNum);
+      const dGoal = dWeight * 30;
+      const dEntries = waterLogs[dayNum] || [];
+      const dSum = dEntries.reduce((sum, e) => sum + e.amount, 0);
+      return { day: dayNum, sum: dSum, goal: dGoal, isFuture: dayNum > currentDayIndex };
+    });
+  }, [waterLogs, dayWeights, currentDayIndex]);
+
   const totals = React.useMemo(() => {
     const allEntries = Object.values(waterLogs).flat();
     const totalVolume = allEntries.reduce((acc, e) => acc + (e.amount || 0), 0);
@@ -423,77 +435,40 @@ export default function WaterDetailsScreen({
           </div>
 
           {/* Interactive column visual cycle representation */}
-          <div className="relative pt-6 pb-2 px-1">
+          <div className="relative pt-6 pb-2 px-1 h-44 outline-none border-none focus:outline-none focus:ring-0" style={{ outline: 'none', border: 'none' }}>
             
             {/* Norm horizontal line indicator */}
-            <div className="absolute top-[30%] left-0 right-0 border-t border-dashed border-sky-400/30 flex justify-end z-0">
+            <div className="absolute top-[30%] left-0 right-0 border-t border-dashed border-sky-400/30 flex justify-end z-0 pointer-events-none">
               <span className="text-[8px] text-sky-400/80 font-bold bg-white px-1 -mt-1.5 font-mono z-10 transition-all">Норма (30мл/кг)</span>
             </div>
 
-            {/* Flex container of mini-columns */}
-            <div className="flex justify-between items-end gap-[3.5px] h-32 relative z-10">
-              {Array.from({ length: 28 }).map((_, idx) => {
-                const dayNum = idx + 1;
-                const active = dayNum === selectedGraphDay;
-                const isFuture = dayNum > currentDayIndex;
-                
-                // Get weight and water for this loop day
-                const dWeight = dayWeights[dayNum] || getResolvedWeightForDay(dayNum);
-                const dGoal = dWeight * 30;
-                const dEntries = waterLogs[dayNum] || [];
-                const dSum = dEntries.reduce((sum, e) => sum + e.amount, 0);
-                const pct = dGoal > 0 ? (dSum / dGoal) : 0;
-                
-                // Height calculation capped between 8% and 100%
-                let heightPct = 4;
-                if (dSum > 0) {
-                  heightPct = Math.min(100, Math.max(12, Math.round(pct * 100)));
-                }
-
-                // Bar styling colors
-                let barBg = "bg-slate-200/60"; // future or zero
-                if (!isFuture && dSum > 0) {
-                  barBg = pct >= 1.0 
-                    ? "bg-gradient-to-t from-sky-500 via-sky-400 to-cyan-400 shadow-[0_2px_4px_rgba(14,165,233,0.15)]" 
-                    : "bg-gradient-to-t from-slate-400 to-slate-500";
-                }
-
-                return (
-                  <button
-                    key={dayNum}
-                    type="button"
-                    onClick={() => setSelectedGraphDay(dayNum)}
-                    className="flex-1 h-full flex flex-col justify-end items-center group relative cursor-pointer"
-                  >
-                    {/* Tooltip on hover/active */}
-                    <CustomWaterTooltip active={active} dayNum={dayNum} dSum={dSum} />
-
-                    {/* Cylinder column element */}
-                    <div 
-                      className={`w-full rounded-t-full transition-all duration-300 relative ${barBg} ${
-                        active 
-                          ? "ring-2 ring-sky-500 ring-offset-1 scale-110 shadow-lg" 
-                          : "hover:scale-105"
-                      }`}
-                      style={{ height: `${heightPct}%` }}
-                    >
-                      {/* Met goal green spark indicator dot on top */}
-                      {!isFuture && dSum >= dGoal && (
-                        <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-emerald-400 border border-white" />
-                      )}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* X-axis labels representing the weeks */}
-            <div className="flex justify-between text-[9px] text-[#737C86] font-bold mt-2.5 px-0.5 border-t border-gray-100 pt-1.5">
-              <span>Неделя 1</span>
-              <span>Неделя 2</span>
-              <span>Неделя 3</span>
-              <span>Неделя 4</span>
-            </div>
+            <ResponsiveContainer width="100%" height="100%" className="outline-none border-none focus:outline-none focus:ring-0" style={{ outline: 'none', border: 'none' }}>
+              <BarChart data={chartData} margin={{ top: 5, right: 5, left: -30, bottom: 0 }} onClick={(e) => e?.activeLabel && setSelectedGraphDay(Number(e.activeLabel))} className="outline-none border-none focus:outline-none focus:ring-0" style={{ outline: 'none', border: 'none' }}>
+                <defs>
+                  <linearGradient id="colorWater" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#0EA5E9" stopOpacity={1}/>
+                    <stop offset="100%" stopColor="#22D3EE" stopOpacity={1}/>
+                  </linearGradient>
+                  <linearGradient id="colorWaterMissed" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#94a3b8" stopOpacity={1}/>
+                    <stop offset="100%" stopColor="#64748b" stopOpacity={1}/>
+                  </linearGradient>
+                </defs>
+                <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: "#94a3b8" }} />
+                <YAxis hide type="number" />
+                <Tooltip content={<CustomWaterTooltip />} cursor={{ fill: 'transparent' }} wrapperStyle={{ outline: 'none', border: 'none', zIndex: 50 }} />
+                <Bar 
+                  dataKey="sum" 
+                  radius={[4, 4, 0, 0]}
+                  maxBarSize={20}
+                  isAnimationActive={false}
+                >
+                  {chartData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.isFuture || entry.sum === 0 ? "#e2e8f0" : (entry.sum >= entry.goal ? "url(#colorWater)" : "url(#colorWaterMissed)")} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
           </div>
 
           {/* Interactive selected bar summary row */}
