@@ -217,7 +217,7 @@ export default function WaterDetailsScreen({
   }, [waterLogs, dayWeights, currentDayIndex]);
 
   // Color mappings for Anna's block glow and labels
-  const glowBorderClass = "border-[#1e3a8a] bg-gradient-to-b from-[#1e40af] to-[#1e3a8a] text-white shadow-lg";
+  const glowBorderClass = "border-[#E3F2FD] bg-[#E3F2FD] shadow-sm";
 
   const statusBadge = {
     good: "bg-emerald-500 text-white shadow-emerald-200",
@@ -251,10 +251,7 @@ export default function WaterDetailsScreen({
           <span className="text-[18px] font-black text-text-dark leading-none mt-0.5">День {currentDayIndex} из 28</span>
         </div>
         
-        {/* Decorative dynamic icon */}
-        <div className="w-12 h-12 rounded-2xl bg-sky-50 flex items-center justify-center shadow-sm">
-          <Droplet className="w-7 h-7 text-sky-500 fill-sky-500/20" strokeWidth={2.5} />
-        </div>
+        <div className="w-10 h-10" />
       </div>
 
       <div className="px-5 py-4 flex-1 overflow-y-auto flex flex-col gap-5">
@@ -294,17 +291,23 @@ export default function WaterDetailsScreen({
 
           {/* Detailed stats grids */}
           <div className="grid grid-cols-2 gap-3 mt-1">
-            <div className="rounded-2xl p-3 flex flex-col gap-1.5 shadow-sm" style={{ backgroundColor: "#F2FBF9" }}>
-              <span className="text-[11px] text-text-muted font-bold tracking-tight block uppercase">ОСТАЛОСЬ ДО ЦЕЛИ</span>
-              <span className="text-[15px] font-black text-text-dark">
-                {Math.max(0, waterGoalToday - water)} мл
-              </span>
+            <div className="rounded-2xl pl-3 pr-2 py-1.5 flex flex-row justify-between items-center shadow-sm" style={{ backgroundColor: "#F2FBF9" }}>
+              <div className="flex flex-col gap-1.5">
+                <span className="text-[11px] text-text-muted font-bold tracking-tight block uppercase">ОСТАЛОСЬ ДО ЦЕЛИ</span>
+                <span className="text-[15px] font-black text-text-dark">
+                  {Math.max(0, waterGoalToday - water)} мл
+                </span>
+              </div>
+              <img src={ostalosImg} alt="Осталось" className="w-10 h-10 object-contain" />
             </div>
-            <div className="rounded-2xl p-3 flex flex-col gap-1.5 shadow-sm" style={{ backgroundColor: "#F5F7FF" }}>
-              <span className="text-[11px] text-text-muted font-bold tracking-tight block uppercase">КОЛ-ВО ПРИЁМОВ</span>
-              <span className="text-[15px] font-black text-text-dark">
-                {(waterLogs[currentDayIndex] || []).length} р / сутки
-              </span>
+            <div className="rounded-2xl pl-3 pr-2 py-1.5 flex flex-row justify-between items-center shadow-sm" style={{ backgroundColor: "#F5F7FF" }}>
+              <div className="flex flex-col gap-1.5">
+                <span className="text-[11px] text-text-muted font-bold tracking-tight block uppercase">КОЛ-ВО ПРИЁМОВ</span>
+                <span className="text-[15px] font-black text-text-dark">
+                  {(waterLogs[currentDayIndex] || []).length} р / сутки
+                </span>
+              </div>
+              <img src={kolichestvoImg} alt="Кол-во" className="w-10 h-10 object-contain" />
             </div>
             <div className="rounded-2xl p-3 flex flex-col gap-1.5 col-span-2 flex-row justify-between items-center flex shadow-sm" style={{ backgroundColor: "#FAFAFF" }}>
               <div className="flex flex-col gap-0.5">
