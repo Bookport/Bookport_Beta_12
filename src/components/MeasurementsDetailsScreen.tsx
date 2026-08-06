@@ -17,6 +17,7 @@ import {
 import { useAppStore } from "../store/useAppStore";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, ReferenceArea, Tooltip, ResponsiveContainer } from "recharts";
 import { resolveAvatar } from "../utils/annaAvatarResolver";
+import { generateCrossModuleSummary } from "../utils/measurementsCoaching";
 
 const CustomPulseDot = (props: any) => {
   const { cx, cy, payload } = props;
@@ -203,12 +204,34 @@ export default function MeasurementsDetailsScreen({
 
   const stats = getGlobalMeasurementMetrics();
 
+
+
   // Resolved logs for current day vs graph-selected day
   const todayList = measurementLogs[currentDayIndex] || [];
   const selectedDayList = measurementLogs[selectedGraphDay] || [];
   
   const latestTodayLog = todayList.length > 0 ? todayList[todayList.length - 1] : null;
   const latestSelectedDayLog = selectedDayList.length > 0 ? selectedDayList[selectedDayList.length - 1] : null;
+
+  // Anna Context logic
+  const pTonus = latestSelectedDayLog ? parseTonus(latestSelectedDayLog.tonus) : { energy: "0", mood: "0", wellbeing: "0" };
+  const currentWeightDelta = (latestSelectedDayLog?.weight && profileInitialWeight) 
+    ? latestSelectedDayLog.weight - profileInitialWeight 
+    : null;
+
+  const annaCtx = {
+    userName: userName,
+    userGender: userGender,
+    pulse: latestSelectedDayLog?.pulse || null,
+    weight: latestSelectedDayLog?.weight || null,
+    initialWeight: profileInitialWeight || null,
+    weightDelta: currentWeightDelta,
+    tonusEnergy: ENERGY_STATES[parseInt(pTonus.energy)]?.label || null,
+    tonusMood: MOOD_STATES[parseInt(pTonus.mood)]?.label || null,
+    tonusWellbeing: WELLBEING_STATES[parseInt(pTonus.wellbeing)]?.label || null,
+  };
+
+  const annaComment = generateCrossModuleSummary(annaCtx);
 
   // Draw 28-day column charts based on selected metric
   
@@ -403,7 +426,7 @@ export default function MeasurementsDetailsScreen({
           </div>
 
           <div className="bg-white/80 backdrop-blur-xs p-3.5 rounded-2xl text-[13.5px] leading-relaxed font-semibold text-slate-800">
-            Анализирую динамику...
+            {annaComment || "Сделай свой первый замер сегодня, чтобы я могла проанализировать твою динамику!"}
           </div>
         </div>
 
