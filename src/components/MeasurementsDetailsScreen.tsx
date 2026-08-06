@@ -30,6 +30,8 @@ import stateWellbeingNormal from "../assets/images/measurements/state_wellbeing_
 import stateWellbeingPoor from "../assets/images/measurements/state_wellbeing_poor.webp";
 import iconPulse from "../assets/images/measurements/icon_pulse.webp";
 import iconWeight from "../assets/images/measurements/icon_weight.webp";
+import iconResource from "../assets/images/measurements/icon_resource.webp";
+import iconProgress from "../assets/images/measurements/icon_progress.webp";
 import iconTime from "../assets/images/measurements/icon_time.webp";
 import ingrGreen from "../assets/ingredients/ingr_green.webp";
 
@@ -294,7 +296,7 @@ export default function MeasurementsDetailsScreen({
         <div className="bg-white rounded-[32px] border border-gray-100/90 p-4.5 shadow-[0_5px_15px_-3px_rgba(43,49,55,0.02)] flex flex-col gap-4 text-left mb-5">
           <div className="flex justify-between items-start">
             <div>
-              <span className="text-[11px] font-black text-rose-600 tracking-wider uppercase block mb-0.5">СОСТОЯНИЕ НА СЕГОДНЯ</span>
+              <span className="text-[11px] font-black text-[#4CAF50] tracking-wider uppercase block mb-0.5">СОСТОЯНИЕ НА СЕГОДНЯ</span>
               <h2 className="text-[20px] font-black text-slate-800" style={{ fontFamily: '"Calibri", sans-serif' }}>Текущий замер</h2>
             </div>
             <div className="bg-[#E8F5E9] text-[#1B5E20] shadow-sm rounded-full px-3 py-1.5 text-[12px] font-bold">
@@ -392,7 +394,7 @@ export default function MeasurementsDetailsScreen({
         <div className="bg-white rounded-[32px] border border-gray-100 p-4 shadow-[0_4px_16px_rgba(0,0,0,0.02)] text-left flex flex-col gap-3 mb-5">
           <div className="flex justify-between items-baseline px-1">
             <div className="flex flex-col text-left">
-              <span className="text-[11px] font-black text-rose-600 tracking-wide uppercase">СТАТИСТИКА КУРСА</span>
+              <span className="text-[11px] font-black text-[#4CAF50] tracking-wide uppercase">СТАТИСТИКА КУРСА</span>
               <span className="text-[16px] font-black text-slate-800">Динамика организма 28 дней</span>
             </div>
             
@@ -404,11 +406,11 @@ export default function MeasurementsDetailsScreen({
           {/* Metric selector pill bar */}
           <div className="grid grid-cols-5 gap-1 bg-white p-1 rounded-2xl border border-slate-100">
             {[
-              { id: "energy", label: "Энергия", activeClass: "bg-[#E8F5E9] text-[#2E7D32] shadow-sm font-black" },
-              { id: "mood", label: "Настроение", activeClass: "bg-[#E0F2F1] text-[#00695C] shadow-sm font-black" },
-              { id: "wellbeing", label: "Самочувствие", activeClass: "bg-[#F1F8E9] text-[#33691E] shadow-sm font-black" },
-              { id: "pulse", label: "Пульс", activeClass: "bg-[#E8F5E9] text-[#1B5E20] shadow-sm font-black" },
-              { id: "weight", label: "Вес", activeClass: "bg-[#F4FBF7] text-[#0D5302] shadow-sm font-black" }
+              { id: "energy", label: "Энергия", activeClass: "bg-[#C8E6C9] text-[#1B5E20] shadow-sm" },
+              { id: "mood", label: "Настроение", activeClass: "bg-[#B2DFDB] text-[#004D40] shadow-sm" },
+              { id: "wellbeing", label: "Самочувствие", activeClass: "bg-[#DCEDC8] text-[#33691E] shadow-sm" },
+              { id: "pulse", label: "Пульс", activeClass: "bg-[#C8E6C9] text-[#1B5E20] shadow-sm" },
+              { id: "weight", label: "Вес", activeClass: "bg-[#C8E6C9] text-[#0D5302] shadow-sm" }
             ].map(tab => {
               const isActive = activeChartMetric === tab.id;
               return (
@@ -416,8 +418,8 @@ export default function MeasurementsDetailsScreen({
                   key={tab.id}
                   type="button"
                   onClick={() => setActiveChartMetric(tab.id as any)}
-                  className={`flex items-center justify-center py-1.5 rounded-xl text-[10px] font-medium tracking-tight transition-all cursor-pointer ${
-                    isActive ? tab.activeClass : "bg-transparent text-slate-400 hover:text-slate-600"
+                  className={`flex items-center justify-center py-1.5 rounded-xl text-sm font-semibold tracking-tight transition-all cursor-pointer ${
+                    isActive ? tab.activeClass : "bg-[#F4FBF7] text-[#81C784] hover:brightness-95"
                   }`}
                 >
                   {tab.label}
@@ -494,46 +496,46 @@ export default function MeasurementsDetailsScreen({
         <div className="grid grid-cols-2 gap-3.5 mb-6 text-left">
           
           {/* Average Pulse */}
-          <div className="bg-white rounded-[24px] p-3.5 border border-gray-100/90 shadow-sm flex flex-col justify-between">
-            <div>
-              <span className="text-[10px] uppercase font-black text-slate-400 tracking-wider">СРЕДНИЙ ПУЛЬС</span>
+          <div className="bg-[#F1F8E9] shadow-sm rounded-2xl p-3.5 flex flex-col justify-between relative overflow-hidden">
+            <img src={iconPulse} alt="Пульс" className="absolute top-3 right-3 w-12 h-12 object-contain opacity-90" />
+            <div className="relative z-10 pr-14">
+              <span className="text-[10px] uppercase font-black text-slate-500 tracking-wider">СРЕДНИЙ ПУЛЬС</span>
               <p className="text-[19px] font-black text-slate-800 mt-1 font-mono">
-                {stats.avgPulse} <span className="text-xs font-bold text-slate-500">уд/мин</span>
+                {stats.avgPulse} <span className="text-xs font-bold text-slate-600">уд/мин</span>
               </p>
             </div>
-            <span className="text-[11px] font-bold text-emerald-600 mt-2 block">
+            <span className="text-[11px] font-bold text-[#33691E] mt-2 block relative z-10">
               Норма покоя: 55-75
             </span>
           </div>
 
           {/* High Energy Ratio Percent */}
-          <div className="bg-white rounded-[24px] p-3.5 border border-gray-100/90 shadow-sm flex flex-col justify-between">
-            <div>
-              <span className="text-[10px] uppercase font-black text-slate-400 tracking-wider">РЕСУРСНЫЕ ДНИ</span>
+          <div className="bg-[#E8F5E9] shadow-sm rounded-2xl p-3.5 flex flex-col justify-between relative overflow-hidden">
+            <img src={iconResource} alt="Ресурс" className="absolute top-3 right-3 w-12 h-12 object-contain opacity-90" />
+            <div className="relative z-10 pr-14">
+              <span className="text-[10px] uppercase font-black text-slate-500 tracking-wider">РЕСУРСНЫЕ ДНИ</span>
               <p className="text-[19px] font-black text-slate-800 mt-1 font-mono">
-                {stats.highEnergyPercent}% <span className="text-xs font-bold text-slate-500">дней</span>
+                {stats.highEnergyPercent}% <span className="text-xs font-bold text-slate-600">дней</span>
               </p>
             </div>
-            <span className="text-[11px] font-bold text-indigo-500 mt-2 block">
+            <span className="text-[11px] font-bold text-[#1B5E20] mt-2 block relative z-10">
               Энергия высокая/спокойная
             </span>
           </div>
 
           {/* WFPB Weight aggregate loss wellness achievement */}
-          <div className="bg-white rounded-[24px] p-3.5 border border-rose-100 bg-gradient-to-r from-rose-50/20 to-white/90 shadow-sm flex flex-col justify-between col-span-2">
-            <div className="flex justify-between items-center">
+          <div className="bg-[#E0F2F1] shadow-sm rounded-2xl p-3.5 flex flex-col justify-between col-span-2 relative overflow-hidden">
+            <img src={iconProgress} alt="Прогресс" className="absolute top-2 right-2 w-16 h-16 object-contain opacity-90" />
+            <div className="relative z-10 pr-20 flex flex-col">
               <div>
-                <span className="text-[10px] uppercase font-black text-slate-400 tracking-wider">ИЗМЕНЕНИЕ ВЕСА ЗА КУРС</span>
-                <p className="text-[24px] font-black text-rose-955 mt-0.5" style={{ fontFamily: '"Calibri", sans-serif' }}>
+                <span className="text-[10px] uppercase font-black text-slate-500 tracking-wider">ИЗМЕНЕНИЕ ВЕСА ЗА КУРС</span>
+                <p className="text-[24px] font-black text-[#004D40] mt-0.5" style={{ fontFamily: '"Calibri", sans-serif' }}>
                   -{stats.weightLoss} кг
                 </p>
               </div>
-              <div className="w-[50px] h-[50px] rounded-2xl bg-rose-50 border border-rose-100/60 flex items-center justify-center text-rose-500 text-[24px] shrink-0">
-                ☘️
-              </div>
             </div>
-            <div className="border-t border-slate-100 mt-2.5 pt-2 flex justify-between text-[11px] font-bold text-slate-500">
-              <span>Вес на старте: <b className="text-slate-800 font-extrabold">{stats.initialWeight} кг</b></span>
+            <div className="border-t border-[#B2DFDB] mt-2.5 pt-2 flex justify-between text-[11px] font-bold text-slate-700 relative z-10 w-full sm:w-[80%] pr-14">
+              <span>Старт: <b className="text-slate-800 font-extrabold">{stats.initialWeight} кг</b></span>
               <span>•</span>
               <span>Сейчас: <b className="text-slate-800 font-extrabold">{stats.currentWeight} кг</b></span>
             </div>
