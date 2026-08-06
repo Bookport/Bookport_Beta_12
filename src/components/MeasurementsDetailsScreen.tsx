@@ -30,6 +30,7 @@ import stateWellbeingNormal from "../assets/images/measurements/state_wellbeing_
 import stateWellbeingPoor from "../assets/images/measurements/state_wellbeing_poor.webp";
 import iconPulse from "../assets/images/measurements/icon_pulse.webp";
 import iconWeight from "../assets/images/measurements/icon_weight.webp";
+import iconTime from "../assets/images/measurements/icon_time.webp";
 import ingrGreen from "../assets/ingredients/ingr_green.webp";
 
 const ENERGY_STATES = [
@@ -108,7 +109,7 @@ export default function MeasurementsDetailsScreen({
   
   // Active selected chart metric tab inside analytics
   // "wellbeing" | "energy" | "pulse" | "weight"
-  const [activeChartMetric, setActiveChartMetric] = useState<"wellbeing" | "energy" | "pulse" | "weight">("wellbeing");
+  const [activeChartMetric, setActiveChartMetric] = useState<"energy" | "mood" | "wellbeing" | "pulse" | "weight">("energy");
 
   // Initial measurement logs are passed as props, defaulting to {} from parent
 
@@ -197,49 +198,43 @@ export default function MeasurementsDetailsScreen({
     let barBg = "bg-slate-100 border border-slate-200";
 
     if (list.length > 0) {
-      // Find representative state of the day (average or latest)
-      if (activeChartMetric === "wellbeing") {
-        // Map: хорошее=100%, среднее=60%, плохое=20%
-        const scoreSum = list.reduce((sum, e) => {
-          if (e.wellbeing === "хорошее") return sum + 100;
-          if (e.wellbeing === "среднее") return sum + 60;
-          return sum + 20;
-        }, 0);
-        heightPct = Math.round(scoreSum / list.length);
-        valueString = heightPct >= 80 ? "Хор" : heightPct >= 50 ? "Срд" : "Плх";
-        barBg = heightPct >= 80 
-          ? "bg-gradient-to-t from-[#FDA4AF] to-[#F43F5E]" 
-          : heightPct >= 50 ? "bg-gradient-to-t from-pink-300 to-rose-350" : "bg-gradient-to-t from-slate-350 to-slate-450";
-      } else if (activeChartMetric === "energy") {
-        // Map: высокая=100%, спокойная=75%, сниженная=30%
-        const scoreSum = list.reduce((sum, e) => {
-          if (e.energy === "высокая") return sum + 100;
-          if (e.energy === "спокойная") return sum + 75;
-          return sum + 30;
-        }, 0);
-        heightPct = Math.round(scoreSum / list.length);
-        valueString = heightPct >= 80 ? "Выс" : heightPct >= 50 ? "Спк" : "Снж";
-        barBg = "bg-gradient-to-t from-amber-400 to-amber-500";
+      const latestLog = list[list.length - 1];
+      const parsed = parseTonus(latestLog.tonus);
+
+      const mapToScore = (idxStr: string) => {
+        const i = parseInt(idxStr, 10);
+        if (i === 0) return 3;
+        if (i === 1) return 2;
+        if (i === 2) return 1;
+        return 0;
+      };
+
+      if (activeChartMetric === "energy") {
+        const score = mapToScore(parsed.energy);
+        heightPct = score === 3 ? 100 : score === 2 ? 66 : score === 1 ? 33 : 6;
+        barBg = "bg-[#4CAF50]";
+      } else if (activeChartMetric === "mood") {
+        const score = mapToScore(parsed.mood);
+        heightPct = score === 3 ? 100 : score === 2 ? 66 : score === 1 ? 33 : 6;
+        barBg = "bg-[#00897B]";
+      } else if (activeChartMetric === "wellbeing") {
+        const score = mapToScore(parsed.wellbeing);
+        heightPct = score === 3 ? 100 : score === 2 ? 66 : score === 1 ? 33 : 6;
+        barBg = "bg-[#689F38]";
       } else if (activeChartMetric === "pulse") {
-        // Map pulse between 50 bpm & 110 bpm
         const validPulses = list.filter(e => e.pulse !== null) as { pulse: number }[];
         if (validPulses.length > 0) {
           const avgP = validPulses.reduce((sum, e) => sum + e.pulse, 0) / validPulses.length;
-          // map 50-100 to 15-100%
           heightPct = Math.min(100, Math.max(15, Math.round(((avgP - 50) / 50) * 100)));
-          valueString = `${Math.round(avgP)}`;
-          barBg = avgP <= 72 ? "bg-gradient-to-t from-emerald-450 via-teal-400 to-emerald-500" : "bg-gradient-to-t from-rose-400 to-rose-500";
+          barBg = "bg-[#388E3C]";
         }
       } else if (activeChartMetric === "weight") {
-        // Map weight around user Gender averages
         const validWeights = list.filter(e => e.weight !== null) as { weight: number }[];
         if (validWeights.length > 0) {
-          const avgW = validWeights[validWeights.length - 1].weight; // show latest weight of that day
-          // Map variance around some baseline index
+          const avgW = validWeights[validWeights.length - 1].weight;
           const baseOfScale = userGender === "female" ? 50 : 68;
           heightPct = Math.min(100, Math.max(20, Math.round(((avgW - baseOfScale) / 30) * 100)));
-          valueString = `${avgW}`;
-          barBg = "bg-gradient-to-t from-indigo-505 via-purple-400 to-sky-400";
+          barBg = "bg-[#2E7D32]";
         }
       }
     }
@@ -258,12 +253,12 @@ export default function MeasurementsDetailsScreen({
             animate={{ height: `${heightPct}%` }}
             transition={{ duration: 0.4 }}
             className={`w-full rounded-full transition-all duration-300 ${barBg} ${
-              active ? "ring-2 ring-rose-500 ring-offset-1 brightness-105" : "group-hover:opacity-90"
+              active ? "ring-2 ring-emerald-500 ring-offset-1 brightness-105" : "group-hover:opacity-90"
             }`}
           />
         </div>
         <span className={`text-[8.5px] mt-1.5 font-mono font-bold leading-none ${
-          active ? "text-rose-600 font-black scale-110" : "text-slate-400"
+          active ? "text-emerald-600 font-black scale-110" : "text-slate-400"
         }`}>
           {dayNum}
         </span>
@@ -284,14 +279,14 @@ export default function MeasurementsDetailsScreen({
             onClick={onBack}
             className="w-10 h-10 rounded-full bg-white border border-slate-100 shadow-[0_2px_8px_rgba(0,0,0,0.03)] flex items-center justify-center text-slate-650 hover:bg-slate-50 transition-all active:scale-95 cursor-pointer"
           >
-            <ArrowLeft className="w-5 h-5 antialiased" />
+            <ArrowLeft className="w-6 h-6 antialiased" />
           </button>
           <div className="flex flex-col items-center">
             <span className="text-[12px] font-black text-slate-400 uppercase tracking-widest leading-none">Дневник</span>
             <span className="text-[18px] font-black text-slate-800" style={{ fontFamily: '"Calibri", sans-serif' }}>Замеры & Тонус</span>
           </div>
           <div className="w-10 h-10 rounded-full bg-rose-50 border border-rose-100 flex items-center justify-center">
-            <Heart className="w-5 h-5 text-rose-500 fill-rose-100 animate-pulse" />
+            <Heart className="w-6 h-6 text-rose-500 fill-rose-100 animate-pulse" />
           </div>
         </div>
 
@@ -402,17 +397,18 @@ export default function MeasurementsDetailsScreen({
             </div>
             
             <div className="text-[11px] text-slate-500 font-bold bg-slate-50 px-2.5 py-0.5 rounded-lg border border-slate-100">
-              Выбран День: <span className="text-rose-600 font-mono font-black">{selectedGraphDay}</span>
+              Выбран День: <span className="text-emerald-600 font-mono font-black">{selectedGraphDay}</span>
             </div>
           </div>
 
           {/* Metric selector pill bar */}
-          <div className="flex gap-1.5 bg-[#FAF9FD] p-1 rounded-2xl border border-slate-100">
+          <div className="grid grid-cols-5 gap-1 bg-white p-1 rounded-2xl border border-slate-100">
             {[
-              { id: "wellbeing", label: "Тонус" },
-              { id: "energy", label: "Энергия" },
-              { id: "pulse", label: "Пульс" },
-              { id: "weight", label: "Вес" }
+              { id: "energy", label: "Энергия", activeClass: "bg-[#E8F5E9] text-[#2E7D32] shadow-sm font-black" },
+              { id: "mood", label: "Настроение", activeClass: "bg-[#E0F2F1] text-[#00695C] shadow-sm font-black" },
+              { id: "wellbeing", label: "Самочувствие", activeClass: "bg-[#F1F8E9] text-[#33691E] shadow-sm font-black" },
+              { id: "pulse", label: "Пульс", activeClass: "bg-[#E8F5E9] text-[#1B5E20] shadow-sm font-black" },
+              { id: "weight", label: "Вес", activeClass: "bg-[#F4FBF7] text-[#0D5302] shadow-sm font-black" }
             ].map(tab => {
               const isActive = activeChartMetric === tab.id;
               return (
@@ -420,10 +416,8 @@ export default function MeasurementsDetailsScreen({
                   key={tab.id}
                   type="button"
                   onClick={() => setActiveChartMetric(tab.id as any)}
-                  className={`flex-1 py-1.5 rounded-xl text-[10.5px] font-extrabold tracking-tight transition-all cursor-pointer ${
-                    isActive 
-                      ? "bg-gradient-to-r from-rose-450 to-pink-500 text-white shadow-xs font-black"
-                      : "text-slate-500 hover:text-slate-850"
+                  className={`flex items-center justify-center py-1.5 rounded-xl text-[10px] font-medium tracking-tight transition-all cursor-pointer ${
+                    isActive ? tab.activeClass : "bg-transparent text-slate-400 hover:text-slate-600"
                   }`}
                 >
                   {tab.label}
@@ -434,7 +428,7 @@ export default function MeasurementsDetailsScreen({
 
           <div className="relative pt-6 pb-2 px-1">
             {/* Guide markers background lines */}
-            <div className="absolute top-[35%] left-0 right-0 border-t border-dashed border-rose-100 flex justify-end z-0">
+            <div className="absolute top-[35%] left-0 right-0 border-t border-dashed border-emerald-100 flex justify-end z-0">
               <span className="text-[7.5px] text-slate-400 bg-white px-1 -mt-1 font-mono">Стабильный фон</span>
             </div>
 
@@ -455,45 +449,38 @@ export default function MeasurementsDetailsScreen({
             </div>
 
             {selectedDayList.length > 0 ? (
-              <div className="flex flex-col gap-1.5 max-h-[145px] overflow-y-auto scrollbar-none">
-                {selectedDayList.map((entry, index) => (
-                  <div 
-                    key={entry.id || index}
-                    className="bg-white rounded-xl p-2.5 border border-slate-100/90 flex flex-col gap-2 shadow-xs text-left"
-                  >
-                    <div className="flex justify-between items-center text-[12.5px]">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-[11px] font-bold font-mono text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded-lg border border-indigo-100/30">
-                          ⏱ {entry.timeString}
-                        </span>
-                        {entry.wellbeing && (
-                          <span className="text-[11.5px] font-extrabold text-slate-700">
-                            {entry.wellbeing === "хорошее" ? "🌟 Чудесно" : entry.wellbeing === "среднее" ? "⚡ Нормально" : "❤️‍🩹 Усталость"}
-                          </span>
-                        )}
+              <div className="flex flex-col rounded-xl overflow-hidden border border-[#E8F5E9] bg-[#FAFCFB] max-h-[160px] overflow-y-auto scrollbar-none">
+                {selectedDayList.map((entry, index) => {
+                  const p = parseTonus(entry.tonus);
+                  return (
+                    <div 
+                      key={entry.id || index}
+                      className="flex flex-row items-center justify-between py-1.5 px-2 border-b border-[#E8F5E9] last:border-b-0"
+                    >
+                      <div className="flex items-center gap-1 min-w-[45px]">
+                        <img src={iconTime} alt="time" className="w-4 h-4 object-contain opacity-60" />
+                        <span className="text-[11px] text-slate-500 font-mono font-medium">{entry.timeString}</span>
                       </div>
                       
-                      <div className="flex items-center gap-2">
-                        {entry.pulse && (
-                          <span className="text-[11px] font-mono font-black text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded-md border border-rose-100/30">
-                            ❤️ {entry.pulse}
-                          </span>
-                        )}
-                        {entry.weight && (
-                          <span className="text-[11px] font-mono font-black text-violet-700 bg-violet-50 px-1.5 py-0.5 rounded-md border border-violet-100/30">
-                            ⚖️ {entry.weight}кг
-                          </span>
-                        )}
+                      <div className="flex gap-1 items-center">
+                        <img src={ENERGY_STATES[+p.energy]?.img || ENERGY_STATES[0].img} className="w-6 h-6 object-contain" alt="energy" />
+                        <img src={MOOD_STATES[+p.mood]?.img || MOOD_STATES[0].img} className="w-6 h-6 object-contain" alt="mood" />
+                        <img src={WELLBEING_STATES[+p.wellbeing]?.img || WELLBEING_STATES[0].img} className="w-6 h-6 object-contain" alt="wellbeing" />
+                      </div>
+
+                      <div className="flex items-center gap-2.5">
+                        <div className="flex items-center gap-1 w-[40px]">
+                          <img src={iconPulse} alt="pulse" className="w-4 h-4 object-contain" />
+                          <span className="text-[11px] font-mono font-bold text-slate-700">{entry.pulse || "—"}</span>
+                        </div>
+                        <div className="flex items-center gap-1 w-[45px]">
+                          <img src={iconWeight} alt="weight" className="w-4 h-4 object-contain" />
+                          <span className="text-[11px] font-mono font-bold text-slate-700">{entry.weight || "—"}</span>
+                        </div>
                       </div>
                     </div>
-
-                    <div className="flex gap-2 text-[10.5px] font-bold text-slate-500">
-                      <span>Энергия: <b className="text-slate-700 font-extrabold">{entry.energy || "—"}</b></span>
-                      <span>•</span>
-                      <span>Настроение: <b className="text-slate-700 font-extrabold">{entry.mood || "—"}</b></span>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <p className="text-[11.5px] text-slate-400 font-medium italic mt-0.5">
