@@ -9,6 +9,8 @@ import {
   CheckCircle2,
   Droplet
 } from "lucide-react";
+import { BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+
 import BottomBar from "./BottomBar";
 import { generateWaterSummary } from "../utils/waterCoaching";
 import { WaterContext } from "../utils/waterPhrases";
@@ -32,14 +34,17 @@ import kolichestvoImg from "../assets/images/water/kolichestvo.webp";
 
 const annaAvatarSrc = resolveAvatar({ toneGroup: 'reminder_caution', intent: 'reminder' }).src;
 
-const CustomWaterTooltip = ({ active, dayNum, dSum }: { active: boolean; dayNum: number; dSum: number }) => {
-  if (!active) return null;
-  return (
-    <div className="absolute bottom-full mb-1.5 bg-[#F1F8FE] shadow-sm rounded-xl px-3 py-2 text-xs font-bold border-none outline-none whitespace-nowrap z-40 transform -translate-x-0">
-      <div className="text-slate-700">День {dayNum}</div>
-      <div className="text-[#0EA5E9]">{dSum} мл</div>
-    </div>
-  );
+const CustomWaterTooltip = ({ active, payload, label }: any) => {
+  if (active && payload && payload.length) {
+    const val = payload[0].value;
+    return (
+      <div className="flex flex-col p-2 bg-[#F1F8FE] rounded-xl shadow-sm border-none outline-none z-40">
+        <div className="text-slate-700 text-xs font-bold">День {label}</div>
+        <div className="text-[#0EA5E9] text-xs font-bold">{val} мл</div>
+      </div>
+    );
+  }
+  return null;
 };
 
 
