@@ -31,7 +31,7 @@ export interface MeasurementLogEntry {
   energy: "высокая" | "спокойная" | "сниженная" | "";
   mood: "лёгкое" | "ровное" | "тяжёлое" | "";
   wellbeing: "хорошее" | "среднее" | "плохое" | "";
-  tonus?: "отличный" | "нормальный" | "тяжёлый" | "";
+  tonus?: string;
   
   // Objective
   pulse: number | null;

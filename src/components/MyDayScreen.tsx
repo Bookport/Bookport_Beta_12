@@ -52,6 +52,15 @@ import purchasesImg from "../assets/images/buttons/покупки.webp";
 import diaryImg from "../assets/images/buttons/дневник.webp";
 import stateNowImg from "../assets/images/buttons/состояние сейчас.webp";
 import logoSprout from "../assets/images/buttons/logo.webp";
+import stateEnergyHigh from "../assets/images/measurements/state_energy_high.webp";
+import stateEnergyNormal from "../assets/images/measurements/state_energy_normal.webp";
+import stateEnergyLow from "../assets/images/measurements/state_energy_low.webp";
+import stateMoodGood from "../assets/images/measurements/state_mood_good.webp";
+import stateMoodNormal from "../assets/images/measurements/state_mood_normal.webp";
+import stateMoodBad from "../assets/images/measurements/state_mood_bad.webp";
+import stateWellbeingExcellent from "../assets/images/measurements/state_wellbeing_excellent.webp";
+import stateWellbeingNormal from "../assets/images/measurements/state_wellbeing_normal.webp";
+import stateWellbeingPoor from "../assets/images/measurements/state_wellbeing_poor.webp";
 import { DailyNutritionStore } from "../services/DailyNutritionStore";
 import { 
   BREAKFAST_RECIPES, 
@@ -185,6 +194,25 @@ function HoldStepperButton({ onStep, disabled, children, className }: HoldSteppe
     </button>
   );
 }
+
+// Cyclic state configurations for the measurements modal (Энергия / Настроение / Самочувствие).
+const ENERGY_STATES = [
+  { id: "high", label: "Высокая", img: stateEnergyHigh },
+  { id: "normal", label: "Спокойная", img: stateEnergyNormal },
+  { id: "low", label: "Сниженная", img: stateEnergyLow },
+];
+
+const MOOD_STATES = [
+  { id: "good", label: "Лёгкое", img: stateMoodGood },
+  { id: "normal", label: "Ровное", img: stateMoodNormal },
+  { id: "bad", label: "Тяжёлое", img: stateMoodBad },
+];
+
+const WELLBEING_STATES = [
+  { id: "excellent", label: "Хорошее", img: stateWellbeingExcellent },
+  { id: "normal", label: "Среднее", img: stateWellbeingNormal },
+  { id: "poor", label: "Плохое", img: stateWellbeingPoor },
+];
 
 export default function MyDayScreen({
   dayNotes,
@@ -562,11 +590,18 @@ export default function MyDayScreen({
   const [showFastMeasurements, setShowFastMeasurements] = useState(false);
 
   // States to hold currently selected/entering metrics on the fast entry sheet
-  const [fastTonus, setFastTonus] = useState<"отличный" | "нормальный" | "тяжёлый" | "">("");
+  const [fastEnergy, setFastEnergy] = useState<number>(0);
+  const [fastMood, setFastMood] = useState<number>(0);
+  const [fastWellbeing, setFastWellbeing] = useState<number>(0);
   const [fastPulse, setFastPulse] = useState<number>(68); 
   const [fastWeight, setFastWeight] = useState<number>(weight);
   const [fastSystolic, setFastSystolic] = useState<number>(systolic);
   const [fastDiastolic, setFastDiastolic] = useState<number>(diastolic);
+
+  // Cyclic tap handlers: 0 -> 1 -> 2 -> 0
+  const cycleEnergy = () => setFastEnergy(prev => (prev + 1) % ENERGY_STATES.length);
+  const cycleMood = () => setFastMood(prev => (prev + 1) % MOOD_STATES.length);
+  const cycleWellbeing = () => setFastWellbeing(prev => (prev + 1) % WELLBEING_STATES.length);
 
   // Timers to handle double click vs. single click vs. long press for Measurements button
   const measurementsClickTimeoutRef = React.useRef<number | null>(null);
@@ -1177,7 +1212,9 @@ export default function MyDayScreen({
         // Prefill from the latest measurement across all days, fall back to profile
         const allEntries = Object.values(measurementLogs).flat();
         const lastEntry = allEntries.length > 0 ? allEntries.reduce((a, b) => a.timestamp > b.timestamp ? a : b) : null;
-        setFastTonus("");
+        setFastEnergy(0);
+        setFastMood(0);
+        setFastWellbeing(0);
         setFastPulse(lastEntry?.pulse ?? 68);
         setFastWeight(lastEntry?.weight ?? weight);
         setFastSystolic(lastEntry?.systolic ?? systolic);
@@ -1219,7 +1256,7 @@ export default function MyDayScreen({
       energy: "",
       mood: "",
       wellbeing: "",
-      tonus: fastTonus,
+      tonus: `${ENERGY_STATES[fastEnergy].label} | ${MOOD_STATES[fastMood].label} | ${WELLBEING_STATES[fastWellbeing].label}`,
       pulse: fastPulse > 30 ? fastPulse : null,
       weight: fastWeight > 10 ? Number(fastWeight.toFixed(1)) : null,
       systolic: fastSystolic > 30 ? fastSystolic : null,
@@ -3538,32 +3575,32 @@ export default function MyDayScreen({
                 </button>
               </div>
 
-              {/* 1. Тонус — единый субъективный блок */}
-              <div className="flex flex-col gap-1.5">
-                <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-widest px-1">Тонус</span>
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    { id: "отличный", val: "☀️ Отличный", bg: "active:bg-amber-100 text-amber-900 border-amber-200 bg-amber-50/40" },
-                    { id: "нормальный", val: "⛅ Нормальный", bg: "active:bg-emerald-100 text-emerald-950 border-emerald-250/30 bg-emerald-50/40" },
-                    { id: "тяжёлый", val: "🌧️ Тяжёлый", bg: "active:bg-slate-200 text-slate-900 border-slate-300 bg-slate-100/40" }
-                  ].map(item => {
-                    const active = fastTonus === item.id;
-                    return (
-                      <button
-                        key={item.id}
-                        type="button"
-                        onClick={() => setFastTonus(item.id as any)}
-                        className={`py-2.5 px-1 rounded-xl text-xs font-bold text-center border transition-all cursor-pointer ${
-                          active 
-                            ? "bg-gradient-to-r from-rose-500 to-pink-500 text-white border-transparent shadow-xs scale-102"
-                            : item.bg
-                        }`}
-                      >
-                        {item.val}
-                      </button>
-                    );
-                  })}
-                </div>
+              {/* 1. Энергия / Настроение / Самочувствие — циклические 2D-миниатюры */}
+              <div className="flex flex-row justify-around items-start">
+                {[
+                  { title: "ЭНЕРГИЯ", states: ENERGY_STATES, current: fastEnergy, onClick: cycleEnergy },
+                  { title: "НАСТРОЕНИЕ", states: MOOD_STATES, current: fastMood, onClick: cycleMood },
+                  { title: "САМОЧУВСТВИЕ", states: WELLBEING_STATES, current: fastWellbeing, onClick: cycleWellbeing }
+                ].map(cat => {
+                  const state = cat.states[cat.current];
+                  return (
+                    <button
+                      key={cat.title}
+                      type="button"
+                      onClick={cat.onClick}
+                      className="flex flex-col items-center gap-1.5 cursor-pointer bg-transparent border-0 outline-none"
+                    >
+                      <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">{cat.title}</span>
+                      <img
+                        src={state.img}
+                        alt={state.label}
+                        className="w-20 h-20 object-contain select-none pointer-events-none"
+                        draggable={false}
+                      />
+                      <span className="text-[11px] font-extrabold text-slate-700">{state.label}</span>
+                    </button>
+                  );
+                })}
               </div>
 
               {/* 2. Пульс, Вес, Давление — крупные степперы с удержанием */}
