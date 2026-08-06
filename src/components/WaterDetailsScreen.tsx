@@ -472,32 +472,37 @@ export default function WaterDetailsScreen({
           </div>
 
           {/* Interactive selected bar summary row */}
-          <div className="flex flex-col gap-3 mt-1">
-            <h3 className="text-[12px] font-extrabold text-slate-400 tracking-wider uppercase ml-1">
-              ЖУРНАЛ ГИДРАТАЦИИ ЗА ДЕНЬ {selectedGraphDay}
-            </h3>
+          <div className="bg-white rounded-2xl p-3.5 border border-[#E0F2F1]/60 flex flex-col gap-2 mt-1 shadow-sm">
+            <div className="flex justify-between items-baseline mb-1">
+              <span className="text-[11.5px] font-bold text-slate-500 uppercase tracking-wider block">
+                ЖУРНАЛ ГИДРАТАЦИИ ЗА ДЕНЬ {selectedGraphDay}
+              </span>
+              <span className="text-[10px] font-bold text-slate-400">
+                Записей: {graphDayEntries.length}
+              </span>
+            </div>
             
             {graphDayEntries.length > 0 ? (
-              <div className="flex flex-col gap-2">
+              <div className="flex flex-col gap-1.5 max-h-[160px] overflow-y-auto scrollbar-none pr-1">
                 {graphDayEntries.map((entry, index) => {
-                  const opacity = 0.05 + (index * 0.08);
+                  const opacity = 0.05 + (index * 0.05);
                   return (
                     <div 
                       key={entry.id || index}
-                      className="flex items-center justify-between px-1.5 py-1.5 rounded-[18px] transition-all"
-                      style={{ backgroundColor: `rgba(59, 130, 246, ${opacity})` }}
+                      className="flex items-center justify-between px-3 py-2 rounded-xl transition-all"
+                      style={{ backgroundColor: `rgba(14, 165, 233, ${opacity})` }}
                     >
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2.5">
                         <img 
                           src={getVolumeIcon(entry.amount)} 
                           alt="Объем" 
-                          className="w-7 h-7 object-contain drop-shadow-sm" 
+                          className="w-5 h-5 object-contain drop-shadow-sm" 
                         />
-                        <span className="text-[16px] font-bold text-slate-800 font-mono">
+                        <span className="text-[13px] font-bold text-slate-700 font-mono">
                           {entry.amount} мл
                         </span>
                       </div>
-                      <span className="text-[14px] font-bold text-slate-500 font-mono opacity-80">
+                      <span className="text-[11px] font-semibold text-slate-500 font-mono">
                         {entry.time}
                       </span>
                     </div>
@@ -505,9 +510,9 @@ export default function WaterDetailsScreen({
                 })}
               </div>
             ) : (
-              <div className="bg-slate-50 p-4 rounded-2xl border border-gray-100 flex items-center justify-center text-[13px] text-slate-400 font-medium">
-                Нет записей о воде за этот день
-              </div>
+              <p className="text-[11.5px] text-slate-400 font-medium italic mt-0.5">
+                Записи воды за этот день отсутствуют
+              </p>
             )}
           </div>
         </div>
