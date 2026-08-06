@@ -215,8 +215,9 @@ export default function MeasurementsDetailsScreen({
 
   // Anna Context logic
   const pTonus = latestSelectedDayLog ? parseTonus(latestSelectedDayLog.tonus) : { energy: "0", mood: "0", wellbeing: "0" };
-  const currentWeightDelta = (latestSelectedDayLog?.weight && profileInitialWeight) 
-    ? latestSelectedDayLog.weight - profileInitialWeight 
+  const usedInitialWeight = stats.initialWeight || null;
+  const currentWeightDelta = (latestSelectedDayLog?.weight && usedInitialWeight) 
+    ? latestSelectedDayLog.weight - usedInitialWeight 
     : null;
 
   const annaCtx = {
@@ -224,7 +225,7 @@ export default function MeasurementsDetailsScreen({
     userGender: userGender,
     pulse: latestSelectedDayLog?.pulse || null,
     weight: latestSelectedDayLog?.weight || null,
-    initialWeight: profileInitialWeight || null,
+    initialWeight: usedInitialWeight,
     weightDelta: currentWeightDelta,
     tonusEnergy: ENERGY_STATES[parseInt(pTonus.energy)]?.label || null,
     tonusMood: MOOD_STATES[parseInt(pTonus.mood)]?.label || null,
