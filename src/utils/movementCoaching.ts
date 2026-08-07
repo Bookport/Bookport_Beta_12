@@ -1,105 +1,60 @@
-import { getPlural } from "./pluralize";
+import { MovementContext, getRandomPhrase } from "./movementPhrases";
 
-export interface MovementCoachingParams {
-  userName: string;
-  userGender: "female" | "male";
-  todayTotalMin: number;
-  dailyTargetMin: number;
-  streak: number;
-  latestActivityType: string | null;
-}
-
-interface CoachingResult {
-  status: string;
-  label: string;
+export interface MovementAdviceResult {
+  text: string;
   glowBorderClass: string;
   statusBadge: string;
-  text: string;
+  label: string;
 }
 
-export function getAnnaMovementCoaching(params: MovementCoachingParams): CoachingResult {
-  const { userName, userGender, todayTotalMin, dailyTargetMin, streak, latestActivityType } = params;
-  const genderEnd = userGender === "male" ? "" : "а";
-  const genderSya = userGender === "male" ? "ся" : "сь";
+export const generateMovementSummary = (ctx: MovementContext): MovementAdviceResult => {
+  let text = "";
+  // Базовые стили для 0 минут
+  let glowBorderClass = "border-[#94A3B8] shadow-slate-150/50 shadow-md"; 
+  let statusBadge = "bg-slate-100 text-slate-700";
+  let label = "Готовы начать?";
 
-  const rand = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
-
-  if (todayTotalMin >= 60) {
-    return {
-      status: "overactive",
-      label: "Сверхактивность!",
-      glowBorderClass: "border-[#F97316] shadow-[#FDBA74]/75 shadow-md",
-      statusBadge: "bg-[#FFEDD5] text-[#C2410C]",
-      text: rand([
-        `Невероятно, ${userName}! Больше часа в движении — это феноменальная выносливость. В системе WFPB мы бережём сосуды и сердце, поэтому помни: качественный отдых так же важен, как и тренировка. Дай телу восстановиться! 🌟`,
-        `Ого, ${userName}! Твоей энергии сегодня можно позавидовать. Ты много двигал${genderEnd}${genderSya}, а значит, лимфоток сейчас в идеальном состоянии. Обязательно восполни гидробаланс и хорошо отдохни. 💧`,
-        `Отличная работа, ${userName}! Более 60 минут активности — это серьезно. Не забывай, что главное в нашем подходе — это долгосрочная регулярность, а не разовые рекорды. Поблагодари себя за труд и позволь себе расслабление. 🧘`
-      ])
-    };
-  }
-
-  if (todayTotalMin >= dailyTargetMin) {
-    return {
-      status: "excellent",
-      label: "Цель достигнута!",
-      glowBorderClass: "border-[#10B981] shadow-[#A7F3D0]/75 shadow-md",
-      statusBadge: "bg-[#D1FAE5] text-[#065F46]",
-      text: rand([
-        `Потрясающий день, ${userName}! Ты сегодня двигаешься просто образцово. Твои ${todayTotalMin} ${getPlural(todayTotalMin, ['минута', 'минуты', 'минут'])} активности — это мощный вклад в здоровый вес и поддержку сосудов. Так держать! 🔥`,
-        `Норма выполнена, ${userName}! ${todayTotalMin} ${getPlural(todayTotalMin, ['минута', 'минуты', 'минут'])} движения — это твоя личная победа сегодня. Благодаря отсутствию лишней соли, твое сердце работает легко и свободно. Отличная дисциплина! 🌿`,
-        `Браво, ${userName}! Дневная цель по активности закрыта. ${todayTotalMin} ${getPlural(todayTotalMin, ['минута', 'минуты', 'минут'])} пролетели не зря. Горжусь твоей стабильностью, это лучший подарок для твоего долголетия. ✨`
-      ])
-    };
-  }
-
-  if (todayTotalMin === 0) {
-    if (streak > 1) {
-      return {
-        status: "reminder",
-        label: "Прорыв ритма?",
-        glowBorderClass: "border-[#FACC15] shadow-[#FEF08A]/75 shadow-md",
-        statusBadge: "bg-[#FEF08A] text-[#854D0E]",
-        text: rand([
-          `Привет, ${userName}! Твоя серия из ${streak} активных дней на паузе. WFPB и движение — неразделимы. Давай сделаем 10-15 минут лёгкой растяжки, чтобы не терять набранный ритм? 🌿`,
-          `Эй, ${userName}! Вчера ты отлично справлял${genderEnd}${genderSya}, а сегодня организм просит небольшого заряда бодрости. Даже легкая прогулка поможет разогнать кровь. Попробуем? 🚶‍♀️`,
-          `${userName}, твоя впечатляющая серия в ${streak} дней заслуживает продолжения. Тело уже привыкло к хорошему, давай подарим ему немного движения, чтобы поддержать сосуды в тонусе! 🌟`
-        ])
-      };
-    }
-    return {
-      status: "motivate",
-      label: "Готовы начать?",
+  if (ctx.activeMinutes === 0) {
+    return { 
+      text: "Движение — это жизнь! Давай сделаем хотя бы короткую разминку сегодня.",
       glowBorderClass: "border-[#94A3B8] shadow-slate-150/50 shadow-md",
       statusBadge: "bg-slate-100 text-slate-700",
-      text: rand([
-        `Привет, ${userName}! Сегодня твоё тело ещё не почувствовало радость движения. Движение — это главный транспорт нутриентов к клеткам. Выбирай комфортную активность и жми «Старт»! ☀️`,
-        `${userName}, пора размяться! Даже 15 минут спокойной ходьбы творят чудеса с лимфотоком и доставляют питательные вещества. Не гонись за рекордами, просто начни. 🌱`,
-        `Здравствуй, ${userName}! На чистом растительном питании энергия накапливается легко, но её нужно запускать в работу. Предлагаю короткую разминку, чтобы взбодриться! 🚀`
-      ])
+      label: "Готовы начать?"
     };
   }
+  
+  const percent = ctx.dailyGoal > 0 ? (ctx.activeMinutes / ctx.dailyGoal) * 100 : 0;
 
-  let activityContext = "";
-  if (latestActivityType) {
-    const act = latestActivityType.toLowerCase();
-    if (act.includes("йога") || act.includes("растяжка") || act.includes("мобилити")) {
-      activityContext = " Гибкость и баланс, которые дает эта тренировка, прекрасно дополняют легкость WFPB-рациона.";
-    } else if (act.includes("кардио") || act.includes("велосипед") || act.includes("танцы") || act.includes("прогулка")) {
-      activityContext = " Твое сердце сейчас отлично качает кровь, а лимфоток работает как часы.";
-    } else if (act.includes("силов") || act.includes("зарядка")) {
-      activityContext = " Приятный тонус мышц после нагрузки — верный признак, что нутриенты пошли точно в цель.";
-    }
+  if (percent < 50) {
+    glowBorderClass = "border-[#FACC15] shadow-[#FEF08A]/75 shadow-md";
+    statusBadge = "bg-[#FEF08A] text-[#854D0E]";
+    label = "Начало положено";
+
+    if (ctx.pulse && ctx.pulse > 75) text = getRandomPhrase("movementCritical_HighPulse", ctx);
+    else if (ctx.weightDelta && ctx.weightDelta >= 0) text = getRandomPhrase("movementCritical_WeightGain", ctx);
+    else text = getRandomPhrase("movementCritical_Base", ctx);
+  } 
+  else if (percent >= 50 && percent < 100) {
+    glowBorderClass = "border-[#A78BFA] shadow-[#DDD6FE]/75 shadow-md";
+    statusBadge = "bg-[#EDE9FE] text-[#6D28D9]";
+    label = "Хороший темп";
+    text = getRandomPhrase("movementProgress", ctx);
+  } 
+  else {
+    glowBorderClass = "border-[#10B981] shadow-[#A7F3D0]/75 shadow-md";
+    statusBadge = "bg-[#D1FAE5] text-[#065F46]";
+    label = "Цель выполнена";
+    
+    if (ctx.weightDelta && ctx.weightDelta < 0) text = getRandomPhrase("movementGoalReached_WeightLoss", ctx);
+    else text = getRandomPhrase("movementGoalReached_Base", ctx);
   }
 
-  return {
-    status: "progressing",
-    label: "Отличный темп!",
-    glowBorderClass: "border-[#A78BFA] shadow-[#DDD6FE]/75 shadow-md",
-    statusBadge: "bg-[#EDE9FE] text-[#6D28D9]",
-    text: rand([
-      `Чудесное начало, ${userName}! Ты уже набрал${genderEnd} ${todayTotalMin} ${getPlural(todayTotalMin, ['минуту', 'минуты', 'минут'])} движения сегодня.${activityContext} Осталось совсем немного до нормы в ${dailyTargetMin} мин. 🌸`,
-      `Процесс пошел, ${userName}! Первые ${todayTotalMin} ${getPlural(todayTotalMin, ['минута', 'минуты', 'минут'])} в копилке.${activityContext} Сохраняй темп, и норма в ${dailyTargetMin} минут будет взята без труда. ✨`,
-      `Хороший разогрев, ${userName}! На счету ${todayTotalMin} ${getPlural(todayTotalMin, ['минута', 'минуты', 'минут'])}.${activityContext} Вечером можно добавить спокойную прогулку, чтобы окончательно закрыть дневную цель! 🌿`
-    ])
-  };
-}
+  // Сверхактивность (overactive) color fallback if > 60
+  if (ctx.activeMinutes >= 60) {
+    glowBorderClass = "border-[#F97316] shadow-[#FDBA74]/75 shadow-md";
+    statusBadge = "bg-[#FFEDD5] text-[#C2410C]";
+    label = "Сверхактивность!";
+  }
+
+  return { text, glowBorderClass, statusBadge, label };
+};

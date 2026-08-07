@@ -3,7 +3,8 @@ import { motion } from "motion/react";
 import BottomBar from "./BottomBar";
 import { MOVEMENT_DAILY_TARGET_MIN, ACTIVITY_CONFIGS } from "../constants/movement";
 import { getMovementAssetPath, getMovementMarkerPath, getMovementAwardPath, getMovementStreakPath } from "../utils/movementAssets";
-import { getAnnaMovementCoaching } from "../utils/movementCoaching";
+import { generateMovementSummary } from "../utils/movementCoaching";
+import { MovementContext } from "../utils/movementPhrases";
 import { getPlural } from "../utils/pluralize";
 import ingrGreenImg from "../assets/ingredients/ingr_green.webp";
 import { 
@@ -169,14 +170,17 @@ export default function MovementDetailsScreen({
   const todayTotalMin = Math.round(todayEntries.reduce((sum, e) => sum + e.duration, 0) / 60);
   const latestActivityType = todayEntries.length > 0 ? todayEntries[todayEntries.length - 1].type : null;
 
-  const annaCoaching = useMemo(() => getAnnaMovementCoaching({
-    userName,
-    userGender: userGender as "female" | "male",
-    todayTotalMin,
-    dailyTargetMin,
-    streak: metrics.streak,
-    latestActivityType
-  }), [userName, userGender, todayTotalMin, dailyTargetMin, metrics.streak, latestActivityType]);
+  const annaCoaching = useMemo(() => {
+    const ctx: MovementContext = {
+      userName: userName,
+      userGender: userGender as "female" | "male",
+      activeMinutes: todayTotalMin,
+      dailyGoal: dailyTargetMin,
+      pulse: null,
+      weightDelta: null
+    };
+    return generateMovementSummary(ctx);
+  }, [userName, userGender, todayTotalMin, dailyTargetMin]);
 
   return (
     <div className="w-full flex flex-col justify-between relative bg-[#FAF9FD]" id="movement-details-screen">
