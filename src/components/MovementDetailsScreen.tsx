@@ -404,7 +404,7 @@ export default function MovementDetailsScreen({
             </div>
 
             {selectedDayEntries.length > 0 ? (
-              <div className="flex flex-col gap-2 max-h-64 overflow-y-auto scrollbar-none">
+              <div className="flex flex-col gap-1 max-h-56 overflow-y-auto scrollbar-none">
                 {selectedDayEntries.map((entry, index) => {
                   const cfgKey = Object.keys(ACTIVITY_CONFIGS).find(k => ACTIVITY_CONFIGS[k].name === entry.type) || entry.type || "Walk";
                   const cfg = ACTIVITY_CONFIGS[cfgKey] || ACTIVITY_CONFIGS["Walk"];
