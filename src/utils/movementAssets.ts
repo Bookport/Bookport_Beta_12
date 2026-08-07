@@ -7,6 +7,7 @@ import strengthFemale from "../assets/images/movement/female/strength.webp";
 import cyclingFemale from "../assets/images/movement/female/cycling.webp";
 import dancingFemale from "../assets/images/movement/female/dancing.webp";
 import mobilityFemale from "../assets/images/movement/female/mobility.webp";
+import activitFemale from "../assets/images/movement/female/activit.webp";
 
 import walkMale from "../assets/images/movement/male/walk.webp";
 import gymnasticsMale from "../assets/images/movement/male/gymnastics.webp";
@@ -17,7 +18,6 @@ import strengthMale from "../assets/images/movement/male/strength.webp";
 import cyclingMale from "../assets/images/movement/male/cycling.webp";
 import dancingMale from "../assets/images/movement/male/dancing.webp";
 import mobilityMale from "../assets/images/movement/male/mobility.webp";
-import activitFemale from "../assets/images/movement/female/activit.webp";
 import activitMale from "../assets/images/movement/male/activit.webp";
 
 import markerTimer from "../assets/images/movement/markers/timer.webp";

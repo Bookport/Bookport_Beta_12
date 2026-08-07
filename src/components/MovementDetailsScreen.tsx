@@ -2,27 +2,16 @@ import React, { useState, useEffect, useMemo } from "react";
 import { motion } from "motion/react";
 import BottomBar from "./BottomBar";
 import { MOVEMENT_DAILY_TARGET_MIN, ACTIVITY_CONFIGS } from "../constants/movement";
-import { getMovementAssetPath, getMovementMarkerPath, getMovementAwardPath, getMovementStreakPath } from "../utils/movementAssets";
-import { generateMovementSummary } from "../utils/movementCoaching";
-import { MovementContext } from "../utils/movementPhrases";
-import { getPlural } from "../utils/pluralize";
-import ingrGreenImg from "../assets/ingredients/ingr_green.webp";
+import { getMovementAssetPath } from "../utils/movementAssets";
 import vsegoVremenyImg from "../assets/images/movement/markers/vsego vremeny.webp";
 import spisokAktivnostyImg from "../assets/images/movement/markers/spisok aktivnosty.webp";
 import aktivnayaSeriyaImg from "../assets/images/movement/markers/aktivnaya seriya.webp";
 import vsegoDyisgbiaImg from "../assets/images/movement/markers/vsego dyisgbia.webp";
+import { getAnnaMovementCoaching } from "../utils/movementCoaching";
+import { getPlural } from "../utils/pluralize";
+import ingrGreenImg from "../assets/ingredients/ingr_green.webp";
 import { 
-  ArrowLeft, 
-  Activity, 
-  Clock, 
-  Award, 
-  TrendingUp, 
-  Zap, 
-  HelpCircle,
-  CheckCircle2,
-  Calendar,
-  Flame,
-  ListFilter
+  ArrowLeft
 } from "lucide-react";
 import { resolveAvatar } from "../utils/annaAvatarResolver";
 import { useAppStore, type MovementEntry } from "../store/useAppStore";
@@ -174,17 +163,14 @@ export default function MovementDetailsScreen({
   const todayTotalMin = Math.round(todayEntries.reduce((sum, e) => sum + e.duration, 0) / 60);
   const latestActivityType = todayEntries.length > 0 ? todayEntries[todayEntries.length - 1].type : null;
 
-  const annaCoaching = useMemo(() => {
-    const ctx: MovementContext = {
-      userName: userName,
-      userGender: userGender as "female" | "male",
-      activeMinutes: todayTotalMin,
-      dailyGoal: dailyTargetMin,
-      pulse: null,
-      weightDelta: null
-    };
-    return generateMovementSummary(ctx);
-  }, [userName, userGender, todayTotalMin, dailyTargetMin]);
+  const annaCoaching = useMemo(() => getAnnaMovementCoaching({
+    userName,
+    userGender: userGender as "female" | "male",
+    todayTotalMin,
+    dailyTargetMin,
+    streak: metrics.streak,
+    latestActivityType
+  }), [userName, userGender, todayTotalMin, dailyTargetMin, metrics.streak, latestActivityType]);
 
   return (
     <div className="w-full flex flex-col justify-between relative bg-[#FAF9FD]" id="movement-details-screen">
@@ -204,9 +190,7 @@ export default function MovementDetailsScreen({
             <span className="text-[12px] font-black text-slate-400 uppercase tracking-widest leading-none">Дневник</span>
             <span className="text-[18px] font-black text-slate-800" style={{ fontFamily: '"Calibri", sans-serif' }}>Активность</span>
           </div>
-          <div className="w-10 h-10 rounded-full bg-transparent flex items-center justify-center">
-            <Activity className="w-5 h-5 text-indigo-500 animate-pulse" />
-          </div>
+          <div className="w-10 h-10" />
         </div>
 
         {/* 1. UPPER PART: TODAY'S ACTIVITY STATUS */}
@@ -223,33 +207,31 @@ export default function MovementDetailsScreen({
 
           <div className="grid grid-cols-2 gap-3.5 mt-1">
             {/* Left box: sum */}
-            <div 
-              style={{ backgroundColor: "#E8F0FE" }}
-              className="rounded-2xl p-3 shadow-sm relative overflow-hidden"
-            >
-              <span className="text-[11px] text-slate-500 font-bold block mb-1">Всего времени</span>
-              <div className="flex items-baseline gap-1">
-                <span className="text-[26px] font-black text-indigo-950 font-mono">
-                  {todayTotalMin}
-                </span>
-                <span className="text-[14px] font-bold text-slate-600">
-                  {getPlural(todayTotalMin, ['минута', 'минуты', 'минут'])}
-                </span>
+            <div className="rounded-2xl p-3.5 shadow-sm flex flex-row justify-between items-center bg-[#F5F3FF]">
+              <div>
+                <span className="text-[11px] text-slate-500 font-bold block mb-0.5">Всего времени</span>
+                <div className="flex items-baseline gap-1 mt-0.5">
+                  <span className="text-[26px] font-black text-indigo-950 font-mono">
+                    {todayTotalMin}
+                  </span>
+                  <span className="text-[14px] font-bold text-slate-600">
+                    {getPlural(todayTotalMin, ['минута', 'минуты', 'минут'])}
+                  </span>
+                </div>
               </div>
-              <img src={getMovementMarkerPath()} alt="Время" className="w-8 h-8 object-contain opacity-45 absolute right-2 bottom-1.5" />
+              <img src={vsegoVremenyImg} alt="Время" className="w-10 h-10 object-contain shrink-0" />
             </div>
 
             {/* Right box: counts */}
-            <div 
-              style={{ backgroundColor: "#E6F4EA" }}
-              className="rounded-2xl p-3 shadow-sm relative overflow-hidden"
-            >
-              <span className="text-[11px] text-slate-500 font-bold block mb-1">Списков активностей</span>
-              <div className="flex items-baseline gap-1">
-                <span className="text-[26px] font-black text-emerald-950 font-mono">{todayEntries.length}</span>
-                <span className="text-[14px] font-bold text-slate-600">{getPlural(todayEntries.length, ['сессия', 'сессии', 'сессий'])}</span>
+            <div className="bg-[#F0FDF4] rounded-2xl p-3.5 shadow-sm flex flex-row justify-between items-center">
+              <div>
+                <span className="text-[11px] text-slate-500 font-bold block mb-0.5">Списков активностей</span>
+                <div className="flex items-baseline gap-1 mt-0.5">
+                  <span className="text-[26px] font-black text-emerald-950 font-mono">{todayEntries.length}</span>
+                  <span className="text-[14px] font-bold text-slate-600">{getPlural(todayEntries.length, ['сессия', 'сессии', 'сессий'])}</span>
+                </div>
               </div>
-              <img src={getMovementMarkerPath()} alt="Сессии" className="w-8 h-8 object-contain opacity-45 absolute right-2 bottom-1.5" />
+              <img src={spisokAktivnostyImg} alt="Сессии" className="w-10 h-10 object-contain shrink-0" />
             </div>
           </div>
 
@@ -313,27 +295,19 @@ export default function MovementDetailsScreen({
         </div>
 
         {/* 2. MIDDLE PART: ANNA'S MOTIVATIONAL ADVICE BOX */}
-        <div className={`rounded-[28px] p-4 text-left flex flex-col gap-3 transition-all duration-500 relative z-10 mb-5 ${annaCoaching.glowBorderClass}`} id="anna-movement-coaching-box">
+        <div className="rounded-[28px] p-4 text-left flex flex-col gap-3 transition-all duration-500 relative z-10 mb-5 bg-[#E4F6ED] shadow-sm" id="anna-movement-coaching-box">
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-2.5">
-              <div className="relative shrink-0">
-                <div className="w-11 h-11 rounded-full overflow-hidden border border-violet-100/60 shadow-md">
-                  <img 
-                    src={annaAvatarSrc}
-                    alt="Анна советует" 
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-                <div className="absolute -bottom-1 -right-1 w-4.5 h-4.5 rounded-full bg-indigo-600 border border-white flex items-center justify-center p-0.5">
-                  <img src={getMovementMarkerPath()} className="w-full h-full object-contain" />
-                </div>
+              <div className="w-11 h-11 rounded-full overflow-hidden border border-violet-100/60 shadow-md shrink-0">
+                <img 
+                  src={annaAvatarSrc}
+                  alt="Анна советует" 
+                  className="w-full h-full object-cover"
+                />
               </div>
               <div className="flex flex-col">
                 <span className="text-[15px] font-black text-slate-900 leading-none">Анна</span>
                 <span className="text-[11px] font-bold text-text-muted mt-0.5 leading-none">Советник WFPB</span>
-                <span className={`text-[10px] font-extrabold px-2.2 py-0.5 rounded-full inline-block mt-1 tracking-wider uppercase ${annaCoaching.statusBadge}`}>
-                  {annaCoaching.label}
-                </span>
               </div>
             </div>
             
@@ -468,10 +442,7 @@ export default function MovementDetailsScreen({
         <div className="grid grid-cols-2 gap-3.5 mb-6 text-left">
           
           {/* Favorite Activity Type Card */}
-          <div 
-            style={{ backgroundColor: "#F4F0FF" }}
-            className="rounded-[24px] p-3.5 shadow-sm flex items-center justify-between"
-          >
+          <div className="bg-[#F5F3FF] rounded-[24px] p-3.5 shadow-sm flex items-center justify-between">
             <div>
               <span className="text-[10px] uppercase font-black text-slate-400 tracking-wider">ЛЮБИМЫЙ ТИП</span>
               <p className="text-[17px] font-black text-slate-800 mt-1" style={{ fontFamily: '"Calibri", sans-serif' }}>
@@ -485,10 +456,7 @@ export default function MovementDetailsScreen({
           </div>
 
           {/* Current streak tracker */}
-          <div 
-            style={{ backgroundColor: "#FDF2F8" }}
-            className="rounded-[24px] p-3.5 shadow-sm flex items-center justify-between relative overflow-hidden"
-          >
+          <div className="bg-[#F0FDF4] rounded-[24px] p-3.5 shadow-sm flex flex-row justify-between items-center">
             <div>
               <span className="text-[10px] uppercase font-black text-slate-400 tracking-wider">АКТИВНАЯ СЕРИЯ</span>
               <p className="text-[24px] font-black text-indigo-950 mt-1 font-mono">
@@ -498,31 +466,22 @@ export default function MovementDetailsScreen({
                 Рекорд курса: {metrics.maxStreak} {getPlural(metrics.maxStreak, ['день', 'дня', 'дней'])}
               </span>
             </div>
-            <div className="animate-pulse shrink-0 flex items-center justify-center">
-              <img src={getMovementStreakPath()} alt="Серия" className="w-14 h-14 object-contain opacity-80" />
-            </div>
+            <img src={aktivnayaSeriyaImg} alt="Серия" className="w-10 h-10 object-contain shrink-0" />
           </div>
 
           {/* Total Minutes aggregate */}
-          <div 
-            style={{ backgroundColor: "#EAF8F5" }}
-            className="rounded-[24px] p-3.5 shadow-sm flex flex-col justify-between col-span-2"
-          >
-            <div className="flex justify-between items-center">
-              <div>
-                <span className="text-[10px] uppercase font-black text-slate-400 tracking-wider">Всего движения за курс</span>
-                <p className="text-[26px] font-extrabold text-slate-800 mt-0.5" style={{ fontFamily: '"Calibri", sans-serif' }}>
-                  {metrics.totalMinutes} {getPlural(metrics.totalMinutes, ['минута', 'минуты', 'минут'])}
-                </p>
-              </div>
-              <div className="w-[52px] h-[52px] flex items-center justify-center shrink-0">
-                <img src={getMovementAwardPath()} alt="Награда" className="w-14 h-14 object-contain" />
+          <div className="bg-[#F5F3FF] rounded-[24px] p-3.5 shadow-sm flex flex-row justify-between items-center col-span-2">
+            <div>
+              <span className="text-[10px] uppercase font-black text-slate-400 tracking-wide block">Всего движения за курс</span>
+              <p className="text-[24px] font-extrabold text-slate-800 mt-1" style={{ fontFamily: '"Calibri", sans-serif' }}>
+                {metrics.totalMinutes} {getPlural(metrics.totalMinutes, ['минута', 'минуты', 'минут'])}
+              </p>
+              <div className="flex gap-1.5 items-center text-[11px] mt-1.5">
+                <span className="font-extrabold text-[#059669]">Среднее:</span>
+                <span className="text-slate-500 font-bold">{metrics.averageMinutes} мин / день активности</span>
               </div>
             </div>
-            <div className="border-t border-slate-100/90 mt-2.5 pt-2 flex justify-between text-[11px] font-extrabold text-[#059669]">
-              <span>Среднее время активности:</span>
-              <span>{metrics.averageMinutes} мин / день активности</span>
-            </div>
+            <img src={vsegoDyisgbiaImg} alt="Всего движения" className="w-10 h-10 object-contain shrink-0" />
           </div>
         </div>
 
