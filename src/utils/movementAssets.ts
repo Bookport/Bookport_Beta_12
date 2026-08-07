@@ -17,6 +17,7 @@ import strengthMale from "../assets/images/movement/male/strength.webp";
 import cyclingMale from "../assets/images/movement/male/cycling.webp";
 import dancingMale from "../assets/images/movement/male/dancing.webp";
 import mobilityMale from "../assets/images/movement/male/mobility.webp";
+import activitCustom from "../assets/images/movement/activit.webp";
 
 import markerTimer from "../assets/images/movement/markers/timer.webp";
 import markerStreak from "../assets/images/movement/markers/streak.webp";
@@ -35,7 +36,7 @@ const IMAGES = {
     cycling: cyclingFemale,
     dancing: dancingFemale,
     mobility: mobilityFemale,
-    custom: mobilityFemale
+    custom: activitCustom
   },
   male: {
     walk: walkMale,
@@ -47,7 +48,7 @@ const IMAGES = {
     cycling: cyclingMale,
     dancing: dancingMale,
     mobility: mobilityMale,
-    custom: mobilityMale
+    custom: activitCustom
   }
 } as const;
 

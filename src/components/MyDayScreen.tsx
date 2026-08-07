@@ -3290,7 +3290,7 @@ export default function MyDayScreen({
                       style={{ backgroundColor: config.hexColor }}
                       className={`rounded-2xl p-2.5 text-left border transition-all duration-300 flex items-center gap-2.5 relative cursor-pointer ${
                         isSelected 
-                          ? `border-${colorPrefix}-400 shadow-[0_2px_8px_rgba(0,0,0,0.06)] ring-2 ring-${colorPrefix}-400/20 scale-102 z-10`
+                          ? "bg-[#E4F6ED] ring-1 ring-[#34D399] border-transparent scale-102 z-10"
                           : "border-transparent opacity-90 hover:opacity-100"
                       }`}
                     >
@@ -3370,7 +3370,7 @@ export default function MyDayScreen({
                 <button
                   type="button"
                   onClick={() => setShowFastMovement(false)}
-                  className="flex-1 py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-600 font-extrabold rounded-2.5xl text-[14px] transition-all cursor-pointer active:scale-97 text-center"
+                  className="flex-1 py-3.5 bg-[#F1F5F9] hover:bg-slate-200 text-slate-600 font-extrabold rounded-xl text-[14px] transition-all cursor-pointer active:scale-97 text-center"
                 >
                   Отмена
                 </button>
@@ -3386,7 +3386,7 @@ export default function MyDayScreen({
                       saveManualMovementActivity();
                     }
                   }}
-                  className="flex-[2] py-3.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-600 hover:brightness-105 text-white font-black rounded-2.5xl text-[15px] shadow-[0_5px_15px_rgba(99,102,241,0.25)] transition-all cursor-pointer active:scale-97 flex items-center justify-center gap-1.5"
+                  className="flex-[2] py-3.5 bg-[#A78BFA] hover:brightness-105 text-white font-black rounded-xl text-[15px] shadow-sm transition-all cursor-pointer active:scale-97 flex items-center justify-center gap-1.5"
                 >
                   <Sparkles className="w-5 h-5 opacity-90" />
                   {movementEntryMode === "timer" ? "Старт" : "Сохранить"}
