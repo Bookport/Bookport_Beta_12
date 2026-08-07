@@ -367,13 +367,12 @@ export default function MovementDetailsScreen({
               <BarChart
                 data={chartData}
                 margin={{ top: 5, right: 5, left: -30, bottom: 0 }}
-                onClick={(e) => e?.activeLabel && setSelectedGraphDay(Number(e.activeLabel))}
                 className="outline-none border-none focus:outline-none focus:ring-0"
                 style={{ outline: 'none', border: 'none' }}
               >
                 <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: "#94a3b8" }} />
                 <YAxis hide type="number" />
-                <Tooltip content={<CustomMovementTooltip />} cursor={{ fill: 'transparent' }} wrapperStyle={{ outline: 'none', border: 'none', zIndex: 50 }} />
+                <Tooltip content={<CustomMovementTooltip />} cursor={false} wrapperStyle={{ outline: 'none', border: 'none', zIndex: 50 }} />
                 <ReferenceLine y={dailyTargetMin} stroke="#C7D2FE" strokeDasharray="4 4" label={{ value: "Цель", position: 'insideTopRight', fontSize: 9, fill: '#818CF8', fontWeight: 700 }} />
                 <Bar
                   dataKey="minutes"
