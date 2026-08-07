@@ -7,10 +7,10 @@ import { generateMovementSummary } from "../utils/movementCoaching";
 import { MovementContext } from "../utils/movementPhrases";
 import { getPlural } from "../utils/pluralize";
 import ingrGreenImg from "../assets/ingredients/ingr_green.webp";
-import vsegoVremenyImg from "../assets/images/movement/vsego vremeny.webp";
-import spisokAktivnostyImg from "../assets/images/movement/spisok aktivnosty.webp";
-import aktivnayaSeriyaImg from "../assets/images/movement/aktivnaya seriya.webp";
-import vsegoDyisgbiaImg from "../assets/images/movement/vsego dyisgbia.webp";
+import vsegoVremenyImg from "../assets/images/movement/markers/vsego vremeny.webp";
+import spisokAktivnostyImg from "../assets/images/movement/markers/spisok aktivnosty.webp";
+import aktivnayaSeriyaImg from "../assets/images/movement/markers/aktivnaya seriya.webp";
+import vsegoDyisgbiaImg from "../assets/images/movement/markers/vsego dyisgbia.webp";
 import { 
   ArrowLeft, 
   Activity, 
