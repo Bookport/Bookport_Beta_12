@@ -358,7 +358,7 @@ export default function MovementDetailsScreen({
             </div>
           </div>
 
-          <div className="relative h-40 w-full">
+          <div className="relative h-40 w-full outline-none focus:outline-none select-none" tabIndex={-1}>
             <ResponsiveContainer width="100%" height="100%" className="outline-none border-none focus:outline-none focus:ring-0" style={{ outline: 'none', border: 'none' }}>
               <BarChart
                 data={chartData}
@@ -376,6 +376,7 @@ export default function MovementDetailsScreen({
                   radius={[4, 4, 0, 0]}
                   maxBarSize={20}
                   isAnimationActive={false}
+                  style={{ outline: 'none', stroke: 'none' }}
                 >
                   {chartData.map((entry, index) => {
                     const active = entry.day === selectedGraphDay;
