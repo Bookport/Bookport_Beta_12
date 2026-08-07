@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { motion } from "motion/react";
+import { BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 import BottomBar from "./BottomBar";
 import { MOVEMENT_DAILY_TARGET_MIN, ACTIVITY_CONFIGS } from "../constants/movement";
 import { getMovementAssetPath } from "../utils/movementAssets";
@@ -7,7 +8,8 @@ import vsegoVremenyImg from "../assets/images/movement/markers/vsego vremeny.web
 import spisokAktivnostyImg from "../assets/images/movement/markers/spisok aktivnosty.webp";
 import aktivnayaSeriyaImg from "../assets/images/movement/markers/aktivnaya seriya.webp";
 import vsegoDyisgbiaImg from "../assets/images/movement/markers/vsego dyisgbia.webp";
-import { getAnnaMovementCoaching } from "../utils/movementCoaching";
+import { generateMovementSummary } from "../utils/movementCoaching";
+import { MovementContext } from "../utils/movementPhrases";
 import { getPlural } from "../utils/pluralize";
 import ingrGreenImg from "../assets/ingredients/ingr_green.webp";
 import { 
@@ -18,6 +20,18 @@ import { useAppStore, type MovementEntry } from "../store/useAppStore";
 import { api } from "../utils/api";
 
 const annaAvatarSrc = resolveAvatar({ toneGroup: 'positive', intent: 'approval' }).src;
+
+const CustomMovementTooltip = ({ active, payload, label }: any) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="flex flex-col p-2 bg-[#F5F3FF] rounded-xl shadow-sm z-50">
+        <p className="text-slate-700 text-xs">День {label}</p>
+        <p className="text-[#A78BFA] font-bold text-sm">{payload[0].value} мин</p>
+      </div>
+    );
+  }
+  return null;
+};
 
 export type { MovementEntry as MovementLogEntry } from "../store/useAppStore";
 
@@ -163,14 +177,26 @@ export default function MovementDetailsScreen({
   const todayTotalMin = Math.round(todayEntries.reduce((sum, e) => sum + e.duration, 0) / 60);
   const latestActivityType = todayEntries.length > 0 ? todayEntries[todayEntries.length - 1].type : null;
 
-  const annaCoaching = useMemo(() => getAnnaMovementCoaching({
-    userName,
-    userGender: userGender as "female" | "male",
-    todayTotalMin,
-    dailyTargetMin,
-    streak: metrics.streak,
-    latestActivityType
-  }), [userName, userGender, todayTotalMin, dailyTargetMin, metrics.streak, latestActivityType]);
+  const annaCoaching = useMemo(() => {
+    const ctx: MovementContext = {
+      userName,
+      userGender: userGender as "female" | "male",
+      activeMinutes: todayTotalMin,
+      dailyGoal: dailyTargetMin,
+      pulse: null,
+      weightDelta: null
+    };
+    return generateMovementSummary(ctx);
+  }, [userName, userGender, todayTotalMin, dailyTargetMin]);
+
+  const chartData = useMemo(() => {
+    return Array.from({ length: 28 }).map((_, idx) => {
+      const dayNum = idx + 1;
+      const entries = getDayEntries(dayNum);
+      const minutes = Math.round(entries.reduce((sum, e) => sum + e.duration, 0) / 60);
+      return { day: dayNum, minutes, isFuture: dayNum > currentDayIndex };
+    });
+  }, [movementEntries, currentDayIndex]);
 
   return (
     <div className="w-full flex flex-col justify-between relative bg-[#FAF9FD]" id="movement-details-screen">
@@ -219,7 +245,7 @@ export default function MovementDetailsScreen({
                   </span>
                 </div>
               </div>
-              <img src={vsegoVremenyImg} alt="Время" className="w-10 h-10 object-contain shrink-0" />
+              <img src={vsegoVremenyImg} alt="Время" className="w-12 h-12 object-contain shrink-0" />
             </div>
 
             {/* Right box: counts */}
@@ -231,7 +257,7 @@ export default function MovementDetailsScreen({
                   <span className="text-[14px] font-bold text-slate-600">{getPlural(todayEntries.length, ['сессия', 'сессии', 'сессий'])}</span>
                 </div>
               </div>
-              <img src={spisokAktivnostyImg} alt="Сессии" className="w-10 h-10 object-contain shrink-0" />
+              <img src={spisokAktivnostyImg} alt="Сессии" className="w-12 h-12 object-contain shrink-0" />
             </div>
           </div>
 
@@ -332,110 +358,78 @@ export default function MovementDetailsScreen({
             </div>
           </div>
 
-          <div className="relative pt-6 pb-2 px-1">
-            {/* Target 30-min dashed line wrapper */}
-            <div className="absolute top-[30%] left-0 right-0 border-t border-dashed border-indigo-200/45 flex justify-end z-0">
-              <span className="text-[8px] text-indigo-400 font-bold bg-white px-1 -mt-1.5 font-mono z-10">Цель (30 мин)</span>
-            </div>
+          <div className="relative h-40 w-full">
+            <ResponsiveContainer width="100%" height="100%" className="outline-none border-none focus:outline-none focus:ring-0" style={{ outline: 'none', border: 'none' }}>
+              <BarChart
+                data={chartData}
+                margin={{ top: 5, right: 5, left: -30, bottom: 0 }}
+                onClick={(e) => e?.activeLabel && setSelectedGraphDay(Number(e.activeLabel))}
+                className="outline-none border-none focus:outline-none focus:ring-0"
+                style={{ outline: 'none', border: 'none' }}
+              >
+                <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: "#94a3b8" }} />
+                <YAxis hide type="number" />
+                <Tooltip content={<CustomMovementTooltip />} cursor={{ fill: 'transparent' }} wrapperStyle={{ outline: 'none', border: 'none', zIndex: 50 }} />
+                <ReferenceLine y={dailyTargetMin} stroke="#C7D2FE" strokeDasharray="4 4" label={{ value: "Цель", position: 'insideTopRight', fontSize: 9, fill: '#818CF8', fontWeight: 700 }} />
+                <Bar
+                  dataKey="minutes"
+                  radius={[4, 4, 0, 0]}
+                  maxBarSize={20}
+                  isAnimationActive={false}
+                >
+                  {chartData.map((entry, index) => {
+                    const active = entry.day === selectedGraphDay;
+                    let fill = "#e2e8f0";
+                    if (!entry.isFuture && entry.minutes > 0) {
+                      fill = entry.minutes >= dailyTargetMin ? "#818CF8" : "#C4B5FD";
+                    } else if (entry.day === currentDayIndex && todayEntries.length > 0) {
+                      fill = "#A78BFA";
+                    }
+                    return <Cell key={`cell-${index}`} fill={fill} stroke={active ? "#818CF8" : "transparent"} strokeWidth={active ? 2 : 0} />;
+                  })}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
 
-            <div className="flex justify-between items-end gap-[3.5px] h-32 relative z-10">
-              {Array.from({ length: 28 }).map((_, idx) => {
-                const dayNum = idx + 1;
-                const active = dayNum === selectedGraphDay;
-                const isFuture = dayNum > currentDayIndex;
-                
-                const entries = getDayEntries(dayNum);
-                const dMinutes = Math.round(entries.reduce((s, e) => s + e.duration, 0) / 60);
-                
-                // Height percentage bound between 8% and 100%
-                let heightPct = 6;
-                if (dMinutes > 0) {
-                  heightPct = Math.min(100, Math.max(12, Math.round((dMinutes / dailyTargetMin) * 100)));
-                }
-
-                let barBg = "bg-slate-200/50";
-                if (!isFuture && dMinutes > 0) {
-                  if (dMinutes >= dailyTargetMin) {
-                    barBg = "bg-gradient-to-t from-indigo-500 to-indigo-400 shadow-xs";
-                  } else {
-                    barBg = "bg-gradient-to-t from-indigo-350 to-purple-300 shadow-xs";
-                  }
-                } else if (dayNum === currentDayIndex && todayEntries.length > 0) {
-                  barBg = "bg-gradient-to-t from-indigo-400 to-purple-500 animate-pulse";
-                }
-
+        {/* Expanded selected day historic log inspection panel */}
+        <div className="bg-white rounded-2xl shadow-sm p-4 flex flex-col gap-2.5 mb-5">
+          <span className="text-[11.5px] font-bold text-slate-500 uppercase tracking-wider block">
+            Журнал активностей за день {selectedGraphDay}
+          </span>
+          {selectedDayEntries.length > 0 ? (
+            <div className="flex flex-col gap-2 max-h-64 overflow-y-auto scrollbar-none">
+              {selectedDayEntries.map((entry, index) => {
                 return (
-                  <button
-                    key={dayNum}
-                    type="button"
-                    disabled={isFuture}
-                    onClick={() => setSelectedGraphDay(dayNum)}
-                    className="flex-1 flex flex-col items-center h-full group focus:outline-none cursor-pointer"
+                  <div 
+                    key={entry.id || index}
+                    className="flex flex-row items-center justify-between py-2 px-3 rounded-lg bg-slate-50 border border-slate-100"
                   >
-                    <div className="w-full h-full flex items-end relative rounded-full overflow-hidden">
-                      {/* Interactive Column pillar bar */}
-                      <motion.div 
-                        initial={{ height: "0%" }}
-                        animate={{ height: `${heightPct}%` }}
-                        transition={{ duration: 0.5, delay: idx * 0.01 }}
-                        className={`w-full rounded-full transition-all duration-300 ${barBg} ${
-                          active ? "brightness-105 ring-2 ring-indigo-400 ring-offset-1" : "group-hover:brightness-105"
-                        }`}
+                    <div className="flex items-center gap-2">
+                      <img 
+                        src={getMovementAssetPath(entry.type, userGender)} 
+                        alt={entry.type} 
+                        className="w-5 h-5 object-contain"
+                        onError={(e) => (e.currentTarget.style.display='none')}
                       />
+                      <span className="font-extrabold text-slate-800 text-[13px]">{entry.type}</span>
                     </div>
-                    {/* Tick caption */}
-                    <span className={`text-[8.5px] mt-1.5 font-mono font-bold leading-none ${
-                      active ? "text-indigo-600 font-extrabold scale-110" : "text-slate-400"
-                    }`}>
-                      {dayNum}
-                    </span>
-                  </button>
+                    <div className="font-mono text-indigo-700 font-bold flex items-center gap-1.5 text-[13px]">
+                      <span>{Math.round(entry.duration / 60)} мин</span>
+                      <span className="text-slate-300 text-[11px] font-semibold font-sans">
+                        в {entry.timeString}
+                      </span>
+                    </div>
+                  </div>
                 );
               })}
             </div>
-          </div>
-
-          {/* Expanded selected day historic log inspection panel */}
-          <div className="bg-slate-50 rounded-2xl p-3 border border-slate-100 flex flex-col gap-2 relative mt-1">
-            <span className="text-[11.5px] font-bold text-slate-500 uppercase tracking-wider block">
-              Журнал активностей за день {selectedGraphDay}
-            </span>
-            {selectedDayEntries.length > 0 ? (
-              <div className="flex flex-col gap-1.5">
-                {selectedDayEntries.map((entry, index) => {
-                  const cfgKey = Object.keys(ACTIVITY_CONFIGS).find(k => ACTIVITY_CONFIGS[k].name === entry.type) || "Walk";
-                  const cfg = ACTIVITY_CONFIGS[cfgKey];
-                  return (
-                    <div 
-                      key={entry.id || index}
-                      style={{ backgroundColor: cfg.hexColor }}
-                      className="rounded-xl p-2.5 border border-slate-100 flex justify-between items-center text-[13px] shadow-xs"
-                    >
-                      <div className="flex items-center gap-2">
-                        <img 
-                          src={getMovementAssetPath(entry.type, userGender)} 
-                          alt={entry.type} 
-                          className="w-6 h-6 object-contain"
-                          onError={(e) => (e.currentTarget.style.display='none')}
-                        />
-                        <span className="font-extrabold text-slate-800">{entry.type}</span>
-                      </div>
-                      <div className="font-mono text-indigo-700 font-bold flex items-center gap-1.5">
-                        <span>{Math.round(entry.duration / 60)} мин</span>
-                        <span className="text-slate-300 text-[11px] font-semibold font-sans">
-                          в {entry.timeString}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <p className="text-[12px] text-slate-400 font-medium italic mt-0.5">
-                {selectedGraphDay > currentDayIndex ? "Данные из будущего скрыты" : "Активностей в этот день не зафиксировано"}
-              </p>
-            )}
-          </div>
+          ) : (
+            <p className="text-[12px] text-slate-400 font-medium italic">
+              {selectedGraphDay > currentDayIndex ? "Данные из будущего скрыты" : "Активностей в этот день не зафиксировано"}
+            </p>
+          )}
         </div>
 
         {/* 4. STATISTICS MATRIX BENTO GRIDS */}
@@ -466,7 +460,7 @@ export default function MovementDetailsScreen({
                 Рекорд курса: {metrics.maxStreak} {getPlural(metrics.maxStreak, ['день', 'дня', 'дней'])}
               </span>
             </div>
-            <img src={aktivnayaSeriyaImg} alt="Серия" className="w-10 h-10 object-contain shrink-0" />
+            <img src={aktivnayaSeriyaImg} alt="Серия" className="w-12 h-12 object-contain shrink-0" />
           </div>
 
           {/* Total Minutes aggregate */}
@@ -481,7 +475,7 @@ export default function MovementDetailsScreen({
                 <span className="text-slate-500 font-bold">{metrics.averageMinutes} мин / день активности</span>
               </div>
             </div>
-            <img src={vsegoDyisgbiaImg} alt="Всего движения" className="w-10 h-10 object-contain shrink-0" />
+            <img src={vsegoDyisgbiaImg} alt="Всего движения" className="w-14 h-14 object-contain shrink-0" />
           </div>
         </div>
 
