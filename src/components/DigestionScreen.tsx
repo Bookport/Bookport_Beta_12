@@ -605,7 +605,7 @@ export default function DigestionScreen({
         </div>
 
         {/* SECTION 1: СЕГОДНЯШНЯЯ КАРТИНА (Today's dynamic summary) */}
-        <div className="bg-white rounded-[26px] border border-slate-100 shadow-[0_4px_18px_rgba(15,23,42,0.03)] p-4.5 mb-4 text-left relative overflow-hidden">
+        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-4.5 mb-4 text-left relative overflow-hidden">
           <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-orange-50/40 rounded-full blur-xl pointer-events-none" />
           
           <div className="flex justify-between items-center mb-3">
@@ -706,22 +706,19 @@ export default function DigestionScreen({
         )}
 
         {/* SECTION 2: СМЫСЛОВОЙ БЛОК АННЫ (Anna's guidance block) */}
-        <div className="bg-gradient-to-b from-[#FFFBEB] to-[#FEF3C7] border border-amber-200/50 rounded-[26px] p-5 mb-4 shadow-[inset_0_2px_4px_rgba(255,255,255,0.7),_0_5px_15px_rgba(245,158,11,0.08)] text-left relative overflow-hidden">
+        <div className="bg-gradient-to-b from-[#FFFBEB] to-[#FEF3C7] border border-amber-200/50 rounded-3xl p-5 mb-4 shadow-sm text-left relative overflow-hidden">
           <div className="absolute top-1 right-3.5 text-[28px] opacity-20 pointer-events-none select-none">✨</div>
           <div className="absolute -left-12 -bottom-12 w-28 h-28 bg-amber-200/20 rounded-full blur-xl pointer-events-none" />
 
           <div className="flex items-center gap-2 mb-3.5">
             <div className="relative shrink-0 select-none">
-              <div className="w-[45px] h-[45px] rounded-full overflow-hidden shadow-md border border-amber-200/30 relative">
+              <div className="w-[45px] h-[45px] rounded-full overflow-hidden shadow-sm border border-amber-200/30 relative">
                 <img
                   src={annaAvatarSrc}
                   alt="Анна — Советник WFPB"
                   className="w-full h-full object-cover"
                 />
               </div>
-              <span className="absolute -bottom-0.5 -right-0.5 w-[12px] h-[12px] bg-[#10D150] rounded-full border-2 border-white shadow-sm flex items-center justify-center">
-                <span className="w-1.5 h-1.5 bg-white rounded-full animate-ping" />
-              </span>
             </div>
             <div>
               <span className="text-[9.5px] font-black text-amber-700 uppercase tracking-widest block leading-none">РЕКОМЕНДАЦИИ</span>
@@ -809,7 +806,7 @@ export default function DigestionScreen({
         </div>
 
         {/* SECTION 3: ВЫСОКОКЛАССНАЯ СТАТИСТИКА И ПАТТЕРНЫ */}
-        <div className="bg-white rounded-[26px] border border-slate-100 shadow-[0_4px_18px_rgba(15,23,42,0.03)] p-4.5 mb-4 text-left">
+        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-4.5 mb-4 text-left">
           <div className="mb-3 px-0.5">
             <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">ОБЩАЯ СТАТИСТИКА</span>
             <h2 className="text-[16px] font-black text-slate-850" style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}>
@@ -926,18 +923,6 @@ export default function DigestionScreen({
         {/* DATA PERSISTENCE INFO */}
         <div className="bg-slate-100/50 rounded-2xl p-3 border border-slate-200/50 text-[11px] text-slate-500 leading-snug font-medium text-left mb-6.5">
           ℹ️ Все записи о пищеварении сохраняются в вашем дневнике. Статистика ЖКТ обновляется по мере добавления новых данных.
-        </div>
-
-        {/* Back and Confirm buttons row */}
-        <div className="w-full px-2 mb-4 flex justify-center gap-3">
-          <button
-            type="button"
-            onClick={onBack}
-            className="w-full py-4 rounded-[28px] text-[16px] font-black text-white bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 active:scale-95 shadow-[0_5px_15px_rgba(249,115,22,0.22)] transition-all cursor-pointer flex items-center justify-center relative select-none"
-            style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}
-          >
-            Вернуться на главную
-          </button>
         </div>
 
       </div>
