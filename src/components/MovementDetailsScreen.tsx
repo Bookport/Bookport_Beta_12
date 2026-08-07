@@ -380,7 +380,25 @@ export default function MovementDetailsScreen({
                   maxBarSize={20}
                   isAnimationActive={false}
                   style={{ outline: 'none', stroke: 'none' }}
-                  onClick={(entry) => setSelectedGraphDay(Number(entry.payload?.day ?? entry.originalDataIndex + 1))}
+                  shape={(props: any) => {
+                    const { x, y, width, height, fill, stroke, strokeWidth } = props;
+                    const day = Number(props.payload?.day ?? props.originalDataIndex + 1);
+                    return (
+                      <rect
+                        x={x}
+                        y={y}
+                        width={width}
+                        height={height}
+                        rx={4}
+                        fill={fill}
+                        stroke={stroke}
+                        strokeWidth={strokeWidth}
+                        className="cursor-pointer"
+                        style={{ outline: 'none' }}
+                        onClick={() => setSelectedGraphDay(day)}
+                      />
+                    );
+                  }}
                 >
                   {chartData.map((entry, index) => {
                     const active = entry.day === selectedGraphDay;
