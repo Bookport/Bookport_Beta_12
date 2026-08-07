@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { motion } from "motion/react";
 import { 
   ArrowLeft, 
@@ -135,26 +135,10 @@ export default function WaterDetailsScreen({
     updated[currentDayIndex] = newVal;
     setDayWeights(updated);
   };
-
-  // Generate Anna's customizable analysis quote for the selected day or today
-  const [annaAdvice, setAnnaAdvice] = useState<{ text: string; mood: "good" | "neutral" | "warning" | "alert" }>({
-    text: "Загрузка биологического ритма...",
-    mood: "neutral"
-  });
-
-  useEffect(() => {
-    // Generate advice based on current ratios
+  // Generate Anna's customizable analysis quote using useMemo
+  const annaAdviceText = useMemo(() => {
     const weight = getResolvedWeightForDay(currentDayIndex);
     const target = weight * 30;
-    const todayLogs = waterLogs[currentDayIndex] || [];
-
-    const hoursSinceLastDrink = (() => {
-      if (todayLogs.length === 0) return 99
-      const last = todayLogs[todayLogs.length - 1]
-      return (Date.now() - last.timestamp) / (1000 * 60 * 60)
-    })()
-
-    const lastDrinkVolume = todayLogs.length > 0 ? todayLogs[todayLogs.length - 1].amount : 0;
 
     const ctx: WaterContext = {
       userName: userName,
@@ -164,23 +148,8 @@ export default function WaterDetailsScreen({
       pulse: null,
       weightDelta: null
     };
-    const text = generateWaterSummary(ctx);
-
-    let mood: "good" | "neutral" | "warning" | "alert" = "neutral";
-    if (water === 0) {
-      mood = "alert";
-    } else if (water >= target) {
-      mood = "good";
-    } else if (water >= target * 0.85) {
-      mood = "good";
-    } else if (hoursSinceLastDrink > 2.5) {
-      mood = "warning";
-    } else {
-      mood = "good";
-    }
-
-    setAnnaAdvice({ text, mood });
-  }, [water, currentDayIndex, waterLogs, userGender, userName]);
+    return generateWaterSummary(ctx);
+  }, [userName, userGender, water, currentDayIndex, dayWeights]);
 
   // Calculations for past history cycle
 
@@ -398,7 +367,7 @@ export default function WaterDetailsScreen({
           </div>
 
           <div className="bg-white/80 backdrop-blur-xs p-3 rounded-2xl text-[14px] leading-relaxed font-semibold text-slate-800">
-            {annaAdvice.text}
+            {annaAdviceText}
           </div>
         </div>
 
