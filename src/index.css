@@ -1,5 +1,26 @@
 @import "tailwindcss";
 
+/* Forcefully suppress browser focus rings on all Recharts internals.
+   Recharts 3.x makes the chart surface focusable (tabIndex) with
+   accessibilityLayer on, so clicking a bar paints a default focus
+   ring around the whole chart. These rules disable it everywhere. */
+.recharts-wrapper,
+.recharts-wrapper:focus,
+.recharts-wrapper:focus-visible,
+.recharts-surface,
+.recharts-surface:focus,
+.recharts-surface:focus-visible,
+.recharts-layer,
+.recharts-layer:focus,
+.recharts-sector,
+.recharts-sector:focus,
+.recharts-rectangle,
+.recharts-rectangle:focus {
+  outline: none !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
 @theme {
   --font-sans: "Calibri", "Candara", "Segoe UI", system-ui, sans-serif;
   
