@@ -346,7 +346,7 @@ export default function MovementDetailsScreen({
         </div>
 
         {/* 3. LOWER PART: LONG TERM MOVEMENT ANALYTICS COURSE CHART & METRICS */}
-        <div className="bg-white rounded-[32px] border border-gray-100 p-4 shadow-[0_4px_16px_rgba(0,0,0,0.02)] text-left flex flex-col gap-3 mb-5">
+        <div className="bg-white rounded-[2rem] p-5 shadow-sm text-left flex flex-col gap-3 mb-5">
           <div className="flex justify-between items-baseline px-1">
             <div className="flex flex-col">
               <span className="text-[11px] font-black text-indigo-600 tracking-wide uppercase">СТАТИСТИКА КУРСА</span>
@@ -391,45 +391,53 @@ export default function MovementDetailsScreen({
               </BarChart>
             </ResponsiveContainer>
           </div>
-        </div>
 
-        {/* Expanded selected day historic log inspection panel */}
-        <div className="bg-white rounded-2xl shadow-sm p-4 flex flex-col gap-2.5 mb-5">
-          <span className="text-[11.5px] font-bold text-slate-500 uppercase tracking-wider block">
-            Журнал активностей за день {selectedGraphDay}
-          </span>
-          {selectedDayEntries.length > 0 ? (
-            <div className="flex flex-col gap-2 max-h-64 overflow-y-auto scrollbar-none">
-              {selectedDayEntries.map((entry, index) => {
-                return (
-                  <div 
-                    key={entry.id || index}
-                    className="flex flex-row items-center justify-between py-2 px-3 rounded-lg bg-slate-50 border border-slate-100"
-                  >
-                    <div className="flex items-center gap-2">
-                      <img 
-                        src={getMovementAssetPath(entry.type, userGender)} 
-                        alt={entry.type} 
-                        className="w-5 h-5 object-contain"
-                        onError={(e) => (e.currentTarget.style.display='none')}
-                      />
-                      <span className="font-extrabold text-slate-800 text-[13px]">{entry.type}</span>
-                    </div>
-                    <div className="font-mono text-indigo-700 font-bold flex items-center gap-1.5 text-[13px]">
-                      <span>{Math.round(entry.duration / 60)} мин</span>
-                      <span className="text-slate-300 text-[11px] font-semibold font-sans">
-                        в {entry.timeString}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
+          {/* Expanded selected day historic log inspection panel */}
+          <div className="bg-slate-50 rounded-2xl p-4 flex flex-col gap-2 relative mt-1">
+            <div className="flex justify-between items-baseline">
+              <span className="text-[11.5px] font-bold text-slate-500 uppercase tracking-wider block">
+                Журнал активностей • День {selectedGraphDay}
+              </span>
+              <span className="text-sm text-slate-400">
+                Записей: {selectedDayEntries.length}
+              </span>
             </div>
-          ) : (
-            <p className="text-[12px] text-slate-400 font-medium italic">
-              {selectedGraphDay > currentDayIndex ? "Данные из будущего скрыты" : "Активностей в этот день не зафиксировано"}
-            </p>
-          )}
+
+            {selectedDayEntries.length > 0 ? (
+              <div className="flex flex-col gap-2 max-h-64 overflow-y-auto scrollbar-none">
+                {selectedDayEntries.map((entry, index) => {
+                  const cfgKey = Object.keys(ACTIVITY_CONFIGS).find(k => ACTIVITY_CONFIGS[k].name === entry.type) || entry.type || "Walk";
+                  const cfg = ACTIVITY_CONFIGS[cfgKey] || ACTIVITY_CONFIGS["Walk"];
+                  return (
+                    <div 
+                      key={entry.id || index}
+                      className={`flex flex-row items-center justify-between py-2 px-3 rounded-lg ${cfg.bgColor}`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <img 
+                          src={getMovementAssetPath(entry.type, userGender)} 
+                          alt={entry.type} 
+                          className="w-5 h-5 object-contain"
+                          onError={(e) => (e.currentTarget.style.display='none')}
+                        />
+                        <span className="font-extrabold text-slate-800 text-[13px]">{entry.type}</span>
+                      </div>
+                      <div className="font-mono text-indigo-700 font-bold flex items-center gap-1.5 text-[13px]">
+                        <span>{Math.round(entry.duration / 60)} мин</span>
+                        <span className="text-slate-400 text-[11px] font-semibold font-sans">
+                          в {entry.timeString}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-[12px] text-slate-400 font-medium italic">
+                {selectedGraphDay > currentDayIndex ? "Данные из будущего скрыты" : "Активностей в этот день не зафиксировано"}
+              </p>
+            )}
+          </div>
         </div>
 
         {/* 4. STATISTICS MATRIX BENTO GRIDS */}
