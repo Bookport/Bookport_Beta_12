@@ -174,9 +174,12 @@ export default function DigestionScreen({
   const fastTransitRatio = totalEpisodes ? Math.round((fastTransitCount / totalEpisodes) * 100) : null;
   const comfortRatio = totalEpisodes ? Math.round((comfortableCount / totalEpisodes) * 100) : null;
 
+  const firstLogDay = digestionEntries.length > 0 ? Math.min(...digestionEntries.map(e => e.dayIndex)) : currentDayIndex;
+  const actualAppDays = Math.max(1, currentDayIndex - firstLogDay + 1);
+
   const stabilityDenominator = periodDays === "all"
-    ? Math.max(1, currentDayIndex)
-    : Math.min(Number(periodDays), currentDayIndex);
+    ? Math.min(28, actualAppDays)
+    : Math.min(Number(periodDays), actualAppDays);
   const stabilityIndex = totalEpisodes
     ? Math.min(100, Math.round((loggedDays / stabilityDenominator) * 100))
     : null;
@@ -190,15 +193,20 @@ export default function DigestionScreen({
     return digestionEntries.filter(e => e.dayIndex === currentDayIndex);
   }, [digestionEntries, currentDayIndex]);
 
+  const periodAvgBristol = avgBristolStyle ? parseFloat(avgBristolStyle) : undefined;
+
   const annaFeedback = React.useMemo(() => {
     return getDigestionFeedback(
       todayLogs,
       waterEntries,
       waterGoal,
       userName || profile.name,
-      userGender
+      userGender,
+      periodAvgBristol
     );
-  }, [todayLogs, waterEntries, waterGoal, userName, userGender, profile.name]);
+  }, [todayLogs, waterEntries, waterGoal, userName, userGender, profile.name, periodAvgBristol]);
+
+  const latestLog = todayLogs.length > 0 ? [...todayLogs].sort((a, b) => b.timestamp - a.timestamp)[0] : null;
 
   // ---- 28-DAY CHART DATA (Динамика пищеварения) ----
   const chartData = React.useMemo(() => {
@@ -524,7 +532,50 @@ export default function DigestionScreen({
           </div>
         </div>
 
-        {/* BLOCK 2: Интеллект Анны */}
+        {/* BLOCK 2: Последний замер & Интеллект Анны */}
+        {latestLog && (
+          <div className="bg-[#FFF5ED] rounded-2xl p-4 mb-2 flex items-center gap-4 relative z-10 shadow-sm">
+            <div className="text-sm font-bold text-slate-700 w-12 text-center shrink-0 leading-none">
+              {latestLog.timeString || "—"}
+            </div>
+            <img 
+              src={BRISTOL_IMAGES[Math.min(6, Math.max(0, (latestLog.bristolType || 4) - 1))]} 
+              alt={`Бристоль ${latestLog.bristolType}`} 
+              className="h-10 w-auto object-contain shrink-0" 
+            />
+            <div className="flex flex-col gap-1.5 flex-1 items-start">
+              <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                normalizeComfort(latestLog.comfort) === "easy" ? "bg-emerald-100 text-emerald-700" :
+                normalizeComfort(latestLog.comfort) === "normal" ? "bg-slate-200 text-slate-700" :
+                "bg-rose-100 text-rose-700"
+              }`}>
+                {normalizeComfort(latestLog.comfort) === "easy" ? "Легко" : normalizeComfort(latestLog.comfort) === "normal" ? "Нормально" : "Тяжело"}
+              </span>
+              <div className="flex flex-wrap gap-1">
+                {(latestLog.symptoms || []).filter(s => s !== "Нет симптомов").map(s => {
+                  const color = DIGESTION_SYMPTOM_COLORS[s]?.active?.split(" ")[0] || "bg-slate-300";
+                  return (
+                    <div key={s} className="group relative flex items-center justify-center">
+                      <span className={`w-3 h-3 rounded-full ${color}`} />
+                      <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 whitespace-nowrap bg-slate-800 text-white text-[10px] font-bold px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+                        {s}
+                      </div>
+                    </div>
+                  );
+                })}
+                {(!latestLog.symptoms || latestLog.symptoms.filter(s => s !== "Нет симптомов").length === 0) && (
+                  <div className="group relative flex items-center justify-center">
+                    <span className="w-3 h-3 rounded-full bg-emerald-300" />
+                    <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 whitespace-nowrap bg-slate-800 text-white text-[10px] font-bold px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+                      Нет симптомов
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="bg-orange-50/50 shadow-sm rounded-[28px] p-4 text-left flex flex-col gap-3 relative z-10 mb-5" id="anna-digestion-advice-box">
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-2.5">
