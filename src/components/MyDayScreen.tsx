@@ -3883,7 +3883,7 @@ export default function MyDayScreen({
                   <span className="text-[11px] font-black text-slate-600 uppercase">Тип {fastDigestionBristol}</span>
                 </div>
 
-                <div className="flex flex-row justify-center items-end gap-1">
+                <div className="flex flex-row justify-between items-end gap-2">
                   {[1, 2, 3, 4, 5, 6, 7].map((type) => {
                     const active = fastDigestionBristol === type;
                     return (
@@ -3898,7 +3898,7 @@ export default function MyDayScreen({
                         <img
                           src={BRISTOL_IMAGES[type - 1]}
                           alt={`Бристоль ${type}`}
-                          className="h-24 w-auto object-contain select-none pointer-events-none"
+                          className="h-28 w-auto object-contain select-none pointer-events-none"
                           draggable={false}
                         />
                       </button>
