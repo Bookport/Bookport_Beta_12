@@ -686,6 +686,7 @@ export default function MyDayScreen({
   const [fastDigestionTime, setFastDigestionTime] = useState<string>("");
   const [fastDigestionInterval, setFastDigestionInterval] = useState<string>("08:00 - 12:00");
   const [fastDigestionSymptoms, setFastDigestionSymptoms] = useState<string[]>([]);
+  const [isSymptomsOpen, setIsSymptomsOpen] = useState(false);
 
   // Timers to handle double click vs. single click vs. long press for Digestion button
   const digestionClickTimeoutRef = React.useRef<number | null>(null);
@@ -1430,6 +1431,7 @@ export default function MyDayScreen({
         const intervalIdx = Math.min(5, Math.floor(hour / 4));
         setFastDigestionInterval(DIGESTION_TIME_INTERVALS[intervalIdx]);
 
+        setIsSymptomsOpen(false);
         setShowFastDigestion(true);
       }, 220);
     }
@@ -1524,6 +1526,7 @@ export default function MyDayScreen({
     playMeasurementSaveChime();
     recordClick(10); // Reward points for reflection!
 
+    setIsSymptomsOpen(false);
     setShowFastDigestion(false);
   };
 
@@ -3816,7 +3819,6 @@ export default function MyDayScreen({
             >
               <div className="flex justify-between items-center pb-1">
                 <div>
-                  <span className="text-[11px] font-black text-slate-400 tracking-wider uppercase block mb-0.5">РЕГИСТРАЦИЯ</span>
                   <h3 className="text-[20px] font-black text-slate-850" style={{ fontFamily: '"Calibri", sans-serif' }}>Регистрация стула</h3>
                 </div>
                 <button
@@ -3881,7 +3883,7 @@ export default function MyDayScreen({
                   <span className="text-[11px] font-black text-slate-600 uppercase">Тип {fastDigestionBristol}</span>
                 </div>
 
-                <div className="flex justify-between items-end gap-1">
+                <div className="flex justify-between items-end gap-2">
                   {[1, 2, 3, 4, 5, 6, 7].map((type) => {
                     const active = fastDigestionBristol === type;
                     return (
@@ -3889,14 +3891,14 @@ export default function MyDayScreen({
                         key={type}
                         type="button"
                         onClick={() => setFastDigestionBristol(type)}
-                        className={`w-full rounded-xl flex flex-col items-center justify-center py-2 px-0.5 transition-all cursor-pointer ${
+                        className={`flex-1 min-w-0 rounded-xl flex flex-col items-center justify-center py-2 px-0.5 transition-all cursor-pointer ${
                           active ? "bg-[#D1FAE5] shadow-md" : "bg-transparent"
                         }`}
                       >
                         <img
                           src={BRISTOL_IMAGES[type - 1]}
                           alt={`Бристоль ${type}`}
-                          className="h-24 w-auto max-w-full object-contain select-none pointer-events-none"
+                          className="w-full h-28 object-contain select-none pointer-events-none"
                           draggable={false}
                         />
                       </button>
@@ -3938,44 +3940,68 @@ export default function MyDayScreen({
                 </div>
               </div>
 
-              {/* D. СИМПТОМЫ — мультиселект тегов с семантическими цветами */}
+              {/* D. СИМПТОМЫ — спойлер-аккордеон с мультиселектом тегов */}
               <div className="flex flex-col gap-2">
-                <div className="flex items-center gap-2 px-1">
-                  <img src={digestionSymptomsIcon} alt="Симптомы" className="w-6 h-6 object-contain select-none pointer-events-none" draggable={false} />
-                  <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-widest">Симптомы</span>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {DIGESTION_SYMPTOMS.map(tag => {
-                    const active = fastDigestionSymptoms.includes(tag);
-                    const colors = DIGESTION_SYMPTOM_COLORS[tag] || { inactive: "bg-[#FFF7ED] text-slate-700", active: "bg-[#D1FAE5] text-slate-900" };
-                    return (
-                      <button
-                        key={tag}
-                        type="button"
-                        onClick={() => {
-                          if (tag === "Нет симптомов") {
-                            setFastDigestionSymptoms(active ? [] : ["Нет симптомов"]);
-                          } else {
-                            setFastDigestionSymptoms(prev => {
-                              let next = prev.filter(s => s !== "Нет симптомов");
-                              if (next.includes(tag)) {
-                                next = next.filter(s => s !== tag);
-                              } else {
-                                next = [...next, tag];
-                              }
-                              return next;
-                            });
-                          }
-                        }}
-                        className={`px-3.5 py-2 rounded-2xl text-[12px] font-bold transition-all cursor-pointer shadow-sm ${
-                          active ? colors.active : colors.inactive
-                        }`}
-                      >
-                        {tag}
-                      </button>
-                    );
-                  })}
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsSymptomsOpen(prev => !prev)}
+                  className="w-full py-3 bg-[#34D399] text-white font-extrabold rounded-2xl text-[13px] flex items-center justify-center gap-2 shadow-sm active:scale-97 transition-all cursor-pointer"
+                >
+                  <img src={digestionSymptomsIcon} alt="Симптомы" className="w-5 h-5 object-contain select-none pointer-events-none" draggable={false} />
+                  <span>Симптомы</span>
+                  <svg
+                    className={`w-4 h-4 transition-transform duration-300 ${isSymptomsOpen ? "rotate-180" : ""}`}
+                    viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
+                    strokeLinecap="round" strokeLinejoin="round"
+                  >
+                    <path d="M6 9l6 6 6-6" />
+                  </svg>
+                </button>
+
+                <AnimatePresence initial={false}>
+                  {isSymptomsOpen && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.25, ease: "easeInOut" }}
+                      className="overflow-hidden"
+                    >
+                      <div className="flex flex-wrap gap-2 pt-1">
+                        {DIGESTION_SYMPTOMS.map(tag => {
+                          const active = fastDigestionSymptoms.includes(tag);
+                          const colors = DIGESTION_SYMPTOM_COLORS[tag] || { inactive: "bg-[#FFF7ED] text-slate-700", active: "bg-[#D1FAE5] text-slate-900" };
+                          return (
+                            <button
+                              key={tag}
+                              type="button"
+                              onClick={() => {
+                                if (tag === "Нет симптомов") {
+                                  setFastDigestionSymptoms(active ? [] : ["Нет симптомов"]);
+                                } else {
+                                  setFastDigestionSymptoms(prev => {
+                                    let next = prev.filter(s => s !== "Нет симптомов");
+                                    if (next.includes(tag)) {
+                                      next = next.filter(s => s !== tag);
+                                    } else {
+                                      next = [...next, tag];
+                                    }
+                                    return next;
+                                  });
+                                }
+                              }}
+                              className={`px-3.5 py-2 rounded-2xl text-[12px] font-bold transition-all cursor-pointer shadow-sm ${
+                                active ? colors.active : colors.inactive
+                              }`}
+                            >
+                              {tag}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
 
               {/* Footer — только две кнопки */}
