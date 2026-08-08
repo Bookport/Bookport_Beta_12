@@ -88,6 +88,12 @@ export interface DigestionEntry {
   type: string;
   note: string;
   timestamp: number;
+  bristolType: number;
+  comfort: string;
+  symptoms: string[];
+  timeString?: string;
+  timeInterval?: string;
+  id?: string;
 }
 
 export interface RecipeState {
@@ -116,6 +122,7 @@ interface AppState {
   telegramUser: TelegramUser | null;
   isCalendarOpen: boolean;
   isOverlayOpen: boolean;
+  isDigestionModalOpen: boolean;
   activeNotification: AppNotification | null;
 
   waterEntries: WaterEntry[];
@@ -142,6 +149,7 @@ interface AppState {
   setUnshippedProgress: (count: number) => void;
   setCalendarOpen: (open: boolean) => void;
   setOverlayOpen: (open: boolean) => void;
+  setDigestionModalOpen: (open: boolean) => void;
   setActiveNotification: (notif: AppNotification | null) => void;
 
   setWaterEntries: (entries: WaterEntry[]) => void;
@@ -150,6 +158,7 @@ interface AppState {
   addMovementEntry: (entry: MovementEntry) => void;
   setMeasurementEntries: (entries: MeasurementEntry[]) => void;
   setDigestionEntries: (entries: DigestionEntry[]) => void;
+  addDigestionEntry: (entry: DigestionEntry) => void;
   setRecipeState: (type: string, state: RecipeState) => void;
   setCalendarNotes: (notes: CalendarNotes) => void;
   setCourseStartTimestamp: (ts: number | null) => void;
@@ -166,6 +175,7 @@ export const useAppStore = create<AppState>((set) => ({
   telegramUser: null,
   isCalendarOpen: false,
   isOverlayOpen: false,
+  isDigestionModalOpen: false,
   activeNotification: null,
   waterEntries: [],
   sleepEntries: [],
@@ -188,6 +198,7 @@ export const useAppStore = create<AppState>((set) => ({
   setUnshippedProgress: (count) => set({ unshippedProgress: count }),
   setCalendarOpen: (open) => set({ isCalendarOpen: open }),
   setOverlayOpen: (open) => set({ isOverlayOpen: open }),
+  setDigestionModalOpen: (open) => set({ isDigestionModalOpen: open }),
   setActiveNotification: (notif) => set({ activeNotification: notif }),
 
   setWaterEntries: (entries) => set({ waterEntries: entries }),
@@ -196,6 +207,7 @@ export const useAppStore = create<AppState>((set) => ({
   addMovementEntry: (entry) => set((s) => ({ movementEntries: [...s.movementEntries, entry] })),
   setMeasurementEntries: (entries) => set({ measurementEntries: entries }),
   setDigestionEntries: (entries) => set({ digestionEntries: entries }),
+  addDigestionEntry: (entry) => set((s) => ({ digestionEntries: [...s.digestionEntries, entry] })),
   setRecipeState: (type, state) =>
     set((s) => ({ recipeStates: { ...s.recipeStates, [type]: state } })),
   setCalendarNotes: (notes) => set({ calendarNotes: notes }),

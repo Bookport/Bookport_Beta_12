@@ -14,6 +14,7 @@ import BottomBar from "./components/BottomBar";
 
 import MyPageScreen from "./components/MyPageScreen";
 import DigestionScreen from "./components/DigestionScreen";
+import DigestionModal from "./components/DigestionModal";
 import MyDayScreen from "./components/MyDayScreen";
 import HabitsTwentyScreen from "./components/HabitsTwentyScreen";
 import WhatIEatScreen from "./components/WhatIEatScreen";
@@ -1195,6 +1196,7 @@ export default function App() {
   return (
     <ErrorBoundary>
       <GlobalNotificationOverlay />
+      <DigestionModal />
       <div 
         className={[
           "text-text-main transition-colors duration-300 pointer-events-auto",
@@ -1345,8 +1347,6 @@ export default function App() {
               className="flex-1 flex flex-col"
             >
               <DigestionScreen 
-                dayNotes={dayNotes}
-                setDayNotes={setDayNotes}
                 currentDayIndex={activeDayIndex}
               />
             </motion.div>
