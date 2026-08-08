@@ -5,6 +5,7 @@ import { resolveAvatar } from "../utils/annaAvatarResolver";
 import { useAppStore } from "../store/useAppStore";
 import { api } from "../utils/api";
 import { getDigestionFeedback } from "../utils/digestionCoaching";
+import ingrGreen from "../assets/ingredients/ingr_green.webp";
 
 const annaAvatarSrc = resolveAvatar({ toneGroup: 'neutral_thoughtful', intent: 'thoughtful' }).src;
 
@@ -313,23 +314,28 @@ export default function DigestionScreen({
         </div>
 
         {/* BLOCK 2: Интеллект Анны */}
-        <div className="bg-orange-50/50 rounded-[32px] p-5 mb-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full overflow-hidden shrink-0 border border-orange-100">
-                <img src={annaAvatarSrc} alt="Анна — Советник WFPB" className="w-full h-full object-cover" />
+        <div className="bg-orange-50/50 shadow-sm rounded-[28px] p-4 text-left flex flex-col gap-3 relative z-10 mb-5" id="anna-digestion-advice-box">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-2.5">
+              <div className="relative shrink-0">
+                <div className="w-11 h-11 rounded-full overflow-hidden border border-emerald-100/60 shadow-md">
+                  <img
+                    src={annaAvatarSrc}
+                    alt="Анна советует"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
               </div>
-              <div className="text-left">
-                <p className="text-[15px] font-extrabold text-slate-800 leading-tight">Анна</p>
-                <p className="text-[11px] font-semibold text-emerald-700">Советник WFPB</p>
+              <div className="flex flex-col text-left">
+                <span className="text-[15px] font-black text-slate-900 leading-none">Анна</span>
+                <span className="text-[11px] font-bold text-slate-500 mt-0.5 leading-none">Советник WFPB</span>
               </div>
             </div>
 
-            <div className="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
-              <span className="text-[16px] leading-none select-none">🌿</span>
-            </div>
+            <img src={ingrGreen} alt="Логотип WFPB" className="w-6 h-6 object-contain" />
           </div>
-          <div className="bg-white rounded-2xl p-4 mt-3 text-sm text-slate-700 leading-relaxed shadow-sm font-medium">
+
+          <div className="bg-white p-3.5 rounded-2xl text-[13.5px] leading-relaxed font-semibold text-slate-800">
             {annaText}
           </div>
         </div>
