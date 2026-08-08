@@ -3815,7 +3815,7 @@ export default function MyDayScreen({
               animate={{ y: 0 }}
               exit={{ y: "100%" }}
               transition={{ type: "spring", damping: 25, stiffness: 220 }}
-              className="bg-[#FFFFFF] rounded-[32px] w-full max-w-[420px] m-4 p-5 text-left relative z-10 max-h-[90vh] overflow-y-auto scrollbar-none flex flex-col gap-4 text-slate-800"
+              className="bg-[#FFFFFF] rounded-[32px] w-full max-w-[420px] m-4 p-5 text-left relative z-10 max-h-[90vh] overflow-y-auto scrollbar-none flex flex-col gap-3 text-slate-800"
             >
               <div className="flex justify-between items-center pb-1">
                 <div>
@@ -3883,7 +3883,7 @@ export default function MyDayScreen({
                   <span className="text-[11px] font-black text-slate-600 uppercase">Тип {fastDigestionBristol}</span>
                 </div>
 
-                <div className="flex justify-between items-end gap-1">
+                <div className="flex flex-row items-end justify-between gap-1">
                   {[1, 2, 3, 4, 5, 6, 7].map((type) => {
                     const active = fastDigestionBristol === type;
                     return (
@@ -3898,7 +3898,7 @@ export default function MyDayScreen({
                         <img
                           src={BRISTOL_IMAGES[type - 1]}
                           alt={`Бристоль ${type}`}
-                          className="w-full h-32 object-contain select-none pointer-events-none"
+                          className="w-full h-auto object-contain max-h-28 select-none pointer-events-none"
                           draggable={false}
                         />
                       </button>
@@ -3906,7 +3906,7 @@ export default function MyDayScreen({
                   })}
                 </div>
 
-                <div className="min-h-[48px] text-slate-600 text-center text-sm font-medium leading-snug px-1">
+                <div className="min-h-[36px] text-slate-600 text-center text-sm font-medium leading-snug px-1">
                   {BRISTOL_DESCRIPTIONS[fastDigestionBristol]}
                 </div>
               </div>
