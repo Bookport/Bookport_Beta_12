@@ -1,10 +1,12 @@
 import React, { useState } from "react";
 import { ChevronLeft } from "lucide-react";
+import { BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import BottomBar from "./BottomBar";
 import { resolveAvatar } from "../utils/annaAvatarResolver";
 import { useAppStore } from "../store/useAppStore";
 import { api } from "../utils/api";
 import { getDigestionFeedback } from "../utils/digestionCoaching";
+import { BRISTOL_IMAGES, DIGESTION_SYMPTOM_COLORS } from "../utils/digestionConstants";
 import ingrGreen from "../assets/ingredients/ingr_green.webp";
 
 const annaAvatarSrc = resolveAvatar({ toneGroup: 'neutral_thoughtful', intent: 'thoughtful' }).src;
@@ -62,6 +64,10 @@ export default function DigestionScreen({
 
   // Period selector state: 7 days, 14 days, or the whole history
   const [periodDays, setPeriodDays] = useState<"7" | "14" | "all">("7");
+
+  // Chart metric tabs and selected graph day (history journal target)
+  const [activeChartTab, setActiveChartTab] = useState<"stool" | "symptoms" | "comfort">("stool");
+  const [selectedGraphDay, setSelectedGraphDay] = useState<number>(currentDayIndex);
 
   const waterEntries = useAppStore((s) => s.waterEntries);
   const profile = useAppStore((s) => s.userProfile);
@@ -143,8 +149,6 @@ export default function DigestionScreen({
   let comfortableCount = 0;
   let loggedDays = 0;
   const seenDays = new Set<number>();
-  let daysWithDiscomfort = 0;
-  const discomfortDays = new Set<number>();
 
   periodLogs.forEach(log => {
     const t = log.bristolType;
@@ -155,11 +159,9 @@ export default function DigestionScreen({
       if (t === 6 || t === 7) fastTransitCount++;
     }
     if (normalizeComfort(log.comfort) === "easy" || normalizeComfort(log.comfort) === "normal") comfortableCount++;
-    if (normalizeComfort(log.comfort) === "uncomfortable") discomfortDays.add(log.dayIndex);
     seenDays.add(log.dayIndex);
   });
   loggedDays = seenDays.size;
-  daysWithDiscomfort = discomfortDays.size;
 
   const avgBristolStyle = totalEpisodes ? (totalBristolSum / totalEpisodes).toFixed(1) : null;
   const healthyBristolRatio = totalEpisodes ? Math.round((healthyBristolCount / totalEpisodes) * 100) : null;
@@ -173,13 +175,10 @@ export default function DigestionScreen({
   const stabilityIndex = totalEpisodes
     ? Math.min(100, Math.round((loggedDays / stabilityDenominator) * 100))
     : null;
-
-  // Water progress today for correlation card
   const todayWater = waterEntries
     .filter(w => w.dayIndex === currentDayIndex)
     .reduce((sum, entry) => sum + entry.amount, 0);
   const waterPct = waterGoal > 0 ? Math.min(100, Math.round((todayWater / waterGoal) * 100)) : null;
-  const daysWithoutDiscomfort = loggedDays - daysWithDiscomfort;
 
   // ---- ANNA'S INTELLIGENCE (existing logic from utils) ----
   const annaText = React.useMemo(() => {
@@ -192,6 +191,194 @@ export default function DigestionScreen({
       userGender
     );
   }, [digestionEntries, currentDayIndex, waterEntries, waterGoal, userName, userGender, profile.name]);
+
+  // ---- 28-DAY CHART DATA (Динамика пищеварения) ----
+  const chartData = React.useMemo(() => {
+    const data: { day: number; bristol: number | null; symptoms: string[]; comfort: string | null; time: string }[] = [];
+    const startDay = Math.max(1, currentDayIndex - 27);
+    const endDay = currentDayIndex;
+    for (let d = startDay; d <= endDay; d++) {
+      const logs = periodLogs.filter((l) => l.dayIndex === d);
+      let point: { day: number; bristol: number | null; symptoms: string[]; comfort: string | null; time: string } = {
+        day: d,
+        bristol: null,
+        symptoms: [],
+        comfort: null,
+        time: "",
+      };
+      if (logs.length > 0) {
+        // pick the log with MAX deviation from norm (type 4) — the most alarming episode
+        let worst = logs[0];
+        let maxDev = -1;
+        for (const log of logs) {
+          const dev = Math.abs(log.bristolType - 4);
+          if (dev > maxDev) {
+            maxDev = dev;
+            worst = log;
+          }
+        }
+        point = {
+          day: d,
+          bristol: worst.bristolType,
+          symptoms: worst.symptoms || [],
+          comfort: worst.comfort ?? null,
+          time: worst.timeString || "",
+        };
+      }
+      data.push(point);
+    }
+    return data;
+  }, [currentDayIndex, periodLogs]);
+
+  const chartMetricValue = (point: { bristol: number | null; symptoms: string[]; comfort: string | null }): number | null => {
+    if (activeChartTab === "stool") return point.bristol;
+    if (activeChartTab === "symptoms") {
+      const negCount = point.symptoms.filter((s) => s !== "Нет симптомов").length;
+      return negCount > 0 ? negCount : null;
+    }
+    // comfort: map Легко/Нормально/Тяжело to score 3/2/1
+    const c = normalizeComfort(point.comfort);
+    return c === "easy" ? 3 : c === "normal" ? 2 : c === "uncomfortable" ? 1 : null;
+  };
+
+  const chartPoints = React.useMemo(() => {
+    return chartData.map((p) => ({ ...p, value: chartMetricValue(p) }));
+  }, [chartData, activeChartTab]);
+
+  const barFillFor = (point: { bristol: number | null; symptoms: string[]; comfort: string | null }): string => {
+    if (activeChartTab === "stool") {
+      const t = point.bristol;
+      if (t === 3 || t === 4 || t === 5) return "#34D399"; // emerald-400
+      if (t === 1 || t === 2) return "#FB923C"; // orange-400
+      if (t === 6 || t === 7) return "#FB7185"; // rose-400
+      return "transparent";
+    }
+    if (activeChartTab === "symptoms") {
+      const n = point.symptoms.filter((s) => s !== "Нет симптомов").length;
+      if (n === 0) return "transparent";
+      if (n === 1) return "#FB923C"; // orange-400
+      return "#FB7185"; // rose-400
+    }
+    // comfort
+    const c = normalizeComfort(point.comfort);
+    if (c === "easy") return "#34D399";
+    if (c === "normal") return "#FB923C";
+    if (c === "uncomfortable") return "#FB7185";
+    return "transparent";
+  };
+
+  // ---- HISTORY JOURNAL DATA (selected day) ----
+  const selectedDayHist = React.useMemo(() => {
+    const sorted = periodLogs
+      .filter((l) => l.dayIndex === selectedGraphDay)
+      .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+    return sorted;
+  }, [periodLogs, selectedGraphDay]);
+
+  const handleDeleteGraphEntry = (id: string) => {
+    setDigestionEntries(digestionEntries.filter((e) => e.id !== id));
+  };
+
+  // ---- CORRELATION LOGIC (Block 5) ----
+  // Water balance: green when norm fulfilled, red on deficit
+  const waterNormMet = waterPct !== null && waterPct >= 100;
+  // Response index: % of logs in period WITHOUT negative symptoms
+  const logsWithNoSymptoms = periodLogs.filter((l) => {
+    const syms = l.symptoms || [];
+    return syms.length === 0 || (syms.length === 1 && syms[0] === "Нет симптомов");
+  }).length;
+  const responseIndex = totalEpisodes ? Math.round((logsWithNoSymptoms / totalEpisodes) * 100) : null;
+  // Comfort streak: consecutive days without "Тяжело" status and pain/spasms, back from today
+  const comfortStreak = React.useMemo(() => {
+    let streak = 0;
+    for (let d = currentDayIndex; d >= 1; d--) {
+      const logList = digestionEntries.filter((e) => e.dayIndex === d);
+      if (logList.length === 0) {
+        if (d === currentDayIndex) continue; // today without logs — not a leading streak yet
+        break;
+      }
+      const hasBad = logList.some((e) => {
+        const c = normalizeComfort(e.comfort);
+        const syms = e.symptoms || [];
+        const hasPain = syms.includes("Боль") || syms.includes("Спазмы");
+        return c === "uncomfortable" || hasPain;
+      });
+      if (hasBad) break;
+      streak++;
+    }
+    return streak;
+  }, [digestionEntries, currentDayIndex]);
+
+  // ---- CUSTOM CHART SHAPE with pointer-down hitbox (reference from Замеры) ----
+  const CustomMetricBarShape = (props: any) => {
+    const { x, y, width, height, fill, stroke, strokeWidth, payload, background } = props;
+    const fullHeight = background ? background.height : height;
+    const bottomY = background ? background.y + background.height : y + height;
+    const topY = bottomY - fullHeight;
+    return (
+      <g>
+        <rect
+          x={x}
+          y={y}
+          width={width}
+          height={height}
+          rx={4}
+          ry={4}
+          fill={fill}
+          stroke={stroke}
+          strokeWidth={strokeWidth}
+          style={{ outline: 'none' }}
+        />
+        <rect
+          x={x - width / 2}
+          y={topY}
+          width={width * 2}
+          height={fullHeight}
+          fill="transparent"
+          stroke="transparent"
+          strokeWidth={0}
+          strokeOpacity={0}
+          cursor="pointer"
+          style={{ outline: 'none' }}
+          onPointerDown={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (payload && payload.day) {
+              setSelectedGraphDay(Number(payload.day));
+            }
+          }}
+        />
+      </g>
+    );
+  };
+
+  const CustomDigestionTooltip = ({ active, payload }: any) => {
+    if (active && payload && payload.length) {
+      const p = payload[0];
+      const point = p.payload as { day: number; bristol: number | null; symptoms: string[]; comfort: string | null; time: string };
+      if (point.bristol === null) return (
+        <div className="rounded-xl px-3 py-2 text-xs font-bold text-slate-800 bg-transparent">
+          <div>День {point.day}</div>
+          <div className="text-slate-400">Нет записей</div>
+        </div>
+      );
+      const c = normalizeComfort(point.comfort);
+      const cLabel = c === "easy" ? "Легко" : c === "normal" ? "Нормально" : c === "uncomfortable" ? "Тяжело" : "—";
+      const negSymptoms = point.symptoms.filter((s) => s !== "Нет симптомов");
+      return (
+        <div className="rounded-xl px-3 py-2 text-xs font-bold text-slate-800 bg-transparent">
+          <div>День {point.day} · {point.time || "—"}</div>
+          <div style={{ color: barFillFor(point) !== "transparent" ? barFillFor(point) : "#94a3b8" }}>
+            Тип {point.bristol} · {cLabel}
+          </div>
+          {negSymptoms.length > 0 ? (
+            <div className="text-slate-500 font-medium">{negSymptoms.join(", ")}</div>
+          ) : null}
+        </div>
+      );
+    }
+    return null;
+  };
 
   return (
     <div className="w-full flex-1 flex flex-col justify-between min-h-0" id="digestion-screen">
@@ -340,8 +527,148 @@ export default function DigestionScreen({
           </div>
         </div>
 
-        {/* Chart placeholder */}
-        <div className="h-48 mb-4" />
+        {/* BLOCK 3: Динамика пищеварения (Recharts) */}
+        <div className="bg-white border border-slate-100 rounded-[32px] p-5 shadow-sm mb-4">
+          <div className="flex justify-between items-start">
+            <div>
+              <span className="text-[10px] font-bold text-emerald-600 uppercase block">СТАТИСТИКА КУРСА</span>
+              <h2 className="text-lg font-bold text-slate-800 mt-0.5">Динамика пищеварения за 28 дней</h2>
+            </div>
+            <span className="text-[11px] text-slate-500 font-bold bg-slate-50 px-2.5 py-0.5 rounded-lg border border-slate-100">
+              Выбран День: <span className="text-emerald-600 font-mono font-black">{selectedGraphDay}</span>
+            </span>
+          </div>
+
+          {/* Metric selector pill bar */}
+          <div className="flex flex-row justify-between gap-1 w-full bg-slate-50 p-1 rounded-2xl mt-3">
+            {([
+              { id: "stool", label: "Тип стула" },
+              { id: "symptoms", label: "Симптомы" },
+              { id: "comfort", label: "Комфорт" }
+            ] as const).map(tab => {
+              const isActive = activeChartTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveChartTab(tab.id)}
+                  className={`flex-1 whitespace-nowrap overflow-hidden text-ellipsis text-center py-1.5 rounded-xl text-[11px] font-bold transition-colors cursor-pointer ${
+                    isActive ? "bg-orange-200/50 text-orange-700" : "bg-slate-50 text-slate-400"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="relative pt-4 pb-2 px-1 h-44 outline-none border-none focus:outline-none focus:ring-0" style={{ outline: 'none', border: 'none' }}>
+            <style>{`
+              .recharts-wrapper *:focus,
+              .recharts-surface:focus,
+              .recharts-layer:focus,
+              .recharts-bar-rect:focus,
+              .recharts-line-curve:focus {
+                outline: none !important;
+              }
+            `}</style>
+            <ResponsiveContainer width="100%" height="100%" className="outline-none border-none focus:outline-none focus:ring-0" style={{ outline: 'none', border: 'none' }}>
+              <BarChart data={chartPoints} margin={{ top: 5, right: 5, left: -25, bottom: 0 }} className="outline-none border-none focus:outline-none focus:ring-0" style={{ outline: 'none', border: 'none' }}>
+                <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: "#94a3b8" }} />
+                <YAxis hide type="number" />
+                <Tooltip content={<CustomDigestionTooltip />} cursor={{ fill: 'transparent' }} wrapperStyle={{ outline: 'none', border: 'none', pointerEvents: 'none' }} />
+                <Bar isAnimationActive={false}
+                  dataKey="value"
+                  shape={<CustomMetricBarShape />}
+                  background={{ fill: 'transparent', stroke: 'transparent', strokeWidth: 0, strokeOpacity: 0 }}
+                  radius={[4, 4, 0, 0]}
+                  maxBarSize={20}
+                  style={{ outline: 'none', stroke: 'none' }}
+                >
+                  {chartPoints.map((entry, index) => (
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={barFillFor(entry)}
+                      stroke="transparent"
+                      strokeWidth={0}
+                    />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* BLOCK 4: История дня (Журнал) */}
+          <div className="bg-slate-50 border border-slate-100 rounded-3xl p-5 mt-2">
+            <div className="flex justify-between items-baseline mb-3">
+              <span className="text-xs font-bold text-slate-400 uppercase">ИСТОРИЯ ЗАМЕРОВ • ДЕНЬ {selectedGraphDay}</span>
+              <span className="text-[10.5px] font-bold text-slate-400">Записей: {selectedDayHist.length}</span>
+            </div>
+
+            {selectedDayHist.length > 0 ? (
+              <div className="flex flex-col">
+                {selectedDayHist.map((log) => {
+                  const c = normalizeComfort(log.comfort);
+                  const cLabel = c === "easy" ? "Легко" : c === "normal" ? "Нормально" : c === "uncomfortable" ? "Тяжело" : "—";
+                  const cCls = c === "easy"
+                    ? "bg-emerald-100 text-emerald-700"
+                    : c === "normal"
+                      ? "bg-slate-200 text-slate-600"
+                      : "bg-rose-100 text-rose-700";
+                  const negSymptoms = (log.symptoms || []).filter((s) => s !== "Нет симптомов");
+                  return (
+                    <div
+                      key={log.id}
+                      className="flex flex-row items-center justify-between py-2 border-b border-slate-200/50 last:border-0"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <img
+                          src={BRISTOL_IMAGES[Math.min(6, Math.max(0, (log.bristolType || 4) - 1))]}
+                          alt={`Бристоль ${log.bristolType}`}
+                          className="h-8 w-8 object-contain shrink-0"
+                        />
+                        <span className="text-sm font-semibold text-slate-700">{log.timeString || "—"}</span>
+                      </div>
+
+                      <div className="flex items-center gap-1.5">
+                        {negSymptoms.length > 0 ? (
+                          negSymptoms.map((s) => {
+                            const color = DIGESTION_SYMPTOM_COLORS[s]?.active || "bg-slate-200 text-slate-900";
+                            return (
+                              <span
+                                key={s}
+                                title={s}
+                                className={`w-2.5 h-2.5 rounded-full ${color.split(" ")[0]}`}
+                              />
+                            );
+                          })
+                        ) : (
+                          <span className="w-2.5 h-2.5 rounded-full bg-emerald-200" />
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded-md ${cCls}`}>{cLabel}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteGraphEntry(log.id)}
+                          className="w-6 h-6 rounded-md flex items-center justify-center text-slate-300 hover:text-slate-500 transition-colors cursor-pointer text-sm"
+                          title="Удалить запись"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-[11.5px] text-slate-400 font-medium italic mt-0.5">
+                {selectedGraphDay > currentDayIndex ? "Данные из будущего скрыты" : "Замеры в этот день отсутствуют"}
+              </p>
+            )}
+          </div>
+        </div>
 
         {/* BLOCK 5: Корреляции */}
         <div className="mb-2">
@@ -352,31 +679,33 @@ export default function DigestionScreen({
                 <p className="text-[11px] font-bold text-slate-600">Питьевой баланс</p>
                 <p className="text-[10px] text-slate-400 mt-0.5">Вода / цель</p>
               </div>
-              <span className="text-lg font-black text-sky-600 font-mono">{waterPct === null ? "—" : `${waterPct}%`}</span>
+              <span className={`text-lg font-black font-mono ${waterNormMet ? "text-emerald-500" : "text-rose-500"}`}>
+                {waterPct === null ? "—" : `${waterPct}%`}
+              </span>
             </div>
 
             <div className="bg-white border border-slate-100 rounded-2xl p-4 flex flex-row justify-between items-center shadow-sm">
               <div className="text-left">
                 <p className="text-[11px] font-bold text-slate-600">Клетчатка</p>
-                <p className="text-[10px] text-slate-400 mt-0.5">За день</p>
+                <p className="text-[10px] text-slate-400 mt-0.5">Добавьте бобовые и зелень</p>
               </div>
-              <span className="text-lg font-black text-amber-600 font-mono">{totalFiber > 0 ? `${totalFiber} г` : "—"}</span>
+              <span className="text-sm font-bold text-emerald-500 whitespace-nowrap">Нет данных</span>
             </div>
 
             <div className="bg-white border border-slate-100 rounded-2xl p-4 flex flex-row justify-between items-center shadow-sm">
               <div className="text-left">
                 <p className="text-[11px] font-bold text-slate-600">Индекс отклика</p>
-                <p className="text-[10px] text-slate-400 mt-0.5">Идеальный стул</p>
+                <p className="text-[10px] text-slate-400 mt-0.5">Без негативных симптомов</p>
               </div>
-              <span className="text-lg font-black text-emerald-600 font-mono">{healthyBristolRatio === null ? "—" : `${healthyBristolRatio}%`}</span>
+              <span className="text-lg font-black text-slate-700 font-mono">{responseIndex === null ? "—" : `${responseIndex}%`}</span>
             </div>
 
             <div className="bg-white border border-slate-100 rounded-2xl p-4 flex flex-row justify-between items-center shadow-sm">
               <div className="text-left">
                 <p className="text-[11px] font-bold text-slate-600">Дней без дискомфорта</p>
-                <p className="text-[10px] text-slate-400 mt-0.5">За 28 дней</p>
+                <p className="text-[10px] text-slate-400 mt-0.5">Подряд</p>
               </div>
-              <span className="text-lg font-black text-indigo-600 font-mono">{totalEpisodes ? daysWithoutDiscomfort : "—"}</span>
+              <span className="text-lg font-black text-emerald-500 font-mono">{comfortStreak}</span>
             </div>
           </div>
         </div>
