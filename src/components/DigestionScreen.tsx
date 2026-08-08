@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { ChevronLeft } from "lucide-react";
 import BottomBar from "./BottomBar";
 import { resolveAvatar } from "../utils/annaAvatarResolver";
@@ -42,8 +42,6 @@ interface DigestionScreenProps {
   onOpenCalendar?: () => void;
 }
 
-const PERIOD_DAYS = 28;
-
 export default function DigestionScreen({
   onBack: propsOnBack,
   currentDayIndex: propDayIndex,
@@ -61,6 +59,9 @@ export default function DigestionScreen({
   const setDigestionEntries = useAppStore((s) => s.setDigestionEntries);
   const currentDayIndex = propDayIndex ?? (useAppStore((s) => s.userProfile.currentDayIndex) ?? 1);
 
+  // Period selector state: 7 days, 14 days, or the whole history
+  const [periodDays, setPeriodDays] = useState<"7" | "14" | "all">("7");
+
   const waterEntries = useAppStore((s) => s.waterEntries);
   const profile = useAppStore((s) => s.userProfile);
   const waterGoal = React.useMemo(() => {
@@ -68,8 +69,10 @@ export default function DigestionScreen({
     return Math.round(weight * 30);
   }, [profile.weight]);
 
-  // Fixed 28-day period window ending at current day
-  const fromDayIndex = Math.max(0, currentDayIndex - PERIOD_DAYS + 1);
+  // Period window ending at current day: 7 days, 14 days, or whole history
+  const fromDayIndex = periodDays === "all"
+    ? 0
+    : Math.max(0, currentDayIndex - Number(periodDays) + 1);
 
   const dayLogs = React.useMemo(() => {
     return digestionEntries
@@ -163,8 +166,11 @@ export default function DigestionScreen({
   const fastTransitRatio = totalEpisodes ? Math.round((fastTransitCount / totalEpisodes) * 100) : null;
   const comfortRatio = totalEpisodes ? Math.round((comfortableCount / totalEpisodes) * 100) : null;
 
+  const stabilityDenominator = periodDays === "all"
+    ? Math.max(1, currentDayIndex)
+    : Math.min(Number(periodDays), currentDayIndex);
   const stabilityIndex = totalEpisodes
-    ? Math.min(100, Math.round((loggedDays / PERIOD_DAYS) * 100))
+    ? Math.min(100, Math.round((loggedDays / stabilityDenominator) * 100))
     : null;
 
   // Water progress today for correlation card
@@ -216,9 +222,28 @@ export default function DigestionScreen({
               <h2 className="text-lg font-bold text-slate-800 mt-0.5">Тренды и ритмичность ЖКТ</h2>
             </div>
 
-            <span className="text-indigo-600 bg-indigo-50 border border-indigo-100 px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap">
+            <span className="text-slate-800 bg-orange-100/50 px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap">
               {stabilityIndex === null ? "—%" : `${stabilityIndex}%`} стабильности
             </span>
+          </div>
+
+          {/* Period selector tabs */}
+          <div className="flex flex-row gap-1 w-full mt-3 bg-slate-100/60 p-1 rounded-2xl">
+            {(["7", "14", "all"] as const).map(p => {
+              const isActive = periodDays === p;
+              return (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => setPeriodDays(p)}
+                  className={`flex-1 py-1.5 rounded-xl text-[11.5px] font-bold transition-colors cursor-pointer ${
+                    isActive ? "bg-emerald-100 text-emerald-700" : "text-slate-500 hover:bg-white/60"
+                  }`}
+                >
+                  {p === "7" ? "7 дней" : p === "14" ? "14 дней" : "Весь период"}
+                </button>
+              );
+            })}
           </div>
 
           {/* Empty state over period */}
@@ -288,17 +313,25 @@ export default function DigestionScreen({
         </div>
 
         {/* BLOCK 2: Интеллект Анны */}
-        <div className="bg-emerald-50 rounded-[32px] p-5 mb-4">
-          <div className="flex items-center gap-3 mb-3.5">
-            <div className="w-10 h-10 rounded-full overflow-hidden shrink-0 border border-emerald-100">
-              <img src={annaAvatarSrc} alt="Анна — Советник WFPB" className="w-full h-full object-cover" />
+        <div className="bg-orange-50/50 rounded-[32px] p-5 mb-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full overflow-hidden shrink-0 border border-orange-100">
+                <img src={annaAvatarSrc} alt="Анна — Советник WFPB" className="w-full h-full object-cover" />
+              </div>
+              <div className="text-left">
+                <p className="text-[15px] font-extrabold text-slate-800 leading-tight">Анна</p>
+                <p className="text-[11px] font-semibold text-emerald-700">Советник WFPB</p>
+              </div>
             </div>
-            <div className="text-left">
-              <p className="text-[15px] font-extrabold text-slate-800 leading-tight">Анна</p>
-              <p className="text-[11px] font-semibold text-emerald-700">Советник WFPB</p>
+
+            <div className="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
+              <span className="text-[16px] leading-none select-none">🌿</span>
             </div>
           </div>
-          <p className="text-[13px] leading-relaxed text-slate-700 font-medium">{annaText}</p>
+          <div className="bg-white rounded-2xl p-4 mt-3 text-sm text-slate-700 leading-relaxed shadow-sm font-medium">
+            {annaText}
+          </div>
         </div>
 
         {/* Chart placeholder */}
