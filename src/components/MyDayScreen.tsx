@@ -48,6 +48,10 @@ import bristol4Img from "../assets/images/digestion/bristol/4.webp";
 import bristol5Img from "../assets/images/digestion/bristol/5.webp";
 import bristol6Img from "../assets/images/digestion/bristol/6.webp";
 import bristol7Img from "../assets/images/digestion/bristol/7.webp";
+import digestionTimeIcon from "../assets/images/digestion/icons/time.webp";
+import digestionScaleIcon from "../assets/images/digestion/icons/scale.webp";
+import digestionComfortIcon from "../assets/images/digestion/icons/comfort.webp";
+import digestionSymptomsIcon from "../assets/images/digestion/icons/symptoms.webp";
 import waterImg from "../assets/images/buttons/вода.webp";
 import volumeDrop1Img from "../assets/images/water/volume_drop_1.webp";
 import volumeDrop2Img from "../assets/images/water/volume_drop_2.webp";
@@ -204,6 +208,23 @@ const DIGESTION_SYMPTOMS = [
   "Газы",
   "Нет симптомов",
 ];
+
+// Semantic color coding for symptom tags (inactive / active)
+const DIGESTION_SYMPTOM_COLORS: Record<string, { inactive: string; active: string }> = {
+  "Боль": { inactive: "bg-rose-50 text-rose-700", active: "bg-rose-200 text-rose-900 shadow-md" },
+  "Спазмы": { inactive: "bg-rose-50 text-rose-700", active: "bg-rose-200 text-rose-900 shadow-md" },
+  "Кровь": { inactive: "bg-rose-50 text-rose-700", active: "bg-rose-200 text-rose-900 shadow-md" },
+  "Изжога": { inactive: "bg-rose-50 text-rose-700", active: "bg-rose-200 text-rose-900 shadow-md" },
+  "Тошнота": { inactive: "bg-rose-50 text-rose-700", active: "bg-rose-200 text-rose-900 shadow-md" },
+  "Вздутие": { inactive: "bg-orange-50 text-orange-700", active: "bg-orange-200 text-orange-900 shadow-md" },
+  "Газы": { inactive: "bg-orange-50 text-orange-700", active: "bg-orange-200 text-orange-900 shadow-md" },
+  "Урчание в животе": { inactive: "bg-orange-50 text-orange-700", active: "bg-orange-200 text-orange-900 shadow-md" },
+  "Диарея": { inactive: "bg-indigo-50 text-indigo-700", active: "bg-indigo-200 text-indigo-900 shadow-md" },
+  "Запор": { inactive: "bg-indigo-50 text-indigo-700", active: "bg-indigo-200 text-indigo-900 shadow-md" },
+  "Ощущение неполного опорожнения": { inactive: "bg-indigo-50 text-indigo-700", active: "bg-indigo-200 text-indigo-900 shadow-md" },
+  "Слизь": { inactive: "bg-indigo-50 text-indigo-700", active: "bg-indigo-200 text-indigo-900 shadow-md" },
+  "Нет симптомов": { inactive: "bg-emerald-50 text-emerald-700", active: "bg-emerald-200 text-emerald-900 shadow-md" },
+};
 
 interface MyDayScreenProps {
   dayNotes: Record<number, { text: string; time: string }[]>;
@@ -3811,8 +3832,9 @@ export default function MyDayScreen({
               <div className="flex flex-col gap-2">
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
+                    <img src={digestionTimeIcon} alt="Время" className="w-6 h-6 object-contain select-none pointer-events-none" draggable={false} />
                     <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">ВРЕМЯ</span>
-                    <span className="bg-[#FFF7ED] px-3 py-1 rounded-xl text-[14px] font-mono font-black text-slate-800">{fastDigestionTime}</span>
+                    <span className="bg-[#FFF7ED] px-3 py-1 rounded-xl text-[14px] font-mono font-black text-slate-800 shadow-sm">{fastDigestionTime}</span>
                   </div>
                   <button
                     type="button"
@@ -3824,7 +3846,7 @@ export default function MyDayScreen({
                       const intervalIdx = Math.min(5, Math.floor(d.getHours() / 4));
                       setFastDigestionInterval(DIGESTION_TIME_INTERVALS[intervalIdx]);
                     }}
-                    className="bg-[#34D399] text-white text-[12px] font-extrabold px-4 py-1.5 rounded-xl active:scale-95 transition-all cursor-pointer"
+                    className="bg-[#34D399] text-white text-[12px] font-extrabold px-4 py-1.5 rounded-xl shadow-sm active:scale-95 transition-all cursor-pointer"
                   >
                     Сейчас
                   </button>
@@ -3838,7 +3860,7 @@ export default function MyDayScreen({
                         key={interval}
                         type="button"
                         onClick={() => setFastDigestionInterval(interval)}
-                        className={`py-2 rounded-xl text-[12px] font-bold transition-all cursor-pointer ${
+                        className={`py-2 rounded-xl text-[12px] font-bold transition-all cursor-pointer shadow-sm ${
                           active ? "bg-[#D1FAE5] text-slate-900" : "bg-[#FFF7ED] text-slate-600"
                         }`}
                       >
@@ -3849,14 +3871,17 @@ export default function MyDayScreen({
                 </div>
               </div>
 
-              {/* B. БРИСТОЛЬСКАЯ ШКАЛА — 7 картинок-баночек */}
+              {/* B. БРИСТОЛЬСКАЯ ШКАЛА — 7 огромных картинок-баночек */}
               <div className="flex flex-col gap-2">
                 <div className="flex justify-between items-baseline px-1">
-                  <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-widest">Бристольская шкала</span>
+                  <div className="flex items-center gap-2">
+                    <img src={digestionScaleIcon} alt="Шкала" className="w-6 h-6 object-contain select-none pointer-events-none" draggable={false} />
+                    <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-widest">Бристольская шкала</span>
+                  </div>
                   <span className="text-[11px] font-black text-slate-600 uppercase">Тип {fastDigestionBristol}</span>
                 </div>
 
-                <div className="flex justify-between gap-1">
+                <div className="flex justify-between items-end gap-1">
                   {[1, 2, 3, 4, 5, 6, 7].map((type) => {
                     const active = fastDigestionBristol === type;
                     return (
@@ -3864,14 +3889,14 @@ export default function MyDayScreen({
                         key={type}
                         type="button"
                         onClick={() => setFastDigestionBristol(type)}
-                        className={`w-full rounded-xl flex flex-col items-center justify-center py-1.5 px-0.5 transition-all cursor-pointer ${
-                          active ? "bg-[#D1FAE5]" : "bg-transparent"
+                        className={`w-full rounded-xl flex flex-col items-center justify-center py-2 px-0.5 transition-all cursor-pointer ${
+                          active ? "bg-[#D1FAE5] shadow-md" : "bg-transparent"
                         }`}
                       >
                         <img
                           src={BRISTOL_IMAGES[type - 1]}
                           alt={`Бристоль ${type}`}
-                          className="w-11 h-9 object-contain select-none pointer-events-none"
+                          className="h-24 w-auto max-w-full object-contain select-none pointer-events-none"
                           draggable={false}
                         />
                       </button>
@@ -3884,10 +3909,13 @@ export default function MyDayScreen({
                 </div>
               </div>
 
-              {/* C. ОЩУЩЕНИЕ КОМФОРТА — 3 кнопки на всю ширину */}
+              {/* C. ОЩУЩЕНИЕ КОМФОРТА — 3 кнопки в горизонтальный ряд */}
               <div className="flex flex-col gap-2">
-                <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-widest px-1">Ощущение комфорта</span>
-                <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-2 px-1">
+                  <img src={digestionComfortIcon} alt="Комфорт" className="w-6 h-6 object-contain select-none pointer-events-none" draggable={false} />
+                  <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-widest">Ощущение комфорта</span>
+                </div>
+                <div className="flex flex-row justify-between space-x-3">
                   {[
                     { id: "Легко", bg: "bg-[#DBEAFE]" },
                     { id: "Нормально", bg: "bg-[#D1FAE5]" },
@@ -3899,7 +3927,7 @@ export default function MyDayScreen({
                         key={x.id}
                         type="button"
                         onClick={() => setFastDigestionComfort(x.id as any)}
-                        className={`w-full py-2.5 rounded-2xl text-[13px] font-bold text-center transition-all cursor-pointer ${
+                        className={`flex-1 py-2.5 rounded-2xl text-[13px] font-bold text-center transition-all cursor-pointer shadow-sm ${
                           active ? `${x.bg} text-slate-900` : "bg-[#FFF7ED] text-slate-600"
                         }`}
                       >
@@ -3910,12 +3938,16 @@ export default function MyDayScreen({
                 </div>
               </div>
 
-              {/* D. СИМПТОМЫ — мультиселект тегов */}
+              {/* D. СИМПТОМЫ — мультиселект тегов с семантическими цветами */}
               <div className="flex flex-col gap-2">
-                <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-widest px-1">Симптомы</span>
+                <div className="flex items-center gap-2 px-1">
+                  <img src={digestionSymptomsIcon} alt="Симптомы" className="w-6 h-6 object-contain select-none pointer-events-none" draggable={false} />
+                  <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-widest">Симптомы</span>
+                </div>
                 <div className="flex flex-wrap gap-2">
                   {DIGESTION_SYMPTOMS.map(tag => {
                     const active = fastDigestionSymptoms.includes(tag);
+                    const colors = DIGESTION_SYMPTOM_COLORS[tag] || { inactive: "bg-[#FFF7ED] text-slate-700", active: "bg-[#D1FAE5] text-slate-900" };
                     return (
                       <button
                         key={tag}
@@ -3935,8 +3967,8 @@ export default function MyDayScreen({
                             });
                           }
                         }}
-                        className={`px-3.5 py-2 rounded-2xl text-[12px] font-bold transition-all cursor-pointer ${
-                          active ? "bg-[#D1FAE5] text-slate-900" : "bg-[#FFF7ED] text-slate-700"
+                        className={`px-3.5 py-2 rounded-2xl text-[12px] font-bold transition-all cursor-pointer shadow-sm ${
+                          active ? colors.active : colors.inactive
                         }`}
                       >
                         {tag}
