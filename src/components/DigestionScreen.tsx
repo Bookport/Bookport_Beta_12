@@ -21,11 +21,21 @@ export interface DigestionLogEntry {
   dayIndex: number;
   timestamp: number;
   timeString: string;
+  timeInterval?: string;
   bristolType: number;
-  comfort: "easy" | "normal" | "uncomfortable";
+  comfort: "easy" | "normal" | "uncomfortable" | "Легко" | "Нормально" | "Тяжело";
+  symptoms?: string[];
   note?: string;
   linkedMeal?: string;
 }
+
+// Normalizes comfort storage (Russian labels from the new modal vs legacy ids) to legacy ids
+export const normalizeComfort = (comfort: DigestionLogEntry["comfort"] | undefined | null): "easy" | "normal" | "uncomfortable" => {
+  if (comfort === "Легко") return "easy";
+  if (comfort === "Нормально") return "normal";
+  if (comfort === "Тяжело") return "uncomfortable";
+  return comfort || "normal";
+};
 
 interface DigestionScreenProps {
   dayNotes: Record<number, { text: string; time: string; source?: string; tags?: string[]; isVoice?: boolean }[]>;
@@ -427,7 +437,7 @@ export default function DigestionScreen({
       if (t === 1 || t === 2) slowTransitCount++;
       if (t === 6 || t === 7) fastTransitCount++;
     }
-    if (log.comfort === "easy" || log.comfort === "normal") {
+    if (normalizeComfort(log.comfort) === "easy" || normalizeComfort(log.comfort) === "normal") {
       comfortableCount++;
     }
   });
@@ -454,7 +464,7 @@ export default function DigestionScreen({
   const uniqueLoggedDays = Object.keys(currentLogsMap).length;
   (Object.values(currentLogsMap) as DigestionLogEntry[][]).forEach(dayList => {
     if (dayList.length > 0) {
-      const dayComfortable = dayList.filter(l => l.comfort === "easy" || l.comfort === "normal").length;
+      const dayComfortable = dayList.filter(l => normalizeComfort(l.comfort) === "easy" || normalizeComfort(l.comfort) === "normal").length;
       if (dayComfortable >= dayList.length / 2) {
         comfortDaysCount++;
       }
@@ -646,13 +656,13 @@ export default function DigestionScreen({
                       <div className="flex items-center gap-1.5">
                         <span className="text-[12.5px] font-black font-mono text-slate-800">{log.timeString}</span>
                         <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full select-none ${
-                          log.comfort === "easy" 
+                          normalizeComfort(log.comfort) === "easy" 
                             ? "bg-emerald-50 text-emerald-700" 
-                            : log.comfort === "normal" 
+                            : normalizeComfort(log.comfort) === "normal" 
                               ? "bg-orange-50 text-orange-700" 
                               : "bg-red-50 text-red-600"
                         }`}>
-                          {log.comfort === "easy" ? "Легко" : log.comfort === "normal" ? "Нормально" : "Дискомфорт"}
+                          {normalizeComfort(log.comfort) === "easy" ? "Легко" : normalizeComfort(log.comfort) === "normal" ? "Нормально" : "Дискомфорт"}
                         </span>
                       </div>
                       

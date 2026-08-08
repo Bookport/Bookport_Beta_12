@@ -1828,6 +1828,27 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
         },
       });
       res.json({ ok: true, id: record.id });
+
+      // Persist digestion entries into the native DigestionLog table (PostgreSQL array for symptoms)
+      if (digestionLog && Array.isArray(digestionLog) && digestionLog.length > 0) {
+        const nativeRows = digestionLog.map((entry: any) => ({
+          userId: req.userId,
+          dailyMetricId: record.id,
+          date: new Date(date),
+          dayIndex: entry.dayIndex ?? dayIndex,
+          timeInterval: entry.timeInterval ?? null,
+          timeString: entry.timeString ?? null,
+          bristolType: typeof entry.bristolType === "number" ? entry.bristolType : 4,
+          comfort: entry.comfort ?? "Нормально",
+          symptoms: Array.isArray(entry.symptoms) ? entry.symptoms : [],
+          note: entry.note ?? null,
+          linkedMeal: entry.linkedMeal ?? null,
+          timestamp: typeof entry.timestamp === "number" ? BigInt(entry.timestamp) : null,
+        }));
+        await prisma.digestionLog.createMany({ data: nativeRows }).catch((err: any) => {
+          console.error("[DigestionLog] native persist error:", err.message);
+        });
+      }
     } catch (err: any) {
       console.error("[DailyMetric] error:", err.message);
       res.status(500).json({ error: err.message });

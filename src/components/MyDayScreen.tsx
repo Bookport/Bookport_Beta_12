@@ -41,6 +41,13 @@ import stateMoodBad from "../assets/images/measurements/state_mood_bad.webp";
 import stateWellbeingExcellent from "../assets/images/measurements/state_wellbeing_excellent.webp";
 import stateWellbeingNormal from "../assets/images/measurements/state_wellbeing_normal.webp";
 import stateWellbeingPoor from "../assets/images/measurements/state_wellbeing_poor.webp";
+import bristol1Img from "../assets/images/digestion/bristol/1.webp";
+import bristol2Img from "../assets/images/digestion/bristol/2.webp";
+import bristol3Img from "../assets/images/digestion/bristol/3.webp";
+import bristol4Img from "../assets/images/digestion/bristol/4.webp";
+import bristol5Img from "../assets/images/digestion/bristol/5.webp";
+import bristol6Img from "../assets/images/digestion/bristol/6.webp";
+import bristol7Img from "../assets/images/digestion/bristol/7.webp";
 import waterImg from "../assets/images/buttons/вода.webp";
 import volumeDrop1Img from "../assets/images/water/volume_drop_1.webp";
 import volumeDrop2Img from "../assets/images/water/volume_drop_2.webp";
@@ -150,6 +157,52 @@ const WELLBEING_STATES = [
   { id: "excellent", label: "Хорошее", img: stateWellbeingExcellent },
   { id: "normal", label: "Среднее", img: stateWellbeingNormal },
   { id: "poor", label: "Плохое", img: stateWellbeingPoor },
+];
+
+// Bristol Stool Chart — 7 banks with descriptions (fast digestion modal)
+const BRISTOL_IMAGES = [
+  bristol1Img,
+  bristol2Img,
+  bristol3Img,
+  bristol4Img,
+  bristol5Img,
+  bristol6Img,
+  bristol7Img,
+];
+
+const BRISTOL_DESCRIPTIONS: Record<number, string> = {
+  1: "Отдельные твёрдые мелкие комочки (как орешки). Проходят с трудом (сильный запор).",
+  2: "Плотный, комковатый стул, напоминающий по форме колбаску. Выходит с усилием (запор).",
+  3: "Оформленный стул в виде гладкой колбаски с трещинами на поверхности (вариант нормы).",
+  4: "Мягкий и гладкий стул, напоминающий по форме колбаску или змею (идеальный вариант).",
+  5: "Мягкие небольшие комочки с чёткими краями. Проходят очень легко (нехватка клетчатки).",
+  6: "Рыхлые мягкие хлопья с рваными краями. Имеют кашицеобразную форму (легкая диарея).",
+  7: "Полностью водянистый жидкий стул без твёрдых частиц. Выходит мгновенно (диарея).",
+};
+
+const DIGESTION_TIME_INTERVALS = [
+  "00:00 - 04:00",
+  "04:00 - 08:00",
+  "08:00 - 12:00",
+  "12:00 - 16:00",
+  "16:00 - 20:00",
+  "20:00 - 00:00",
+];
+
+const DIGESTION_SYMPTOMS = [
+  "Вздутие",
+  "Спазмы",
+  "Боль",
+  "Тошнота",
+  "Изжога",
+  "Диарея",
+  "Запор",
+  "Ощущение неполного опорожнения",
+  "Слизь",
+  "Кровь",
+  "Урчание в животе",
+  "Газы",
+  "Нет симптомов",
 ];
 
 interface MyDayScreenProps {
@@ -607,9 +660,11 @@ export default function MyDayScreen({
 
   // States to hold currently selected/entering metrics on the digestion fast entry sheet
   const [fastDigestionBristol, setFastDigestionBristol] = useState<number>(4);
-  const [fastDigestionComfort, setFastDigestionComfort] = useState<"easy" | "normal" | "uncomfortable">("normal");
+  const [fastDigestionComfort, setFastDigestionComfort] = useState<"easy" | "normal" | "uncomfortable" | "Легко" | "Нормально" | "Тяжело">("Нормально");
   const [fastDigestionNote, setFastDigestionNote] = useState<string>("");
   const [fastDigestionTime, setFastDigestionTime] = useState<string>("");
+  const [fastDigestionInterval, setFastDigestionInterval] = useState<string>("08:00 - 12:00");
+  const [fastDigestionSymptoms, setFastDigestionSymptoms] = useState<string[]>([]);
 
   // Timers to handle double click vs. single click vs. long press for Digestion button
   const digestionClickTimeoutRef = React.useRef<number | null>(null);
@@ -1340,14 +1395,20 @@ export default function MyDayScreen({
       digestionClickTimeoutRef.current = window.setTimeout(() => {
         // Single Click: quick digestion modal
         setFastDigestionBristol(4);
-        setFastDigestionComfort("normal");
+        setFastDigestionComfort("Нормально");
         setFastDigestionNote("");
-        
+        setFastDigestionSymptoms([]);
+
         const d = new Date();
         const hr = d.getHours().toString().padStart(2, "0");
         const mn = d.getMinutes().toString().padStart(2, "0");
         setFastDigestionTime(`${hr}:${mn}`);
-        
+
+        // Auto-highlight the time interval containing the current time
+        const hour = d.getHours();
+        const intervalIdx = Math.min(5, Math.floor(hour / 4));
+        setFastDigestionInterval(DIGESTION_TIME_INTERVALS[intervalIdx]);
+
         setShowFastDigestion(true);
       }, 220);
     }
@@ -1397,8 +1458,10 @@ export default function MyDayScreen({
       dayIndex: currentDayIndex,
       timestamp: nowStamp,
       timeString: timeStr,
+      timeInterval: fastDigestionInterval,
       bristolType: fastDigestionBristol,
       comfort: fastDigestionComfort,
+      symptoms: fastDigestionSymptoms,
       note: fastDigestionNote,
       linkedMeal: linkedMealName || undefined
     };
@@ -3728,63 +3791,72 @@ export default function MyDayScreen({
               animate={{ y: 0 }}
               exit={{ y: "100%" }}
               transition={{ type: "spring", damping: 25, stiffness: 220 }}
-              className="bg-white rounded-t-[36px] w-full max-w-[420px] p-5.5 text-left border-t border-slate-100 shadow-[0_-15px_35px_rgba(0,0,0,0.12)] relative z-10 max-h-[92%] overflow-y-auto scrollbar-none flex flex-col gap-4.5 text-slate-800"
+              className="bg-[#FFFFFF] rounded-[32px] w-full max-w-[420px] p-5 text-left relative z-10 max-h-[92%] overflow-y-auto scrollbar-none flex flex-col gap-4 text-slate-800"
             >
               <div className="flex justify-between items-center pb-1">
                 <div>
-                  <span className="text-[11px] font-black text-orange-600 tracking-wider uppercase block mb-0.5">ВЫБОР СОСТОЯНИЯ</span>
+                  <span className="text-[11px] font-black text-slate-400 tracking-wider uppercase block mb-0.5">РЕГИСТРАЦИЯ</span>
                   <h3 className="text-[20px] font-black text-slate-850" style={{ fontFamily: '"Calibri", sans-serif' }}>Регистрация стула</h3>
                 </div>
-                <button 
+                <button
                   type="button"
-                  onClick={() => setShowFastDigestion(false)} 
-                  className="w-8 h-8 rounded-full bg-orange-50 border border-orange-100/50 flex items-center justify-center text-orange-500 hover:bg-orange-100 active:scale-90 transition-all text-xs font-bold font-mono"
+                  onClick={() => setShowFastDigestion(false)}
+                  className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200 active:scale-90 transition-all text-xs font-bold font-mono"
                 >
                   ✕
                 </button>
               </div>
 
-              {/* A. Time and Food Connection row */}
-              <div className="flex flex-wrap justify-between items-center bg-orange-50/20 px-3 py-2 rounded-2xl border border-orange-100/30 gap-2">
-                <div className="flex gap-2 items-center">
-                  <span className="text-[11px] font-black text-orange-600 uppercase tracking-wider">Время:</span>
-                  <input 
-                    type="text" 
-                    value={fastDigestionTime} 
-                    onChange={(e) => setFastDigestionTime(e.target.value)} 
-                    className="bg-white border border-orange-200/60 rounded-xl px-2 py-0.5 w-[58px] text-center font-mono font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-orange-500 text-xs"
-                  />
-                  <button 
-                    type="button" 
+              {/* A. ВРЕМЯ — точное время + сетка интервалов */}
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">ВРЕМЯ</span>
+                    <span className="bg-[#FFF7ED] px-3 py-1 rounded-xl text-[14px] font-mono font-black text-slate-800">{fastDigestionTime}</span>
+                  </div>
+                  <button
+                    type="button"
                     onClick={() => {
                       const d = new Date();
-                      setFastDigestionTime(`${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`);
+                      const hr = d.getHours().toString().padStart(2, "0");
+                      const mn = d.getMinutes().toString().padStart(2, "0");
+                      setFastDigestionTime(`${hr}:${mn}`);
+                      const intervalIdx = Math.min(5, Math.floor(d.getHours() / 4));
+                      setFastDigestionInterval(DIGESTION_TIME_INTERVALS[intervalIdx]);
                     }}
-                    className="text-[9px] bg-orange-500 text-white font-extrabold px-1.5 py-0.5 rounded-lg active:scale-95 transition-all cursor-pointer"
+                    className="bg-[#34D399] text-white text-[12px] font-extrabold px-4 py-1.5 rounded-xl active:scale-95 transition-all cursor-pointer"
                   >
                     Сейчас
                   </button>
                 </div>
 
-                <span className="text-[10.5px] font-semibold text-slate-500 bg-white/70 px-2 py-0.5 rounded-full shadow-2xs">
-                  {(() => {
-                    const activeMeals = meals.filter(m => m.checked);
-                    if (activeMeals.length > 0) {
-                      return `🔗 Автосвязь с: ${activeMeals[activeMeals.length - 1].name.split(" ")[0]}`;
-                    }
-                    return "🍽️ Приёмы пищи до этого не отмечены";
-                  })()}
-                </span>
+                <div className="grid grid-cols-2 gap-2">
+                  {DIGESTION_TIME_INTERVALS.map(interval => {
+                    const active = fastDigestionInterval === interval;
+                    return (
+                      <button
+                        key={interval}
+                        type="button"
+                        onClick={() => setFastDigestionInterval(interval)}
+                        className={`py-2 rounded-xl text-[12px] font-bold transition-all cursor-pointer ${
+                          active ? "bg-[#D1FAE5] text-slate-900" : "bg-[#FFF7ED] text-slate-600"
+                        }`}
+                      >
+                        {interval}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
-              {/* B. Bristol Scale 1-7 Selection */}
-              <div className="flex flex-col gap-1.5">
+              {/* B. БРИСТОЛЬСКАЯ ШКАЛА — 7 картинок-баночек */}
+              <div className="flex flex-col gap-2">
                 <div className="flex justify-between items-baseline px-1">
                   <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-widest">Бристольская шкала</span>
-                  <span className="text-[11px] font-black text-orange-600 uppercase">Тип {fastDigestionBristol}</span>
+                  <span className="text-[11px] font-black text-slate-600 uppercase">Тип {fastDigestionBristol}</span>
                 </div>
-                
-                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+
+                <div className="flex justify-between gap-1">
                   {[1, 2, 3, 4, 5, 6, 7].map((type) => {
                     const active = fastDigestionBristol === type;
                     return (
@@ -3792,43 +3864,34 @@ export default function MyDayScreen({
                         key={type}
                         type="button"
                         onClick={() => setFastDigestionBristol(type)}
-                        className={`min-w-[48px] h-[78px] rounded-2xl border flex flex-col justify-between items-center py-2 px-0.5 transition-all duration-300 cursor-pointer active:scale-92 ${
-                          active 
-                            ? "bg-gradient-to-b from-[#FFF7ED] to-[#FFEDD5] border-orange-500 shadow-sm scale-102"
-                            : "bg-white border-slate-100 hover:border-slate-200"
+                        className={`w-full rounded-xl flex flex-col items-center justify-center py-1.5 px-0.5 transition-all cursor-pointer ${
+                          active ? "bg-[#D1FAE5]" : "bg-transparent"
                         }`}
                       >
-                        <div className="flex-1 flex items-center justify-center pointer-events-none scale-85">
-                          <BristolIcon type={type} />
-                        </div>
-                        <span className={`text-[12px] font-black font-mono leading-none ${active ? "text-orange-600" : "text-slate-500"}`}>
-                          {type}
-                        </span>
+                        <img
+                          src={BRISTOL_IMAGES[type - 1]}
+                          alt={`Бристоль ${type}`}
+                          className="w-11 h-9 object-contain select-none pointer-events-none"
+                          draggable={false}
+                        />
                       </button>
                     );
                   })}
                 </div>
 
-                {/* Description of Selected Bristol Type */}
-                <div className="bg-slate-50 rounded-2xl p-2.5 border border-slate-100 text-[11.5px] text-slate-650 leading-tight">
-                  {fastDigestionBristol === 1 && "🥥 Тип 1: Отдельные твердые комковатые шарики (сильный запор)."}
-                  {fastDigestionBristol === 2 && "🌭 Тип 2: Колбаска бугорками, плотная консистенция (склонность к запору)."}
-                  {fastDigestionBristol === 3 && "🥖 Тип 3: Форма колбаски с трещинами на поверхности (вариант нормы)."}
-                  {fastDigestionBristol === 4 && "🐍 Тип 4: Гладкая мягкая змейка или ровная колбаска (идеальное пищеварение! ✨)"}
-                  {fastDigestionBristol === 5 && "🧼 Тип 5: Мягкие воздушные кусочки с ровными четкими краями (вариант нормы)."}
-                  {fastDigestionBristol === 6 && "🥞 Тип 6: Пушистые кашицеобразные хлопья с рваными краями (быстрый транзит)."}
-                  {fastDigestionBristol === 7 && "🌊 Тип 7: Абсолютно водянистая жидкость без твердых комков (диарея)."}
+                <div className="min-h-[48px] text-slate-600 text-center text-sm font-medium leading-snug px-1">
+                  {BRISTOL_DESCRIPTIONS[fastDigestionBristol]}
                 </div>
               </div>
 
-              {/* C. Comfort Selection */}
-              <div className="flex flex-col gap-1.5">
+              {/* C. ОЩУЩЕНИЕ КОМФОРТА — 3 кнопки на всю ширину */}
+              <div className="flex flex-col gap-2">
                 <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-widest px-1">Ощущение комфорта</span>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="flex flex-col gap-2">
                   {[
-                    { id: "easy", label: "😌 Легко", bg: "bg-emerald-50/40 border-emerald-100 text-emerald-800" },
-                    { id: "normal", label: "☀️ Нормально", bg: "bg-orange-50/40 border-orange-100 text-orange-850" },
-                    { id: "uncomfortable", label: "🌧️ Тяжело", bg: "bg-amber-50/40 border-amber-100 text-amber-900" }
+                    { id: "Легко", bg: "bg-[#DBEAFE]" },
+                    { id: "Нормально", bg: "bg-[#D1FAE5]" },
+                    { id: "Тяжело", bg: "bg-[#FFE4E6]" }
                   ].map((x) => {
                     const active = fastDigestionComfort === x.id;
                     return (
@@ -3836,58 +3899,59 @@ export default function MyDayScreen({
                         key={x.id}
                         type="button"
                         onClick={() => setFastDigestionComfort(x.id as any)}
-                        className={`py-2 px-1 rounded-xl text-xs font-black text-center border transition-all cursor-pointer active:scale-95 ${
-                          active
-                            ? "bg-gradient-to-r from-orange-500 to-amber-500 text-white border-transparent shadow-xs"
-                            : `${x.bg} hover:brightness-98`
+                        className={`w-full py-2.5 rounded-2xl text-[13px] font-bold text-center transition-all cursor-pointer ${
+                          active ? `${x.bg} text-slate-900` : "bg-[#FFF7ED] text-slate-600"
                         }`}
                       >
-                        {x.label}
+                        {x.id}
                       </button>
                     );
                   })}
                 </div>
               </div>
 
-              {/* D. Fast Tag Note Input Box */}
-              <div className="flex flex-col gap-1.5">
-                <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-widest px-1">Краткая заметка</span>
-                <textarea
-                  value={fastDigestionNote}
-                  onChange={(e) => setFastDigestionNote(e.target.value)}
-                  placeholder="Вздутие, тяжесть, спазм, приёмы пищи в этот день..."
-                  className="w-full text-xs text-slate-700 bg-slate-50 border border-slate-200/50 rounded-xl p-2.5 outline-none focus:ring-1 focus:ring-orange-500 resize-none h-[62px]"
-                />
-                
-                {/* Fast Click Suggestions Tags */}
-                <div className="flex flex-wrap gap-1.5 px-0.5">
-                  {["🎈 Вздутие", "⚡ Спазм", "🪨 Натуживание", "✨ Лёгкость", "🥗 Связь с пищей", "💧 Мало воды"].map(tag => (
-                    <button
-                      key={tag}
-                      type="button"
-                      onClick={() => {
-                        const cleanText = tag.replace(/[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDC00-\uDFFF]/g, "").trim();
-                        setFastDigestionNote(prev => prev ? `${prev}, ${cleanText.toLowerCase()}` : cleanText);
-                      }}
-                      className="text-[10px] font-extrabold text-slate-500 bg-slate-100 hover:bg-slate-200/70 px-2 py-1 rounded-lg cursor-pointer transition-all active:scale-95"
-                    >
-                      {tag}
-                    </button>
-                  ))}
+              {/* D. СИМПТОМЫ — мультиселект тегов */}
+              <div className="flex flex-col gap-2">
+                <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-widest px-1">Симптомы</span>
+                <div className="flex flex-wrap gap-2">
+                  {DIGESTION_SYMPTOMS.map(tag => {
+                    const active = fastDigestionSymptoms.includes(tag);
+                    return (
+                      <button
+                        key={tag}
+                        type="button"
+                        onClick={() => {
+                          if (tag === "Нет симптомов") {
+                            setFastDigestionSymptoms(active ? [] : ["Нет симптомов"]);
+                          } else {
+                            setFastDigestionSymptoms(prev => {
+                              let next = prev.filter(s => s !== "Нет симптомов");
+                              if (next.includes(tag)) {
+                                next = next.filter(s => s !== tag);
+                              } else {
+                                next = [...next, tag];
+                              }
+                              return next;
+                            });
+                          }
+                        }}
+                        className={`px-3.5 py-2 rounded-2xl text-[12px] font-bold transition-all cursor-pointer ${
+                          active ? "bg-[#D1FAE5] text-slate-900" : "bg-[#FFF7ED] text-slate-700"
+                        }`}
+                      >
+                        {tag}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
-              {/* Summary note */}
-              <div className="bg-orange-50/50 p-3 rounded-2.5xl border border-orange-100 text-[11px] text-orange-900 font-bold leading-tight">
-                💡 Заметки из пищеварения автоматически отправятся в ваш общий календарь дня для Анны.
-              </div>
-
-              {/* Actions row */}
-              <div className="flex gap-3">
+              {/* Footer — только две кнопки */}
+              <div className="flex flex-row gap-3 pt-1">
                 <button
                   type="button"
                   onClick={() => setShowFastDigestion(false)}
-                  className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 font-extrabold rounded-2.5xl text-[14px] transition-all cursor-pointer active:scale-97 text-center"
+                  className="flex-1 py-3.5 bg-[#E2E8F0] text-slate-700 font-extrabold rounded-2xl text-[14px] transition-all cursor-pointer active:scale-97 text-center"
                 >
                   Отмена
                 </button>
@@ -3895,13 +3959,11 @@ export default function MyDayScreen({
                 <button
                   type="button"
                   onClick={submitFastDigestion}
-                  className="flex-[2] py-3 bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 hover:brightness-105 text-white font-black rounded-2.5xl text-[14px] shadow-[0_5px_15px_rgba(249,115,22,0.25)] transition-all cursor-pointer active:scale-97 flex items-center justify-center gap-1.5"
+                  className="flex-[2] py-3.5 bg-[#34D399] text-white font-black rounded-2xl text-[15px] transition-all cursor-pointer active:scale-97 flex items-center justify-center gap-1.5"
                 >
-                  <span>Записать быстрый лог</span>
-                  <span className="text-[16px]">🍂</span>
+                  <span>Сохранить</span>
                 </button>
               </div>
-
             </motion.div>
           </div>
         )}

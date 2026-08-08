@@ -47,6 +47,7 @@ model User {
 
   dailyMetrics        DailyMetric[]
   dailyRatings        DailyRating[]
+  digestionLogs       DigestionLog[]
   recipeProgress      RecipeProgress[]
   savedDishes         SavedDish[]
   diaryEntries        DiaryEntry[]
@@ -113,7 +114,31 @@ model DailyMetric {
   dayMood         String?
   dayBookmark     String?
 
+  digestionLogs DigestionLog[]
+
   @@unique([userId, date])
+}
+
+model DigestionLog {
+  id           String  @id @default(uuid())
+  userId       String
+  user         User    @relation(fields: [userId], references: [id])
+  dailyMetric  DailyMetric? @relation(fields: [dailyMetricId], references: [id])
+  dailyMetricId String?
+  date         DateTime @default(now())
+  dayIndex     Int
+
+  timeInterval String?
+  timeString   String?
+  bristolType  Int      @default(4)
+  comfort      String   @default("Нормально")
+  symptoms     String[]
+  note         String?
+  linkedMeal   String?
+  timestamp    BigInt?
+
+  @@index([userId, dayIndex])
+  @@index([dailyMetricId])
 }
 
 model DailyRating {
