@@ -3883,7 +3883,7 @@ export default function MyDayScreen({
                   <span className="text-[11px] font-black text-slate-600 uppercase">Тип {fastDigestionBristol}</span>
                 </div>
 
-                <div className="flex flex-row items-end justify-between gap-1">
+                <div className="flex flex-row justify-center items-end gap-1">
                   {[1, 2, 3, 4, 5, 6, 7].map((type) => {
                     const active = fastDigestionBristol === type;
                     return (
@@ -3891,14 +3891,14 @@ export default function MyDayScreen({
                         key={type}
                         type="button"
                         onClick={() => setFastDigestionBristol(type)}
-                        className={`flex-1 min-w-0 rounded-xl flex flex-col items-center justify-center py-2 px-0.5 transition-all cursor-pointer ${
-                          active ? "bg-[#D1FAE5] shadow-md" : "bg-transparent"
+                        className={`w-fit flex flex-col items-center justify-end rounded-xl transition-all cursor-pointer ${
+                          active ? "bg-[#D1FAE5] shadow-md p-1" : "p-0"
                         }`}
                       >
                         <img
                           src={BRISTOL_IMAGES[type - 1]}
                           alt={`Бристоль ${type}`}
-                          className="w-full h-auto object-contain max-h-28 select-none pointer-events-none"
+                          className="h-24 w-auto object-contain select-none pointer-events-none"
                           draggable={false}
                         />
                       </button>
