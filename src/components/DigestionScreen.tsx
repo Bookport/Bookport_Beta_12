@@ -69,6 +69,11 @@ export default function DigestionScreen({
   const [activeChartTab, setActiveChartTab] = useState<"stool" | "symptoms" | "comfort">("stool");
   const [selectedGraphDay, setSelectedGraphDay] = useState<number>(currentDayIndex);
 
+  // Keep the journal's selected day in sync with the active course day (reactivity for new logs)
+  React.useEffect(() => {
+    setSelectedGraphDay(currentDayIndex);
+  }, [currentDayIndex]);
+
   const waterEntries = useAppStore((s) => s.waterEntries);
   const profile = useAppStore((s) => s.userProfile);
   const waterGoal = React.useMemo(() => {
@@ -215,10 +220,13 @@ export default function DigestionScreen({
             worst = log;
           }
         }
+        // aggregate symptoms from ALL logs of the day (deduped via Set) for honest statistics
+        const daySymptoms = new Set<string>();
+        logs.forEach((log) => (log.symptoms || []).forEach((s) => daySymptoms.add(s)));
         point = {
           day: d,
           bristol: worst.bristolType,
-          symptoms: worst.symptoms || [],
+          symptoms: Array.from(daySymptoms),
           comfort: worst.comfort ?? null,
           time: worst.timeString || "",
         };
@@ -229,6 +237,7 @@ export default function DigestionScreen({
   }, [periodLogs]);
 
   const chartMetricValue = (point: { bristol: number | null; symptoms: string[]; comfort: string | null }): number | null => {
+    if (point.bristol === null) return null;
     if (activeChartTab === "stool") return point.bristol;
     if (activeChartTab === "symptoms") {
       const negCount = point.symptoms.filter((s) => s !== "Нет симптомов").length;
@@ -244,6 +253,7 @@ export default function DigestionScreen({
   }, [chartData, activeChartTab]);
 
   const barFillFor = (point: { bristol: number | null; symptoms: string[]; comfort: string | null }): string => {
+    if (point.bristol === null) return "transparent";
     if (activeChartTab === "stool") {
       const t = point.bristol;
       if (t === 3 || t === 4 || t === 5) return "#34D399"; // emerald-400
@@ -351,7 +361,7 @@ export default function DigestionScreen({
       const p = payload[0];
       const point = p.payload as { day: number; bristol: number | null; symptoms: string[]; comfort: string | null; time: string };
       if (point.bristol === null) return (
-        <div className="rounded-xl px-3 py-2 text-xs font-bold text-slate-800 bg-transparent">
+        <div className="bg-white shadow-lg border border-slate-100 rounded-xl p-3 text-xs font-bold text-slate-800">
           <div>День {point.day}</div>
           <div className="text-slate-400">Нет записей</div>
         </div>
@@ -359,15 +369,32 @@ export default function DigestionScreen({
       const c = normalizeComfort(point.comfort);
       const cLabel = c === "easy" ? "Легко" : c === "normal" ? "Нормально" : c === "uncomfortable" ? "Тяжело" : "—";
       const negSymptoms = point.symptoms.filter((s) => s !== "Нет симптомов");
+      let content: React.ReactNode = null;
+      switch (activeChartTab) {
+        case "stool":
+          content = (
+            <div style={{ color: barFillFor(point) !== "transparent" ? barFillFor(point) : "#94a3b8" }}>
+              Тип стула: {point.bristol}
+            </div>
+          );
+          break;
+        case "symptoms":
+          content = negSymptoms.length > 0
+            ? <div className="text-slate-500 font-medium">{negSymptoms.join(", ")}</div>
+            : <div className="text-slate-400 font-medium">Нет симптомов</div>;
+          break;
+        case "comfort":
+          content = (
+            <div style={{ color: barFillFor(point) !== "transparent" ? barFillFor(point) : "#94a3b8" }}>
+              Комфорт: {cLabel}
+            </div>
+          );
+          break;
+      }
       return (
-        <div className="rounded-xl px-3 py-2 text-xs font-bold text-slate-800 bg-transparent">
+        <div className="bg-white shadow-lg border border-slate-100 rounded-xl px-3 py-2 text-xs font-bold text-slate-800">
           <div>День {point.day} · {point.time || "—"}</div>
-          <div style={{ color: barFillFor(point) !== "transparent" ? barFillFor(point) : "#94a3b8" }}>
-            Тип {point.bristol} · {cLabel}
-          </div>
-          {negSymptoms.length > 0 ? (
-            <div className="text-slate-500 font-medium">{negSymptoms.join(", ")}</div>
-          ) : null}
+          {content}
         </div>
       );
     }
@@ -567,7 +594,7 @@ export default function DigestionScreen({
               }
             `}</style>
             <ResponsiveContainer width="100%" height="100%" className="outline-none border-none focus:outline-none focus:ring-0" style={{ outline: 'none', border: 'none' }}>
-              <BarChart data={chartPoints} margin={{ top: 5, right: 5, left: -25, bottom: 0 }} className="outline-none border-none focus:outline-none focus:ring-0" style={{ outline: 'none', border: 'none' }}>
+              <BarChart data={chartPoints} margin={{ top: 5, right: 10, left: 10, bottom: 0 }} className="outline-none border-none focus:outline-none focus:ring-0" style={{ outline: 'none', border: 'none' }}>
                 <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: "#94a3b8" }} />
                 <YAxis hide type="number" />
                 <Tooltip content={<CustomDigestionTooltip />} cursor={{ fill: 'transparent' }} wrapperStyle={{ outline: 'none', border: 'none', pointerEvents: 'none' }} />
