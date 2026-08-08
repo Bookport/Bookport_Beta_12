@@ -195,9 +195,7 @@ export default function DigestionScreen({
   // ---- 28-DAY CHART DATA (Динамика пищеварения) ----
   const chartData = React.useMemo(() => {
     const data: { day: number; bristol: number | null; symptoms: string[]; comfort: string | null; time: string }[] = [];
-    const startDay = Math.max(1, currentDayIndex - 27);
-    const endDay = currentDayIndex;
-    for (let d = startDay; d <= endDay; d++) {
+    for (let d = 1; d <= 28; d++) {
       const logs = periodLogs.filter((l) => l.dayIndex === d);
       let point: { day: number; bristol: number | null; symptoms: string[]; comfort: string | null; time: string } = {
         day: d,
@@ -228,7 +226,7 @@ export default function DigestionScreen({
       data.push(point);
     }
     return data;
-  }, [currentDayIndex, periodLogs]);
+  }, [periodLogs]);
 
   const chartMetricValue = (point: { bristol: number | null; symptoms: string[]; comfort: string | null }): number | null => {
     if (activeChartTab === "stool") return point.bristol;
@@ -274,10 +272,6 @@ export default function DigestionScreen({
       .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
     return sorted;
   }, [periodLogs, selectedGraphDay]);
-
-  const handleDeleteGraphEntry = (id: string) => {
-    setDigestionEntries(digestionEntries.filter((e) => e.id !== id));
-  };
 
   // ---- CORRELATION LOGIC (Block 5) ----
   // Water balance: green when norm fulfilled, red on deficit
@@ -553,7 +547,7 @@ export default function DigestionScreen({
                   type="button"
                   onClick={() => setActiveChartTab(tab.id)}
                   className={`flex-1 whitespace-nowrap overflow-hidden text-ellipsis text-center py-1.5 rounded-xl text-[11px] font-bold transition-colors cursor-pointer ${
-                    isActive ? "bg-orange-200/50 text-orange-700" : "bg-slate-50 text-slate-400"
+                    isActive ? "bg-emerald-100 text-emerald-700" : "bg-slate-50 text-slate-400"
                   }`}
                 >
                   {tab.label}
@@ -606,15 +600,10 @@ export default function DigestionScreen({
             </div>
 
             {selectedDayHist.length > 0 ? (
-              <div className="flex flex-col">
+              <div className="flex flex-col max-h-[300px] overflow-y-auto scrollbar-none">
                 {selectedDayHist.map((log) => {
                   const c = normalizeComfort(log.comfort);
                   const cLabel = c === "easy" ? "Легко" : c === "normal" ? "Нормально" : c === "uncomfortable" ? "Тяжело" : "—";
-                  const cCls = c === "easy"
-                    ? "bg-emerald-100 text-emerald-700"
-                    : c === "normal"
-                      ? "bg-slate-200 text-slate-600"
-                      : "bg-rose-100 text-rose-700";
                   const negSymptoms = (log.symptoms || []).filter((s) => s !== "Нет симптомов");
                   return (
                     <div
@@ -647,17 +636,7 @@ export default function DigestionScreen({
                         )}
                       </div>
 
-                      <div className="flex items-center gap-2">
-                        <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded-md ${cCls}`}>{cLabel}</span>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteGraphEntry(log.id)}
-                          className="w-6 h-6 rounded-md flex items-center justify-center text-slate-300 hover:text-slate-500 transition-colors cursor-pointer text-sm"
-                          title="Удалить запись"
-                        >
-                          ✕
-                        </button>
-                      </div>
+                      <span className="bg-slate-100 text-slate-700 px-3 py-1 rounded-lg text-xs font-bold">{cLabel}</span>
                     </div>
                   );
                 })}
