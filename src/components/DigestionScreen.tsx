@@ -186,16 +186,19 @@ export default function DigestionScreen({
   const waterPct = waterGoal > 0 ? Math.min(100, Math.round((todayWater / waterGoal) * 100)) : null;
 
   // ---- ANNA'S INTELLIGENCE (existing logic from utils) ----
-  const annaText = React.useMemo(() => {
-    const todayEntries = digestionEntries.filter(e => e.dayIndex === currentDayIndex);
+  const todayLogs = React.useMemo(() => {
+    return digestionEntries.filter(e => e.dayIndex === currentDayIndex);
+  }, [digestionEntries, currentDayIndex]);
+
+  const annaFeedback = React.useMemo(() => {
     return getDigestionFeedback(
-      todayEntries,
+      todayLogs,
       waterEntries,
       waterGoal,
       userName || profile.name,
       userGender
     );
-  }, [digestionEntries, currentDayIndex, waterEntries, waterGoal, userName, userGender, profile.name]);
+  }, [todayLogs, waterEntries, waterGoal, userName, userGender, profile.name]);
 
   // ---- 28-DAY CHART DATA (Динамика пищеварения) ----
   const chartData = React.useMemo(() => {
@@ -544,7 +547,7 @@ export default function DigestionScreen({
           </div>
 
           <div className="bg-white p-3.5 rounded-2xl text-[13.5px] leading-relaxed font-semibold text-slate-800">
-            {annaText}
+            {annaFeedback}
           </div>
         </div>
 
