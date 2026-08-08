@@ -3806,7 +3806,7 @@ export default function MyDayScreen({
       {/* 13. FAST DIGESTION SLOT SHEET */}
       <AnimatePresence>
         {showFastDigestion && (
-          <div className="absolute inset-0 bg-black/45 backdrop-blur-xs flex items-end justify-center z-[65]" id="fast-digestion-sheet-overlay">
+          <div className="absolute inset-0 bg-black/45 backdrop-blur-xs flex items-center justify-center z-[65]" id="fast-digestion-sheet-overlay">
             {/* Backdrop click to dismiss */}
             <div className="absolute inset-0 z-0" onClick={() => setShowFastDigestion(false)} />
 
@@ -3815,7 +3815,7 @@ export default function MyDayScreen({
               animate={{ y: 0 }}
               exit={{ y: "100%" }}
               transition={{ type: "spring", damping: 25, stiffness: 220 }}
-              className="bg-[#FFFFFF] rounded-[32px] w-full max-w-[420px] p-5 text-left relative z-10 max-h-[92%] overflow-y-auto scrollbar-none flex flex-col gap-4 text-slate-800"
+              className="bg-[#FFFFFF] rounded-[32px] w-full max-w-[420px] m-4 p-5 text-left relative z-10 max-h-[90vh] overflow-y-auto scrollbar-none flex flex-col gap-4 text-slate-800"
             >
               <div className="flex justify-between items-center pb-1">
                 <div>
@@ -3883,7 +3883,7 @@ export default function MyDayScreen({
                   <span className="text-[11px] font-black text-slate-600 uppercase">Тип {fastDigestionBristol}</span>
                 </div>
 
-                <div className="flex justify-between items-end gap-2">
+                <div className="flex justify-between items-end gap-1">
                   {[1, 2, 3, 4, 5, 6, 7].map((type) => {
                     const active = fastDigestionBristol === type;
                     return (
@@ -3898,7 +3898,7 @@ export default function MyDayScreen({
                         <img
                           src={BRISTOL_IMAGES[type - 1]}
                           alt={`Бристоль ${type}`}
-                          className="w-full h-28 object-contain select-none pointer-events-none"
+                          className="w-full h-32 object-contain select-none pointer-events-none"
                           draggable={false}
                         />
                       </button>
@@ -3945,7 +3945,7 @@ export default function MyDayScreen({
                 <button
                   type="button"
                   onClick={() => setIsSymptomsOpen(prev => !prev)}
-                  className="w-full py-3 bg-[#34D399] text-white font-extrabold rounded-2xl text-[13px] flex items-center justify-center gap-2 shadow-sm active:scale-97 transition-all cursor-pointer"
+                  className="w-fit mx-auto px-5 py-2 bg-[#34D399] text-white font-extrabold rounded-2xl text-[13px] flex items-center justify-center gap-2 shadow-sm active:scale-97 transition-all cursor-pointer"
                 >
                   <img src={digestionSymptomsIcon} alt="Симптомы" className="w-5 h-5 object-contain select-none pointer-events-none" draggable={false} />
                   <span>Симптомы</span>
