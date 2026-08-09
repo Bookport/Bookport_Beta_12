@@ -1,6 +1,9 @@
+import { DailySummary } from "./crossModuleSummary";
+
 export interface WaterContext {
-  userName: string;
-  userGender: 'male' | 'female';
+  userName?: string;
+  userGender?: 'male' | 'female';
+  summary: DailySummary;
   waterAmount: number;
   waterGoal: number;
   pulse: number | null;
@@ -81,6 +84,19 @@ export const WATER_PHRASES = {
     (ctx: WaterContext) => `Вода (${ctx.waterAmount} мл) убрала отеки, и весы это подтвердили. Великолепный результат сегодня.`,
     (ctx: WaterContext) => `Счетчик воды на ${ctx.waterAmount} мл, график веса идет вниз. Это двойная победа, ${ctx.userName}!`,
     (ctx: WaterContext) => `Растительная еда плюс ${ctx.waterAmount} мл воды — и лишние граммы тают на глазах. Горжусь твоей дисциплиной.`
+  ],
+  // ГИБРИДНЫЕ ВЕТКИ (Кросс-триггеры)
+  waterDeficitConstipation: [
+    (ctx: WaterContext) => `${ctx.userName}, тревога! Водный недобор (${ctx.waterAmount} мл) спровоцировал остановку ЖКТ — по сводке вижу замедленный стул (тип ${ctx.summary.digestion.worstBristol ?? "—"}). Клетчатка без воды превращается в бетон. Срочно выпей стакан теплой воды!`,
+    (ctx: WaterContext) => `Смотрю на общую картину и вижу опасную связку: мало воды (${ctx.waterAmount} мл) + запор. Твой кишечник застрял именно из-за обезвоживания. Немедленно пей!`
+  ],
+  waterOKTonusLow: [
+    (ctx: WaterContext) => `Водный баланс отличный (${ctx.waterAmount} мл), но по замерам я вижу низкий тонус. Вода не заменит сон и углеводы — давай сегодня полегче с нагрузками и пораньше спать.`,
+    (ctx: WaterContext) => `${ctx.userName}, воды в достатке, молодец! Но энергии нет. Это не про гидратацию — добавь теплой каши на ужин и позволь себе отдохнуть.`
+  ],
+  waterNormalDigestionIdeal: [
+    (ctx: WaterContext) => `${ctx.userName}, идеальная связка дня! Водный баланс закрыт (${ctx.waterAmount} мл), и ЖКТ работает как часы (тип ${ctx.summary.digestion.latestBristol ?? "—"}). Именно так выглядит идеальная гидратация — клетчатка разбухла и проталкивает всё как надо!`,
+    (ctx: WaterContext) => `Вижу гармонию: норму воды ты ${t(ctx.userGender, 'выполнил', 'выполнила')} (${ctx.waterAmount} мл), и пищеварение отвечает идеальным транзитом. Зафиксируй этот день как эталонный!`
   ]
 };
 

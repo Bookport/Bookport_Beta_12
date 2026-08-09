@@ -4,6 +4,7 @@ export interface DailySummary {
   dayIndex: number;
   water: {
     amount: number;
+    goal: number;
     pct: number; // 0-100%
     status: 'deficit' | 'normal' | 'excess'; 
   };
@@ -115,7 +116,7 @@ export const buildDailySummary = (dayIndex: number, store: AppState): DailySumma
 
   return {
     dayIndex: dayIndexNum,
-    water: { amount: waterAmount, pct: waterPct, status: waterStatus },
+    water: { amount: waterAmount, goal: waterGoal, pct: waterPct, status: waterStatus },
     digestion: {
       episodes: digestionEntries.length,
       bristolAvg,

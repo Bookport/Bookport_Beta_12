@@ -12,8 +12,9 @@ import {
 import { BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 
 import BottomBar from "./BottomBar";
-import { generateWaterSummary } from "../utils/waterCoaching";
-import { WaterContext } from "../utils/waterPhrases";
+import { useAppStore } from "../store/useAppStore";
+import { getWaterFeedback } from "../utils/waterCoaching";
+import { buildDailySummary } from "../utils/crossModuleSummary";
 import { resolveAvatar } from "../utils/annaAvatarResolver";
 import ingrGreenImg from "../assets/ingredients/ingr_green.webp";
 import volumeSplashCircleImg from "../assets/images/water/volume_splash_circle.webp";
@@ -119,6 +120,12 @@ export default function WaterDetailsScreen({
 
   const currentWeightForDay = getResolvedWeightForDay(currentDayIndex);
   const waterGoalToday = currentWeightForDay * 30; // 30 ml per kg
+
+  // Reactive store subscriptions for the cross-module Anna summary
+  const storeWaterEntries = useAppStore((s) => s.waterEntries);
+  const storeMovementEntries = useAppStore((s) => s.movementEntries);
+  const storeMeasurementEntries = useAppStore((s) => s.measurementEntries);
+  const storeDigestionEntries = useAppStore((s) => s.digestionEntries);
   
   // Selected graph day variables
   const graphDayWeight = getResolvedWeightForDay(selectedGraphDay);
@@ -137,19 +144,9 @@ export default function WaterDetailsScreen({
   };
   // Generate Anna's customizable analysis quote using useMemo
   const annaAdviceText = useMemo(() => {
-    const weight = getResolvedWeightForDay(currentDayIndex);
-    const target = weight * 30;
-
-    const ctx: WaterContext = {
-      userName: userName,
-      userGender: userGender,
-      waterAmount: water,
-      waterGoal: target,
-      pulse: null,
-      weightDelta: null
-    };
-    return generateWaterSummary(ctx);
-  }, [userName, userGender, water, currentDayIndex, dayWeights]);
+    const summary = buildDailySummary(selectedGraphDay ?? currentDayIndex, useAppStore.getState());
+    return getWaterFeedback(summary, userName, userGender);
+  }, [selectedGraphDay, currentDayIndex, storeWaterEntries, storeMovementEntries, storeMeasurementEntries, storeDigestionEntries, userName, userGender]);
 
   // Calculations for past history cycle
 
