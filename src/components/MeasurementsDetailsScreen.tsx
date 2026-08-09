@@ -17,7 +17,8 @@ import {
 import { useAppStore } from "../store/useAppStore";
 import { BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { resolveAvatar } from "../utils/annaAvatarResolver";
-import { generateCrossModuleSummary } from "../utils/measurementsCoaching";
+import { getMeasurementsFeedback } from "../utils/measurementsCoaching";
+import { buildDailySummary } from "../utils/crossModuleSummary";
 import { api } from "../utils/api";
 
 const annaAvatarSrc = resolveAvatar({ toneGroup: 'neutral_thoughtful', intent: 'clear_explanation' }).src;
@@ -229,29 +230,15 @@ export default function MeasurementsDetailsScreen({
   // Anna Context logic
   const usedInitialWeight = stats.initialWeight || null;
   const annaComment = useMemo(() => {
-    const pTonus = latestTodayLog ? parseTonus(latestTodayLog.tonus) : { energy: "0", mood: "0", wellbeing: "0" };
-    const currentWeightDelta = (latestTodayLog?.weight && usedInitialWeight) 
-      ? latestTodayLog.weight - usedInitialWeight 
-      : null;
-
-    const annaCtx = {
-      userName: userName,
-      userGender: userGender,
-      pulse: latestTodayLog?.pulse || null,
-      weight: latestTodayLog?.weight || null,
-      initialWeight: usedInitialWeight,
-      weightDelta: currentWeightDelta,
-      tonusEnergy: ENERGY_STATES[parseInt(pTonus.energy)]?.label || null,
-      tonusMood: MOOD_STATES[parseInt(pTonus.mood)]?.label || null,
-      tonusWellbeing: WELLBEING_STATES[parseInt(pTonus.wellbeing)]?.label || null,
-    };
-
-    return generateCrossModuleSummary(annaCtx);
+    const summary = buildDailySummary(selectedGraphDay ?? currentDayIndex, useAppStore.getState());
+    return getMeasurementsFeedback(summary, userName, userGender);
   }, [
-    latestTodayLog?.pulse,
-    latestTodayLog?.weight,
-    latestTodayLog?.tonus,
-    usedInitialWeight,
+    selectedGraphDay,
+    currentDayIndex,
+    useAppStore((s) => s.digestionEntries),
+    useAppStore((s) => s.waterEntries),
+    useAppStore((s) => s.movementEntries),
+    useAppStore((s) => s.measurementEntries),
     userGender,
     userName
   ]);

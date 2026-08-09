@@ -23,6 +23,7 @@ export interface DailySummary {
   measurements: {
     pulseAvg: number | null;
     weightAvg: number | null;
+    weightDelta: number | null;
     tonus: 'low' | 'normal' | 'high' | 'no_data';
   };
 }
@@ -125,6 +126,6 @@ export const buildDailySummary = (dayIndex: number, store: AppState): DailySumma
       status: digestionStatus,
     },
     movement: { activeMin, status: movementStatus },
-    measurements: { pulseAvg, weightAvg, tonus },
+    measurements: { pulseAvg, weightAvg, weightDelta: weightAvg !== null ? Number((weightAvg - (store.userProfile?.initialWeight || weightAvg)).toFixed(1)) : null, tonus },
   };
 };

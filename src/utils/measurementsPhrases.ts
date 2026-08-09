@@ -1,6 +1,9 @@
+import { DailySummary } from "./crossModuleSummary";
+
 export interface MeasurementContext {
-  userName: string;
-  userGender: 'male' | 'female';
+  userName?: string;
+  userGender?: 'male' | 'female';
+  summary: DailySummary;
   pulse: number | null;
   weight: number | null;
   initialWeight: number | null;
@@ -99,6 +102,15 @@ export const PHRASE_MATRIX = {
     (ctx: MeasurementContext) => `Отличное самочувствие — это твой личный успех. Ты ${t(ctx.userGender, 'заслужил', 'заслужила')} это своим трудом.`,
     (ctx: MeasurementContext) => `Прекрасный тонус! Пусть весь день пройдет так же легко и позитивно.`,
     (ctx: MeasurementContext) => `Вижу, что батарейка заряжена на 100%. Отличный день для новых свершений!`
+  ],
+  // ГИБРИДНЫЕ ВЕТКИ (Кросс-триггеры)
+  tonusLowConstipation: [
+    (ctx: MeasurementContext) => `${ctx.userName}, вижу тяжелый тонус по замерам, а по сводке ЖКТ — замедленный стул (тип ${ctx.summary.digestion.worstBristol ?? "—"}). Это связанные вещи: застой в кишечнике буквально «высасывает» энергию. Выпей стакан теплой воды и сделай 5-минутную разминку — моторика проснется, и силы вернутся!`,
+    (ctx: MeasurementContext) => `По общей сводке: застой в ЖКТ и низкий тонус. Пока кишечник работает вяло, ты будешь чувствовать себя разбито. Срочно нужно движение и вода — давай, 10 минут легкой активности!`
+  ],
+  tonusHighNeedMovement: [
+    (ctx: MeasurementContext) => `${ctx.userName}, тонус сегодня на высоте! Отлично. Но в сводке активности я вижу меньше 30 минут движения. С таким зарядом энергии грех сидеть на месте — добавь хотя бы быструю прогулку на 20 минут!`,
+    (ctx: MeasurementContext) => `Твои замеры сияют энергией, но активности маловато. Запиши этот высокий тонус золотом — а теперь конвертируй его в шаги. Сделай сегодня 30+ минут движения!`
   ]
 };
 
