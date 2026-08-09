@@ -15,29 +15,10 @@ import {
   HelpCircle
 } from "lucide-react";
 import { useAppStore } from "../store/useAppStore";
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, ReferenceArea, Tooltip, ResponsiveContainer } from "recharts";
+import { BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { resolveAvatar } from "../utils/annaAvatarResolver";
 import { generateCrossModuleSummary } from "../utils/measurementsCoaching";
-
-const CustomPulseDot = (props: any) => {
-  const { cx, cy, payload } = props;
-  if (!cx || !cy || !payload.pulse) return null;
-  return (
-    <svg x={cx - 8} y={cy - 8} width={16} height={16} className="animate-pulse outline-none">
-      <image href={iconPulse} width={16} height={16} />
-    </svg>
-  );
-};
-
-const CustomPulseActiveDot = (props: any) => {
-  const { cx, cy, payload } = props;
-  if (!cx || !cy || !payload.pulse) return null;
-  return (
-    <svg x={cx - 10} y={cy - 10} width={20} height={20} className="animate-pulse outline-none drop-shadow-md">
-      <image href={iconPulse} width={20} height={20} />
-    </svg>
-  );
-};
+import { api } from "../utils/api";
 
 const annaAvatarSrc = resolveAvatar({ toneGroup: 'neutral_thoughtful', intent: 'clear_explanation' }).src;
 
@@ -137,6 +118,38 @@ export default function MeasurementsDetailsScreen({
 
   // Initial measurement logs are passed as props, defaulting to {} from parent
 
+  // Fetch historical measurement logs from server on mount so the 28-day chart has full history
+  useEffect(() => {
+    api<Record<string, any>[]>("/api/metrics/daily")
+      .then(records => {
+        if (!records || !Array.isArray(records)) return;
+        const byDay: Record<number, MeasurementLogEntry[]> = {};
+        for (const r of records) {
+          const rawMeasurements = r.measurements;
+          let measurements: any[] = [];
+          if (typeof rawMeasurements === "string") { try { measurements = JSON.parse(rawMeasurements); } catch {} }
+          else if (Array.isArray(rawMeasurements)) { measurements = rawMeasurements; }
+          for (const entry of measurements) {
+            if (entry && entry.id && entry.dayIndex !== undefined) {
+              const d = Number(entry.dayIndex);
+              if (!byDay[d]) byDay[d] = [];
+              byDay[d].push(entry as MeasurementLogEntry);
+            }
+          }
+        }
+        if (Object.keys(byDay).length > 0) {
+          setMeasurementLogs(prev => {
+            const merged = { ...prev };
+            for (const [d, entries] of Object.entries(byDay)) {
+              merged[Number(d)] = entries;
+            }
+            return merged;
+          });
+        }
+      })
+      .catch((err) => console.warn("[MeasurementsDetails] failed to load history:", err));
+  }, [setMeasurementLogs]);
+
   // Real "starting weight" from the global user profile (set at registration/onboarding).
   const profileInitialWeight = useAppStore((s) => s.userProfile?.initialWeight);
 
@@ -216,16 +229,16 @@ export default function MeasurementsDetailsScreen({
   // Anna Context logic
   const usedInitialWeight = stats.initialWeight || null;
   const annaComment = useMemo(() => {
-    const pTonus = latestSelectedDayLog ? parseTonus(latestSelectedDayLog.tonus) : { energy: "0", mood: "0", wellbeing: "0" };
-    const currentWeightDelta = (latestSelectedDayLog?.weight && usedInitialWeight) 
-      ? latestSelectedDayLog.weight - usedInitialWeight 
+    const pTonus = latestTodayLog ? parseTonus(latestTodayLog.tonus) : { energy: "0", mood: "0", wellbeing: "0" };
+    const currentWeightDelta = (latestTodayLog?.weight && usedInitialWeight) 
+      ? latestTodayLog.weight - usedInitialWeight 
       : null;
 
     const annaCtx = {
       userName: userName,
       userGender: userGender,
-      pulse: latestSelectedDayLog?.pulse || null,
-      weight: latestSelectedDayLog?.weight || null,
+      pulse: latestTodayLog?.pulse || null,
+      weight: latestTodayLog?.weight || null,
       initialWeight: usedInitialWeight,
       weightDelta: currentWeightDelta,
       tonusEnergy: ENERGY_STATES[parseInt(pTonus.energy)]?.label || null,
@@ -235,9 +248,9 @@ export default function MeasurementsDetailsScreen({
 
     return generateCrossModuleSummary(annaCtx);
   }, [
-    latestSelectedDayLog?.pulse,
-    latestSelectedDayLog?.weight,
-    latestSelectedDayLog?.tonus,
+    latestTodayLog?.pulse,
+    latestTodayLog?.weight,
+    latestTodayLog?.tonus,
     usedInitialWeight,
     userGender,
     userName
@@ -245,64 +258,194 @@ export default function MeasurementsDetailsScreen({
 
   // Draw 28-day column charts based on selected metric
   
-  const prepareChartData = () => {
-    const data = [];
+  const { chartData, maxBars } = React.useMemo(() => {
+    let max = 0;
+    const data: any[] = [];
+    
     for (let d = 1; d <= 28; d++) {
-      const list = measurementLogs[d] || [];
-      let point: any = { day: d };
+      const logs = measurementLogs[d] || [];
+      // Sort chronologically
+      const sortedLogs = [...logs].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
       
-      if (list.length > 0) {
-        const validPulses = list.filter(e => e.pulse !== null).map(e => e.pulse as number);
-        point.pulse = validPulses.length > 0 ? Math.round(validPulses.reduce((a, b) => a + b, 0) / validPulses.length) : null;
+      if (sortedLogs.length > max) max = sortedLogs.length;
+      
+      let point: any = { day: d, logs: sortedLogs, hitboxVal: 0.1 };
+      
+      // For subjective metrics (Stacked Bars)
+      sortedLogs.forEach((log, i) => {
+         point[`log${i}`] = 1; // Each episode adds 1 unit of height
+      });
+      
+      // For physical metrics (Single Bar - Average)
+      if (sortedLogs.length > 0) {
+        const validPulses = sortedLogs.filter(e => e.pulse !== null).map(e => e.pulse as number);
+        point.avgPulse = validPulses.length > 0 ? Math.round(validPulses.reduce((a, b) => a + b, 0) / validPulses.length) : null;
         
-        const validWeights = list.filter(e => e.weight !== null).map(e => e.weight as number);
-        point.weight = validWeights.length > 0 ? Number((validWeights.reduce((a, b) => a + b, 0) / validWeights.length).toFixed(1)) : null;
-
-        const latestLog = list[list.length - 1];
-        const parsed = parseTonus(latestLog.tonus);
-
-        const mapToScore = (idxStr: string) => {
-          const i = parseInt(idxStr, 10);
-          if (i === 0) return 3;
-          if (i === 1) return 2;
-          if (i === 2) return 1;
-          return 0;
-        };
-
-        point.energy = mapToScore(parsed.energy);
-        point.mood = mapToScore(parsed.mood);
-        point.wellbeing = mapToScore(parsed.wellbeing);
-        
-        point.energyLabel = ENERGY_STATES[parseInt(parsed.energy, 10)]?.label || "";
-        point.moodLabel = MOOD_STATES[parseInt(parsed.mood, 10)]?.label || "";
-        point.wellbeingLabel = WELLBEING_STATES[parseInt(parsed.wellbeing, 10)]?.label || "";
+        const validWeights = sortedLogs.filter(e => e.weight !== null).map(e => e.weight as number);
+        point.avgWeight = validWeights.length > 0 ? Number((validWeights.reduce((a, b) => a + b, 0) / validWeights.length).toFixed(1)) : null;
       } else {
-        point.pulse = null;
-        point.weight = null;
-        point.energy = null;
-        point.mood = null;
-        point.wellbeing = null;
+        point.avgPulse = null;
+        point.avgWeight = null;
       }
+      
       data.push(point);
     }
-    return data;
-  };
-  const chartData = prepareChartData();
+    return { chartData: data, maxBars: Math.max(1, max) };
+  }, [measurementLogs]);
 
-  const CustomTooltip = ({ active, payload, label }: any) => {
+  // ---- CUSTOM SHAPES FOR CHART ----
+  const HitboxShape = (props: any) => {
+    const { x, y, width, height, payload, background } = props;
+    const fullHeight = background ? background.height : (height > 0 ? height : 200);
+    const bottomY = background ? background.y + background.height : y + height;
+    const topY = bottomY - fullHeight;
+    return (
+      <rect
+        x={x}
+        y={topY}
+        width={width}
+        height={fullHeight || 200}
+        fill="transparent"
+        cursor="pointer"
+        style={{ outline: 'none', border: 'none' }}
+        onPointerDown={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (payload && payload.day) {
+            setSelectedGraphDay(Number(payload.day));
+          }
+        }}
+      />
+    );
+  };
+
+  const StackedBlockShape = (props: any) => {
+    const { x, y, width, height, fill } = props;
+    if (!height || height === 0) return null;
+    const gap = 2; // Gap between stacked blocks
+    return (
+      <rect 
+         x={x} 
+         y={y + gap/2} 
+         width={width} 
+         height={Math.max(0, height - gap)} 
+         rx={4} 
+         ry={4} 
+         fill={fill} 
+      />
+    );
+  };
+
+  const PhysicalBarShape = (props: any) => {
+    const { x, y, width, height, fill } = props;
+    if (!height || height === 0) return null;
+    return (
+      <rect 
+         x={x} 
+         y={y} 
+         width={width} 
+         height={height} 
+         rx={4} 
+         ry={4} 
+         fill={fill} 
+      />
+    );
+  };
+
+  const getFillColor = (log: any, metric: string): string => {
+    if (!log) return "transparent";
+    
+    const parsed = parseTonus(log.tonus);
+    let val = 0;
+    let baseColor = "";
+
+    if (metric === "energy") {
+      val = parseInt(parsed.energy, 10);
+      baseColor = "#C5E1A5";
+    } else if (metric === "mood") {
+      val = parseInt(parsed.mood, 10);
+      baseColor = "#B2DFDB";
+    } else if (metric === "wellbeing") {
+      val = parseInt(parsed.wellbeing, 10);
+      baseColor = "#A5D6A7";
+    }
+
+    if (val === 0) return baseColor;
+    if (val === 1) return "#FFF59D"; // Neutral/Normal
+    if (val === 2) return "#FFCCBC"; // Negative/Low
+    return baseColor;
+  };
+
+  const CustomMeasureTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
-      const val = payload[0];
-      const metric = val.dataKey;
+      const p = payload[0].payload;
+      const { day, logs } = p;
       
-      let displayVal = val.value;
-      if (metric === "energy") displayVal = val.payload.energyLabel;
-      if (metric === "mood") displayVal = val.payload.moodLabel;
-      if (metric === "wellbeing") displayVal = val.payload.wellbeingLabel;
-      
+      if (!logs || logs.length === 0) {
+        return (
+          <div className="bg-white shadow-xl border border-slate-100 rounded-xl p-3 text-[13px] font-bold text-slate-800 z-[100]">
+            <div>День {day}</div>
+            <div className="text-slate-400 font-medium mt-0.5">Нет записей</div>
+          </div>
+        );
+      }
+
+      const isPhysical = activeChartMetric === "pulse" || activeChartMetric === "weight";
+
       return (
-        <div className="bg-[#F4FBF7] shadow-sm rounded-xl px-3 py-2 text-xs font-bold text-slate-800 border-none">
-          <div>День {label}</div>
-          <div className="text-[#4CAF50]">{displayVal}</div>
+        <div className="bg-white shadow-xl border border-slate-100 rounded-xl p-3 text-[13px] font-bold text-slate-800 z-[100] max-w-[220px]">
+          <div className="mb-2 border-b border-slate-100 pb-1.5 flex justify-between items-center gap-3">
+            <span>День {day}</span>
+            <span className="text-[10px] text-slate-400 font-bold bg-slate-50 px-1.5 py-0.5 rounded-md">Записей: {logs.length}</span>
+          </div>
+          
+          <div className="flex flex-col gap-2.5">
+            {[...logs].map((log: any, idx: number) => {
+               let mainText = "";
+               let subText = "";
+               let color = "#cbd5e1";
+               
+               if (isPhysical) {
+                 if (activeChartMetric === "pulse") {
+                   mainText = log.pulse ? `${log.pulse} уд/мин` : "Нет данных";
+                   color = "#81C784";
+                 } else {
+                   mainText = log.weight ? `${log.weight} кг` : "Нет данных";
+                   color = "#B2EBF2";
+                 }
+               } else {
+                 const parsed = parseTonus(log.tonus);
+                 if (activeChartMetric === "energy") {
+                   mainText = ENERGY_STATES[parseInt(parsed.energy, 10)]?.label || "—";
+                 } else if (activeChartMetric === "mood") {
+                   mainText = MOOD_STATES[parseInt(parsed.mood, 10)]?.label || "—";
+                 } else if (activeChartMetric === "wellbeing") {
+                   mainText = WELLBEING_STATES[parseInt(parsed.wellbeing, 10)]?.label || "—";
+                 }
+                 
+                 const eLabel = ENERGY_STATES[parseInt(parsed.energy, 10)]?.label || "—";
+                 const mLabel = MOOD_STATES[parseInt(parsed.mood, 10)]?.label || "—";
+                 const wLabel = WELLBEING_STATES[parseInt(parsed.wellbeing, 10)]?.label || "—";
+                 
+                 if (activeChartMetric === "energy") subText = `(${mLabel}, ${wLabel})`;
+                 if (activeChartMetric === "mood") subText = `(${eLabel}, ${wLabel})`;
+                 if (activeChartMetric === "wellbeing") subText = `(${eLabel}, ${mLabel})`;
+                 
+                 color = getFillColor(log, activeChartMetric);
+               }
+               
+               return (
+                 <div key={log.id || idx} className="flex items-start gap-2 leading-tight">
+                    <span className="text-[10px] text-slate-400 font-mono mt-0.5 w-8 shrink-0">{log.timeString || "—"}</span>
+                    <div className="w-2.5 h-2.5 rounded-full mt-[3px] shrink-0 shadow-sm" style={{ backgroundColor: color }} />
+                    <div className="flex flex-col">
+                       <span className="text-slate-700">{mainText}</span>
+                       {subText && <span className="text-[10.5px] text-slate-400 font-semibold">{subText}</span>}
+                    </div>
+                 </div>
+               );
+            })}
+          </div>
         </div>
       );
     }
@@ -476,41 +619,74 @@ export default function MeasurementsDetailsScreen({
           </div>
 
           <div className="relative pt-4 pb-2 px-1 h-44 outline-none border-none focus:outline-none focus:ring-0" style={{ outline: 'none', border: 'none' }}>
+            <style>{`
+              .recharts-wrapper *:focus,
+              .recharts-surface:focus,
+              .recharts-layer:focus,
+              .recharts-bar-rect:focus,
+              .recharts-line-curve:focus {
+                outline: none !important;
+              }
+            `}</style>
             <ResponsiveContainer width="100%" height="100%" className="outline-none border-none focus:outline-none focus:ring-0" style={{ outline: 'none', border: 'none' }}>
-              {activeChartMetric === "weight" || activeChartMetric === "pulse" ? (
-                <LineChart data={chartData} margin={{ top: 5, right: 5, left: -25, bottom: 0 }} onClick={(e) => e?.activeLabel && setSelectedGraphDay(Number(e.activeLabel))} className="outline-none border-none focus:outline-none focus:ring-0" style={{ outline: 'none', border: 'none' }}>
-                  <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: "#94a3b8" }} />
-                  <YAxis 
-                    domain={activeChartMetric === "weight" ? ['dataMin - 1', 'dataMax + 1'] : ['auto', 'auto']} 
-                    axisLine={false} 
-                    tickLine={false} 
-                    tick={{ fontSize: 10, fill: "#94a3b8" }} 
-                  />
-                  <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#E8F5E9', strokeWidth: 2 }} wrapperStyle={{ outline: 'none', border: 'none' }} />
-                  {activeChartMetric === "pulse" && <ReferenceArea y1={55} y2={75} fill="#E8F5E9" fillOpacity={0.5} />}
-                  <Line isAnimationActive={false} 
-                    type="monotone" 
-                    dataKey={activeChartMetric} 
-                    stroke={activeChartMetric === "weight" ? "#006064" : "#1B5E20"} 
-                    strokeWidth={3}
-                    dot={activeChartMetric === "pulse" ? <CustomPulseDot /> : { r: 4, fill: "#006064", strokeWidth: 0 }} 
-                    activeDot={activeChartMetric === "pulse" ? <CustomPulseActiveDot /> : { r: 6, fill: "#006064", strokeWidth: 0 }} 
-                    connectNulls
-                  />
-                </LineChart>
-              ) : (
-                <BarChart data={chartData} margin={{ top: 5, right: 5, left: 0, bottom: 0 }} onClick={(e) => e?.activeLabel && setSelectedGraphDay(Number(e.activeLabel))} className="outline-none border-none focus:outline-none focus:ring-0" style={{ outline: 'none', border: 'none' }}>
-                  <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: "#94a3b8" }} />
-                  <YAxis hide type="number" domain={[0, 3]} />
-                  <Tooltip content={<CustomTooltip />} cursor={{ fill: '#F4FBF7' }} wrapperStyle={{ outline: 'none', border: 'none' }} />
-                  <Bar isAnimationActive={false} 
-                    dataKey={activeChartMetric} 
-                    fill={activeChartMetric === "energy" ? "#C5E1A5" : activeChartMetric === "mood" ? "#B2DFDB" : "#A5D6A7"} 
-                    radius={[4, 4, 0, 0]}
+              <BarChart data={chartData} margin={{ top: 5, right: 10, left: 10, bottom: 0 }} className="outline-none border-none focus:outline-none focus:ring-0" style={{ outline: 'none', border: 'none' }}>
+                <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: "#94a3b8" }} />
+                <YAxis hide type="number" allowDecimals={false} domain={[0, 'dataMax']} />
+                <Tooltip content={<CustomMeasureTooltip />} cursor={{ fill: '#f1f5f9', opacity: 0.5, rx: 4, ry: 4 }} wrapperStyle={{ outline: 'none', border: 'none', pointerEvents: 'none', zIndex: 100 }} />
+                
+                {activeChartMetric === "pulse" || activeChartMetric === "weight" ? (
+                  <Bar
+                    dataKey={activeChartMetric === "pulse" ? "avgPulse" : "avgWeight"}
+                    stackId="a"
+                    isAnimationActive={false}
+                    shape={<PhysicalBarShape />}
                     maxBarSize={20}
-                  />
-                </BarChart>
-              )}
+                    style={{ outline: 'none', stroke: 'none' }}
+                  >
+                    {chartData.map((entry, index) => (
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={activeChartMetric === "pulse" ? "#81C784" : "#B2EBF2"}
+                        stroke="transparent"
+                        strokeWidth={0}
+                      />
+                    ))}
+                  </Bar>
+                ) : (
+                  Array.from({ length: maxBars }).map((_, i) => (
+                    <Bar
+                      key={`bar-${i}`}
+                      dataKey={`log${i}`}
+                      stackId="a"
+                      isAnimationActive={false}
+                      shape={<StackedBlockShape />}
+                      maxBarSize={20}
+                      style={{ outline: 'none', stroke: 'none' }}
+                    >
+                      {chartData.map((entry, index) => {
+                        const logData = entry.logs[i];
+                        return (
+                          <Cell
+                            key={`cell-${index}-${i}`}
+                            fill={getFillColor(logData, activeChartMetric)}
+                            stroke="transparent"
+                            strokeWidth={0}
+                          />
+                        );
+                      })}
+                    </Bar>
+                  ))
+                )}
+
+                <Bar 
+                  dataKey="hitboxVal" 
+                  stackId="a"
+                  fill="transparent" 
+                  shape={<HitboxShape />} 
+                  background={{ fill: 'transparent' }} 
+                  isAnimationActive={false} 
+                />
+              </BarChart>
             </ResponsiveContainer>
           </div>
 
