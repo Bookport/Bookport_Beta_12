@@ -88,7 +88,7 @@ export default function DigestionScreen({
 
   const dayLogs = React.useMemo(() => {
     return digestionEntries
-      .filter((e) => e.dayIndex === currentDayIndex)
+      .filter((e) => Number(e.dayIndex) === Number(currentDayIndex))
       .map((e) => ({
         id: e.id || `srv-${e.dayIndex}-${e.timestamp}`,
         dayIndex: e.dayIndex,
@@ -103,7 +103,7 @@ export default function DigestionScreen({
   }, [digestionEntries, currentDayIndex]);
 
   const periodLogs = React.useMemo(() => {
-    return digestionEntries.filter((e) => e.dayIndex >= fromDayIndex && e.dayIndex <= currentDayIndex);
+    return digestionEntries.filter((e) => Number(e.dayIndex) >= fromDayIndex && Number(e.dayIndex) <= Number(currentDayIndex));
   }, [digestionEntries, fromDayIndex, currentDayIndex]);
 
   // Fetch historical digestion logs from server on mount and merge into global store
@@ -164,7 +164,7 @@ export default function DigestionScreen({
       if (t === 6 || t === 7) fastTransitCount++;
     }
     if (normalizeComfort(log.comfort) === "easy" || normalizeComfort(log.comfort) === "normal") comfortableCount++;
-    seenDays.add(log.dayIndex);
+    seenDays.add(Number(log.dayIndex));
   });
   loggedDays = seenDays.size;
 
@@ -174,7 +174,7 @@ export default function DigestionScreen({
   const fastTransitRatio = totalEpisodes ? Math.round((fastTransitCount / totalEpisodes) * 100) : null;
   const comfortRatio = totalEpisodes ? Math.round((comfortableCount / totalEpisodes) * 100) : null;
 
-  const firstLogDay = digestionEntries.length > 0 ? Math.min(...digestionEntries.map(e => e.dayIndex)) : currentDayIndex;
+  const firstLogDay = digestionEntries.length > 0 ? Math.min(...digestionEntries.map(e => Number(e.dayIndex))) : currentDayIndex;
   const actualAppDays = Math.max(1, currentDayIndex - firstLogDay + 1);
 
   const stabilityDenominator = periodDays === "all"
@@ -184,13 +184,13 @@ export default function DigestionScreen({
     ? Math.min(100, Math.round((loggedDays / stabilityDenominator) * 100))
     : null;
   const todayWater = waterEntries
-    .filter(w => w.dayIndex === currentDayIndex)
+    .filter(w => Number(w.dayIndex) === Number(currentDayIndex))
     .reduce((sum, entry) => sum + entry.amount, 0);
   const waterPct = waterGoal > 0 ? Math.min(100, Math.round((todayWater / waterGoal) * 100)) : null;
 
   // ---- ANNA'S INTELLIGENCE (existing logic from utils) ----
   const todayLogs = React.useMemo(() => {
-    return digestionEntries.filter(e => e.dayIndex === currentDayIndex);
+    return digestionEntries.filter(e => Number(e.dayIndex) === Number(currentDayIndex));
   }, [digestionEntries, currentDayIndex]);
 
   const periodAvgBristol = avgBristolStyle ? parseFloat(avgBristolStyle) : undefined;
@@ -212,7 +212,7 @@ export default function DigestionScreen({
   const chartData = React.useMemo(() => {
     const data: { day: number; bristol: number | null; symptoms: string[]; comfort: string | null; time: string }[] = [];
     for (let d = 1; d <= 28; d++) {
-      const logs = periodLogs.filter((l) => l.dayIndex === d);
+      const logs = periodLogs.filter((l) => Number(l.dayIndex) === d);
       let point: { day: number; bristol: number | null; symptoms: string[]; comfort: string | null; time: string } = {
         day: d,
         bristol: null,
@@ -289,7 +289,7 @@ export default function DigestionScreen({
   // ---- HISTORY JOURNAL DATA (selected day) ----
   const selectedDayHist = React.useMemo(() => {
     const sorted = periodLogs
-      .filter((l) => l.dayIndex === selectedGraphDay)
+      .filter((l) => Number(l.dayIndex) === Number(selectedGraphDay))
       .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
     return sorted;
   }, [periodLogs, selectedGraphDay]);
@@ -307,7 +307,7 @@ export default function DigestionScreen({
   const comfortStreak = React.useMemo(() => {
     let streak = 0;
     for (let d = currentDayIndex; d >= 1; d--) {
-      const logList = digestionEntries.filter((e) => e.dayIndex === d);
+      const logList = digestionEntries.filter((e) => Number(e.dayIndex) === d);
       if (logList.length === 0) {
         if (d === currentDayIndex) continue; // today without logs — not a leading streak yet
         break;
