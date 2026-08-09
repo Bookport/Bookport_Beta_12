@@ -144,6 +144,24 @@ export default function MeasurementsDetailsScreen({
             for (const [d, entries] of Object.entries(byDay)) {
               merged[Number(d)] = entries;
             }
+            useAppStore.getState().setMeasurementEntries(
+              Object.entries(merged).flatMap(([dayStr, list]) =>
+                (list || []).map(e => ({
+                  dayIndex: Number(dayStr),
+                  weight: e.weight ?? null,
+                  systolic: e.systolic ?? null,
+                  diastolic: e.diastolic ?? null,
+                  timestamp: e.timestamp,
+                  id: e.id,
+                  timeString: e.timeString,
+                  pulse: e.pulse ?? null,
+                  tonus: e.tonus,
+                  energy: e.energy,
+                  mood: e.mood,
+                  wellbeing: e.wellbeing,
+                }))
+              )
+            );
             return merged;
           });
         }

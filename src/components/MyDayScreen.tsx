@@ -90,6 +90,36 @@ interface WaterLogEntry {
   timestamp: number;
 }
 
+// Convert the local water cache into the flat store array used by buildDailySummary
+const waterLogsToStoreEntries = (logs: Record<number, WaterLogEntry[]>) =>
+  Object.entries(logs).flatMap(([dayStr, list]) =>
+    (list || []).map(e => ({
+      timestamp: e.timestamp,
+      amount: e.amount,
+      time: e.time,
+      dayIndex: Number(dayStr),
+    }))
+  );
+
+// Convert the local measurements cache into the flat store array used by buildDailySummary
+const measurementLogsToStoreEntries = (logs: Record<number, MeasurementLogEntry[]>) =>
+  Object.entries(logs).flatMap(([dayStr, list]) =>
+    (list || []).map(e => ({
+      dayIndex: Number(dayStr),
+      weight: e.weight ?? null,
+      systolic: e.systolic ?? null,
+      diastolic: e.diastolic ?? null,
+      timestamp: e.timestamp,
+      id: e.id,
+      timeString: e.timeString,
+      pulse: e.pulse ?? null,
+      tonus: e.tonus,
+      energy: e.energy,
+      mood: e.mood,
+      wellbeing: e.wellbeing,
+    }))
+  );
+
 interface HoldStepperButtonProps {
   onStep: () => void;
   disabled?: boolean;
@@ -315,7 +345,11 @@ export default function MyDayScreen({
             console.error("Failed to parse waterEntries:", e);
           }
         }
-        setWaterLogs(prev => ({ ...prev, [currentDayIndex]: dbWaterEntries }));
+        setWaterLogs(prev => {
+          const merged = { ...prev, [currentDayIndex]: dbWaterEntries };
+          useAppStore.getState().setWaterEntries(waterLogsToStoreEntries(merged));
+          return merged;
+        });
         // Sync localStorage cache with DB data
         try {
           const raw = localStorage.getItem('wfpb_daily_water_entries_v3');
@@ -346,7 +380,11 @@ export default function MyDayScreen({
             const parsed = typeof d.dailyMetric.measurements === 'string'
               ? JSON.parse(d.dailyMetric.measurements)
               : d.dailyMetric.measurements;
-            setMeasurementLogs(prev => ({ ...prev, [currentDayIndex]: parsed }));
+            setMeasurementLogs(prev => {
+              const merged = { ...prev, [currentDayIndex]: parsed };
+              useAppStore.getState().setMeasurementEntries(measurementLogsToStoreEntries(merged));
+              return merged;
+            });
           } catch (e) {
             console.error("Failed to parse measurements:", e);
           }
@@ -443,7 +481,11 @@ export default function MyDayScreen({
       if (raw) {
         const allLogs = JSON.parse(raw);
         if (allLogs && typeof allLogs === 'object') {
-          setWaterLogs(prev => ({ ...prev, ...(allLogs as Record<number, WaterLogEntry[]>) }));
+          setWaterLogs(prev => {
+            const merged = { ...prev, ...(allLogs as Record<number, WaterLogEntry[]>) };
+            useAppStore.getState().setWaterEntries(waterLogsToStoreEntries(merged));
+            return merged;
+          });
         }
       }
     } catch (e) {
@@ -1255,6 +1297,7 @@ export default function MyDayScreen({
     updatedLogs[currentDayIndex].push(newLogEntry);
 
     setMeasurementLogs(updatedLogs);
+    useAppStore.getState().setMeasurementEntries(measurementLogsToStoreEntries(updatedLogs));
 
     // Persist measurement log to DB (fire-and-forget)
     api("/api/metrics/daily", {
@@ -1604,6 +1647,7 @@ export default function MyDayScreen({
     updatedLogs[currentDayIndex].push(newEntry);
     
     setWaterLogs(updatedLogs);
+    useAppStore.getState().setWaterEntries(waterLogsToStoreEntries(updatedLogs));
     localStorage.setItem('wfpb_daily_water_entries_v3', JSON.stringify(updatedLogs));
     
     const sum = updatedLogs[currentDayIndex].reduce((acc, e) => acc + e.amount, 0);

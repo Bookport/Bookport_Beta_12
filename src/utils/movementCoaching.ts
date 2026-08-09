@@ -79,13 +79,23 @@ export const generateMovementSummary = (
     };
   }
 
-  // 3. Норма движения + низкий тонус
+// 3. Норма движения + низкий тонус
   if (movement.status === "active" && summary.measurements.tonus === "low") {
     return {
       text: getRandomPhrase("movementActiveTonusLow", ctx),
       glowBorderClass: overactiveStyle ? overactiveStyle.glowBorderClass : LEVEL_STYLES.progress.glowBorderClass,
       statusBadge: overactiveStyle ? overactiveStyle.statusBadge : LEVEL_STYLES.progress.statusBadge,
       label: overactiveStyle ? overactiveStyle.label : "Время восстановления",
+    };
+  }
+
+  // 4. Малоподвижность + низкий тонус -> тело в экономии (проверяется до заглушки нулевой активности)
+  if (movement.status === "sedentary" && summary.measurements.tonus === "low") {
+    return {
+      text: getRandomPhrase("movementSedentaryTonusLow", ctx),
+      glowBorderClass: overactiveStyle ? overactiveStyle.glowBorderClass : LEVEL_STYLES.zero.glowBorderClass,
+      statusBadge: overactiveStyle ? overactiveStyle.statusBadge : LEVEL_STYLES.low.statusBadge,
+      label: "Разбудим организм",
     };
   }
 

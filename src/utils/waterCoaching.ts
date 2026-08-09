@@ -17,11 +17,6 @@ export const getWaterFeedback = (
     weightDelta: summary.measurements.weightDelta,
   };
 
-  // Нет данных о воде
-  if (water.amount === 0) {
-    return "Сделай свой первый глоток воды сегодня, чтобы запустить метаболизм!";
-  }
-
   // ============ КРОСС-ТРИГГЕРЫ ============
   // 1. Дефицит воды + запор в ЖКТ -> тревога: вода спровоцировала остановку ЖКТ
   if (water.status === "deficit" && summary.digestion.status === "constipation") {
@@ -33,9 +28,15 @@ export const getWaterFeedback = (
     return getRandomPhrase("waterOKTonusLow", ctx);
   }
 
-  // 3. Водный баланс в норме + ЖКТ идеален -> похвала идеальной гидратации
+  // 3. Водная баланс в норме + ЖКТ идеален -> похвала идеальной гидратации
   if (water.status === "normal" && summary.digestion.status === "ideal") {
     return getRandomPhrase("waterNormalDigestionIdeal", ctx);
+  }
+
+  // Нет данных о воде (проверяется после кросс-триггеров: «запор + 0 выпитой воды» — это связка,
+  // а не просто предложение сделать первый глоток)
+  if (water.amount === 0) {
+    return "Сделай свой первый глоток воды сегодня, чтобы запустить метаболизм!";
   }
 
   // ============ СТАНДАРТНЫЕ ВЕТКИ ============
