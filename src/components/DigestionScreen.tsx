@@ -302,9 +302,9 @@ export default function DigestionScreen({
     const topY = bottomY - fullHeight;
     return (
       <rect
-        x={x - width / 2}
+        x={x}
         y={topY}
-        width={width * 2}
+        width={width}
         height={fullHeight || 200}
         fill="transparent"
         cursor="pointer"
@@ -676,6 +676,7 @@ export default function DigestionScreen({
 
                 <Bar 
                   dataKey="hitboxVal" 
+                  stackId="a"
                   fill="transparent" 
                   shape={<HitboxShape />} 
                   background={{ fill: 'transparent' }} 
