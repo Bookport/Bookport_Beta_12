@@ -247,12 +247,26 @@ export default function MeasurementsDetailsScreen({
   const latestTodayLog = todayList.length > 0 ? todayList[todayList.length - 1] : null;
   const latestSelectedDayLog = selectedDayList.length > 0 ? selectedDayList[selectedDayList.length - 1] : null;
 
-  // Anna Context logic
-  const usedInitialWeight = stats.initialWeight || null;
   const storeDigestionEntries = useAppStore((s) => s.digestionEntries);
   const storeWaterEntries = useAppStore((s) => s.waterEntries);
   const storeMovementEntries = useAppStore((s) => s.movementEntries);
   const storeMeasurementEntries = useAppStore((s) => s.measurementEntries);
+
+  const latestBP = useMemo(() => {
+    if (latestTodayLog?.systolic && latestTodayLog?.diastolic) {
+      return { sys: latestTodayLog.systolic, dia: latestTodayLog.diastolic };
+    }
+    const allEntries = [...storeMeasurementEntries]
+      .filter(m => m.systolic && m.diastolic)
+      .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+    if (allEntries.length > 0) {
+      return { sys: allEntries[0].systolic, dia: allEntries[0].diastolic };
+    }
+    return null;
+  }, [latestTodayLog, storeMeasurementEntries]);
+
+  // Anna Context logic
+  const usedInitialWeight = stats.initialWeight || null;
 
   const annaComment = useMemo(() => {
     const summary = buildDailySummary(selectedGraphDay ?? currentDayIndex, useAppStore.getState());
@@ -533,23 +547,33 @@ export default function MeasurementsDetailsScreen({
               </div>
 
               {/* Physical objective numbers panel layout */}
-              <div className="grid grid-cols-2 gap-3 mt-1">
-                <div className="bg-[#F1F8E9] shadow-sm rounded-2xl p-3 flex items-center gap-3">
-                  <img src={iconPulse} alt="Пульс" className="w-10 h-10 object-contain" />
-                  <div className="flex flex-col text-left">
-                    <span className="text-[10px] text-[#4CAF50] font-black uppercase tracking-wide">Пульс</span>
-                    <span className="text-[14px] font-black text-slate-800 font-mono">
-                      {latestTodayLog.pulse ? `${latestTodayLog.pulse} уд/мин` : "Не указан"}
+              <div className={`grid ${latestBP ? 'grid-cols-3' : 'grid-cols-2'} gap-2 sm:gap-3 mt-1`}>
+                <div className="bg-[#F1F8E9] shadow-sm rounded-2xl p-2 sm:p-3 flex flex-col sm:flex-row items-center sm:gap-2 justify-center sm:justify-start text-center sm:text-left">
+                  <img src={iconPulse} alt="Пульс" className="w-6 h-6 sm:w-8 sm:h-8 object-contain mb-1 sm:mb-0" />
+                  <div className="flex flex-col">
+                    <span className="text-[9px] sm:text-[10px] text-[#4CAF50] font-black uppercase tracking-wide">Пульс</span>
+                    <span className="text-[12px] sm:text-[14px] font-black text-slate-800 font-mono whitespace-nowrap">
+                      {latestTodayLog?.pulse ? `${latestTodayLog.pulse}` : "—"}
                     </span>
                   </div>
                 </div>
 
-                <div className="bg-[#E0F2F1] shadow-sm rounded-2xl p-3 flex items-center gap-3">
-                  <img src={iconWeight} alt="Вес" className="w-10 h-10 object-contain" />
-                  <div className="flex flex-col text-left">
-                    <span className="text-[10px] text-[#00796B] font-black uppercase tracking-wide">Вес</span>
-                    <span className="text-[14px] font-black text-slate-800 font-mono">
-                      {latestTodayLog.weight ? `${latestTodayLog.weight} кг` : "Не указан"}
+                {latestBP && (
+                  <div className="bg-[#E8F5E9] shadow-sm rounded-2xl p-2 sm:p-3 flex flex-col items-center justify-center text-center">
+                    <span className="text-[9px] sm:text-[10px] text-[#2E7D32] font-black uppercase tracking-wide">Давление</span>
+                    <span className="text-[13px] sm:text-[15px] font-black text-slate-800 font-mono leading-tight mt-0.5 whitespace-nowrap">
+                      {latestBP.sys}/{latestBP.dia}
+                    </span>
+                    <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">мм рт.ст.</span>
+                  </div>
+                )}
+
+                <div className="bg-[#E0F2F1] shadow-sm rounded-2xl p-2 sm:p-3 flex flex-col sm:flex-row items-center sm:gap-2 justify-center sm:justify-start text-center sm:text-left">
+                  <img src={iconWeight} alt="Вес" className="w-6 h-6 sm:w-8 sm:h-8 object-contain mb-1 sm:mb-0" />
+                  <div className="flex flex-col">
+                    <span className="text-[9px] sm:text-[10px] text-[#00796B] font-black uppercase tracking-wide">Вес</span>
+                    <span className="text-[12px] sm:text-[14px] font-black text-slate-800 font-mono whitespace-nowrap">
+                      {latestTodayLog?.weight ? `${latestTodayLog.weight}` : "—"}
                     </span>
                   </div>
                 </div>
@@ -733,14 +757,19 @@ export default function MeasurementsDetailsScreen({
                         <img src={WELLBEING_STATES[+p.wellbeing]?.img || WELLBEING_STATES[0].img} className="w-6 h-6 object-contain" alt="wellbeing" />
                       </div>
 
-                      <div className="flex items-center gap-2.5">
-                        <div className="flex items-center gap-1 w-[40px]">
-                          <img src={iconPulse} alt="pulse" className="w-4 h-4 object-contain" />
-                          <span className="text-[11px] font-mono font-bold text-slate-700">{entry.pulse || "—"}</span>
+                      <div className="flex items-center gap-1.5 sm:gap-2">
+                        <div className="flex items-center gap-0.5 w-[36px] sm:w-[40px] shrink-0">
+                          <img src={iconPulse} alt="pulse" className="w-3.5 h-3.5 sm:w-4 sm:h-4 object-contain" />
+                          <span className="text-[10px] sm:text-[11px] font-mono font-bold text-slate-700">{entry.pulse || "—"}</span>
                         </div>
-                        <div className="flex items-center gap-1 w-[45px]">
-                          <img src={iconWeight} alt="weight" className="w-4 h-4 object-contain" />
-                          <span className="text-[11px] font-mono font-bold text-slate-700">{entry.weight || "—"}</span>
+                        <div className="flex items-center justify-center w-[48px] sm:w-[54px] shrink-0 bg-[#E8F5E9] rounded-md px-1 py-0.5">
+                          <span className="text-[9px] sm:text-[10px] font-mono font-bold text-[#2E7D32] tracking-tighter">
+                            {entry.systolic && entry.diastolic ? `${entry.systolic}/${entry.diastolic}` : "—/—"}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-0.5 w-[40px] sm:w-[45px] shrink-0">
+                          <img src={iconWeight} alt="weight" className="w-3.5 h-3.5 sm:w-4 sm:h-4 object-contain" />
+                          <span className="text-[10px] sm:text-[11px] font-mono font-bold text-slate-700">{entry.weight || "—"}</span>
                         </div>
                       </div>
                     </div>
