@@ -1,10 +1,32 @@
-import { MeasurementContext, getRandomPhrase } from "./measurementsPhrases";
+import { MeasurementContext, getRandomPhrase, MEASUREMENT_PHRASES } from "./measurementsPhrases";
 import { DailySummary } from "./crossModuleSummary";
 
-const tonusLabelByStatus = (status: string): { energy: string; mood: string; wellbeing: string } => {
-  if (status === "high") return { energy: "Высокая", mood: "Лёгкое", wellbeing: "Хорошее" };
-  if (status === "low") return { energy: "Сниженная", mood: "Тяжёлое", wellbeing: "Плохое" };
-  return { energy: "Спокойная", mood: "Ровное", wellbeing: "Среднее" };
+const parseTriad = (rawTonus: string | null) => {
+  let energy = 'normal';
+  let mood = 'normal';
+  let wellbeing = 'normal';
+  let energyLabel = '';
+  let moodLabel = '';
+  let wellbeingLabel = '';
+  
+  if (rawTonus) {
+    const parts = rawTonus.split('|').map(p => p.trim());
+    if (parts.length >= 3) {
+      energyLabel = parts[0];
+      moodLabel = parts[1];
+      wellbeingLabel = parts[2];
+      
+      if (parts[0] === 'Высокая') energy = 'high';
+      else if (parts[0] === 'Сниженная') energy = 'low';
+      
+      if (parts[1] === 'Лёгкое') mood = 'good';
+      else if (parts[1] === 'Тяжёлое') mood = 'bad';
+      
+      if (parts[2] === 'Хорошее') wellbeing = 'good';
+      else if (parts[2] === 'Плохое') wellbeing = 'bad';
+    }
+  }
+  return { energy, mood, wellbeing, energyLabel, moodLabel, wellbeingLabel };
 };
 
 export const getMeasurementsFeedback = (
@@ -13,7 +35,7 @@ export const getMeasurementsFeedback = (
   userGender?: string
 ): string => {
   const m = summary.measurements;
-  const tonusLabels = tonusLabelByStatus(m.tonus);
+  const triad = parseTriad(m.rawTonus);
 
   const ctx: MeasurementContext = {
     userName,
@@ -23,47 +45,51 @@ export const getMeasurementsFeedback = (
     weight: m.weightAvg,
     initialWeight: m.weightDelta !== null && m.weightAvg !== null ? m.weightAvg - m.weightDelta : null,
     weightDelta: m.weightDelta,
-    tonusEnergy: tonusLabels.energy,
-    tonusMood: tonusLabels.mood,
-    tonusWellbeing: tonusLabels.wellbeing,
+    tonusEnergy: triad.energy,
+    tonusMood: triad.mood,
+    tonusWellbeing: triad.wellbeing,
   };
 
-  let summaryText = "";
+  let messageParts: string[] = [];
 
-  // ============ КРОСС-ТРИГГЕРЫ ============
-  // 1. Тонус низкий + запор в ЖКТ -> связка «застой роняет энергию»
-  if (m.tonus === "low" && summary.digestion.status === "constipation") {
-    summaryText += getRandomPhrase("tonusLowConstipation", ctx) + " ";
-    return summaryText.trim();
+  // 1. БЛОК ПУЛЬСА
+  if (ctx.pulse) {
+    if (ctx.pulse >= 100) messageParts.push(getRandomPhrase('pulseTachycardia', ctx));
+    else if (ctx.pulse > 80 && ctx.pulse < 100) messageParts.push(getRandomPhrase('pulseElevated', ctx));
+    else if (ctx.pulse >= 55 && ctx.pulse <= 80) messageParts.push(getRandomPhrase('pulseOptimal', ctx));
+    else if (ctx.pulse < 55) messageParts.push(getRandomPhrase('pulseBradycardia', ctx));
   }
 
-  // 2. Тонус высокий, но активности мало -> похвала + просьба добавить шаги
-  if (m.tonus === "high" && summary.movement.activeMin < 30) {
-    summaryText += getRandomPhrase("tonusHighNeedMovement", ctx) + " ";
-    return summaryText.trim();
+  // 2. БЛОК ВЕСА
+  if (ctx.weight !== null && ctx.initialWeight !== null && ctx.weightDelta !== null) {
+    if (ctx.weightDelta <= -1.5) messageParts.push(getRandomPhrase('weightDropGlycogen', ctx));
+    else if (ctx.weightDelta > -1.5 && ctx.weightDelta < -0.2) messageParts.push(getRandomPhrase('weightDropFat', ctx));
+    else if (ctx.weightDelta >= 1.5) messageParts.push(getRandomPhrase('weightGainWater', ctx));
+    else if (ctx.weightDelta >= -0.2 && ctx.weightDelta < 1.5) messageParts.push(getRandomPhrase('weightPlateau', ctx));
   }
 
-  // ============ СТАНДАРТНЫЕ ВЕТКИ (тонус normal / no_data) ============
-  // БЛОК 1: ПУЛЬС
-  if (ctx.pulse && ctx.pulse > 75) {
-    summaryText += getRandomPhrase("pulseHigh", ctx) + " ";
-  } else if (ctx.pulse) {
-    summaryText += getRandomPhrase("pulseNormal", ctx) + " ";
+  // 3. БЛОК ТРИАДЫ
+  const { energy, mood, wellbeing } = triad;
+  
+  if (wellbeing === 'good' && energy === 'high' && mood === 'good') {
+    messageParts.push(getRandomPhrase('triadFlow', ctx));
+  } else if (wellbeing === 'good' && energy === 'high' && mood === 'bad') {
+    messageParts.push(getRandomPhrase('triadWiredAndTired', ctx));
+  } else if (wellbeing === 'bad' && energy === 'low' && mood === 'good') {
+    messageParts.push(getRandomPhrase('triadPhysicalExhaustion', ctx));
+  } else if (wellbeing === 'bad' && energy === 'low' && mood === 'bad') {
+    messageParts.push(getRandomPhrase('triadApathy', ctx));
+  } else if (wellbeing === 'bad' && energy === 'high' && mood === 'bad') {
+    messageParts.push(getRandomPhrase('triadSomaticStress', ctx));
+  } else if (wellbeing === 'good' && energy === 'low' && mood === 'good') {
+    messageParts.push(getRandomPhrase('triadZenRecovery', ctx));
+  } else if (wellbeing === 'good' && energy === 'low' && mood === 'bad') {
+    messageParts.push(getRandomPhrase('triadStoicGrind', ctx));
+  } else if (wellbeing === 'bad' && energy === 'high' && mood === 'good') {
+    messageParts.push(getRandomPhrase('triadFragileHigh', ctx));
+  } else if (energy === 'low') {
+    messageParts.push(getRandomPhrase('tonusLow', ctx));
   }
 
-  // БЛОК 2: ВЕС
-  if (ctx.weightDelta !== null && ctx.weightDelta < 0) {
-    summaryText += getRandomPhrase("weightLoss", ctx) + " ";
-  } else if (ctx.weightDelta !== null && ctx.weightDelta >= 0) {
-    summaryText += getRandomPhrase("weightGainOrPlateau", ctx) + " ";
-  }
-
-  // БЛОК 3: ТОНУС
-  if (m.tonus === "low") {
-    summaryText += getRandomPhrase("tonusLow", ctx) + " ";
-  } else if (m.tonus === "high") {
-    summaryText += getRandomPhrase("tonusHigh", ctx) + " ";
-  }
-
-  return summaryText.trim();
+  return messageParts.join(' ').trim();
 };

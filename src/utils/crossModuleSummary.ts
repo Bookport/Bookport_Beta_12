@@ -27,6 +27,7 @@ export interface DailySummary {
     weightAvg: number | null;
     weightDelta: number | null;
     tonus: 'low' | 'normal' | 'high' | 'no_data';
+    rawTonus: string | null;
   };
 }
 
@@ -105,9 +106,11 @@ const pulseAvg = pulses.length > 0 ? Math.round(pulses.reduce((a,b)=>a+b,0)/puls
 const weightAvg = weights.length > 0 ? Number((weights.reduce((a,b)=>a+b,0)/weights.length).toFixed(1)) : null;
 
 let tonus: 'low' | 'normal' | 'high' | 'no_data' = 'no_data';
+let rawTonus: string | null = null;
 if (measurements.length > 0) {
   const latestMeasurement = measurements[0];
   if (latestMeasurement.tonus) {
+    rawTonus = latestMeasurement.tonus;
     const tStr = latestMeasurement.tonus.toLowerCase();
     if (tStr.includes("плохое") || tStr.includes("сниженная") || tStr.includes("тяжёлое")) {
       tonus = 'low';
@@ -138,6 +141,7 @@ if (measurements.length > 0) {
       weightAvg,
       weightDelta: weightAvg !== null ? Number((weightAvg - (store.userProfile?.initialWeight || weightAvg)).toFixed(1)) : null,
       tonus,
+      rawTonus,
     },
   };
 };
