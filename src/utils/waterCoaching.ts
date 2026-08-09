@@ -13,7 +13,7 @@ export const getWaterFeedback = (
     summary,
     waterAmount: water.amount,
     waterGoal: water.goal,
-    pulse: summary.measurements.pulseAvg,
+    pulse: summary.measurements.latestPulse,
     weightDelta: summary.measurements.weightDelta,
   };
 

@@ -27,28 +27,31 @@ export const getDigestionFeedback = (
   // 2. Кросс-триггеры (дерево принятия решений на основе единой сводки)
   const status = digestion.status;
 
-  // 2.1 Замедленный транзит / Запор (тип 1, 2)
-  if (status === "constipation") {
-    // Триггер "Вода": запор + дефицит воды -> самая критичная связка
-    if (water.status === "deficit") {
-      return getRandomPhrase(DIGESTION_PHRASE_MATRIX.constipation.dehydrated)(ctx);
-    }
-    // Триггер "Движение": запор + малоподвижность
-    if (movement.status === "sedentary") {
-      return getRandomPhrase(DIGESTION_PHRASE_MATRIX.constipation.sedentary)(ctx);
-    }
-    // Триггер "Тонус": запор + низкий тонус
-    if (measurements.tonus === "low") {
-      return getRandomPhrase(DIGESTION_PHRASE_MATRIX.constipation.low_tonus)(ctx);
-    }
-    // Обычный запор (вода и активность в норме)
-    return getRandomPhrase(DIGESTION_PHRASE_MATRIX.constipation.hydrated)(ctx);
+// 2.1 Замедленный транзит / Запор (тип 1, 2)
+if (status === "constipation") {
+  // Триггер "Вода": запор + дефицит воды -> самая критичная связка
+  if (water.status === "deficit") {
+    return getRandomPhrase(DIGESTION_PHRASE_MATRIX.constipation.dehydrated)(ctx);
   }
+  // Триггер "Движение": запор + малоподвижность
+  if (movement.status === "sedentary") {
+    return getRandomPhrase(DIGESTION_PHRASE_MATRIX.constipation.sedentary)(ctx);
+  }
+  // Триггер "Тонус": запор + низкий тонус
+  if (measurements.tonus === "low") {
+    return getRandomPhrase(DIGESTION_PHRASE_MATRIX.constipation.low_tonus)(ctx);
+  }
+  // Обычный запор (вода и активность в норме)
+  return getRandomPhrase(DIGESTION_PHRASE_MATRIX.constipation.hydrated)(ctx);
+}
 
-  // 2.2 Ускоренный транзит / Диарея (тип 6, 7)
-  if (status === "diarrhea") {
-    return getRandomPhrase(DIGESTION_PHRASE_MATRIX.diarrhea.general)(ctx);
+if (status === "diarrhea") {
+  // Триггер "Вода": диарея + дефицит воды -> организм теряет жидкость
+  if (water.status === "deficit") {
+    return getRandomPhrase(DIGESTION_PHRASE_MATRIX.diarrhea.deficit)(ctx);
   }
+  return getRandomPhrase(DIGESTION_PHRASE_MATRIX.diarrhea.general)(ctx);
+}
 
   // 2.3 Идеальный транзит (тип 3, 4, 5)
   // Триггер "Тонус": идеальный стул + низкая энергия -> питание/отдых

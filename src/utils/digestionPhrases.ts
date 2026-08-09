@@ -80,6 +80,10 @@ export const DIGESTION_PHRASE_MATRIX = {
     general: [
       (ctx: DigestionContext) => `${getGreeting(ctx)} Ускоренный транзит (тип ${ctx.summary.digestion.worstBristol}). Пищеварение раздражено. Пока полностью убери сырые овощи и сделай акцент на рис и печеные корнеплоды.`,
       (ctx: DigestionContext) => `${getGreeting(ctx)} Слишком быстро! Тип ${ctx.summary.digestion.worstBristol} говорит о том, что организм теряет жидкость. Пей воду маленькими глотками и перейди на вареную пищу.`
+    ],
+    deficit: [
+      (ctx: DigestionContext) => `${getGreeting(ctx)} Слишком быстро! Организм теряет жидкость (Тип ${ctx.summary.digestion.worstBristol}), а у тебя еще и недобор воды. Пей воду маленькими глотками и перейди на вареную пищу.`,
+      (ctx: DigestionContext) => `${getGreeting(ctx)} Организм теряет жидкость (тип ${ctx.summary.digestion.worstBristol}) и у тебя недобор воды! Пей воду маленькими глотками и перейди на вареную пищу.`
     ]
   },
 

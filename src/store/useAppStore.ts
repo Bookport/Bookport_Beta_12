@@ -131,6 +131,7 @@ export interface AppState {
   isOverlayOpen: boolean;
   isDigestionModalOpen: boolean;
   digestionModalDay?: number | null;
+  selectedGraphDay: number;
   activeNotification: AppNotification | null;
 
   waterEntries: WaterEntry[];
@@ -158,6 +159,7 @@ export interface AppState {
   setCalendarOpen: (open: boolean) => void;
   setOverlayOpen: (open: boolean) => void;
   setDigestionModalOpen: (open: boolean, day?: number) => void;
+  setSelectedGraphDay: (day: number) => void;
   setActiveNotification: (notif: AppNotification | null) => void;
 
   setWaterEntries: (entries: WaterEntry[]) => void;
@@ -185,6 +187,7 @@ export const useAppStore = create<AppState>((set) => ({
   isOverlayOpen: false,
   isDigestionModalOpen: false,
   digestionModalDay: null,
+  selectedGraphDay: 1,
   activeNotification: null,
   waterEntries: [],
   sleepEntries: [],
@@ -208,6 +211,7 @@ export const useAppStore = create<AppState>((set) => ({
   setCalendarOpen: (open) => set({ isCalendarOpen: open }),
   setOverlayOpen: (open) => set({ isOverlayOpen: open }),
   setDigestionModalOpen: (open, day) => set({ isDigestionModalOpen: open, digestionModalDay: day || null }),
+  setSelectedGraphDay: (day) => set({ selectedGraphDay: day }),
   setActiveNotification: (notif) => set({ activeNotification: notif }),
 
   setWaterEntries: (entries) => set({ waterEntries: entries }),

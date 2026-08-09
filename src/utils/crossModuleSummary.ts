@@ -5,8 +5,8 @@ export interface DailySummary {
   water: {
     amount: number;
     goal: number;
-    pct: number; // 0-100%
-    status: 'deficit' | 'normal' | 'excess'; 
+    pct: number;
+    status: 'deficit' | 'normal' | 'excess';
   };
   digestion: {
     episodes: number;
@@ -23,6 +23,7 @@ export interface DailySummary {
   };
   measurements: {
     pulseAvg: number | null;
+    latestPulse: number | null;
     weightAvg: number | null;
     weightDelta: number | null;
     tonus: 'low' | 'normal' | 'high' | 'no_data';
@@ -91,28 +92,29 @@ export const buildDailySummary = (dayIndex: number, store: AppState): DailySumma
   if (activeMin >= 30) movementStatus = 'active';
   if (activeMin >= 60) movementStatus = 'athletic';
 
-  // 4. MEASUREMENTS
-  const measurements = store.measurementEntries.filter(m => Number(m.dayIndex) === dayIndexNum);
-  const pulses = measurements.filter(m => m.pulse).map(m => m.pulse as number);
-  const weights = measurements.filter(m => m.weight).map(m => m.weight as number);
-  
-  const pulseAvg = pulses.length > 0 ? Math.round(pulses.reduce((a,b)=>a+b,0)/pulses.length) : null;
-  const weightAvg = weights.length > 0 ? Number((weights.reduce((a,b)=>a+b,0)/weights.length).toFixed(1)) : null;
+// 4. MEASUREMENTS
+const measurements = store.measurementEntries.filter(m => Number(m.dayIndex) === dayIndexNum);
+const pulses = measurements.filter(m => m.pulse).map(m => m.pulse as number);
+const weights = measurements.filter(m => m.weight).map(m => m.weight as number);
 
-  let tonus: 'low' | 'normal' | 'high' | 'no_data' = 'no_data';
-  if (measurements.length > 0) {
-    const latestMeasurement = measurements[measurements.length - 1];
-    if (latestMeasurement.tonus) {
-      const tStr = latestMeasurement.tonus.toLowerCase();
-      if (tStr.includes("плохое") || tStr.includes("сниженная") || tStr.includes("тяжёлое")) {
-        tonus = 'low';
-      } else if (tStr.includes("хорошее") || tStr.includes("высокая") || tStr.includes("отличное") || tStr.includes("лёгкое")) {
-        tonus = 'high';
-      } else {
-        tonus = 'normal';
-      }
+const latestPulse = pulses.length > 0 ? pulses[0] : null; // Последний (актуальный) замер пульса — отсортирован по времени (массив уже убывается по timestamp)
+const pulseAvg = pulses.length > 0 ? Math.round(pulses.reduce((a,b)=>a+b,0)/pulses.length) : null;
+const weightAvg = weights.length > 0 ? Number((weights.reduce((a,b)=>a+b,0)/weights.length).toFixed(1)) : null;
+
+let tonus: 'low' | 'normal' | 'high' | 'no_data' = 'no_data';
+if (measurements.length > 0) {
+  const latestMeasurement = measurements[0];
+  if (latestMeasurement.tonus) {
+    const tStr = latestMeasurement.tonus.toLowerCase();
+    if (tStr.includes("плохое") || tStr.includes("сниженная") || tStr.includes("тяжёлое")) {
+      tonus = 'low';
+    } else if (tStr.includes("хорошее") || tStr.includes("высокая") || tStr.includes("отличное") || tStr.includes("лёгкое")) {
+      tonus = 'high';
+    } else {
+      tonus = 'normal';
     }
   }
+}
 
   return {
     dayIndex: dayIndexNum,
@@ -127,6 +129,12 @@ export const buildDailySummary = (dayIndex: number, store: AppState): DailySumma
       status: digestionStatus,
     },
     movement: { activeMin, status: movementStatus },
-    measurements: { pulseAvg, weightAvg, weightDelta: weightAvg !== null ? Number((weightAvg - (store.userProfile?.initialWeight || weightAvg)).toFixed(1)) : null, tonus },
+    measurements: {
+      pulseAvg,
+      latestPulse,
+      weightAvg,
+      weightDelta: weightAvg !== null ? Number((weightAvg - (store.userProfile?.initialWeight || weightAvg)).toFixed(1)) : null,
+      tonus,
+    },
   };
 };

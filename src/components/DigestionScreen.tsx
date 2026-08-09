@@ -142,6 +142,7 @@ export default function DigestionScreen({
           const byId = new Map(prevEntries.map(pe => [pe.id, pe]));
           for (const se of serverEntries) byId.set(se.id, se);
           setDigestionEntries(Array.from(byId.values()));
+          setSelectedGraphDay(currentDayIndex);
         }
       })
       .catch((err) => console.warn("[Digestion] failed to load history:", err));

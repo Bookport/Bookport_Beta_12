@@ -51,7 +51,7 @@ export const generateMovementSummary = (
     summary,
     activeMinutes,
     dailyGoal,
-    pulse: summary.measurements.pulseAvg,
+    pulse: summary.measurements.latestPulse,
     weightDelta: summary.measurements.weightDelta,
   };
 

@@ -255,6 +255,7 @@ export default function MyDayScreen({
   isReadOnly = false,
 }: MyDayScreenProps) {
   const setScreen = useAppStore((s) => s.setScreen);
+  const setSelectedGraphDay = useAppStore((s) => s.setSelectedGraphDay);
   const screen = useAppStore((s) => s.screen);
   const profile = useAppStore((s) => s.userProfile);
 
@@ -1298,6 +1299,7 @@ export default function MyDayScreen({
 
     setMeasurementLogs(updatedLogs);
     useAppStore.getState().setMeasurementEntries(measurementLogsToStoreEntries(updatedLogs));
+    setSelectedGraphDay(currentDayIndex);
 
     // Persist measurement log to DB (fire-and-forget)
     api("/api/metrics/daily", {

@@ -19,7 +19,7 @@ export const getMeasurementsFeedback = (
     userName,
     userGender: userGender as 'male' | 'female',
     summary,
-    pulse: m.pulseAvg,
+    pulse: m.latestPulse,
     weight: m.weightAvg,
     initialWeight: m.weightDelta !== null && m.weightAvg !== null ? m.weightAvg - m.weightDelta : null,
     weightDelta: m.weightDelta,
