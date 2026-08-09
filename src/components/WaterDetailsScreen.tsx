@@ -216,6 +216,47 @@ export default function WaterDetailsScreen({
   // Color mappings for Anna's block glow and labels
   const glowBorderClass = "border-[#E3F2FD] bg-[#E3F2FD] shadow-sm";
 
+  const CustomWaterBarShape = (props: any) => {
+    const { x, y, width, height, fill, stroke, strokeWidth, payload, background } = props;
+    const fullHeight = background ? background.height : height;
+    const bottomY = background ? background.y + background.height : y + height;
+    const topY = bottomY - fullHeight;
+    return (
+      <g>
+        <rect
+          x={x}
+          y={y}
+          width={width}
+          height={height}
+          rx={4}
+          ry={4}
+          fill={fill}
+          stroke={stroke}
+          strokeWidth={strokeWidth}
+          style={{ outline: 'none' }}
+        />
+        <rect
+          x={x - width / 2}
+          y={topY}
+          width={width * 2}
+          height={fullHeight}
+          fill="transparent"
+          stroke="transparent"
+          strokeWidth={0}
+          strokeOpacity={0}
+          cursor="pointer"
+          style={{ outline: 'none' }}
+          onPointerDown={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (payload && payload.day) {
+              setSelectedGraphDay(Number(payload.day));
+            }
+          }}
+        />
+      </g>
+    );
+  };
 
   return (
     <div className="flex-1 flex flex-col justify-between select-none pointer-events-auto">
@@ -392,8 +433,17 @@ export default function WaterDetailsScreen({
               <span className="text-[8px] text-sky-400/80 font-bold bg-white px-1 -mt-1.5 font-mono z-10 transition-all">Норма (30мл/кг)</span>
             </div>
 
+            <style>{`
+              .recharts-wrapper *:focus,
+              .recharts-surface:focus,
+              .recharts-layer:focus,
+              .recharts-bar-rect:focus {
+                outline: none !important;
+              }
+            `}</style>
+
             <ResponsiveContainer width="100%" height="100%" className="outline-none border-none focus:outline-none focus:ring-0" style={{ outline: 'none', border: 'none' }}>
-              <BarChart data={chartData} margin={{ top: 5, right: 5, left: -30, bottom: 0 }} onClick={(e) => e?.activeLabel && setSelectedGraphDay(Number(e.activeLabel))} className="outline-none border-none focus:outline-none focus:ring-0" style={{ outline: 'none', border: 'none' }}>
+              <BarChart data={chartData} margin={{ top: 5, right: 10, left: 10, bottom: 0 }} className="outline-none border-none focus:outline-none focus:ring-0" style={{ outline: 'none', border: 'none' }}>
                 <defs>
                   <linearGradient id="colorWater" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="#0EA5E9" stopOpacity={1}/>
@@ -406,15 +456,18 @@ export default function WaterDetailsScreen({
                 </defs>
                 <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: "#94a3b8" }} />
                 <YAxis hide type="number" />
-                <Tooltip content={<CustomWaterTooltip />} cursor={{ fill: 'transparent' }} wrapperStyle={{ outline: 'none', border: 'none', zIndex: 50 }} />
+                <Tooltip content={<CustomWaterTooltip />} cursor={{ fill: 'transparent' }} wrapperStyle={{ outline: 'none', border: 'none', zIndex: 50, pointerEvents: 'none' }} />
                 <Bar 
                   dataKey="sum" 
                   radius={[4, 4, 0, 0]}
                   maxBarSize={20}
                   isAnimationActive={false}
+                  shape={<CustomWaterBarShape />}
+                  background={{ fill: 'transparent', stroke: 'transparent', strokeWidth: 0, strokeOpacity: 0 }}
+                  style={{ outline: 'none', stroke: 'none' }}
                 >
                   {chartData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.isFuture || entry.sum === 0 ? "#e2e8f0" : (entry.sum >= entry.goal ? "url(#colorWater)" : "url(#colorWaterMissed)")} />
+                    <Cell key={`cell-${index}`} fill={entry.isFuture || entry.sum === 0 ? "#e2e8f0" : (entry.sum >= entry.goal ? "url(#colorWater)" : "url(#colorWaterMissed)")} stroke="transparent" strokeWidth={0} />
                   ))}
                 </Bar>
               </BarChart>
