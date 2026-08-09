@@ -557,7 +557,7 @@ export default function DigestionScreen({
                   return (
                     <div key={s} className="group relative flex items-center justify-center">
                       <span className={`w-4 h-4 rounded-full ${color} shadow-sm`} />
-                      <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 whitespace-nowrap bg-white shadow-xl border border-slate-100 text-slate-800 text-[13px] font-extrabold px-4 py-2 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+                      <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 whitespace-nowrap bg-white shadow-xl border border-slate-100 text-slate-800 text-[13px] font-extrabold px-4 py-2 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-[60]">
                         {s}
                       </div>
                     </div>
@@ -566,7 +566,7 @@ export default function DigestionScreen({
                 {(!latestLog.symptoms || latestLog.symptoms.filter(s => s !== "Нет симптомов").length === 0) && (
                   <div className="group relative flex items-center justify-center">
                     <span className="w-4 h-4 rounded-full bg-emerald-300 shadow-sm" />
-                    <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 whitespace-nowrap bg-white shadow-xl border border-slate-100 text-slate-800 text-[13px] font-extrabold px-4 py-2 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+                    <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 whitespace-nowrap bg-white shadow-xl border border-slate-100 text-slate-800 text-[13px] font-extrabold px-4 py-2 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-[60]">
                       Нет симптомов
                     </div>
                   </div>
@@ -722,7 +722,7 @@ export default function DigestionScreen({
                             return (
                               <div key={s} className="group relative flex items-center justify-center">
                                 <span className={`w-3.5 h-3.5 rounded-full ${color} shadow-sm`} />
-                                <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 whitespace-nowrap bg-white shadow-xl border border-slate-100 text-slate-800 text-[13px] font-extrabold px-4 py-2 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+                                <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 whitespace-nowrap bg-white shadow-xl border border-slate-100 text-slate-800 text-[13px] font-extrabold px-4 py-2 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-[60]">
                                   {s}
                                 </div>
                               </div>
@@ -731,7 +731,7 @@ export default function DigestionScreen({
                         ) : (
                           <div className="group relative flex items-center justify-center">
                             <span className="w-3.5 h-3.5 rounded-full bg-emerald-300 shadow-sm" />
-                            <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 whitespace-nowrap bg-white shadow-xl border border-slate-100 text-slate-800 text-[13px] font-extrabold px-4 py-2 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+                            <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 whitespace-nowrap bg-white shadow-xl border border-slate-100 text-slate-800 text-[13px] font-extrabold px-4 py-2 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-[60]">
                               Нет симптомов
                             </div>
                           </div>

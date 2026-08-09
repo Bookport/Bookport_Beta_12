@@ -1317,26 +1317,8 @@ export default function MyDayScreen({
     }
 
     recordClick(1);
-    const now = Date.now();
-    const timeDiff = now - digestionLastClickTimeRef.current;
-
-    if (timeDiff < 280) {
-      // Double Click: open analytical dashboard
-      if (digestionClickTimeoutRef.current) {
-        clearTimeout(digestionClickTimeoutRef.current);
-        digestionClickTimeoutRef.current = null;
-      }
-      setShowDigestionDetails(true);
-    } else {
-      digestionLastClickTimeRef.current = now;
-      if (digestionClickTimeoutRef.current) {
-        clearTimeout(digestionClickTimeoutRef.current);
-      }
-      digestionClickTimeoutRef.current = window.setTimeout(() => {
-        // Single Click: quick digestion modal (global overlay)
-        useAppStore.getState().setDigestionModalOpen(true, currentDayIndex);
-      }, 220);
-    }
+    // Single Click: quick digestion modal (global overlay)
+    useAppStore.getState().setDigestionModalOpen(true, currentDayIndex);
   };
 
   const startDigestionLongPress = () => {
@@ -1345,7 +1327,8 @@ export default function MyDayScreen({
       digestionIsLongPressedRef.current = true;
       recordClick(5);
       playDeepBellSound();
-    }, 700);
+      setShowDigestionDetails(true);
+    }, 500);
   };
 
   const cancelDigestionLongPress = () => {
