@@ -77,10 +77,17 @@ export interface MovementEntry {
 
 export interface MeasurementEntry {
   dayIndex: number;
-  weight: number;
-  systolic: number;
-  diastolic: number;
+  weight: number | null;
+  systolic: number | null;
+  diastolic: number | null;
   timestamp: number;
+  id?: string;
+  timeString?: string;
+  pulse?: number | null;
+  tonus?: string;
+  energy?: string;
+  mood?: string;
+  wellbeing?: string;
 }
 
 export interface DigestionEntry {
@@ -114,7 +121,7 @@ export interface AppNotification {
   iconType: "water" | "sleep" | "measurements" | "habits" | "summary" | "tip";
 }
 
-interface AppState {
+export interface AppState {
   screen: Screen;
   foodCache: FoodCacheItem[];
   foodCacheLoading: boolean;

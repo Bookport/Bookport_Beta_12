@@ -1,100 +1,64 @@
 // src/utils/digestionCoaching.ts
 
 import { DigestionContext, DIGESTION_PHRASE_MATRIX, getRandomPhrase } from "./digestionPhrases";
-import { DigestionEntry } from "../store/useAppStore";
+import { DailySummary } from "./crossModuleSummary";
 
 export const getDigestionFeedback = (
-  todayLogs: DigestionEntry[],
-  waterEntries: any[],
-  waterGoal: number,
+  summary: DailySummary,
   userName?: string,
-  userGender?: string,
-  periodAvgBristol?: number
+  userGender?: string
 ): string => {
-  // 1. Если логов нет
-  if (!todayLogs || todayLogs.length === 0) {
-    const ctx: DigestionContext = {
-      userName,
-      userGender,
-      bristolAvg: null,
-      lastBristol: null,
-      symptomsCount: 0,
-      symptomNames: [],
-      hasWaterDeficit: false,
-      comfortRatio: null,
-      countLogs: 0,
-    };
-    return getRandomPhrase(DIGESTION_PHRASE_MATRIX.no_data.general)(ctx);
-  }
+  const digestion = summary.digestion;
+  const water = summary.water;
+  const movement = summary.movement;
+  const measurements = summary.measurements;
 
-  // 2. Сбор данных для контекста
-  // Сортируем по времени, чтобы взять последний актуальный лог
-  const sortedLogs = [...todayLogs].sort((a, b) => b.timestamp - a.timestamp);
-  const latestLog = sortedLogs[0];
-  
-  // Определяем дефицит воды за сегодня
-  const todayWater = waterEntries
-    .filter(w => w.dayIndex === latestLog.dayIndex)
-    .reduce((sum, entry) => sum + entry.amount, 0);
-  const hasWaterDeficit = todayWater < waterGoal;
-
-  // Симптомы последнего лога
-  const symptoms = latestLog.symptoms || [];
-  const negativeSymptoms = symptoms.filter(s => s !== "Нет симптомов");
-
-  // Формируем контекст
   const ctx: DigestionContext = {
     userName,
     userGender,
-    bristolAvg: todayLogs.reduce((sum, log) => sum + log.bristolType, 0) / todayLogs.length,
-    lastBristol: latestLog.bristolType,
-    symptomsCount: negativeSymptoms.length,
-    symptomNames: negativeSymptoms,
-    hasWaterDeficit,
-    comfortRatio: null, // Можно добавить расчет при необходимости
-    countLogs: todayLogs.length,
+    summary,
   };
 
-  // 3. Логика маршрутизации (дерево принятия решений)
-  const bristol = ctx.lastBristol!;
+  // 1. Если логов нет
+  if (!digestion || digestion.episodes === 0 || digestion.latestBristol === null) {
+    return getRandomPhrase(DIGESTION_PHRASE_MATRIX.no_data.general)(ctx);
+  }
 
-  let trendSuffix = "";
-  if (periodAvgBristol !== undefined && periodAvgBristol !== null) {
-    const diff = bristol - periodAvgBristol;
-    // Значимое расхождение со средним
-    if (Math.abs(diff) >= 1.0) {
-      if (Math.abs(bristol - 4) < Math.abs(periodAvgBristol - 4)) {
-        trendSuffix = " Это явный прогресс по сравнению с твоей средней статистикой за период!";
-      } else {
-        trendSuffix = " Обрати внимание, этот замер сильно отличается от твоего среднего тренда.";
-      }
+  // 2. Кросс-триггеры (дерево принятия решений на основе единой сводки)
+  const status = digestion.status;
+
+  // 2.1 Замедленный транзит / Запор (тип 1, 2)
+  if (status === "constipation") {
+    // Триггер "Вода": запор + дефицит воды -> самая критичная связка
+    if (water.status === "deficit") {
+      return getRandomPhrase(DIGESTION_PHRASE_MATRIX.constipation.dehydrated)(ctx);
     }
-  }
-
-  let phrase = "";
-
-  // 3.1 Замедленный транзит / Запор (1, 2)
-  if (bristol === 1 || bristol === 2) {
-    if (ctx.hasWaterDeficit) {
-      phrase = getRandomPhrase(DIGESTION_PHRASE_MATRIX.constipation.dehydrated)(ctx);
-    } else {
-      phrase = getRandomPhrase(DIGESTION_PHRASE_MATRIX.constipation.hydrated)(ctx);
+    // Триггер "Движение": запор + малоподвижность
+    if (movement.status === "sedentary") {
+      return getRandomPhrase(DIGESTION_PHRASE_MATRIX.constipation.sedentary)(ctx);
     }
-  }
-
-  // 3.2 Ускоренный транзит / Диарея (6, 7)
-  else if (bristol === 6 || bristol === 7) {
-    phrase = getRandomPhrase(DIGESTION_PHRASE_MATRIX.diarrhea.general)(ctx);
-  }
-
-  // 3.3 Идеальный транзит (3, 4, 5)
-  else {
-    if (ctx.symptomsCount > 0) {
-      phrase = getRandomPhrase(DIGESTION_PHRASE_MATRIX.ideal_transit.with_symptoms)(ctx);
-    } else {
-      phrase = getRandomPhrase(DIGESTION_PHRASE_MATRIX.ideal_transit.perfect)(ctx);
+    // Триггер "Тонус": запор + низкий тонус
+    if (measurements.tonus === "low") {
+      return getRandomPhrase(DIGESTION_PHRASE_MATRIX.constipation.low_tonus)(ctx);
     }
+    // Обычный запор (вода и активность в норме)
+    return getRandomPhrase(DIGESTION_PHRASE_MATRIX.constipation.hydrated)(ctx);
   }
 
-  return phrase + trendSuffix;
+  // 2.2 Ускоренный транзит / Диарея (тип 6, 7)
+  if (status === "diarrhea") {
+    return getRandomPhrase(DIGESTION_PHRASE_MATRIX.diarrhea.general)(ctx);
+  }
+
+  // 2.3 Идеальный транзит (тип 3, 4, 5)
+  // Триггер "Тонус": идеальный стул + низкая энергия -> питание/отдых
+  if (measurements.tonus === "low") {
+    return getRandomPhrase(DIGESTION_PHRASE_MATRIX.ideal_transit.low_energy)(ctx);
+  }
+  // Идеальный стул + есть симптомы
+  if (digestion.symptoms.length > 0) {
+    return getRandomPhrase(DIGESTION_PHRASE_MATRIX.ideal_transit.with_symptoms)(ctx);
+  }
+  // Идеальный стул, все остальное в норме
+  return getRandomPhrase(DIGESTION_PHRASE_MATRIX.ideal_transit.perfect)(ctx);
 };

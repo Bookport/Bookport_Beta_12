@@ -6,6 +6,7 @@ import { resolveAvatar } from "../utils/annaAvatarResolver";
 import { useAppStore } from "../store/useAppStore";
 import { api } from "../utils/api";
 import { getDigestionFeedback } from "../utils/digestionCoaching";
+import { buildDailySummary } from "../utils/crossModuleSummary";
 import { BRISTOL_IMAGES, DIGESTION_SYMPTOM_COLORS } from "../utils/digestionConstants";
 import ingrGreen from "../assets/ingredients/ingr_green.webp";
 
@@ -75,6 +76,8 @@ export default function DigestionScreen({
   }, [currentDayIndex]);
 
   const waterEntries = useAppStore((s) => s.waterEntries);
+  const movementEntries = useAppStore((s) => s.movementEntries);
+  const measurementEntries = useAppStore((s) => s.measurementEntries);
   const profile = useAppStore((s) => s.userProfile);
   const waterGoal = React.useMemo(() => {
     const weight = profile.weight || 65;
@@ -193,18 +196,14 @@ export default function DigestionScreen({
     return digestionEntries.filter(e => Number(e.dayIndex) === Number(currentDayIndex));
   }, [digestionEntries, currentDayIndex]);
 
-  const periodAvgBristol = avgBristolStyle ? parseFloat(avgBristolStyle) : undefined;
-
   const annaFeedback = React.useMemo(() => {
+    const summary = buildDailySummary(selectedGraphDay ?? currentDayIndex, useAppStore.getState());
     return getDigestionFeedback(
-      todayLogs,
-      waterEntries,
-      waterGoal,
+      summary,
       userName || profile.name,
-      userGender,
-      periodAvgBristol
+      userGender
     );
-  }, [todayLogs, waterEntries, waterGoal, userName, userGender, profile.name, periodAvgBristol]);
+  }, [selectedGraphDay, currentDayIndex, digestionEntries, waterEntries, movementEntries, measurementEntries, userName, userGender, profile.name]);
 
   const latestLog = todayLogs.length > 0 ? [...todayLogs].sort((a, b) => b.timestamp - a.timestamp)[0] : null;
 
