@@ -24,6 +24,8 @@ export interface DailySummary {
   measurements: {
     pulseAvg: number | null;
     latestPulse: number | null;
+    systolic: number | null;
+    diastolic: number | null;
     weightAvg: number | null;
     weightDelta: number | null;
     tonus: 'low' | 'normal' | 'high' | 'no_data';
@@ -100,8 +102,12 @@ const measurements = store.measurementEntries
 
 const pulses = measurements.filter(m => m.pulse).map(m => m.pulse as number);
 const weights = measurements.filter(m => m.weight).map(m => m.weight as number);
+const systolics = measurements.filter(m => m.systolic).map(m => m.systolic as number);
+const diastolics = measurements.filter(m => m.diastolic).map(m => m.diastolic as number);
 
 const latestPulse = pulses.length > 0 ? pulses[0] : null; // Последний (актуальный) замер пульса — отсортирован по времени (массив уже убывается по timestamp)
+const systolic = systolics.length > 0 ? systolics[0] : null;
+const diastolic = diastolics.length > 0 ? diastolics[0] : null;
 const pulseAvg = pulses.length > 0 ? Math.round(pulses.reduce((a,b)=>a+b,0)/pulses.length) : null;
 const weightAvg = weights.length > 0 ? Number((weights.reduce((a,b)=>a+b,0)/weights.length).toFixed(1)) : null;
 
@@ -138,6 +144,8 @@ if (measurements.length > 0) {
     measurements: {
       pulseAvg,
       latestPulse,
+      systolic,
+      diastolic,
       weightAvg,
       weightDelta: weightAvg !== null ? Number((weightAvg - (store.userProfile?.initialWeight || weightAvg)).toFixed(1)) : null,
       tonus,

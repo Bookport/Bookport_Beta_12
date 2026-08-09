@@ -42,6 +42,8 @@ export const getMeasurementsFeedback = (
     userGender: userGender as 'male' | 'female',
     summary,
     pulse: m.latestPulse,
+    systolic: m.systolic,
+    diastolic: m.diastolic,
     weight: m.weightAvg,
     initialWeight: m.weightDelta !== null && m.weightAvg !== null ? m.weightAvg - m.weightDelta : null,
     weightDelta: m.weightDelta,
@@ -53,7 +55,36 @@ export const getMeasurementsFeedback = (
   let messageParts: string[] = [];
   let isCriticalPulse = false;
 
-  // 1. БЛОК ПУЛЬСА
+  // 1. БЛОК АД (Артериального Давления)
+  if (ctx.systolic && ctx.diastolic) {
+    const sys = ctx.systolic;
+    const dia = ctx.diastolic;
+    const pulsePressure = sys - dia;
+
+    // Кризис и Гипертония
+    if (sys >= 180 || dia >= 120) {
+      messageParts.push(getRandomPhrase('bpHypertensionCrisis', ctx));
+      isCriticalPulse = true; // Используем существующий флаг-предохранитель для блокировки тренировок
+    } else if (sys >= 140 || dia >= 90) {
+      messageParts.push(getRandomPhrase('bpHypertensionStage2', ctx));
+      isCriticalPulse = true; // Блокируем активность
+    } else if (sys >= 120 || dia >= 80) {
+      messageParts.push(getRandomPhrase('bpElevated', ctx));
+    } else if (sys >= 90 && dia >= 60) {
+      messageParts.push(getRandomPhrase('bpOptimal', ctx));
+    } else if (sys < 90 || dia < 60) {
+      messageParts.push(getRandomPhrase('bpHypotension', ctx));
+      isCriticalPulse = true; // Блокируем активность при сильной слабости
+    }
+
+    // Пульсовое давление (добавляем как дополнительное замечание, если нет криза)
+    if (sys < 180 && dia < 120) {
+      if (pulsePressure > 60) messageParts.push(getRandomPhrase('bpWidePulsePressure', ctx));
+      if (pulsePressure < 30) messageParts.push(getRandomPhrase('bpNarrowPulsePressure', ctx));
+    }
+  }
+
+  // 2. БЛОК ПУЛЬСА
   if (ctx.pulse) {
     if (ctx.pulse >= 100) {
       messageParts.push(getRandomPhrase('pulseTachycardia', ctx));
@@ -68,7 +99,7 @@ export const getMeasurementsFeedback = (
     }
   }
 
-  // 2. БЛОК ВЕСА
+  // 3. БЛОК ВЕСА
   if (ctx.weight !== null && ctx.initialWeight !== null && ctx.weightDelta !== null) {
     if (ctx.weightDelta <= -1.5) messageParts.push(getRandomPhrase('weightDropGlycogen', ctx));
     else if (ctx.weightDelta > -1.5 && ctx.weightDelta < -0.2) messageParts.push(getRandomPhrase('weightDropFat', ctx));
@@ -76,12 +107,12 @@ export const getMeasurementsFeedback = (
     else if (ctx.weightDelta >= -0.2 && ctx.weightDelta < 1.5) messageParts.push(getRandomPhrase('weightPlateau', ctx));
   }
 
-  // 3. БЛОК ТРИАДЫ
+  // 4. БЛОК ТРИАДЫ
   const { energy, mood, wellbeing } = triad;
   
   if (isCriticalPulse) {
     if (energy === 'high') {
-      messageParts.push("Я вижу, что по ощущениям у тебя много энергии, но твои показатели пульса говорят об обратном. Пожалуйста, не игнорируй цифры и откажись сегодня от тренировок.");
+      messageParts.push("Я вижу, что по ощущениям у тебя много энергии, но твои показатели говорят об обратном. Пожалуйста, не игнорируй цифры и откажись сегодня от тренировок.");
     }
   } else {
     if (wellbeing === 'good' && energy === 'high' && mood === 'good') {
