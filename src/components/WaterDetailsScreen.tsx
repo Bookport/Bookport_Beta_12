@@ -100,7 +100,8 @@ export default function WaterDetailsScreen({
 }: WaterDetailsScreenProps) {
   
   // Active selected day in the historical graph to view statistics (defaults to today)
-  const [selectedGraphDay, setSelectedGraphDay] = useState<number>(currentDayIndex);
+  const selectedGraphDay = useAppStore((s) => s.selectedGraphDay);
+  const setSelectedGraphDay = useAppStore((s) => s.setSelectedGraphDay);
   
   // Resolved weights for calculation
   const getResolvedWeightForDay = (dayIdx: number): number => {

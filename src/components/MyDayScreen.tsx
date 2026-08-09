@@ -259,6 +259,10 @@ export default function MyDayScreen({
   const screen = useAppStore((s) => s.screen);
   const profile = useAppStore((s) => s.userProfile);
 
+  React.useEffect(() => {
+    setSelectedGraphDay(currentDayIndex);
+  }, [currentDayIndex, setSelectedGraphDay]);
+
   // Local state for metrics (will be saved via API)
   const [water, setWater] = useState(0);
   const [sleep, setSleep] = useState(0);

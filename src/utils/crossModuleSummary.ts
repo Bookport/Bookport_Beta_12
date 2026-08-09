@@ -93,7 +93,10 @@ export const buildDailySummary = (dayIndex: number, store: AppState): DailySumma
   if (activeMin >= 60) movementStatus = 'athletic';
 
 // 4. MEASUREMENTS
-const measurements = store.measurementEntries.filter(m => Number(m.dayIndex) === dayIndexNum);
+const measurements = store.measurementEntries
+  .filter(m => Number(m.dayIndex) === dayIndexNum)
+  .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)); // Descending (самые новые первые)
+
 const pulses = measurements.filter(m => m.pulse).map(m => m.pulse as number);
 const weights = measurements.filter(m => m.weight).map(m => m.weight as number);
 

@@ -68,12 +68,13 @@ export default function DigestionScreen({
 
   // Chart metric tabs and selected graph day (history journal target)
   const [activeChartTab, setActiveChartTab] = useState<"stool" | "symptoms" | "comfort">("stool");
-  const [selectedGraphDay, setSelectedGraphDay] = useState<number>(currentDayIndex);
+  const selectedGraphDay = useAppStore((s) => s.selectedGraphDay);
+  const setSelectedGraphDay = useAppStore((s) => s.setSelectedGraphDay);
 
   // Keep the journal's selected day in sync with the active course day (reactivity for new logs)
   React.useEffect(() => {
     setSelectedGraphDay(currentDayIndex);
-  }, [currentDayIndex]);
+  }, [currentDayIndex, setSelectedGraphDay]);
 
   const waterEntries = useAppStore((s) => s.waterEntries);
   const movementEntries = useAppStore((s) => s.movementEntries);

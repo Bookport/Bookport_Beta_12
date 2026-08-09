@@ -58,7 +58,8 @@ export default function MovementDetailsScreen({
   const digestionEntries = useAppStore((s) => s.digestionEntries);
   const waterEntries = useAppStore((s) => s.waterEntries);
   const measurementEntries = useAppStore((s) => s.measurementEntries);
-  const [selectedGraphDay, setSelectedGraphDay] = useState<number>(currentDayIndex);
+  const selectedGraphDay = useAppStore((s) => s.selectedGraphDay);
+  const setSelectedGraphDay = useAppStore((s) => s.setSelectedGraphDay);
 
   // Daily physical target: 30 minutes of logged activity in minutes
   const dailyTargetMin = MOVEMENT_DAILY_TARGET_MIN;

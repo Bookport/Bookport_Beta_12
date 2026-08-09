@@ -111,7 +111,8 @@ export default function MeasurementsDetailsScreen({
   setDayNotes
 }: MeasurementsDetailsScreenProps) {
   // Analytical chart default selected day is today
-  const [selectedGraphDay, setSelectedGraphDay] = useState<number>(currentDayIndex);
+  const selectedGraphDay = useAppStore((s) => s.selectedGraphDay);
+  const setSelectedGraphDay = useAppStore((s) => s.setSelectedGraphDay);
   
   // Active selected chart metric tab inside analytics
   // "wellbeing" | "energy" | "pulse" | "weight"
@@ -247,16 +248,21 @@ export default function MeasurementsDetailsScreen({
 
   // Anna Context logic
   const usedInitialWeight = stats.initialWeight || null;
+  const storeDigestionEntries = useAppStore((s) => s.digestionEntries);
+  const storeWaterEntries = useAppStore((s) => s.waterEntries);
+  const storeMovementEntries = useAppStore((s) => s.movementEntries);
+  const storeMeasurementEntries = useAppStore((s) => s.measurementEntries);
+
   const annaComment = useMemo(() => {
     const summary = buildDailySummary(selectedGraphDay ?? currentDayIndex, useAppStore.getState());
     return getMeasurementsFeedback(summary, userName, userGender);
   }, [
     selectedGraphDay,
     currentDayIndex,
-    useAppStore((s) => s.digestionEntries),
-    useAppStore((s) => s.waterEntries),
-    useAppStore((s) => s.movementEntries),
-    useAppStore((s) => s.measurementEntries),
+    storeDigestionEntries,
+    storeWaterEntries,
+    storeMovementEntries,
+    storeMeasurementEntries,
     userGender,
     userName
   ]);
