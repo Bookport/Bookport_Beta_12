@@ -547,35 +547,35 @@ export default function MeasurementsDetailsScreen({
               </div>
 
               {/* Physical objective numbers panel layout */}
-              <div className={`grid ${latestBP ? 'grid-cols-3' : 'grid-cols-2'} gap-2 sm:gap-3 mt-1`}>
-                <div className="bg-[#F1F8E9] shadow-sm rounded-2xl p-2 sm:p-3 flex flex-col sm:flex-row items-center sm:gap-2 justify-center sm:justify-start text-center sm:text-left">
-                  <img src={iconPulse} alt="Пульс" className="w-6 h-6 sm:w-8 sm:h-8 object-contain mb-1 sm:mb-0" />
-                  <div className="flex flex-col">
+              <div className={`grid ${latestBP ? 'grid-cols-3' : 'grid-cols-2'} gap-1.5 sm:gap-3 mt-1`}>
+                <div className="bg-[#F1F8E9] shadow-sm rounded-2xl py-0.5 px-2 sm:px-3 flex flex-row items-center justify-between">
+                  <img src={iconPulse} alt="Пульс" className="w-8 h-8 sm:w-10 sm:h-10 object-contain shrink-0" />
+                  <div className="flex flex-col text-right">
                     <span className="text-[9px] sm:text-[10px] text-[#4CAF50] font-black uppercase tracking-wide">Пульс</span>
-                    <span className="text-[12px] sm:text-[14px] font-black text-slate-800 font-mono whitespace-nowrap">
+                    <span className="text-xl sm:text-2xl font-extrabold text-slate-800 font-mono leading-tight whitespace-nowrap tracking-tighter">
                       {latestTodayLog?.pulse ? `${latestTodayLog.pulse}` : "—"}
                     </span>
                   </div>
                 </div>
 
                 {latestBP && (
-                  <div className="bg-[#E8F5E9] shadow-sm rounded-2xl p-2 sm:p-3 flex flex-col items-center justify-center text-center">
+                  <div className="bg-emerald-50 shadow-sm rounded-2xl py-0.5 px-1.5 sm:px-2 flex flex-col items-center justify-center text-center">
                     <span className="text-[9px] sm:text-[10px] text-[#2E7D32] font-black uppercase tracking-wide">Давление</span>
-                    <span className="text-[13px] sm:text-[15px] font-black text-slate-800 font-mono leading-tight mt-0.5 whitespace-nowrap">
+                    <span className="text-xl sm:text-2xl font-extrabold text-slate-800 font-mono leading-tight whitespace-nowrap tracking-tighter">
                       {latestBP.sys}/{latestBP.dia}
                     </span>
-                    <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">мм рт.ст.</span>
+                    <span className="text-[7px] sm:text-[8px] font-bold text-slate-500 uppercase tracking-widest">мм рт.ст.</span>
                   </div>
                 )}
 
-                <div className="bg-[#E0F2F1] shadow-sm rounded-2xl p-2 sm:p-3 flex flex-col sm:flex-row items-center sm:gap-2 justify-center sm:justify-start text-center sm:text-left">
-                  <img src={iconWeight} alt="Вес" className="w-6 h-6 sm:w-8 sm:h-8 object-contain mb-1 sm:mb-0" />
-                  <div className="flex flex-col">
+                <div className="bg-[#E0F2F1] shadow-sm rounded-2xl py-0.5 px-2 sm:px-3 flex flex-row items-center justify-between">
+                  <div className="flex flex-col text-left">
                     <span className="text-[9px] sm:text-[10px] text-[#00796B] font-black uppercase tracking-wide">Вес</span>
-                    <span className="text-[12px] sm:text-[14px] font-black text-slate-800 font-mono whitespace-nowrap">
+                    <span className="text-xl sm:text-2xl font-extrabold text-slate-800 font-mono leading-tight whitespace-nowrap tracking-tighter">
                       {latestTodayLog?.weight ? `${latestTodayLog.weight}` : "—"}
                     </span>
                   </div>
+                  <img src={iconWeight} alt="Вес" className="w-8 h-8 sm:w-10 sm:h-10 object-contain shrink-0" />
                 </div>
               </div>
 
