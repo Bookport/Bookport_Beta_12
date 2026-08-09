@@ -9,7 +9,7 @@ import spisokAktivnostyImg from "../assets/images/movement/markers/spisok aktivn
 import aktivnayaSeriyaImg from "../assets/images/movement/markers/aktivnaya seriya.webp";
 import vsegoDyisgbiaImg from "../assets/images/movement/markers/vsego dyisgbia.webp";
 import { generateMovementSummary } from "../utils/movementCoaching";
-import { MovementContext } from "../utils/movementPhrases";
+import { buildDailySummary } from "../utils/crossModuleSummary";
 import { getPlural } from "../utils/pluralize";
 import ingrGreenImg from "../assets/ingredients/ingr_green.webp";
 import { 
@@ -55,6 +55,9 @@ export default function MovementDetailsScreen({
   setDayNotes
 }: MovementDetailsScreenProps) {
   const movementEntries = useAppStore((s) => s.movementEntries);
+  const digestionEntries = useAppStore((s) => s.digestionEntries);
+  const waterEntries = useAppStore((s) => s.waterEntries);
+  const measurementEntries = useAppStore((s) => s.measurementEntries);
   const [selectedGraphDay, setSelectedGraphDay] = useState<number>(currentDayIndex);
 
   // Daily physical target: 30 minutes of logged activity in minutes
@@ -178,16 +181,9 @@ export default function MovementDetailsScreen({
   const latestActivityType = todayEntries.length > 0 ? todayEntries[todayEntries.length - 1].type : null;
 
   const annaCoaching = useMemo(() => {
-    const ctx: MovementContext = {
-      userName,
-      userGender: userGender as "female" | "male",
-      activeMinutes: todayTotalMin,
-      dailyGoal: dailyTargetMin,
-      pulse: null,
-      weightDelta: null
-    };
-    return generateMovementSummary(ctx);
-  }, [userName, userGender, todayTotalMin, dailyTargetMin]);
+    const summary = buildDailySummary(selectedGraphDay ?? currentDayIndex, useAppStore.getState());
+    return generateMovementSummary(summary, userName, userGender);
+  }, [selectedGraphDay, currentDayIndex, digestionEntries, waterEntries, measurementEntries, movementEntries, userName, userGender]);
 
   const chartData = useMemo(() => {
     return Array.from({ length: 28 }).map((_, idx) => {
