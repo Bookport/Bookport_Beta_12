@@ -28,6 +28,7 @@ import { resolveAvatar } from "../utils/annaAvatarResolver";
 import { useAppStore } from "../store/useAppStore";
 import { SystemKeysStore } from "../services/SystemKeysStore";
 import { calculateIntegralScore } from "../utils/integralScore";
+import { cleanAnnaText } from "../utils/textUtils";
 import { api } from "../utils/api";
 import { getPlural } from "../utils/pluralize";
 import { getDailyWaterTip } from "../utils/waterTips";
@@ -2712,7 +2713,7 @@ export default function MyDayScreen({
             className="text-[14px] sm:text-[15px] text-text-sec bg-slate-50/70 p-3 rounded-2xl leading-relaxed font-medium"
             style={{ fontFamily: '"Calibri", sans-serif' }}
           >
-            {annaMsg.text}
+            {cleanAnnaText(annaMsg.text, userName)}
           </p>
         </div>
 

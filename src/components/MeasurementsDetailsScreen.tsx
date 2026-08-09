@@ -19,6 +19,7 @@ import { BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer } from 
 import { resolveAvatar } from "../utils/annaAvatarResolver";
 import { getMeasurementsFeedback } from "../utils/measurementsCoaching";
 import { buildDailySummary } from "../utils/crossModuleSummary";
+import { cleanAnnaText } from "../utils/textUtils";
 import { api } from "../utils/api";
 
 const annaAvatarSrc = resolveAvatar({ toneGroup: 'neutral_thoughtful', intent: 'clear_explanation' }).src;
@@ -587,7 +588,7 @@ export default function MeasurementsDetailsScreen({
           </div>
 
           <div className="bg-white/80 backdrop-blur-xs p-3.5 rounded-2xl text-[13.5px] leading-relaxed font-semibold text-slate-800">
-            {annaComment || "Сделай свой первый замер сегодня, чтобы я могла проанализировать твою динамику!"}
+            {cleanAnnaText(annaComment || "Сделай свой первый замер сегодня, чтобы я могла проанализировать твою динамику!", userName)}
           </div>
         </div>
 

@@ -7,6 +7,7 @@ import { useAppStore } from "../store/useAppStore";
 import { api } from "../utils/api";
 import { getDigestionFeedback } from "../utils/digestionCoaching";
 import { buildDailySummary } from "../utils/crossModuleSummary";
+import { cleanAnnaText } from "../utils/textUtils";
 import { BRISTOL_IMAGES, DIGESTION_SYMPTOM_COLORS } from "../utils/digestionConstants";
 import ingrGreen from "../assets/ingredients/ingr_green.webp";
 
@@ -596,7 +597,7 @@ export default function DigestionScreen({
           </div>
 
           <div className="bg-white p-3.5 rounded-2xl text-[13.5px] leading-relaxed font-semibold text-slate-800">
-            {annaFeedback}
+            {cleanAnnaText(annaFeedback, userName)}
           </div>
         </div>
 

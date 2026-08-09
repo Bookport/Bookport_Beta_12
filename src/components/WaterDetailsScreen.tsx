@@ -15,6 +15,7 @@ import BottomBar from "./BottomBar";
 import { useAppStore } from "../store/useAppStore";
 import { getWaterFeedback } from "../utils/waterCoaching";
 import { buildDailySummary } from "../utils/crossModuleSummary";
+import { cleanAnnaText } from "../utils/textUtils";
 import { resolveAvatar } from "../utils/annaAvatarResolver";
 import ingrGreenImg from "../assets/ingredients/ingr_green.webp";
 import volumeSplashCircleImg from "../assets/images/water/volume_splash_circle.webp";
@@ -406,7 +407,7 @@ export default function WaterDetailsScreen({
           </div>
 
           <div className="bg-white/80 backdrop-blur-xs p-3 rounded-2xl text-[14px] leading-relaxed font-semibold text-slate-800">
-            {annaAdviceText}
+            {cleanAnnaText(annaAdviceText, userName)}
           </div>
         </div>
 
