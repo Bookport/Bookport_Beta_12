@@ -198,6 +198,48 @@ export default function MovementDetailsScreen({
     });
   }, [movementEntries, currentDayIndex]);
 
+  const CustomBarShape = (props: any) => {
+    const { x, y, width, height, fill, stroke, strokeWidth, payload, background } = props;
+    const fullHeight = background ? background.height : height;
+    const bottomY = background ? background.y + background.height : y + height;
+    const topY = bottomY - fullHeight;
+    return (
+      <g>
+        <rect
+          x={x}
+          y={y}
+          width={width}
+          height={height}
+          rx={4}
+          ry={4}
+          fill={fill}
+          stroke={stroke}
+          strokeWidth={strokeWidth}
+          style={{ outline: 'none' }}
+        />
+        <rect
+          x={x - width / 2}
+          y={topY}
+          width={width * 2}
+          height={fullHeight}
+          fill="transparent"
+          stroke="transparent"
+          strokeWidth={0}
+          strokeOpacity={0}
+          cursor="pointer"
+          style={{ outline: 'none' }}
+          onPointerDown={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (payload && payload.day) {
+              setSelectedGraphDay(Number(payload.day));
+            }
+          }}
+        />
+      </g>
+    );
+  };
+
   return (
     <div className="w-full flex flex-col justify-between relative bg-[#FAF9FD]" id="movement-details-screen">
       {/* Scrollable Viewport Body */}
@@ -358,47 +400,38 @@ export default function MovementDetailsScreen({
             </div>
           </div>
 
+          <style>{`
+            .recharts-wrapper *:focus,
+            .recharts-surface:focus,
+            .recharts-layer:focus,
+            .recharts-bar-rect:focus {
+              outline: none !important;
+            }
+          `}</style>
+
           <div
             className="relative h-40 w-full outline-none focus:outline-none select-none"
             tabIndex={-1}
-            onMouseDown={(e) => e.preventDefault()}
           >
             <ResponsiveContainer width="100%" height="100%" className="outline-none border-none focus:outline-none focus:ring-0" style={{ outline: 'none', border: 'none' }}>
               <BarChart
                 data={chartData}
-                margin={{ top: 5, right: 5, left: -30, bottom: 0 }}
+                margin={{ top: 5, right: 10, left: 10, bottom: 0 }}
                 className="outline-none border-none focus:outline-none focus:ring-0"
                 style={{ outline: 'none', border: 'none' }}
               >
                 <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: "#94a3b8" }} />
                 <YAxis hide type="number" />
-                <Tooltip content={<CustomMovementTooltip />} cursor={false} wrapperStyle={{ outline: 'none', border: 'none', zIndex: 50 }} />
+                <Tooltip content={<CustomMovementTooltip />} cursor={{ fill: 'transparent' }} wrapperStyle={{ outline: 'none', border: 'none', zIndex: 50, pointerEvents: 'none' }} />
                 <ReferenceLine y={dailyTargetMin} stroke="#C7D2FE" strokeDasharray="4 4" label={{ value: "Цель", position: 'insideTopRight', fontSize: 9, fill: '#818CF8', fontWeight: 700 }} />
                 <Bar
                   dataKey="minutes"
                   radius={[4, 4, 0, 0]}
                   maxBarSize={20}
                   isAnimationActive={false}
+                  shape={<CustomBarShape />}
+                  background={{ fill: 'transparent', stroke: 'transparent', strokeWidth: 0, strokeOpacity: 0 }}
                   style={{ outline: 'none', stroke: 'none' }}
-                  shape={(props: any) => {
-                    const { x, y, width, height, fill, stroke, strokeWidth } = props;
-                    const day = Number(props.payload?.day ?? props.originalDataIndex + 1);
-                    return (
-                      <rect
-                        x={x}
-                        y={y}
-                        width={width}
-                        height={height}
-                        rx={4}
-                        fill={fill}
-                        stroke={stroke}
-                        strokeWidth={strokeWidth}
-                        className="cursor-pointer"
-                        style={{ outline: 'none' }}
-                        onClick={() => setSelectedGraphDay(day)}
-                      />
-                    );
-                  }}
                 >
                   {chartData.map((entry, index) => {
                     const active = entry.day === selectedGraphDay;
