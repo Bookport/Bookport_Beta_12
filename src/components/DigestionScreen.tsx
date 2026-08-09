@@ -208,81 +208,51 @@ export default function DigestionScreen({
 
   const latestLog = todayLogs.length > 0 ? [...todayLogs].sort((a, b) => b.timestamp - a.timestamp)[0] : null;
 
-  // ---- 28-DAY CHART DATA (Динамика пищеварения) ----
-  const chartData = React.useMemo(() => {
-    const data: { day: number; bristol: number | null; symptoms: string[]; comfort: string | null; time: string }[] = [];
+  // ---- 28-DAY CHART DATA (Stacked Bar Chart Logic) ----
+  const { chartData, maxBars } = React.useMemo(() => {
+    let max = 0;
+    const data: any[] = [];
+    
     for (let d = 1; d <= 28; d++) {
-      const logs = periodLogs.filter((l) => Number(l.dayIndex) === d);
-      let point: { day: number; bristol: number | null; symptoms: string[]; comfort: string | null; time: string } = {
-        day: d,
-        bristol: null,
-        symptoms: [],
-        comfort: null,
-        time: "",
-      };
-      if (logs.length > 0) {
-        // pick the log with MAX deviation from norm (type 4) — the most alarming episode
-        let worst = logs[0];
-        let maxDev = -1;
-        for (const log of logs) {
-          const dev = Math.abs(log.bristolType - 4);
-          if (dev > maxDev) {
-            maxDev = dev;
-            worst = log;
-          }
-        }
-        // aggregate symptoms from ALL logs of the day (deduped via Set) for honest statistics
-        const daySymptoms = new Set<string>();
-        logs.forEach((log) => (log.symptoms || []).forEach((s) => daySymptoms.add(s)));
-        point = {
-          day: d,
-          bristol: worst.bristolType,
-          symptoms: Array.from(daySymptoms),
-          comfort: worst.comfort ?? null,
-          time: worst.timeString || "",
-        };
-      }
+      const logs = periodLogs
+        .filter((l) => Number(l.dayIndex) === d)
+        .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0)); // Bottom to top
+        
+      if (logs.length > max) max = logs.length;
+      
+      const point: any = { day: d, logs, hitboxVal: 0.1 }; // 0.1 ensures shape renders
+      
+      logs.forEach((log, i) => {
+         point[`log${i}`] = 1; // Each episode adds 1 unit of height
+      });
       data.push(point);
     }
-    return data;
+    
+    return { chartData: data, maxBars: Math.max(1, max) };
   }, [periodLogs]);
 
-  const chartMetricValue = (point: { bristol: number | null; symptoms: string[]; comfort: string | null }): number | null => {
-    if (point.bristol === null) return null;
-    if (activeChartTab === "stool") return point.bristol;
-    if (activeChartTab === "symptoms") {
-      const negCount = point.symptoms.filter((s) => s !== "Нет симптомов").length;
-      return negCount > 0 ? negCount : null;
-    }
-    // comfort: map Легко/Нормально/Тяжело to score 3/2/1
-    const c = normalizeComfort(point.comfort);
-    return c === "easy" ? 3 : c === "normal" ? 2 : c === "uncomfortable" ? 1 : null;
-  };
-
-  const chartPoints = React.useMemo(() => {
-    return chartData.map((p) => ({ ...p, value: chartMetricValue(p) }));
-  }, [chartData, activeChartTab]);
-
-  const barFillFor = (point: { bristol: number | null; symptoms: string[]; comfort: string | null }): string => {
-    if (point.bristol === null) return "transparent";
-    if (activeChartTab === "stool") {
-      const t = point.bristol;
+  const getFillColor = (log: any, tab: string): string => {
+    if (!log) return "transparent";
+    if (tab === "stool") {
+      const t = log.bristolType;
       if (t === 3 || t === 4 || t === 5) return "#34D399"; // emerald-400
       if (t === 1 || t === 2) return "#FB923C"; // orange-400
       if (t === 6 || t === 7) return "#FB7185"; // rose-400
-      return "transparent";
+      return "#cbd5e1";
     }
-    if (activeChartTab === "symptoms") {
-      const n = point.symptoms.filter((s) => s !== "Нет симптомов").length;
-      if (n === 0) return "transparent";
-      if (n === 1) return "#FB923C"; // orange-400
-      return "#FB7185"; // rose-400
+    if (tab === "symptoms") {
+      const n = (log.symptoms || []).filter((s: string) => s !== "Нет симптомов").length;
+      if (n === 0) return "#34D399"; // Green if no symptoms
+      if (n === 1) return "#FB923C";
+      return "#FB7185";
     }
-    // comfort
-    const c = normalizeComfort(point.comfort);
-    if (c === "easy") return "#34D399";
-    if (c === "normal") return "#FB923C";
-    if (c === "uncomfortable") return "#FB7185";
+    if (tab === "comfort") {
+      const c = normalizeComfort(log.comfort);
+      if (c === "easy") return "#34D399";
+      if (c === "normal") return "#38BDF8"; // sky-400
+      if (c === "uncomfortable") return "#FB7185";
+      return "#cbd5e1";
+    }
     return "transparent";
   };
 
@@ -324,88 +294,105 @@ export default function DigestionScreen({
     return streak;
   }, [digestionEntries, currentDayIndex]);
 
-  // ---- CUSTOM CHART SHAPE with pointer-down hitbox (reference from Замеры) ----
-  const CustomMetricBarShape = (props: any) => {
-    const { x, y, width, height, fill, stroke, strokeWidth, payload, background } = props;
-    const fullHeight = background ? background.height : height;
+  // ---- CUSTOM SHAPES FOR STACKED CHART ----
+  const HitboxShape = (props: any) => {
+    const { x, y, width, height, payload, background } = props;
+    const fullHeight = background ? background.height : (height > 0 ? height : 200);
     const bottomY = background ? background.y + background.height : y + height;
     const topY = bottomY - fullHeight;
     return (
-      <g>
-        <rect
-          x={x}
-          y={y}
-          width={width}
-          height={height}
-          rx={4}
-          ry={4}
-          fill={fill}
-          stroke={stroke}
-          strokeWidth={strokeWidth}
-          style={{ outline: 'none' }}
-        />
-        <rect
-          x={x - width / 2}
-          y={topY}
-          width={width * 2}
-          height={fullHeight}
-          fill="transparent"
-          stroke="transparent"
-          strokeWidth={0}
-          strokeOpacity={0}
-          cursor="pointer"
-          style={{ outline: 'none' }}
-          onPointerDown={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            if (payload && payload.day) {
-              setSelectedGraphDay(Number(payload.day));
-            }
-          }}
-        />
-      </g>
+      <rect
+        x={x - width / 2}
+        y={topY}
+        width={width * 2}
+        height={fullHeight || 200}
+        fill="transparent"
+        cursor="pointer"
+        style={{ outline: 'none', border: 'none' }}
+        onPointerDown={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (payload && payload.day) {
+            setSelectedGraphDay(Number(payload.day));
+          }
+        }}
+      />
+    );
+  };
+
+  const StackedBlockShape = (props: any) => {
+    const { x, y, width, height, fill } = props;
+    if (!height || height === 0) return null;
+    const gap = 2; // Gap between stacked blocks
+    return (
+      <rect 
+         x={x} 
+         y={y + gap/2} 
+         width={width} 
+         height={Math.max(0, height - gap)} 
+         rx={4} 
+         ry={4} 
+         fill={fill} 
+      />
     );
   };
 
   const CustomDigestionTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
-      const p = payload[0];
-      const point = p.payload as { day: number; bristol: number | null; symptoms: string[]; comfort: string | null; time: string };
-      if (point.bristol === null) return (
-        <div className="bg-white shadow-lg border border-slate-100 rounded-xl p-3 text-xs font-bold text-slate-800">
-          <div>День {point.day}</div>
-          <div className="text-slate-400">Нет записей</div>
-        </div>
-      );
-      const c = normalizeComfort(point.comfort);
-      const cLabel = c === "easy" ? "Легко" : c === "normal" ? "Нормально" : c === "uncomfortable" ? "Тяжело" : "—";
-      const negSymptoms = point.symptoms.filter((s) => s !== "Нет симптомов");
-      let content: React.ReactNode = null;
-      switch (activeChartTab) {
-        case "stool":
-          content = (
-            <div style={{ color: barFillFor(point) !== "transparent" ? barFillFor(point) : "#94a3b8" }}>
-              Тип стула: {point.bristol}
-            </div>
-          );
-          break;
-        case "symptoms":
-          content = negSymptoms.length > 0
-            ? <div className="text-slate-500 font-medium">{negSymptoms.join(", ")}</div>
-            : <div className="text-slate-400 font-medium">Нет симптомов</div>;
-          break;
-        case "comfort":
-          content = (
-            <div style={{ color: barFillFor(point) !== "transparent" ? barFillFor(point) : "#94a3b8" }}>
-              Комфорт: {cLabel}
-            </div>
-          );
-          break;
+      const p = payload[0].payload;
+      const { day, logs } = p;
+      
+      if (!logs || logs.length === 0) {
+        return (
+          <div className="bg-white shadow-xl border border-slate-100 rounded-xl p-3 text-[13px] font-bold text-slate-800 z-[100]">
+            <div>День {day}</div>
+            <div className="text-slate-400 font-medium mt-0.5">Нет записей</div>
+          </div>
+        );
       }
+
       return (
-        <div className="bg-white shadow-lg border border-slate-100 rounded-xl px-3 py-2 text-xs font-bold text-slate-800">
-          <div>День {point.day} · {point.time || "—"}</div>
-          {content}
+        <div className="bg-white shadow-xl border border-slate-100 rounded-xl p-3 text-[13px] font-bold text-slate-800 z-[100] max-w-[220px]">
+          <div className="mb-2 border-b border-slate-100 pb-1.5 flex justify-between items-center gap-3">
+            <span>День {day}</span>
+            <span className="text-[10px] text-slate-400 font-bold bg-slate-50 px-1.5 py-0.5 rounded-md">Записей: {logs.length}</span>
+          </div>
+          
+          <div className="flex flex-col gap-2.5">
+            {[...logs].map((log: any, idx: number) => {
+               const c = normalizeComfort(log.comfort);
+               const cLabel = c === "easy" ? "Легко" : c === "normal" ? "Нормально" : c === "uncomfortable" ? "Тяжело" : "—";
+               const negSyms = (log.symptoms || []).filter((s: string) => s !== "Нет симптомов");
+               const symText = negSyms.length > 0 ? negSyms.join(", ") : "Нет симптомов";
+               
+               let mainText = "";
+               let subText = "";
+               
+               if (activeChartTab === "stool") {
+                 mainText = `Тип ${log.bristolType}`;
+                 subText = `(${cLabel})`;
+               } else if (activeChartTab === "symptoms") {
+                 mainText = symText;
+                 subText = `(Тип ${log.bristolType})`;
+               } else if (activeChartTab === "comfort") {
+                 mainText = cLabel;
+                 subText = `(Тип ${log.bristolType})`;
+               }
+               
+               const color = getFillColor(log, activeChartTab);
+               
+               return (
+                 <div key={log.id || idx} className="flex items-start gap-2 leading-tight">
+                    <span className="text-[10px] text-slate-400 font-mono mt-0.5 w-8 shrink-0">{log.timeString || "—"}</span>
+                    <div className="w-2.5 h-2.5 rounded-full mt-[3px] shrink-0 shadow-sm" style={{ backgroundColor: color }} />
+                    <div className="flex flex-col">
+                       <span className="text-slate-700">{mainText}</span>
+                       <span className="text-[10.5px] text-slate-400 font-semibold">{subText}</span>
+                    </div>
+                 </div>
+               );
+            })}
+          </div>
         </div>
       );
     }
@@ -658,27 +645,42 @@ export default function DigestionScreen({
               }
             `}</style>
             <ResponsiveContainer width="100%" height="100%" className="outline-none border-none focus:outline-none focus:ring-0" style={{ outline: 'none', border: 'none' }}>
-              <BarChart data={chartPoints} margin={{ top: 5, right: 10, left: 10, bottom: 0 }} className="outline-none border-none focus:outline-none focus:ring-0" style={{ outline: 'none', border: 'none' }}>
+              <BarChart data={chartData} margin={{ top: 5, right: 10, left: 10, bottom: 0 }} className="outline-none border-none focus:outline-none focus:ring-0" style={{ outline: 'none', border: 'none' }}>
                 <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: "#94a3b8" }} />
-                <YAxis hide type="number" />
-                <Tooltip content={<CustomDigestionTooltip />} cursor={{ fill: 'transparent' }} wrapperStyle={{ outline: 'none', border: 'none', pointerEvents: 'none' }} />
-                <Bar isAnimationActive={false}
-                  dataKey="value"
-                  shape={<CustomMetricBarShape />}
-                  background={{ fill: 'transparent', stroke: 'transparent', strokeWidth: 0, strokeOpacity: 0 }}
-                  radius={[4, 4, 0, 0]}
-                  maxBarSize={20}
-                  style={{ outline: 'none', stroke: 'none' }}
-                >
-                  {chartPoints.map((entry, index) => (
-                    <Cell
-                      key={`cell-${index}`}
-                      fill={barFillFor(entry)}
-                      stroke="transparent"
-                      strokeWidth={0}
-                    />
-                  ))}
-                </Bar>
+                <YAxis hide type="number" allowDecimals={false} domain={[0, 'dataMax']} />
+                <Tooltip content={<CustomDigestionTooltip />} cursor={{ fill: '#f1f5f9', opacity: 0.5, rx: 4, ry: 4 }} wrapperStyle={{ outline: 'none', border: 'none', pointerEvents: 'none', zIndex: 100 }} />
+                
+                {Array.from({ length: maxBars }).map((_, i) => (
+                  <Bar
+                    key={`bar-${i}`}
+                    dataKey={`log${i}`}
+                    stackId="a"
+                    isAnimationActive={false}
+                    shape={<StackedBlockShape />}
+                    maxBarSize={20}
+                    style={{ outline: 'none', stroke: 'none' }}
+                  >
+                    {chartData.map((entry, index) => {
+                      const logData = entry.logs[i];
+                      return (
+                        <Cell
+                          key={`cell-${index}-${i}`}
+                          fill={getFillColor(logData, activeChartTab)}
+                          stroke="transparent"
+                          strokeWidth={0}
+                        />
+                      );
+                    })}
+                  </Bar>
+                ))}
+
+                <Bar 
+                  dataKey="hitboxVal" 
+                  fill="transparent" 
+                  shape={<HitboxShape />} 
+                  background={{ fill: 'transparent' }} 
+                  isAnimationActive={false} 
+                />
               </BarChart>
             </ResponsiveContainer>
           </div>
