@@ -21,11 +21,12 @@ interface DigestionModalProps {
 
 export default function DigestionModal({ day }: DigestionModalProps) {
   const isDigestionModalOpen = useAppStore((s) => s.isDigestionModalOpen);
+  const digestionModalDay = useAppStore((s) => s.digestionModalDay);
   const setDigestionModalOpen = useAppStore((s) => s.setDigestionModalOpen);
   const digestionEntries = useAppStore((s) => s.digestionEntries);
   const addDigestionEntry = useAppStore((s) => s.addDigestionEntry);
   const profileDayIndex = useAppStore((s) => s.userProfile.currentDayIndex);
-  const dayIndex = day ?? profileDayIndex ?? 1;
+  const dayIndex = day ?? digestionModalDay ?? profileDayIndex ?? 1;
 
   const [fastDigestionBristol, setFastDigestionBristol] = useState<number>(4);
   const [fastDigestionComfort, setFastDigestionComfort] = useState<string>("Нормально");

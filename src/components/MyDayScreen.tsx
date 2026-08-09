@@ -1334,7 +1334,7 @@ export default function MyDayScreen({
       }
       digestionClickTimeoutRef.current = window.setTimeout(() => {
         // Single Click: quick digestion modal (global overlay)
-        useAppStore.getState().setDigestionModalOpen(true);
+        useAppStore.getState().setDigestionModalOpen(true, currentDayIndex);
       }, 220);
     }
   };
