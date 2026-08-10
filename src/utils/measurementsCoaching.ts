@@ -94,5 +94,5 @@ export const getMeasurementsFeedback = (
     }
   }
 
-  return messageParts.join(' ').trim();
+  return messageParts.filter(Boolean).join('\n\n');
 };

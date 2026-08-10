@@ -1590,7 +1590,7 @@ export default function StateNowScreen({
                       <span className="text-[10.5px] font-bold text-slate-400 uppercase tracking-widest font-mono">Анна анализирует показатели...</span>
                     </div>
                   ) : (
-                    <p className="text-[13px] text-slate-700 font-medium leading-relaxed whitespace-pre-line text-left">
+                    <p className="text-[13px] text-slate-700 font-medium leading-relaxed whitespace-pre-wrap text-left">
                       {annaOverlayAnswer}
                     </p>
                   )}

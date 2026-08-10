@@ -597,7 +597,7 @@ export default function DigestionScreen({
             <img src={ingrGreen} alt="Логотип WFPB" className="w-6 h-6 object-contain" />
           </div>
 
-          <div className="bg-white p-3.5 rounded-2xl text-[13.5px] leading-relaxed font-semibold text-slate-800">
+          <div className="bg-white p-3.5 rounded-2xl text-[13.5px] leading-relaxed font-semibold text-slate-800 whitespace-pre-wrap">
             {cleanAnnaText(annaFeedback, userName)}
           </div>
         </div>
