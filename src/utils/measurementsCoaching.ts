@@ -109,34 +109,15 @@ export const getMeasurementsFeedback = (
 
   // 4. БЛОК ТРИАДЫ
   const { energy, mood, wellbeing } = triad;
+  const triadKey = `triad_${wellbeing}_${energy}_${mood}` as keyof typeof MEASUREMENT_PHRASES;
   
-  if (isCriticalPulse) {
-    if (energy === 'high') {
-      messageParts.push("Я вижу, что по ощущениям у тебя много энергии, но твои показатели говорят об обратном. Пожалуйста, не игнорируй цифры и откажись сегодня от тренировок.");
-    }
+  if (isCriticalPulse && energy === 'high') {
+    messageParts.push("Я вижу, что по ощущениям у тебя много энергии, но твои показатели говорят об обратном. Пожалуйста, не игнорируй цифры и откажись сегодня от тренировок.");
   } else {
-    if (wellbeing === 'good' && energy === 'high' && mood === 'good') {
-      messageParts.push(getRandomPhrase('triadFlow', ctx));
-    } else if (wellbeing === 'good' && energy === 'high' && mood === 'bad') {
-      messageParts.push(getRandomPhrase('triadWiredAndTired', ctx));
-    } else if (wellbeing === 'bad' && energy === 'low' && mood === 'good') {
-      messageParts.push(getRandomPhrase('triadPhysicalExhaustion', ctx));
-    } else if (wellbeing === 'bad' && energy === 'low' && mood === 'bad') {
-      messageParts.push(getRandomPhrase('triadApathy', ctx));
-    } else if (wellbeing === 'bad' && energy === 'high' && mood === 'bad') {
-      messageParts.push(getRandomPhrase('triadSomaticStress', ctx));
-    } else if (wellbeing === 'good' && energy === 'low' && mood === 'good') {
-      messageParts.push(getRandomPhrase('triadZenRecovery', ctx));
-    } else if (wellbeing === 'good' && energy === 'low' && mood === 'bad') {
-      messageParts.push(getRandomPhrase('triadStoicGrind', ctx));
-    } else if (wellbeing === 'bad' && energy === 'high' && mood === 'good') {
-      messageParts.push(getRandomPhrase('triadFragileHigh', ctx));
-    } else if (wellbeing === 'normal' && energy === 'normal' && mood === 'normal') {
-      messageParts.push(getRandomPhrase('triadNormal', ctx));
-    } else if (energy === 'low') {
-      messageParts.push(getRandomPhrase('tonusLow', ctx));
+    if (MEASUREMENT_PHRASES[triadKey]) {
+      messageParts.push(getRandomPhrase(triadKey, ctx));
     } else {
-      messageParts.push(getRandomPhrase('triadNormal', ctx));
+      messageParts.push(getRandomPhrase('triad_normal_normal_normal', ctx));
     }
   }
 
