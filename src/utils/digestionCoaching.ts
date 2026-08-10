@@ -13,11 +13,16 @@ import {
   bristol_7,
   comfort_easy,
   comfort_normal,
-  comfort_hard,
+  comfort_hard_constipation,
+  comfort_hard_diarrhea,
+  comfort_hard_normal,
   food_forbidden,
   food_fodmap,
   food_starch,
   food_raw,
+  symptom_bloating_constipation,
+  symptom_bloating_diarrhea,
+  symptom_bloating_normal,
   water_deficit_constipation,
   movement_deficit_constipation,
   med_loose_hypotension,
@@ -178,11 +183,16 @@ export const getDigestionFeedback = (
   // БЛОК 2: Комфорт (всегда, если есть данные)
   // ─────────────────────────────────────────────
   if (ctx.latestComfort) {
-    const comfortPhrases = ctx.latestComfort === 'easy'
-      ? comfort_easy
-      : ctx.latestComfort === 'hard'
-        ? comfort_hard
-        : comfort_normal;
+    let comfortPhrases: string[] | null = null;
+    if (ctx.latestComfort === 'easy') {
+      comfortPhrases = comfort_easy;
+    } else if (ctx.latestComfort === 'hard') {
+      if (worstBristol <= 2) comfortPhrases = comfort_hard_constipation;
+      else if (worstBristol >= 6) comfortPhrases = comfort_hard_diarrhea;
+      else comfortPhrases = comfort_hard_normal;
+    } else {
+      comfortPhrases = comfort_normal;
+    }
     if (comfortPhrases) {
       messageParts.push(getRandomPhrase(comfortPhrases, ctx));
     }
@@ -215,9 +225,14 @@ export const getDigestionFeedback = (
   // ─────────────────────────────────────────────
   const hasBloatingSymptoms = symptoms.some(s => s === "Вздутие" || s === "Газы");
   if (hasBloatingSymptoms && yesterdayIngredients.length === 0) {
-    messageParts.push(
-      "Вздутие и газы без видимой связи с конкретным блюдом могут говорить о дисбалансе микрофлоры. Понаблюдай, после каких продуктов реакция усиливается, и постепенно увеличивай объём ферментируемой клетчатки."
-    );
+    const bloatingPhrases = worstBristol <= 2
+      ? symptom_bloating_constipation
+      : worstBristol >= 6
+        ? symptom_bloating_diarrhea
+        : symptom_bloating_normal;
+    if (bloatingPhrases) {
+      messageParts.push(getRandomPhrase(bloatingPhrases, ctx));
+    }
   }
 
   // ─────────────────────────────────────────────
