@@ -68,7 +68,7 @@ export const getMeasurementsFeedback = (
     } else if (sys >= 140 || dia >= 90) {
       messageParts.push(getRandomPhrase('bpHypertensionStage2', ctx));
       isCriticalPulse = true; // Блокируем активность
-    } else if (sys >= 120 || dia >= 80) {
+    } else if (sys >= 130 || dia >= 85) {
       messageParts.push(getRandomPhrase('bpElevated', ctx));
     } else if (sys >= 90 && dia >= 60) {
       messageParts.push(getRandomPhrase('bpOptimal', ctx));
@@ -79,7 +79,7 @@ export const getMeasurementsFeedback = (
 
     // Пульсовое давление (добавляем как дополнительное замечание, если нет криза)
     if (sys < 180 && dia < 120) {
-      if (pulsePressure > 60) messageParts.push(getRandomPhrase('bpWidePulsePressure', ctx));
+      if (pulsePressure > 70) messageParts.push(getRandomPhrase('bpWidePulsePressure', ctx));
       if (pulsePressure < 30) messageParts.push(getRandomPhrase('bpNarrowPulsePressure', ctx));
     }
   }
@@ -131,8 +131,12 @@ export const getMeasurementsFeedback = (
       messageParts.push(getRandomPhrase('triadStoicGrind', ctx));
     } else if (wellbeing === 'bad' && energy === 'high' && mood === 'good') {
       messageParts.push(getRandomPhrase('triadFragileHigh', ctx));
+    } else if (wellbeing === 'normal' && energy === 'normal' && mood === 'normal') {
+      messageParts.push(getRandomPhrase('triadNormal', ctx));
     } else if (energy === 'low') {
       messageParts.push(getRandomPhrase('tonusLow', ctx));
+    } else {
+      messageParts.push(getRandomPhrase('triadNormal', ctx));
     }
   }
 
