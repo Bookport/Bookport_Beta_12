@@ -13,6 +13,7 @@ export interface DailySummary {
     bristolAvg: number | null;
     worstBristol: number | null;
     latestBristol: number | null;
+    latestComfort: 'easy' | 'normal' | 'hard' | null;
     symptoms: string[];
     comfortRatio: number | null;
     status: 'constipation' | 'ideal' | 'diarrhea' | 'no_data';
@@ -27,6 +28,16 @@ export interface DailySummary {
     systolic: number | null;
     diastolic: number | null;
     weightAvg: number | null;
+    weightDelta: number | null;
+    tonus: 'low' | 'normal' | 'high' | 'no_data';
+    rawTonus: string | null;
+  };
+  /** Самые свежие замеры вообще (независимо от дня) — для физиологических связок с инерцией. */
+  latestMeasurements: {
+    pulse: number | null;
+    systolic: number | null;
+    diastolic: number | null;
+    weight: number | null;
     weightDelta: number | null;
     tonus: 'low' | 'normal' | 'high' | 'no_data';
     rawTonus: string | null;
@@ -54,11 +65,17 @@ export const buildDailySummary = (dayIndex: number, store: AppState): DailySumma
   let bristolAvg: number | null = null;
   let worstBristol: number | null = null;
   let latestBristol: number | null = null;
+  let latestComfort: 'easy' | 'normal' | 'hard' | null = null;
   const symptomsSet = new Set<string>();
   let comfortableCount = 0;
 
   if (digestionEntries.length > 0) {
     latestBristol = digestionEntries[0].bristolType;
+    latestComfort = digestionEntries[0].comfort === "Легко" || digestionEntries[0].comfort === "easy"
+      ? "easy"
+      : digestionEntries[0].comfort === "Тяжело" || digestionEntries[0].comfort === "uncomfortable"
+        ? "hard"
+        : "normal";
     let bristolSum = 0;
     let maxDev = -1;
     for (const log of digestionEntries) {
@@ -100,6 +117,9 @@ const measurements = store.measurementEntries
   .filter(m => Number(m.dayIndex) === dayIndexNum)
   .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)); // Descending (самые новые первые)
 
+const allMeasurements = [...store.measurementEntries]
+  .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)); // Descending (самые новые вообще)
+
 const pulses = measurements.filter(m => m.pulse).map(m => m.pulse as number);
 const weights = measurements.filter(m => m.weight).map(m => m.weight as number);
 const systolics = measurements.filter(m => m.systolic).map(m => m.systolic as number);
@@ -128,6 +148,29 @@ if (measurements.length > 0) {
   }
 }
 
+// 4b. LATEST-ANY-DAY MEASUREMENTS (самые свежие замеры вообще, независимо от дня)
+const latestMeasurementAnyDay = allMeasurements.length > 0 ? allMeasurements[0] : null;
+const latestPulseAnyDay = latestMeasurementAnyDay?.pulse ?? null;
+const latestSystolicAnyDay = latestMeasurementAnyDay?.systolic ?? null;
+const latestDiastolicAnyDay = latestMeasurementAnyDay?.diastolic ?? null;
+const latestWeightAnyDay = latestMeasurementAnyDay?.weight ?? null;
+let latestTonusAnyDay: 'low' | 'normal' | 'high' | 'no_data' = 'no_data';
+let latestRawTonusAnyDay: string | null = null;
+if (latestMeasurementAnyDay?.tonus) {
+  latestRawTonusAnyDay = latestMeasurementAnyDay.tonus;
+  const tStr = latestMeasurementAnyDay.tonus.toLowerCase();
+  if (tStr.includes("плохое") || tStr.includes("сниженная") || tStr.includes("тяжёлое")) {
+    latestTonusAnyDay = 'low';
+  } else if (tStr.includes("хорошее") || tStr.includes("высокая") || tStr.includes("отличное") || tStr.includes("лёгкое")) {
+    latestTonusAnyDay = 'high';
+  } else {
+    latestTonusAnyDay = 'normal';
+  }
+}
+const latestWeightDeltaAnyDay = latestWeightAnyDay !== null && store.userProfile?.initialWeight
+  ? Number((latestWeightAnyDay - store.userProfile.initialWeight).toFixed(1))
+  : null;
+
   return {
     dayIndex: dayIndexNum,
     water: { amount: waterAmount, goal: waterGoal, pct: waterPct, status: waterStatus },
@@ -136,6 +179,7 @@ if (measurements.length > 0) {
       bristolAvg,
       worstBristol,
       latestBristol,
+      latestComfort,
       symptoms: Array.from(symptomsSet),
       comfortRatio: digestionEntries.length ? comfortableCount / digestionEntries.length : null,
       status: digestionStatus,
@@ -150,6 +194,15 @@ if (measurements.length > 0) {
       weightDelta: weightAvg !== null ? Number((weightAvg - (store.userProfile?.initialWeight || weightAvg)).toFixed(1)) : null,
       tonus,
       rawTonus,
+    },
+    latestMeasurements: {
+      pulse: latestPulseAnyDay,
+      systolic: latestSystolicAnyDay,
+      diastolic: latestDiastolicAnyDay,
+      weight: latestWeightAnyDay,
+      weightDelta: latestWeightDeltaAnyDay,
+      tonus: latestTonusAnyDay,
+      rawTonus: latestRawTonusAnyDay,
     },
   };
 };
