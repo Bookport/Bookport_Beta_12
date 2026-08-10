@@ -407,7 +407,7 @@ export default function WaterDetailsScreen({
             />
           </div>
 
-          <div className="bg-white/80 backdrop-blur-xs p-3 rounded-2xl text-[14px] leading-relaxed font-semibold text-slate-800">
+          <div className="bg-white/80 backdrop-blur-xs p-3 rounded-2xl text-[14px] leading-relaxed font-semibold text-slate-800 whitespace-pre-wrap">
             {cleanAnnaText(annaAdviceText, userName)}
           </div>
         </div>
