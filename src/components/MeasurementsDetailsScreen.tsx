@@ -611,7 +611,7 @@ export default function MeasurementsDetailsScreen({
             <img src={ingrGreen} alt="Логотип WFPB" className="w-6 h-6 object-contain" />
           </div>
 
-          <div className="bg-white/80 backdrop-blur-xs p-3.5 rounded-2xl text-[13.5px] leading-relaxed font-semibold text-slate-800">
+          <div className="bg-white/80 backdrop-blur-xs p-3.5 rounded-2xl text-[13.5px] leading-relaxed font-semibold text-slate-800 whitespace-pre-wrap">
             {cleanAnnaText(annaComment || "Сделай свой первый замер сегодня, чтобы я могла проанализировать твою динамику!", userName)}
           </div>
         </div>
