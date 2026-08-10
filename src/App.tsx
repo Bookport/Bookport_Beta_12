@@ -988,6 +988,12 @@ export default function App() {
 
   const [savedDishes, setSavedDishes] = useState<SavedDish[]>([]);
 
+  // Mirror savedDishes into the zustand store so Anna engines (e.g. digestionCoaching)
+  // can read yesterday's meals without prop drilling.
+  useEffect(() => {
+    useAppStore.getState().setSavedDishes(savedDishes);
+  }, [savedDishes]);
+
   // ─── ACHIEVEMENT SNAPSHOT INGESTION ────────────────────────────
   const buildSnapshot = (): AchievementStateSnapshot => {
     const storeState = useAppStore.getState()

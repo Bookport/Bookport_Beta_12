@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { getTelegramInitData } from "../utils/telegramClient";
+import type { SavedDish } from "../types/dishes";
 
 export interface FoodCacheItem {
   id: string;
@@ -139,6 +140,7 @@ export interface AppState {
   movementEntries: MovementEntry[];
   measurementEntries: MeasurementEntry[];
   digestionEntries: DigestionEntry[];
+  savedDishes: SavedDish[];
 
   recipeStates: Record<string, RecipeState>;
   calendarNotes: CalendarNotes;
@@ -169,6 +171,7 @@ export interface AppState {
   setMeasurementEntries: (entries: MeasurementEntry[]) => void;
   setDigestionEntries: (entries: DigestionEntry[]) => void;
   addDigestionEntry: (entry: DigestionEntry) => void;
+  setSavedDishes: (dishes: SavedDish[]) => void;
   setRecipeState: (type: string, state: RecipeState) => void;
   setCalendarNotes: (notes: CalendarNotes) => void;
   setCourseStartTimestamp: (ts: number | null) => void;
@@ -194,6 +197,7 @@ export const useAppStore = create<AppState>((set) => ({
   movementEntries: [],
   measurementEntries: [],
   digestionEntries: [],
+  savedDishes: [],
   recipeStates: {},
   calendarNotes: {},
   courseStartTimestamp: null,
@@ -221,6 +225,7 @@ export const useAppStore = create<AppState>((set) => ({
   setMeasurementEntries: (entries) => set({ measurementEntries: entries }),
   setDigestionEntries: (entries) => set({ digestionEntries: entries }),
   addDigestionEntry: (entry) => set((s) => ({ digestionEntries: [...s.digestionEntries, entry] })),
+  setSavedDishes: (dishes) => set({ savedDishes: dishes }),
   setRecipeState: (type, state) =>
     set((s) => ({ recipeStates: { ...s.recipeStates, [type]: state } })),
   setCalendarNotes: (notes) => set({ calendarNotes: notes }),

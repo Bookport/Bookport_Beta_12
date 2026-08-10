@@ -62,6 +62,7 @@ export default function DigestionScreen({
 
   const digestionEntries = useAppStore((s) => s.digestionEntries);
   const setDigestionEntries = useAppStore((s) => s.setDigestionEntries);
+  const savedDishesStore = useAppStore((s) => s.savedDishes);
   const currentDayIndex = propDayIndex ?? (useAppStore((s) => s.userProfile.currentDayIndex) ?? 1);
 
   // Period selector state: 7 days, 14 days, or the whole history
@@ -206,7 +207,7 @@ export default function DigestionScreen({
       userName || profile.name,
       userGender
     );
-  }, [selectedGraphDay, currentDayIndex, digestionEntries, waterEntries, movementEntries, measurementEntries, userName, userGender, profile.name]);
+  }, [selectedGraphDay, currentDayIndex, digestionEntries, waterEntries, movementEntries, measurementEntries, savedDishesStore, userName, userGender, profile.name]);
 
   const latestLog = todayLogs.length > 0 ? [...todayLogs].sort((a, b) => b.timestamp - a.timestamp)[0] : null;
 

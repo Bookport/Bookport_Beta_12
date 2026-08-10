@@ -1,67 +1,176 @@
 // src/utils/digestionCoaching.ts
 
-import { DigestionContext, DIGESTION_PHRASE_MATRIX, getRandomPhrase } from "./digestionPhrases";
+import { DigestionContext, DIGESTION_PHRASES, getRandomPhrase } from "./digestionPhrases";
 import { DailySummary } from "./crossModuleSummary";
+import { useAppStore } from "../store/useAppStore";
+
+// Категории запрещённых ингредиентов (статус 'error') — проверяем по статусу блюда.
+// Фолбэк-список ключевых слов на случай, если статус не заполнен, но название очевидное.
+const FORBIDDEN_KEYWORDS = [
+  "мясо", "колбас", "сосис", "сало", "рыб", "яйц", "молок", "сыр", "творог", "сливочн", "майонез", "сахар", "шоколад", "конфет", "масло", "сливки",
+];
+
+const FODMAP_KEYWORDS = [
+  "фасол", "нут", "чечевиц", "горох", "капуст", "яблок", "лук", "чеснок",
+];
+
+const STARCH_KEYWORDS = [
+  "рис", "картоф", "макарон", "хлеб", "банан",
+];
+
+const RAW_KEYWORDS = [
+  "ягод", "фрукт", "салат", "зелень", "орех",
+];
+
+const hasKeyword = (ingredients: string[], keywords: string[]): boolean =>
+  ingredients.some(name => keywords.some(k => name.includes(k)));
+
+// Извлечение вчерашней еды (Пищевой детектив)
+const extractYesterdayFood = (dayIndex: number): { yesterdayIngredients: string[]; problemDishName: string | null; hasForbidden: boolean } => {
+  const savedDishes = useAppStore.getState().savedDishes || [];
+  const yesterdayIndex = Number(dayIndex) - 1;
+
+  const yesterdayDishes = savedDishes.filter(
+    dish => dish.dayIndex !== undefined && Number(dish.dayIndex) === yesterdayIndex
+  );
+
+  if (yesterdayDishes.length === 0) {
+    return { yesterdayIngredients: [], problemDishName: null, hasForbidden: false };
+  }
+
+  const yesterdayIngredients: string[] = [];
+  for (const dish of yesterdayDishes) {
+    for (const ing of dish.ingredients || []) {
+      if (ing.name) yesterdayIngredients.push(String(ing.name).toLowerCase());
+    }
+  }
+
+  // Проблемное блюдо: сначала запрещёнка, иначе максимальное количество клетчатки
+  let problemDishName: string | null = null;
+  let hasForbidden = false;
+
+  const forbiddenDish = yesterdayDishes.find(dish =>
+    (dish.ingredients || []).some(ing =>
+      String(ing.status) === "error" || ing.status === "red" || FORBIDDEN_KEYWORDS.some(k => String(ing.name).toLowerCase().includes(k))
+    )
+  );
+
+  if (forbiddenDish) {
+    problemDishName = forbiddenDish.name;
+    hasForbidden = true;
+  } else {
+    let maxFiber = -1;
+    for (const dish of yesterdayDishes) {
+      const fiberVal = typeof dish.fiber === "number"
+        ? dish.fiber
+        : parseFloat(String(dish.fiber)) || 0;
+      if (fiberVal > maxFiber) {
+        maxFiber = fiberVal;
+        problemDishName = dish.name;
+      }
+    }
+  }
+
+  return { yesterdayIngredients, problemDishName, hasForbidden };
+};
 
 export const getDigestionFeedback = (
   summary: DailySummary,
   userName?: string,
   userGender?: string
 ): string => {
+  const messageParts: string[] = [];
+
   const digestion = summary.digestion;
   const water = summary.water;
   const movement = summary.movement;
-  const measurements = summary.measurements;
+
+  const worstBristol = digestion?.worstBristol;
+
+  // Нет данных о ЖКТ — возвращаем нейтральные фразы
+  if (!digestion || digestion.episodes === 0 || worstBristol === null) {
+    const noDataMessages = [
+      `За этот день у тебя нет записей о пищеварении, ${userName ? userName : 'друг'}. Когда добавишь лог стула, Анна разберёт его вместе с твоим вчерашним меню.`,
+      `Пока нет данных для анализа ЖКТ. Зафиксируй стул по Бристольской шкале — и я соединю его с твоими вчерашними блюдами.`,
+    ];
+    return noDataMessages[Math.floor(Math.random() * noDataMessages.length)];
+  }
+
+  // ─────────────────────────────────────────────
+  // ШАГ 1: Извлечение вчерашней еды (Пищевой детектив)
+  // ─────────────────────────────────────────────
+  const { yesterdayIngredients, problemDishName, hasForbidden } = extractYesterdayFood(summary.dayIndex);
 
   const ctx: DigestionContext = {
     userName,
-    userGender,
+    userGender: (userGender === "female" ? "female" : userGender === "male" ? "male" : undefined),
     summary,
+    problemDishName,
   };
 
-  // 1. Если логов нет
-  if (!digestion || digestion.episodes === 0 || digestion.latestBristol === null) {
-    return getRandomPhrase(DIGESTION_PHRASE_MATRIX.no_data.general)(ctx);
+  // ─────────────────────────────────────────────
+  // ШАГ 2: Блок 1 — Бристольская шкала
+  // ─────────────────────────────────────────────
+  const bristolKey = `bristol_${worstBristol}` as keyof typeof DIGESTION_PHRASES;
+  if (DIGESTION_PHRASES[bristolKey]) {
+    messageParts.push(getRandomPhrase(bristolKey, ctx));
   }
 
-  // 2. Кросс-триггеры (дерево принятия решений на основе единой сводки)
-  const status = digestion.status;
+  const symptoms = digestion.symptoms || [];
 
-// 2.1 Замедленный транзит / Запор (тип 1, 2)
-if (status === "constipation") {
-  // Триггер "Вода": запор + дефицит воды -> самая критичная связка
-  if (water.status === "deficit") {
-    return getRandomPhrase(DIGESTION_PHRASE_MATRIX.constipation.dehydrated)(ctx);
-  }
-  // Триггер "Движение": запор + малоподвижность
-  if (movement.status === "sedentary") {
-    return getRandomPhrase(DIGESTION_PHRASE_MATRIX.constipation.sedentary)(ctx);
-  }
-  // Триггер "Тонус": запор + низкий тонус
-  if (measurements.tonus === "low") {
-    return getRandomPhrase(DIGESTION_PHRASE_MATRIX.constipation.low_tonus)(ctx);
-  }
-  // Обычный запор (вода и активность в норме)
-  return getRandomPhrase(DIGESTION_PHRASE_MATRIX.constipation.hydrated)(ctx);
-}
+  // ─────────────────────────────────────────────
+  // ШАГ 3: Блок 2 — Анализ Еды + Симптомы
+  // ─────────────────────────────────────────────
+  if (yesterdayIngredients.length > 0) {
+    // Запрещёнка
+    if (hasForbidden) {
+      messageParts.push(getRandomPhrase("food_forbidden", ctx));
+    }
 
-if (status === "diarrhea") {
-  // Триггер "Вода": диарея + дефицит воды -> организм теряет жидкость
-  if (water.status === "deficit") {
-    return getRandomPhrase(DIGESTION_PHRASE_MATRIX.diarrhea.deficit)(ctx);
-  }
-  return getRandomPhrase(DIGESTION_PHRASE_MATRIX.diarrhea.general)(ctx);
-}
+    // ФОДМАП: вздутие/газы + специфические продукты
+    const hasFoamMapSymptom = symptoms.some(s => s === "Вздутие" || s === "Газы");
+    if (hasFoamMapSymptom && hasKeyword(yesterdayIngredients, FODMAP_KEYWORDS)) {
+      messageParts.push(getRandomPhrase("food_fodmap", ctx));
+    }
 
-  // 2.3 Идеальный транзит (тип 3, 4, 5)
-  // Триггер "Тонус": идеальный стул + низкая энергия -> питание/отдых
-  if (measurements.tonus === "low") {
-    return getRandomPhrase(DIGESTION_PHRASE_MATRIX.ideal_transit.low_energy)(ctx);
+    // Крахмалы: запор + плотная пища
+    if (worstBristol <= 2 && hasKeyword(yesterdayIngredients, STARCH_KEYWORDS)) {
+      messageParts.push(getRandomPhrase("food_starch", ctx));
+    }
+
+    // Сырое: диарея + сырые плоды/овощи
+    if (worstBristol >= 6 && hasKeyword(yesterdayIngredients, RAW_KEYWORDS)) {
+      messageParts.push(getRandomPhrase("food_raw", ctx));
+    }
   }
-  // Идеальный стул + есть симптомы
-  if (digestion.symptoms.length > 0) {
-    return getRandomPhrase(DIGESTION_PHRASE_MATRIX.ideal_transit.with_symptoms)(ctx);
+
+  // ─────────────────────────────────────────────
+  // ШАГ 4: Блок 3 — Кросс-модульность (Вода и Движение)
+  // ─────────────────────────────────────────────
+  if (worstBristol <= 2) {
+    if (water.status === "deficit") {
+      messageParts.push(getRandomPhrase("water_deficit_constipation", ctx));
+    }
+    if (movement.status === "sedentary") {
+      messageParts.push(getRandomPhrase("movement_deficit_constipation", ctx));
+    }
   }
-  // Идеальный стул, все остальное в норме
-  return getRandomPhrase(DIGESTION_PHRASE_MATRIX.ideal_transit.perfect)(ctx);
+
+  // ─────────────────────────────────────────────
+  // ШАГ 5: Блок 4 — Красные флаги
+  // ─────────────────────────────────────────────
+  if (symptoms.includes("Кровь")) {
+    messageParts.push(getRandomPhrase("red_flag_blood", ctx));
+  }
+  if (symptoms.includes("Боль") || symptoms.includes("Спазмы")) {
+    messageParts.push(getRandomPhrase("red_flag_pain", ctx));
+  }
+  if (symptoms.includes("Слизь")) {
+    messageParts.push(getRandomPhrase("red_flag_mucus", ctx));
+  }
+
+  // ─────────────────────────────────────────────
+  // ШАГ 6: Возврат результата
+  // ─────────────────────────────────────────────
+  return messageParts.filter(Boolean).join('\n\n');
 };
