@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { resolveAvatar } from "../utils/annaAvatarResolver";
 import { useAppStore } from "../store/useAppStore";
+import { getWaterGoal, WATER_GOAL_FALLBACK_KG } from "../utils/waterGoal";
 import { SystemKeysStore } from "../services/SystemKeysStore";
 import { calculateIntegralScore } from "../utils/integralScore";
 import { cleanAnnaText } from "../utils/textUtils";
@@ -1496,7 +1497,7 @@ export default function MyDayScreen({
       }
 
       const weightVal = getResolvedWeightForDay(currentDayIndex);
-      const targetVal = weightVal * 30; // 30 ml per kg
+      const targetVal = getWaterGoal(weightVal);
       const remainingWaterToGoal = Math.max(0, targetVal - water);
 
       // If user has fully closed their requirement, no warnings!
@@ -1687,7 +1688,7 @@ export default function MyDayScreen({
     for (let d = dayIdx; d <= 28; d++) {
       if (dayWeights[d]) return dayWeights[d];
     }
-    return weight || 65;
+    return weight || WATER_GOAL_FALLBACK_KG;
   };
 
   // Click & long press handlers
@@ -1935,7 +1936,7 @@ export default function MyDayScreen({
 
   // 2. Logic Calculations — 7-factor integral score (Water 20%, Sleep 20%, Meals 20%, Habits 15%, Zen 10%, Energy 10%, Lightness 5%)
   const currentWeightForDay = getResolvedWeightForDay(currentDayIndex);
-  const waterGoal = currentWeightForDay * 30;
+  const waterGoal = getWaterGoal(currentWeightForDay);
   const sleepGoal = 480;
   const mealGoal = 4;
   const activityGoal = MOVEMENT_DAILY_TARGET_MIN;

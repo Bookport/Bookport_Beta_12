@@ -1,4 +1,8 @@
 import { AppState } from "../store/useAppStore";
+import { getWaterGoal } from "./waterGoal";
+
+// Единый набор статусов воды для всех модулей (WaterContext, digestionContext и т.д.)
+export type WaterStatus = 'zero' | 'deficit' | 'optimum' | 'excess';
 
 export interface DailySummary {
   dayIndex: number;
@@ -6,7 +10,10 @@ export interface DailySummary {
     amount: number;
     goal: number;
     pct: number;
-    status: 'deficit' | 'normal' | 'excess';
+    status: WaterStatus;
+  };
+  food: {
+    yesterdayFiber: number | null;
   };
   digestion: {
     episodes: number;
@@ -49,13 +56,16 @@ export const buildDailySummary = (dayIndex: number, store: AppState): DailySumma
   // 1. WATER
   const waterEntries = store.waterEntries.filter(w => Number(w.dayIndex) === dayIndexNum);
   const waterAmount = waterEntries.reduce((sum, w) => sum + w.amount, 0);
-  const weight = store.userProfile?.weight || 65;
-  const waterGoal = Math.round(weight * 30);
-  const waterPct = waterGoal > 0 ? Math.min(100, Math.round((waterAmount / waterGoal) * 100)) : 0;
-  
-  let waterStatus: 'deficit' | 'normal' | 'excess' = 'deficit';
-  if (waterPct >= 100) waterStatus = 'normal';
-  if (waterPct >= 150) waterStatus = 'excess';
+  const waterGoal = getWaterGoal(store.userProfile?.weight);
+  // Процент НЕ обрезается на 100 — иначе недостижим статус 'excess' (> 150%)
+  const waterPct = waterGoal > 0 ? Math.round((waterAmount / waterGoal) * 100) : 0;
+
+  let waterStatus: WaterStatus = 'zero';
+  if (waterAmount > 0) {
+    if (waterPct >= 150) waterStatus = 'excess';
+    else if (waterPct >= 100) waterStatus = 'optimum';
+    else waterStatus = 'deficit';
+  }
 
   // 2. DIGESTION
   const digestionEntries = store.digestionEntries
@@ -103,6 +113,22 @@ export const buildDailySummary = (dayIndex: number, store: AppState): DailySumma
     if (latestBristol <= 2) digestionStatus = 'constipation';
     else if (latestBristol >= 6) digestionStatus = 'diarrhea';
     else digestionStatus = 'ideal';
+  }
+
+  // 1b. FOOD — вчерашняя клетчатка (для кросс-связки «вода + клетчатка»)
+  const yesterdayIndex = dayIndexNum - 1;
+  let yesterdayFiber: number | null = null;
+  const yesterdayDishes = store.savedDishes.filter(
+    d => d.dayIndex !== undefined && Number(d.dayIndex) === yesterdayIndex
+  );
+  if (yesterdayDishes.length > 0) {
+    let fiberSum = 0;
+    for (const dish of yesterdayDishes) {
+      const raw = dish.computedNutrients?.fiber ?? dish.fiber;
+      const num = typeof raw === "number" ? raw : parseFloat(String(raw ?? ""));
+      if (!Number.isNaN(num)) fiberSum += num;
+    }
+    yesterdayFiber = Number(fiberSum.toFixed(1));
   }
 
   // 3. MOVEMENT
@@ -174,6 +200,7 @@ const latestWeightDeltaAnyDay = latestWeightAnyDay !== null && store.userProfile
   return {
     dayIndex: dayIndexNum,
     water: { amount: waterAmount, goal: waterGoal, pct: waterPct, status: waterStatus },
+    food: { yesterdayFiber },
     digestion: {
       episodes: digestionEntries.length,
       bristolAvg,

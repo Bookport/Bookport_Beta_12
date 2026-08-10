@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { useAppStore } from "../store/useAppStore";
+import { getWaterGoal } from "../utils/waterGoal";
 import { UserPreferencesStore, UserPreferences } from "./UserPreferencesStore";
 import { api } from "../utils/api";
 
@@ -119,7 +120,7 @@ export function useNotificationEngine() {
       let shouldTrigger = false;
 
       if (candidate === "water") {
-        const targetWater = (profile?.weight || 60) * 30; // 30 ml per kg
+        const targetWater = getWaterGoal(profile?.weight);
         const currentWater = dm?.waterMl || 0;
         // Simple logic: if we are in window and water is < 80% of goal, remind.
         if (currentWater < targetWater * 0.8) shouldTrigger = true;

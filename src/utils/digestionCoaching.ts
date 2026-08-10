@@ -166,7 +166,7 @@ export const getDigestionFeedback = (
     latestComfort: digestion.latestComfort ?? null,
     problemDishName: problemDishName ?? undefined,
     symptoms,
-    waterStatus: water.amount <= 0 ? 'zero' : water.status === 'excess' ? 'excess' : water.status === 'normal' ? 'optimum' : 'deficit',
+    waterStatus: water.status,
     movementStatus: movement.status === 'athletic' ? 'athlete' : movement.status === 'active' ? 'active' : movement.activeMin > 0 ? 'light' : 'sedentary',
     latestMeasurements,
   };

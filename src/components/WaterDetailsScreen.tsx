@@ -14,6 +14,7 @@ import { BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer } from 
 import BottomBar from "./BottomBar";
 import { useAppStore } from "../store/useAppStore";
 import { getWaterFeedback } from "../utils/waterCoaching";
+import { getWaterGoal, WATER_GOAL_FALLBACK_KG } from "../utils/waterGoal";
 import { buildDailySummary } from "../utils/crossModuleSummary";
 import { cleanAnnaText } from "../utils/textUtils";
 import { resolveAvatar } from "../utils/annaAvatarResolver";
@@ -117,11 +118,11 @@ export default function WaterDetailsScreen({
     for (let d = dayIdx; d <= 28; d++) {
       if (dayWeights[d]) return dayWeights[d];
     }
-    return profileWeight || 65;
+    return profileWeight || WATER_GOAL_FALLBACK_KG;
   };
 
   const currentWeightForDay = getResolvedWeightForDay(currentDayIndex);
-  const waterGoalToday = currentWeightForDay * 30; // 30 ml per kg
+  const waterGoalToday = getWaterGoal(currentWeightForDay);
 
   // Reactive store subscriptions for the cross-module Anna summary
   const storeWaterEntries = useAppStore((s) => s.waterEntries);
@@ -131,7 +132,7 @@ export default function WaterDetailsScreen({
   
   // Selected graph day variables
   const graphDayWeight = getResolvedWeightForDay(selectedGraphDay);
-  const graphDayGoal = graphDayWeight * 30;
+  const graphDayGoal = getWaterGoal(graphDayWeight);
   const graphDayEntries = waterLogs[selectedGraphDay] || [];
   const graphDaySum = graphDayEntries.reduce((acc, e) => acc + e.amount, 0);
   const graphDayPercent = Math.min(100, Math.round((graphDaySum / graphDayGoal) * 100));
@@ -156,7 +157,7 @@ export default function WaterDetailsScreen({
     return Array.from({ length: 28 }).map((_, idx) => {
       const dayNum = idx + 1;
       const dWeight = dayWeights[dayNum] || getResolvedWeightForDay(dayNum);
-      const dGoal = dWeight * 30;
+      const dGoal = getWaterGoal(dWeight);
       const dEntries = waterLogs[dayNum] || [];
       const dSum = dEntries.reduce((sum, e) => sum + e.amount, 0);
       return { day: dayNum, sum: dSum, goal: dGoal, isFuture: dayNum > currentDayIndex };
@@ -178,7 +179,7 @@ export default function WaterDetailsScreen({
 
     for (let d = 1; d <= 28; d++) {
       const dWeight = dayWeights[d] || getResolvedWeightForDay(d);
-      const dGoal = dWeight * 30;
+      const dGoal = getWaterGoal(dWeight);
       const dEntries = waterLogs[d] || [];
       const dSum = dEntries.reduce((sum, e) => sum + e.amount, 0);
       

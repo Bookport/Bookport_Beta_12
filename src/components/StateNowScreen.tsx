@@ -17,6 +17,7 @@ import type { SavedDish } from "../types/dishes";
 import { DailyNutritionStore } from "../services/DailyNutritionStore";
 import { SystemKeysStore } from "../services/SystemKeysStore";
 import { calculateIntegralScore } from "../utils/integralScore";
+import { getWaterGoal, WATER_GOAL_FALLBACK_KG } from "../utils/waterGoal";
 import BalanceTab from "./statenow/BalanceTab";
 import { getRecommendedNextStep } from "../utils/nextStepEngine";
 import ScalesTab from "./statenow/ScalesTab";
@@ -492,7 +493,7 @@ export default function StateNowScreen({
   const aggregatedIngredients = dbData.aggregatedIngredients;
 
   // Core target definitions
-  const waterTarget = Math.round((effWeight || 70) * 30);
+  const waterTarget = getWaterGoal(effWeight || WATER_GOAL_FALLBACK_KG);
   const sleepTarget = 480;
   const mealsTarget = 4;
   const habitsTarget = 20;

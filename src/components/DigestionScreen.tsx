@@ -7,6 +7,7 @@ import { useAppStore } from "../store/useAppStore";
 import { api } from "../utils/api";
 import { getDigestionFeedback } from "../utils/digestionCoaching";
 import { buildDailySummary } from "../utils/crossModuleSummary";
+import { getWaterGoal } from "../utils/waterGoal";
 import { cleanAnnaText } from "../utils/textUtils";
 import { BRISTOL_IMAGES, DIGESTION_SYMPTOM_COLORS } from "../utils/digestionConstants";
 import ingrGreen from "../assets/ingredients/ingr_green.webp";
@@ -83,8 +84,7 @@ export default function DigestionScreen({
   const measurementEntries = useAppStore((s) => s.measurementEntries);
   const profile = useAppStore((s) => s.userProfile);
   const waterGoal = React.useMemo(() => {
-    const weight = profile.weight || 65;
-    return Math.round(weight * 30);
+    return getWaterGoal(profile.weight);
   }, [profile.weight]);
 
   // Period window ending at current day: 7 days, 14 days, or whole history
