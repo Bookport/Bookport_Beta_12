@@ -1,9 +1,48 @@
 // src/utils/digestionCoaching.ts
 
-import { DigestionContext, DigestionMeasurements, DIGESTION_PHRASES, getRandomPhrase } from "./digestionPhrases";
+import {
+  DigestionContext,
+  DigestionMeasurements,
+  getRandomPhrase,
+  bristol_1,
+  bristol_2,
+  bristol_3,
+  bristol_4,
+  bristol_5,
+  bristol_6,
+  bristol_7,
+  comfort_easy,
+  comfort_normal,
+  comfort_hard,
+  food_forbidden,
+  food_fodmap,
+  food_starch,
+  food_raw,
+  water_deficit_constipation,
+  movement_deficit_constipation,
+  med_loose_hypotension,
+  med_constipation_hypertension,
+  med_gut_stress_triad,
+  med_diarrhea_tachycardia,
+  med_constipation_bradycardia,
+  red_flag_blood,
+  red_flag_pain,
+  red_flag_mucus,
+} from "./digestionPhrases";
 import { DailySummary } from "./crossModuleSummary";
 import { useAppStore } from "../store/useAppStore";
 import { parseTriad } from "./triadParser";
+import { getGenderVerb } from "./textUtils";
+
+const BRISTOL_ARRAYS: Record<number, string[]> = {
+  1: bristol_1,
+  2: bristol_2,
+  3: bristol_3,
+  4: bristol_4,
+  5: bristol_5,
+  6: bristol_6,
+  7: bristol_7,
+};
 
 // Категории запрещённых ингредиентов (статус 'error') — проверяем по статусу блюда.
 // Фолбэк-список ключевых слов на случай, если статус не заполнен, но название очевидное.
@@ -91,8 +130,9 @@ export const getDigestionFeedback = (
 
   // Нет данных о ЖКТ — возвращаем нейтральные фразы
   if (!digestion || digestion.episodes === 0 || worstBristol === null) {
+    const noDataUser = userName || getGenderVerb(userGender, "друг", "подруга");
     const noDataMessages = [
-      `За этот день у тебя нет записей о пищеварении, ${userName ? userName : 'друг'}. Когда добавишь лог стула, Анна разберёт его вместе с твоим вчерашним меню.`,
+      `За этот день у тебя нет записей о пищеварении, ${noDataUser}. Когда добавишь лог стула, Анна разберёт его вместе с твоим вчерашним меню.`,
       `Пока нет данных для анализа ЖКТ. Зафиксируй стул по Бристольской шкале — и я соединю его с твоими вчерашними блюдами.`,
     ];
     return noDataMessages[Math.floor(Math.random() * noDataMessages.length)];
@@ -104,44 +144,47 @@ export const getDigestionFeedback = (
   const { yesterdayIngredients, problemDishName, hasForbidden } = extractYesterdayFood(summary.dayIndex);
 
   const triad = parseTriad(summary.latestMeasurements?.rawTonus ?? summary.measurements.rawTonus);
-  const digestionMeasurements: DigestionMeasurements = {
-    pulse: summary.latestMeasurements?.pulse ?? null,
+  const latestMeasurements: DigestionMeasurements = {
+    pulseAvg: summary.latestMeasurements?.pulse ?? null,
     systolic: summary.latestMeasurements?.systolic ?? null,
     diastolic: summary.latestMeasurements?.diastolic ?? null,
-    weight: summary.latestMeasurements?.weight ?? null,
+    weightAvg: summary.latestMeasurements?.weight ?? null,
     weightDelta: summary.latestMeasurements?.weightDelta ?? null,
     tonus: summary.latestMeasurements?.tonus ?? 'no_data',
     triad,
   };
 
   const ctx: DigestionContext = {
-    userName,
+    userName: userName || '',
     userGender: (userGender === "female" ? "female" : userGender === "male" ? "male" : undefined),
-    summary,
-    problemDishName,
+    worstBristol,
     latestComfort: digestion.latestComfort ?? null,
-    digestionMeasurements,
+    problemDishName: problemDishName ?? undefined,
+    symptoms,
+    waterStatus: water.amount <= 0 ? 'zero' : water.status === 'excess' ? 'excess' : water.status === 'normal' ? 'optimum' : 'deficit',
+    movementStatus: movement.status === 'athletic' ? 'athlete' : movement.status === 'active' ? 'active' : movement.activeMin > 0 ? 'light' : 'sedentary',
+    latestMeasurements,
   };
 
   // ─────────────────────────────────────────────
   // БЛОК 1: Бристольская шкала (всегда)
   // ─────────────────────────────────────────────
-  const bristolKey = `bristol_${worstBristol}` as keyof typeof DIGESTION_PHRASES;
-  if (DIGESTION_PHRASES[bristolKey]) {
-    messageParts.push(getRandomPhrase(bristolKey, ctx));
+  const bristolPhrases = BRISTOL_ARRAYS[worstBristol];
+  if (bristolPhrases) {
+    messageParts.push(getRandomPhrase(bristolPhrases, ctx));
   }
 
   // ─────────────────────────────────────────────
   // БЛОК 2: Комфорт (всегда, если есть данные)
   // ─────────────────────────────────────────────
   if (ctx.latestComfort) {
-    const comfortKey = ctx.latestComfort === 'easy'
-      ? 'comfort_easy'
+    const comfortPhrases = ctx.latestComfort === 'easy'
+      ? comfort_easy
       : ctx.latestComfort === 'hard'
-        ? 'comfort_hard'
-        : 'comfort_normal' as keyof typeof DIGESTION_PHRASES;
-    if (DIGESTION_PHRASES[comfortKey]) {
-      messageParts.push(getRandomPhrase(comfortKey, ctx));
+        ? comfort_hard
+        : comfort_normal;
+    if (comfortPhrases) {
+      messageParts.push(getRandomPhrase(comfortPhrases, ctx));
     }
   }
 
@@ -150,20 +193,20 @@ export const getDigestionFeedback = (
   // ─────────────────────────────────────────────
   if (yesterdayIngredients.length > 0) {
     if (hasForbidden) {
-      messageParts.push(getRandomPhrase("food_forbidden", ctx));
+      messageParts.push(getRandomPhrase(food_forbidden, ctx));
     }
 
     const hasFodmapSymptom = symptoms.some(s => s === "Вздутие" || s === "Газы");
     if (hasFodmapSymptom && hasKeyword(yesterdayIngredients, FODMAP_KEYWORDS)) {
-      messageParts.push(getRandomPhrase("food_fodmap", ctx));
+      messageParts.push(getRandomPhrase(food_fodmap, ctx));
     }
 
     if (worstBristol <= 2 && hasKeyword(yesterdayIngredients, STARCH_KEYWORDS)) {
-      messageParts.push(getRandomPhrase("food_starch", ctx));
+      messageParts.push(getRandomPhrase(food_starch, ctx));
     }
 
     if (worstBristol >= 6 && hasKeyword(yesterdayIngredients, RAW_KEYWORDS)) {
-      messageParts.push(getRandomPhrase("food_raw", ctx));
+      messageParts.push(getRandomPhrase(food_raw, ctx));
     }
   }
 
@@ -180,54 +223,56 @@ export const getDigestionFeedback = (
   // ─────────────────────────────────────────────
   // БЛОК 5: Кросс-модульность (Вода и Движение) — всегда, без привязки к еде
   // ─────────────────────────────────────────────
-  if (worstBristol <= 2 && water.status === "deficit") {
-    messageParts.push(getRandomPhrase("water_deficit_constipation", ctx));
+  const isWaterDeficit = ctx.waterStatus === 'zero' || ctx.waterStatus === 'deficit';
+  const isSedentary = ctx.movementStatus === 'sedentary' || ctx.movementStatus === 'light';
+  if (worstBristol <= 2 && isWaterDeficit) {
+    messageParts.push(getRandomPhrase(water_deficit_constipation, ctx));
   }
-  if (worstBristol <= 2 && movement.status === "sedentary") {
-    messageParts.push(getRandomPhrase("movement_deficit_constipation", ctx));
+  if (worstBristol <= 2 && isSedentary) {
+    messageParts.push(getRandomPhrase(movement_deficit_constipation, ctx));
   }
 
   // ─────────────────────────────────────────────
   // БЛОК 6: Медицинские кросс-паттерны (Замеры, latest-any-day)
   // ─────────────────────────────────────────────
-  const sys = digestionMeasurements.systolic;
-  const dia = digestionMeasurements.diastolic;
-  const pulse = digestionMeasurements.pulse;
+  const sys = latestMeasurements.systolic;
+  const dia = latestMeasurements.diastolic;
+  const pulse = latestMeasurements.pulseAvg;
 
   // 1. Жидкий стул + Гипотония
   if (worstBristol >= 6 && (sys !== null && sys < 90 || dia !== null && dia < 60)) {
-    messageParts.push(getRandomPhrase("med_loose_hypotension", ctx));
+    messageParts.push(getRandomPhrase(med_loose_hypotension, ctx));
   }
   // 2. Запор + Гипертония (риск Вальсальвы)
   if (worstBristol <= 2 && ((sys !== null && sys >= 140) || (dia !== null && dia >= 90))) {
-    messageParts.push(getRandomPhrase("med_constipation_hypertension", ctx));
+    messageParts.push(getRandomPhrase(med_constipation_hypertension, ctx));
   }
   // 3. Сбой ЖКТ + Стресс по Триаде
   const isTriadStress =
     triad.wellbeing === 'bad' && (triad.mood === 'bad' || triad.energy === 'high');
   if (symptoms.length > 0 && isTriadStress) {
-    messageParts.push(getRandomPhrase("med_gut_stress_triad", ctx));
+    messageParts.push(getRandomPhrase(med_gut_stress_triad, ctx));
   }
   // 4. Диарея + Тахикардия (обезвоживание)
   if (worstBristol >= 6 && pulse !== null && pulse >= 100) {
-    messageParts.push(getRandomPhrase("med_diarrhea_tachycardia", ctx));
+    messageParts.push(getRandomPhrase(med_diarrhea_tachycardia, ctx));
   }
   // 5. Запор + Брадикардия
   if (worstBristol <= 2 && pulse !== null && pulse < 55) {
-    messageParts.push(getRandomPhrase("med_constipation_bradycardia", ctx));
+    messageParts.push(getRandomPhrase(med_constipation_bradycardia, ctx));
   }
 
   // ─────────────────────────────────────────────
   // БЛОК 7: Красные флаги (всегда)
   // ─────────────────────────────────────────────
   if (symptoms.includes("Кровь")) {
-    messageParts.push(getRandomPhrase("red_flag_blood", ctx));
+    messageParts.push(getRandomPhrase(red_flag_blood, ctx));
   }
   if (symptoms.includes("Боль") || symptoms.includes("Спазмы")) {
-    messageParts.push(getRandomPhrase("red_flag_pain", ctx));
+    messageParts.push(getRandomPhrase(red_flag_pain, ctx));
   }
   if (symptoms.includes("Слизь")) {
-    messageParts.push(getRandomPhrase("red_flag_mucus", ctx));
+    messageParts.push(getRandomPhrase(red_flag_mucus, ctx));
   }
 
   // ─────────────────────────────────────────────
