@@ -3,6 +3,8 @@ import {
   getRandomPhrase,
   base_zero,
   base_deficit_critical,
+  base_behind,
+  base_mild,
   base_deficit,
   base_optimum,
   base_excess,
@@ -34,11 +36,16 @@ export const getWaterFeedback = (
   const digestion = summary.digestion;
   const latestMeasurements = summary.latestMeasurements;
 
+  // Нормализованный показатель: для текущего дня — время-скорректированный % (timePct),
+  // для истории — абсолютный % от суточной нормы.
+  const coachingPct = water.timePct ?? water.pct;
+  const isToday = water.timePct !== null;
+
   const ctx: WaterContext = {
     userName: userName || "",
     userGender: userGender === "male" ? "male" : userGender === "female" ? "female" : undefined,
     waterStatus: water.status,
-    pct: water.pct,
+    pct: coachingPct,
     amount: water.amount,
     latestBristol: digestion.latestBristol,
     yesterdayFiber: summary.food?.yesterdayFiber ?? 0,
@@ -58,31 +65,73 @@ export const getWaterFeedback = (
     if (text) messageParts.push(text);
   };
 
-  const status = water.status;
-  const percent = water.pct;
-  const isLowWater = status === "zero" || status === "deficit";
+  // Шкала коучинга для текущего дня (Time-adjusted Goal):
+  //   zero → critical (0 < coachingPct < 50) → behind (50–69) → mild (70–99)
+  //   → optimum (100–149) → excess (≥150).
+  // Для истории — прежние абсолютные границы (0 / 50 / 100 / 150).
+  let tier:
+    | 'zero'
+    | 'critical'
+    | 'behind'
+    | 'mild'
+    | 'deficit'
+    | 'optimum'
+    | 'excess';
+  if (water.amount === 0) {
+    tier = 'zero';
+  } else if (isToday) {
+    tier = coachingPct >= 150 ? 'excess'
+      : coachingPct >= 100 ? 'optimum'
+      : coachingPct >= 70 ? 'mild'
+      : coachingPct >= 50 ? 'behind'
+      : 'critical';
+  } else {
+    tier = coachingPct >= 150 ? 'excess'
+      : coachingPct >= 100 ? 'optimum'
+      : coachingPct >= 50 ? 'deficit'
+      : 'critical';
+  }
+
+  // Кросс-модульные блоки активны только при реальном дефиците к текущему часу.
+  // Для текущего дня — только критический темп (< 50% от ожидаемого): при behind/mild
+  // (50–69 / 70–99) работает только базовая ветка. Для истории — прежняя логика isLowWater.
+  const showCross = isToday
+    ? tier === 'critical'
+    : tier === 'zero' || tier === 'deficit' || tier === 'critical';
 
   // ─────────────────────────────────────────────────────────────
-  // БЛОК 1: БАЗА — оценка объёма (Zero / Deficit / Optimum / Excess)
+  // БЛОК 1: БАЗА — шкала zero → critical → behind → mild → optimum → excess
   // ─────────────────────────────────────────────────────────────
-  if (status === "zero") {
-    push(base_zero);
-  } else if (status === "excess") {
-    push(base_excess);
-  } else if (status === "optimum") {
-    push(base_optimum);
-  } else {
-    // deficit — градация по глубине недобора
-    if (percent < 50) push(base_deficit_critical);
-    else push(base_deficit);
+  switch (tier) {
+    case 'zero':
+      push(base_zero);
+      break;
+    case 'critical':
+      push(base_deficit_critical);
+      break;
+    case 'behind':
+      push(base_behind);
+      break;
+    case 'mild':
+      push(base_mild);
+      break;
+    case 'deficit':
+      push(base_deficit);
+      break;
+    case 'optimum':
+      push(base_optimum);
+      break;
+    case 'excess':
+      push(base_excess);
+      break;
   }
 
   // ─────────────────────────────────────────────────────────────
   // БЛОК 2: ВОДА + ЖКТ (Бристоль)
   // ─────────────────────────────────────────────────────────────
-  if (isLowWater && digestion.status === "constipation") push(cross_digestion_constipation);
-  if (isLowWater && digestion.status === "diarrhea") push(cross_digestion_diarrhea);
-  if (status === "optimum" && digestion.status === "ideal") push(cross_digestion_ideal);
+  if (showCross && digestion.status === "constipation") push(cross_digestion_constipation);
+  if (showCross && digestion.status === "diarrhea") push(cross_digestion_diarrhea);
+  if (tier === "optimum" && digestion.status === "ideal") push(cross_digestion_ideal);
 
   // ─────────────────────────────────────────────────────────────
   // БЛОК 3: ВОДА + ЗАМЕРЫ (Пульс, Давление, Тонус, Динамика веса)
@@ -93,21 +142,23 @@ export const getWaterFeedback = (
   const weightDelta = latestMeasurements.weightDelta;
   const tonus = latestMeasurements.tonus;
 
-  if (isLowWater && pulse !== null && pulse > 90) push(cross_measurements_highPulse);
-  if (isLowWater && pulse !== null && pulse < 55) push(cross_measurements_lowPulse);
-  if (isLowWater && ((sys !== null && sys >= 140) || (dia !== null && dia >= 90))) push(cross_measurements_highBP);
-  if (isLowWater && ((sys !== null && sys < 90) || (dia !== null && dia < 60))) push(cross_measurements_lowBP);
+  if (showCross && pulse !== null && pulse > 90) push(cross_measurements_highPulse);
+  if (showCross && pulse !== null && pulse < 55) push(cross_measurements_lowPulse);
+  if (showCross && ((sys !== null && sys >= 140) || (dia !== null && dia >= 90))) push(cross_measurements_highBP);
+  if (showCross && ((sys !== null && sys < 90) || (dia !== null && dia < 60))) push(cross_measurements_lowBP);
   if (weightDelta !== null && weightDelta < 0) push(cross_measurements_weightLoss);
-  if (isLowWater && weightDelta !== null && weightDelta >= 0.3) push(cross_measurements_weightGain);
-  if (isLowWater && tonus === "low") push(cross_measurements_tonusLow);
+  if (showCross && weightDelta !== null && weightDelta >= 0.3) push(cross_measurements_weightGain);
+  if (showCross && tonus === "low") push(cross_measurements_tonusLow);
 
   // ─────────────────────────────────────────────────────────────
   // БЛОК 4: ВОДА + ЕДА (вчерашняя клетчатка)
   // ─────────────────────────────────────────────────────────────
   const fiber = summary.food?.yesterdayFiber ?? null;
   if (fiber !== null && fiber >= HIGH_FIBER_THRESHOLD) {
-    if (isLowWater) push(cross_food_highFiber_deficit);
-    else if (status === "optimum") push(cross_food_highFiber_optimum);
+    // Блок клетчатки — только при ненулевом объёме воды и заметном отставании от темпа;
+    // при нулевом объёме работает только мягкая базовая ветка base_zero.
+    if (showCross && water.amount > 0 && coachingPct < 60) push(cross_food_highFiber_deficit);
+    else if (tier === "optimum") push(cross_food_highFiber_optimum);
   }
 
   // ─────────────────────────────────────────────────────────────
