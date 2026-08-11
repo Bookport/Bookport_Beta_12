@@ -453,26 +453,18 @@ export default function DigestionScreen({
     return Math.round(sum * 10) / 10;
   }, [savedDishesStore, foodCache, selectedGraphDay, currentDayIndex]);
 
-  // Плашка 3: стрик дней без дискомфорта — назад от последнего дня периода.
-  // День засчитывается, если есть запись со стулом типа 3-5 И symptoms пустое.
-  const comfortStreak = React.useMemo(() => {
-    let streak = 0;
-    for (let d = currentDayIndex; d >= 1; d--) {
-      const logList = digestionEntries.filter((e) => Number(e.dayIndex) === d);
-      if (logList.length === 0) {
-        if (d === currentDayIndex) continue; // сегодня без записей — ещё не прерывает
-        break;
-      }
-      const qualifies = logList.some((e) => {
-        const t = Number(e.bristolType);
-        const syms = (e.symptoms || []).filter((s) => s !== "Нет симптомов");
-        return t >= 3 && t <= 5 && syms.length === 0;
-      });
-      if (!qualifies) break;
-      streak++;
-    }
-    return streak;
-  }, [digestionEntries, currentDayIndex]);
+  // Плашка 3: минуты активности строго за текущий день (сегодня)
+  const todayMovementMin = React.useMemo(() => {
+    const totalMin = movementEntries
+      .filter((m) => Number(m.dayIndex) === Number(currentDayIndex))
+      .reduce((sum, m) => {
+        const mins = m.durationSeconds
+          ? Math.round(m.durationSeconds / 60)
+          : (Number(m.duration) || 0);
+        return sum + mins;
+      }, 0);
+    return totalMin;
+  }, [movementEntries, currentDayIndex]);
 
   // ---- CUSTOM SHAPES FOR STACKED CHART ----
   const HitboxShape = (props: any) => {
@@ -815,7 +807,7 @@ export default function DigestionScreen({
             })}
           </div>
 
-          <div className="relative pt-4 pb-2 px-1 h-44 min-h-[176px] outline-none border-none focus:outline-none focus:ring-0" style={{ outline: 'none', border: 'none' }}>
+          <div className="relative pt-4 pb-2 px-1 h-44 min-h-[300px] outline-none border-none focus:outline-none focus:ring-0" style={{ outline: 'none', border: 'none' }}>
             <style>{`
               .recharts-wrapper *:focus,
               .recharts-surface:focus,
@@ -877,7 +869,7 @@ export default function DigestionScreen({
             {selectedDayHist.length > 0 ? (
               <div className="flex flex-col max-h-[150px] overflow-y-auto scrollbar-none">
                 {selectedDayHist
-                  .filter((log) => log && log.bristolType)
+                  .filter((log) => log?.bristolType && log.bristolType >= 1 && log.bristolType <= 7)
                   .map((log, idx) => {
                   const cLabel = getComfortMeta(log.comfort).label;
                   const cBadge = getComfortMeta(log.comfort).badge;
@@ -924,8 +916,11 @@ export default function DigestionScreen({
                         )}
                       </div>
 
-                      {/* Right part: Comfort badge */}
-                      <div className="flex flex-row items-center shrink-0">
+                      {/* Right part: Comfort circle + label */}
+                      <div className="flex flex-row items-center gap-2 shrink-0">
+                        <div className="flex items-center justify-center">
+                          <div className="w-3 h-3 rounded-full" style={{ backgroundColor: getComfortMeta(log.comfort).fill }} />
+                        </div>
                         <span className={`px-2.5 flex items-center justify-center h-6 rounded-lg text-[10.5px] font-bold shadow-sm ${cBadge}`}>
                           {cLabel}
                         </span>
@@ -968,10 +963,12 @@ export default function DigestionScreen({
 
             <div className="bg-white border border-slate-100 rounded-2xl p-4 flex flex-col justify-between gap-2 shadow-sm">
               <div className="text-left">
-                <p className="text-[11px] font-bold text-slate-600">Дней без дискомфорта</p>
-                <p className="text-[10px] text-slate-400 mt-0.5">Подряд</p>
+                <p className="text-[11px] font-bold text-slate-600">Движение</p>
+                <p className="text-[10px] text-slate-400 mt-0.5">Активность за день</p>
               </div>
-              <span className="text-lg font-black text-emerald-500 font-mono">{comfortStreak}</span>
+              <span className={`text-lg font-black font-mono ${todayMovementMin > 0 ? "text-emerald-500" : "text-slate-500"}`}>
+                {`${todayMovementMin} мин`}
+              </span>
             </div>
           </div>
         </div>
