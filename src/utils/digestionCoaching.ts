@@ -130,11 +130,11 @@ export const getDigestionFeedback = (
   const water = summary.water;
   const movement = summary.movement;
 
-  const worstBristol = digestion?.worstBristol;
+  const bristolRef = digestion?.latestBristol;
   const symptoms = digestion?.symptoms || [];
 
   // Нет данных о ЖКТ — возвращаем нейтральные фразы
-  if (!digestion || digestion.episodes === 0 || worstBristol === null) {
+  if (!digestion || digestion.episodes === 0 || bristolRef == null) {
     const noDataUser = userName || getGenderVerb(userGender, "друг", "подруга");
     const noDataMessages = [
       `За этот день у тебя нет записей о пищеварении, ${noDataUser}. Когда добавишь лог стула, Анна разберёт его вместе с твоим вчерашним меню.`,
@@ -162,7 +162,7 @@ export const getDigestionFeedback = (
   const ctx: DigestionContext = {
     userName: userName || '',
     userGender: (userGender === "female" ? "female" : userGender === "male" ? "male" : undefined),
-    worstBristol,
+    worstBristol: bristolRef,
     latestComfort: digestion.latestComfort ?? null,
     problemDishName: problemDishName ?? undefined,
     symptoms,
@@ -174,7 +174,7 @@ export const getDigestionFeedback = (
   // ─────────────────────────────────────────────
   // БЛОК 1: Бристольская шкала (всегда)
   // ─────────────────────────────────────────────
-  const bristolPhrases = BRISTOL_ARRAYS[worstBristol];
+  const bristolPhrases = BRISTOL_ARRAYS[bristolRef];
   if (bristolPhrases) {
     messageParts.push(getRandomPhrase(bristolPhrases, ctx));
   }
@@ -187,8 +187,8 @@ export const getDigestionFeedback = (
     if (ctx.latestComfort === 'easy') {
       comfortPhrases = comfort_easy;
     } else if (ctx.latestComfort === 'hard') {
-      if (worstBristol <= 2) comfortPhrases = comfort_hard_constipation;
-      else if (worstBristol >= 6) comfortPhrases = comfort_hard_diarrhea;
+      if (bristolRef <= 2) comfortPhrases = comfort_hard_constipation;
+      else if (bristolRef >= 6) comfortPhrases = comfort_hard_diarrhea;
       else comfortPhrases = comfort_hard_normal;
     } else {
       comfortPhrases = comfort_normal;
@@ -210,9 +210,9 @@ export const getDigestionFeedback = (
       messageParts.push(getRandomPhrase(food_forbidden, ctx));
     } else if (hasFodmapSymptom && hasKeyword(yesterdayIngredients, FODMAP_KEYWORDS)) {
       messageParts.push(getRandomPhrase(food_fodmap, ctx));
-    } else if (worstBristol <= 2 && hasKeyword(yesterdayIngredients, STARCH_KEYWORDS)) {
+    } else if (bristolRef <= 2 && hasKeyword(yesterdayIngredients, STARCH_KEYWORDS)) {
       messageParts.push(getRandomPhrase(food_starch, ctx));
-    } else if (worstBristol >= 6 && hasKeyword(yesterdayIngredients, RAW_KEYWORDS)) {
+    } else if (bristolRef >= 6 && hasKeyword(yesterdayIngredients, RAW_KEYWORDS)) {
       messageParts.push(getRandomPhrase(food_raw, ctx));
     }
   }
@@ -222,9 +222,9 @@ export const getDigestionFeedback = (
   // ─────────────────────────────────────────────
   const hasBloatingSymptoms = symptoms.some(s => s === "Вздутие" || s === "Газы");
   if (hasBloatingSymptoms && yesterdayIngredients.length === 0) {
-    const bloatingPhrases = worstBristol <= 2
+    const bloatingPhrases = bristolRef <= 2
       ? symptom_bloating_constipation
-      : worstBristol >= 6
+      : bristolRef >= 6
         ? symptom_bloating_diarrhea
         : symptom_bloating_normal;
     if (bloatingPhrases) {
@@ -237,10 +237,10 @@ export const getDigestionFeedback = (
   // ─────────────────────────────────────────────
   const isWaterDeficit = ctx.waterStatus === 'zero' || ctx.waterStatus === 'deficit';
   const isSedentary = ctx.movementStatus === 'sedentary' || ctx.movementStatus === 'light';
-  if (worstBristol <= 2 && isWaterDeficit) {
+  if (bristolRef <= 2 && isWaterDeficit) {
     messageParts.push(getRandomPhrase(water_deficit_constipation, ctx));
   }
-  if (worstBristol <= 2 && isSedentary) {
+  if (bristolRef <= 2 && isSedentary) {
     messageParts.push(getRandomPhrase(movement_deficit_constipation, ctx));
   }
 
@@ -252,11 +252,11 @@ export const getDigestionFeedback = (
   const pulse = latestMeasurements.pulseAvg;
 
   // 1. Жидкий стул + Гипотония
-  if (worstBristol >= 6 && (sys !== null && sys < 90 || dia !== null && dia < 60)) {
+  if (bristolRef >= 6 && (sys !== null && sys < 90 || dia !== null && dia < 60)) {
     messageParts.push(getRandomPhrase(med_loose_hypotension, ctx));
   }
   // 2. Запор + Гипертония (риск Вальсальвы)
-  if (worstBristol <= 2 && ((sys !== null && sys >= 140) || (dia !== null && dia >= 90))) {
+  if (bristolRef <= 2 && ((sys !== null && sys >= 140) || (dia !== null && dia >= 90))) {
     messageParts.push(getRandomPhrase(med_constipation_hypertension, ctx));
   }
   // 3. Сбой ЖКТ + Стресс по Триаде
@@ -266,11 +266,11 @@ export const getDigestionFeedback = (
     messageParts.push(getRandomPhrase(med_gut_stress_triad, ctx));
   }
   // 4. Диарея + Тахикардия (обезвоживание)
-  if (worstBristol >= 6 && pulse !== null && pulse >= 100) {
+  if (bristolRef >= 6 && pulse !== null && pulse >= 100) {
     messageParts.push(getRandomPhrase(med_diarrhea_tachycardia, ctx));
   }
   // 5. Запор + Брадикардия
-  if (worstBristol <= 2 && pulse !== null && pulse < 55) {
+  if (bristolRef <= 2 && pulse !== null && pulse < 55) {
     messageParts.push(getRandomPhrase(med_constipation_bradycardia, ctx));
   }
 
