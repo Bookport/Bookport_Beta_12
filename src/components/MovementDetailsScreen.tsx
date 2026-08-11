@@ -10,7 +10,7 @@ import aktivnayaSeriyaImg from "../assets/images/movement/markers/aktivnaya seri
 import vsegoDyisgbiaImg from "../assets/images/movement/markers/vsego dyisgbia.webp";
 import { generateMovementSummary } from "../utils/movementCoaching";
 import { buildDailySummary } from "../utils/crossModuleSummary";
-import { cleanAnnaText } from "../utils/textUtils";
+import AnnaText from "./AnnaText";
 import { getPlural } from "../utils/pluralize";
 import ingrGreenImg from "../assets/ingredients/ingr_green.webp";
 import { 
@@ -380,8 +380,8 @@ export default function MovementDetailsScreen({
             <img src={ingrGreenImg} alt="Anna Logo" className="w-6 h-6 object-contain animate-pulse" />
           </div>
 
-          <div className="bg-white/80 backdrop-blur-xs p-3.5 rounded-2xl text-[14px] leading-relaxed font-semibold text-slate-800 whitespace-pre-wrap">
-            {cleanAnnaText(annaCoaching.text, userName)}
+          <div className="bg-white/80 backdrop-blur-xs p-3.5 rounded-2xl text-[14px] leading-relaxed font-semibold text-slate-800">
+            <AnnaText text={annaCoaching.text} userName={userName} />
           </div>
         </div>
 

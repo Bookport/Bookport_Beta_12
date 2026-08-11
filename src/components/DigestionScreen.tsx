@@ -8,7 +8,7 @@ import { api } from "../utils/api";
 import { getDigestionFeedback } from "../utils/digestionCoaching";
 import { buildDailySummary } from "../utils/crossModuleSummary";
 import { getWaterGoal } from "../utils/waterGoal";
-import { cleanAnnaText } from "../utils/textUtils";
+import AnnaText from "./AnnaText";
 import { BRISTOL_IMAGES, DIGESTION_SYMPTOM_COLORS } from "../utils/digestionConstants";
 import ingrGreen from "../assets/ingredients/ingr_green.webp";
 
@@ -89,6 +89,7 @@ export default function DigestionScreen({
   const digestionEntries = useAppStore((s) => s.digestionEntries);
   const setDigestionEntries = useAppStore((s) => s.setDigestionEntries);
   const savedDishesStore = useAppStore((s) => s.savedDishes);
+  const foodCache = useAppStore((s) => s.foodCache);
   const currentDayIndex = propDayIndex ?? (useAppStore((s) => s.userProfile.currentDayIndex) ?? 1);
 
   // Period selector state: 7 days, 14 days, or the whole history
@@ -179,46 +180,24 @@ export default function DigestionScreen({
   // ---- STATISTICS OVER THE 28-DAY PERIOD ----
   const totalEpisodes = periodLogs.length;
 
-  let totalBristolSum = 0;
   let healthyBristolCount = 0;
   let slowTransitCount = 0;
   let fastTransitCount = 0;
-  let comfortableCount = 0;
-  let loggedDays = 0;
-  const seenDays = new Set<number>();
 
   periodLogs.forEach(log => {
     const t = log.bristolType;
     if (t >= 1 && t <= 7) {
-      totalBristolSum += t;
       if (t === 3 || t === 4 || t === 5) healthyBristolCount++;
       if (t === 1 || t === 2) slowTransitCount++;
       if (t === 6 || t === 7) fastTransitCount++;
     }
-    if (normalizeComfort(log.comfort) === "easy" || normalizeComfort(log.comfort) === "normal") comfortableCount++;
-    seenDays.add(Number(log.dayIndex));
   });
-  loggedDays = seenDays.size;
 
-  const avgBristolStyle = totalEpisodes ? (totalBristolSum / totalEpisodes).toFixed(1) : null;
   const healthyBristolRatio = totalEpisodes ? Math.round((healthyBristolCount / totalEpisodes) * 100) : null;
   const slowTransitRatio = totalEpisodes ? Math.round((slowTransitCount / totalEpisodes) * 100) : null;
   const fastTransitRatio = totalEpisodes ? Math.round((fastTransitCount / totalEpisodes) * 100) : null;
-  const comfortRatio = totalEpisodes ? Math.round((comfortableCount / totalEpisodes) * 100) : null;
 
   const firstLogDay = digestionEntries.length > 0 ? Math.min(...digestionEntries.map(e => Number(e.dayIndex))) : currentDayIndex;
-  const actualAppDays = Math.max(1, currentDayIndex - firstLogDay + 1);
-
-  const stabilityDenominator = periodDays === "all"
-    ? Math.min(28, actualAppDays)
-    : Math.min(Number(periodDays), actualAppDays);
-  const stabilityIndex = totalEpisodes
-    ? Math.min(100, Math.round((loggedDays / stabilityDenominator) * 100))
-    : null;
-  const todayWater = waterEntries
-    .filter(w => Number(w.dayIndex) === Number(currentDayIndex))
-    .reduce((sum, entry) => sum + entry.amount, 0);
-  const waterPct = waterGoal > 0 ? Math.min(100, Math.round((todayWater / waterGoal) * 100)) : null;
 
   // ---- DASHBOARD METRICS (СТАТУС / РИТМ / КОМФОРТ + % стабильности) ----
   // Все расчёты — на лету из periodLogs за выбранный период.
@@ -422,35 +401,74 @@ export default function DigestionScreen({
   const selectedDayHist = React.useMemo(() => {
     const sorted = periodLogs
       .filter((l) => Number(l.dayIndex) === Number(selectedGraphDay))
+      // Отсекаем «призрачные» строки без валидных данных для отображения
+      .filter((l) => l && l.bristolType && Number(l.bristolType) >= 1 && Number(l.bristolType) <= 7)
       .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
     return sorted;
   }, [periodLogs, selectedGraphDay]);
 
-  // ---- CORRELATION LOGIC (Block 5) ----
-  // Water balance: green when norm fulfilled, red on deficit
-  const waterNormMet = waterPct !== null && waterPct >= 100;
-  // Response index: % of logs in period WITHOUT negative symptoms
-  const logsWithNoSymptoms = periodLogs.filter((l) => {
-    const syms = l.symptoms || [];
-    return syms.length === 0 || (syms.length === 1 && syms[0] === "Нет симптомов");
-  }).length;
-  const responseIndex = totalEpisodes ? Math.round((logsWithNoSymptoms / totalEpisodes) * 100) : null;
-  // Comfort streak: consecutive days without "Тяжело" status and pain/spasms, back from today
+  // ---- CORRELATION LOGIC (Block 5) — 3 карточки, расчёт на лету ----
+  const WATER_GOAL_FALLBACK_ML = 2000;
+
+  // Плашка 1: средний % выполнения нормы воды за выбранный период
+  const periodWaterAvgPct = React.useMemo(() => {
+    const periodStart = periodDays === "all"
+      ? Math.max(1, firstLogDay)
+      : Math.max(1, currentDayIndex - Number(periodDays) + 1);
+    const totalDays = Math.max(1, currentDayIndex - periodStart + 1);
+    const dailyGoal = waterGoal > 0 ? waterGoal : WATER_GOAL_FALLBACK_ML;
+    const totalDrank = waterEntries
+      .filter((w) => Number(w.dayIndex) >= periodStart && Number(w.dayIndex) <= currentDayIndex)
+      .reduce((sum, w) => sum + (Number(w.amount) || 0), 0);
+    return Math.min(100, Math.round((totalDrank / (totalDays * dailyGoal)) * 100));
+  }, [waterEntries, waterGoal, periodDays, firstLogDay, currentDayIndex]);
+  const waterNormMet = periodWaterAvgPct >= 100;
+
+  // Плашка 2: суммарная клетчатка за последний выбранный день (или сегодня)
+  const dayFiber = React.useMemo(() => {
+    const targetDay = selectedGraphDay ?? currentDayIndex;
+    const dishes = (savedDishesStore || []).filter(
+      (d) => d.dayIndex !== undefined && Number(d.dayIndex) === Number(targetDay)
+    );
+    let sum = 0;
+    for (const dish of dishes) {
+      // 1) Клетчатка хранится прямо в блюде
+      const raw = dish.computedNutrients?.fiber ?? dish.fiber;
+      const direct = typeof raw === "number" ? raw : parseFloat(String(raw ?? ""));
+      if (!Number.isNaN(direct) && direct > 0) {
+        sum += direct;
+        continue;
+      }
+      // 2) Фолбэк: собираем из foodCache по ингредиентам (на 100 г)
+      for (const ing of dish.ingredients || []) {
+        const cacheItem = foodCache.find(
+          (fc) => fc.nameRu && ing.name && fc.nameRu.toLowerCase() === String(ing.name).toLowerCase()
+        );
+        if (cacheItem && cacheItem.fiber) {
+          const weight = parseFloat(String(ing.weight)) || 0;
+          sum += (cacheItem.fiber * weight) / 100;
+        }
+      }
+    }
+    return Math.round(sum * 10) / 10;
+  }, [savedDishesStore, foodCache, selectedGraphDay, currentDayIndex]);
+
+  // Плашка 3: стрик дней без дискомфорта — назад от последнего дня периода.
+  // День засчитывается, если есть запись со стулом типа 3-5 И symptoms пустое.
   const comfortStreak = React.useMemo(() => {
     let streak = 0;
     for (let d = currentDayIndex; d >= 1; d--) {
       const logList = digestionEntries.filter((e) => Number(e.dayIndex) === d);
       if (logList.length === 0) {
-        if (d === currentDayIndex) continue; // today without logs — not a leading streak yet
+        if (d === currentDayIndex) continue; // сегодня без записей — ещё не прерывает
         break;
       }
-      const hasBad = logList.some((e) => {
-        const c = normalizeComfort(e.comfort);
-        const syms = e.symptoms || [];
-        const hasPain = syms.includes("Боль") || syms.includes("Спазмы");
-        return c === "uncomfortable" || hasPain;
+      const qualifies = logList.some((e) => {
+        const t = Number(e.bristolType);
+        const syms = (e.symptoms || []).filter((s) => s !== "Нет симптомов");
+        return t >= 3 && t <= 5 && syms.length === 0;
       });
-      if (hasBad) break;
+      if (!qualifies) break;
       streak++;
     }
     return streak;
@@ -757,8 +775,8 @@ export default function DigestionScreen({
             <img src={ingrGreen} alt="Логотип WFPB" className="w-6 h-6 object-contain" />
           </div>
 
-          <div className="bg-white p-3.5 rounded-2xl text-[13.5px] leading-relaxed font-semibold text-slate-800 whitespace-pre-wrap">
-            {cleanAnnaText(annaFeedback, userName)}
+          <div className="bg-white p-3.5 rounded-2xl text-[13.5px] leading-relaxed font-semibold text-slate-800">
+            <AnnaText text={annaFeedback} userName={userName} />
           </div>
         </div>
 
@@ -869,8 +887,10 @@ export default function DigestionScreen({
                     >
                       {/* Left part: White circle, Image, Time */}
                       <div className="flex items-center gap-2 shrink-0">
-                        <div className="w-6 h-6 bg-white rounded-full flex items-center justify-center text-[11px] font-black text-slate-700 shadow-sm">
-                          {log.bristolType || 4}
+                        <div className="w-8 flex-shrink-0 flex items-center justify-center">
+                          <div className="w-6 h-6 bg-white rounded-full flex items-center justify-center text-[11px] font-black text-slate-700 shadow-sm">
+                            {log.bristolType || 4}
+                          </div>
                         </div>
                         <img
                           src={BRISTOL_IMAGES[Math.min(6, Math.max(0, (log.bristolType || 4) - 1))]}
@@ -925,34 +945,28 @@ export default function DigestionScreen({
         {/* BLOCK 5: Корреляции */}
         <div className="mb-2">
           <h3 className="text-xs font-bold text-slate-400 uppercase mb-3">КОРРЕЛЯЦИЯ С ДРУГИМИ ФАКТОРАМИ</h3>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="bg-white border border-slate-100 rounded-2xl p-4 flex flex-row justify-between items-center shadow-sm">
+          <div className="grid grid-cols-3 gap-3">
+            <div className="bg-white border border-slate-100 rounded-2xl p-4 flex flex-col justify-between gap-2 shadow-sm">
               <div className="text-left">
                 <p className="text-[11px] font-bold text-slate-600">Питьевой баланс</p>
                 <p className="text-[10px] text-slate-400 mt-0.5">Вода / цель</p>
               </div>
               <span className={`text-lg font-black font-mono ${waterNormMet ? "text-emerald-500" : "text-rose-500"}`}>
-                {waterPct === null ? "—" : `${waterPct}%`}
+                {`${periodWaterAvgPct}%`}
               </span>
             </div>
 
-            <div className="bg-white border border-slate-100 rounded-2xl p-4 flex flex-row justify-between items-center shadow-sm">
+            <div className="bg-white border border-slate-100 rounded-2xl p-4 flex flex-col justify-between gap-2 shadow-sm">
               <div className="text-left">
                 <p className="text-[11px] font-bold text-slate-600">Клетчатка</p>
-                <p className="text-[10px] text-slate-400 mt-0.5">Добавьте бобовые и зелень</p>
+                <p className="text-[10px] text-slate-400 mt-0.5">Съедено за день</p>
               </div>
-              <span className="text-sm font-bold text-emerald-500 whitespace-nowrap">Нет данных</span>
+              <span className={`text-lg font-black font-mono ${dayFiber > 0 ? "text-emerald-500" : "text-slate-400"}`}>
+                {`${dayFiber} г`}
+              </span>
             </div>
 
-            <div className="bg-white border border-slate-100 rounded-2xl p-4 flex flex-row justify-between items-center shadow-sm">
-              <div className="text-left">
-                <p className="text-[11px] font-bold text-slate-600">Индекс отклика</p>
-                <p className="text-[10px] text-slate-400 mt-0.5">Без негативных симптомов</p>
-              </div>
-              <span className="text-lg font-black text-slate-700 font-mono">{responseIndex === null ? "—" : `${responseIndex}%`}</span>
-            </div>
-
-            <div className="bg-white border border-slate-100 rounded-2xl p-4 flex flex-row justify-between items-center shadow-sm">
+            <div className="bg-white border border-slate-100 rounded-2xl p-4 flex flex-col justify-between gap-2 shadow-sm">
               <div className="text-left">
                 <p className="text-[11px] font-bold text-slate-600">Дней без дискомфорта</p>
                 <p className="text-[10px] text-slate-400 mt-0.5">Подряд</p>
