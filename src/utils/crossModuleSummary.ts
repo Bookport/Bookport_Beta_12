@@ -25,6 +25,7 @@ export interface DailySummary {
     worstBristol: number | null;
     latestBristol: number | null;
     latestComfort: 'easy' | 'normal' | 'hard' | null;
+    latestSymptoms: string[];
     symptoms: string[];
     comfortRatio: number | null;
     status: 'constipation' | 'ideal' | 'diarrhea' | 'no_data';
@@ -99,6 +100,7 @@ export const buildDailySummary = (dayIndex: number, store: AppState, currentDayI
   let worstBristol: number | null = null;
   let latestBristol: number | null = null;
   let latestComfort: 'easy' | 'normal' | 'hard' | null = null;
+  let latestSymptoms: string[] = [];
   const symptomsSet = new Set<string>();
   let comfortableCount = 0;
 
@@ -109,6 +111,7 @@ export const buildDailySummary = (dayIndex: number, store: AppState, currentDayI
       : digestionEntries[0].comfort === "Тяжело" || digestionEntries[0].comfort === "uncomfortable"
         ? "hard"
         : "normal";
+    latestSymptoms = (digestionEntries[0].symptoms || []).filter(s => s !== "Нет симптомов");
     let bristolSum = 0;
     let maxDev = -1;
     for (const log of digestionEntries) {
@@ -234,6 +237,7 @@ const latestWeightDeltaAnyDay = latestWeightAnyDay !== null && store.userProfile
       worstBristol,
       latestBristol,
       latestComfort,
+      latestSymptoms,
       symptoms: Array.from(symptomsSet),
       comfortRatio: digestionEntries.length ? comfortableCount / digestionEntries.length : null,
       status: digestionStatus,

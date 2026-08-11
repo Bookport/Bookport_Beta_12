@@ -131,7 +131,7 @@ export const getDigestionFeedback = (
   const movement = summary.movement;
 
   const bristolRef = digestion?.latestBristol;
-  const symptoms = digestion?.symptoms || [];
+  const latestSymptoms = digestion?.latestSymptoms || [];
 
   // Нет данных о ЖКТ — возвращаем нейтральные фразы
   if (!digestion || digestion.episodes === 0 || bristolRef == null) {
@@ -165,7 +165,8 @@ export const getDigestionFeedback = (
     worstBristol: bristolRef,
     latestComfort: digestion.latestComfort ?? null,
     problemDishName: problemDishName ?? undefined,
-    symptoms,
+    symptoms: latestSymptoms,
+    latestSymptoms,
     waterStatus: water.status,
     movementStatus: movement.status === 'athletic' ? 'athlete' : movement.status === 'active' ? 'active' : movement.activeMin > 0 ? 'light' : 'sedentary',
     latestMeasurements,
@@ -180,9 +181,20 @@ export const getDigestionFeedback = (
   }
 
   // ─────────────────────────────────────────────
-  // БЛОК 2: Комфорт (всегда, если есть данные)
+  // БЛОК 2: Симптомы ИЛИ Комфорт — взаимоисключающе, ровно один блок.
+  // Если в последней записи есть симптомы — один симптомный блок.
+  // Иначе — блок комфорта.
   // ─────────────────────────────────────────────
-  if (ctx.latestComfort) {
+  if (latestSymptoms.length > 0) {
+    const symptomPhrases = bristolRef <= 2
+      ? symptom_bloating_constipation
+      : bristolRef >= 6
+        ? symptom_bloating_diarrhea
+        : symptom_bloating_normal;
+    if (symptomPhrases) {
+      messageParts.push(getRandomPhrase(symptomPhrases, ctx));
+    }
+  } else if (ctx.latestComfort) {
     let comfortPhrases: string[] | null = null;
     if (ctx.latestComfort === 'easy') {
       comfortPhrases = comfort_easy;
@@ -204,7 +216,7 @@ export const getDigestionFeedback = (
   // Приоритет: запрещёнка, затем FODMAP, затем крахмалы (запор), затем сырая клетчатка (диарея).
   // ─────────────────────────────────────────────
   if (yesterdayIngredients.length > 0) {
-    const hasFodmapSymptom = symptoms.some(s => s === "Вздутие" || s === "Газы");
+    const hasFodmapSymptom = latestSymptoms.some(s => s === "Вздутие" || s === "Газы");
 
     if (hasForbidden) {
       messageParts.push(getRandomPhrase(food_forbidden, ctx));
@@ -214,21 +226,6 @@ export const getDigestionFeedback = (
       messageParts.push(getRandomPhrase(food_starch, ctx));
     } else if (bristolRef >= 6 && hasKeyword(yesterdayIngredients, RAW_KEYWORDS)) {
       messageParts.push(getRandomPhrase(food_raw, ctx));
-    }
-  }
-
-  // ─────────────────────────────────────────────
-  // БЛОК 4: Симптомы (всегда, независимо от еды)
-  // ─────────────────────────────────────────────
-  const hasBloatingSymptoms = symptoms.some(s => s === "Вздутие" || s === "Газы");
-  if (hasBloatingSymptoms && yesterdayIngredients.length === 0) {
-    const bloatingPhrases = bristolRef <= 2
-      ? symptom_bloating_constipation
-      : bristolRef >= 6
-        ? symptom_bloating_diarrhea
-        : symptom_bloating_normal;
-    if (bloatingPhrases) {
-      messageParts.push(getRandomPhrase(bloatingPhrases, ctx));
     }
   }
 
@@ -262,7 +259,7 @@ export const getDigestionFeedback = (
   // 3. Сбой ЖКТ + Стресс по Триаде
   const isTriadStress =
     triad.wellbeing === 'bad' && (triad.mood === 'bad' || triad.energy === 'high');
-  if (symptoms.length > 0 && isTriadStress) {
+  if (latestSymptoms.length > 0 && isTriadStress) {
     messageParts.push(getRandomPhrase(med_gut_stress_triad, ctx));
   }
   // 4. Диарея + Тахикардия (обезвоживание)
@@ -277,13 +274,13 @@ export const getDigestionFeedback = (
   // ─────────────────────────────────────────────
   // БЛОК 7: Красные флаги (всегда)
   // ─────────────────────────────────────────────
-  if (symptoms.includes("Кровь")) {
+  if (latestSymptoms.includes("Кровь")) {
     messageParts.push(getRandomPhrase(red_flag_blood, ctx));
   }
-  if (symptoms.includes("Боль") || symptoms.includes("Спазмы")) {
+  if (latestSymptoms.includes("Боль") || latestSymptoms.includes("Спазмы")) {
     messageParts.push(getRandomPhrase(red_flag_pain, ctx));
   }
-  if (symptoms.includes("Слизь")) {
+  if (latestSymptoms.includes("Слизь")) {
     messageParts.push(getRandomPhrase(red_flag_mucus, ctx));
   }
 
