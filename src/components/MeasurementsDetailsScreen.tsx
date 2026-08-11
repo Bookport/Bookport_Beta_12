@@ -269,7 +269,7 @@ export default function MeasurementsDetailsScreen({
   const usedInitialWeight = stats.initialWeight || null;
 
   const annaComment = useMemo(() => {
-    const summary = buildDailySummary(selectedGraphDay ?? currentDayIndex, useAppStore.getState());
+    const summary = buildDailySummary(selectedGraphDay ?? currentDayIndex, useAppStore.getState(), currentDayIndex);
     return getMeasurementsFeedback(summary, userName, userGender);
   }, [
     selectedGraphDay,

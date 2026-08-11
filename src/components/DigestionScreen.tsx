@@ -343,7 +343,7 @@ export default function DigestionScreen({
   }, [digestionEntries, currentDayIndex]);
 
   const annaFeedback = React.useMemo(() => {
-    const summary = buildDailySummary(selectedGraphDay ?? currentDayIndex, useAppStore.getState());
+    const summary = buildDailySummary(selectedGraphDay ?? currentDayIndex, useAppStore.getState(), currentDayIndex);
     return getDigestionFeedback(
       summary,
       userName || profile.name,

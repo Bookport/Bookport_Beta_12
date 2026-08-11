@@ -147,7 +147,7 @@ export default function WaterDetailsScreen({
   };
   // Generate Anna's customizable analysis quote using useMemo
   const annaAdviceText = useMemo(() => {
-    const summary = buildDailySummary(selectedGraphDay ?? currentDayIndex, useAppStore.getState());
+    const summary = buildDailySummary(selectedGraphDay ?? currentDayIndex, useAppStore.getState(), currentDayIndex);
     return getWaterFeedback(summary, userName, userGender);
   }, [selectedGraphDay, currentDayIndex, storeWaterEntries, storeMovementEntries, storeMeasurementEntries, storeDigestionEntries, userName, userGender]);
 

@@ -183,7 +183,7 @@ export default function MovementDetailsScreen({
   const latestActivityType = todayEntries.length > 0 ? todayEntries[todayEntries.length - 1].type : null;
 
   const annaCoaching = useMemo(() => {
-    const summary = buildDailySummary(selectedGraphDay ?? currentDayIndex, useAppStore.getState());
+    const summary = buildDailySummary(selectedGraphDay ?? currentDayIndex, useAppStore.getState(), currentDayIndex);
     return generateMovementSummary(summary, userName, userGender);
   }, [selectedGraphDay, currentDayIndex, digestionEntries, waterEntries, measurementEntries, movementEntries, userName, userGender]);
 
