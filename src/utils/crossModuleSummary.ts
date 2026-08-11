@@ -1,5 +1,5 @@
 import { AppState } from "../store/useAppStore";
-import { getWaterGoal } from "./waterGoal";
+import { getWaterGoal, WATER_ACTIVE_START_MIN, WATER_ACTIVE_WINDOW_MIN } from "./waterGoal";
 
 // Единый набор статусов воды для всех модулей (WaterContext, digestionContext и т.д.)
 export type WaterStatus = 'zero' | 'deficit' | 'optimum' | 'excess';
@@ -11,6 +11,10 @@ export interface DailySummary {
     goal: number;
     pct: number;
     status: WaterStatus;
+    /** Ожидаемая норма к текущей минуте (Time-adjusted Goal) — только для текущего дня. */
+    expectedGoalOnNow: number | null;
+    /** % выполнения ожидаемой нормы к текущей минуте — только для текущего дня. */
+    timePct: number | null;
   };
   food: {
     yesterdayFiber: number | null;
@@ -60,10 +64,29 @@ export const buildDailySummary = (dayIndex: number, store: AppState): DailySumma
   // Процент НЕ обрезается на 100 — иначе недостижим статус 'excess' (> 150%)
   const waterPct = waterGoal > 0 ? Math.round((waterAmount / waterGoal) * 100) : 0;
 
+  // Time-adjusted Goal: для текущего дня суточная норма распределяется на активное окно
+  // (14 часов, 08:00–22:00). Ожидаемая норма к текущей минуте — только для оценки статуса
+  // коучинга Анны. UI и абсолютные цифры (вода/цель 2400 мл) не зависят от этого.
+  const isToday = dayIndexNum === Number(store.userProfile?.currentDayIndex ?? 1);
+  let expectedGoalOnNow: number | null = null;
+  let timePct: number | null = null;
+
+  if (isToday) {
+    const now = new Date();
+    const nowMin = now.getHours() * 60 + now.getMinutes();
+    const elapsedMin = Math.max(0, Math.min(nowMin - WATER_ACTIVE_START_MIN, WATER_ACTIVE_WINDOW_MIN));
+    // min 1 мл — защита от деления на 0 до старта окна (до 08:00)
+    expectedGoalOnNow = Math.max(1, Math.round((waterGoal * elapsedMin) / WATER_ACTIVE_WINDOW_MIN));
+    timePct = elapsedMin <= 0 && waterAmount > 0
+      ? 100 // до 08:00 выпитый объём — уже опережение графика
+      : Math.round((waterAmount / expectedGoalOnNow) * 100);
+  }
+
   let waterStatus: WaterStatus = 'zero';
   if (waterAmount > 0) {
-    if (waterPct >= 150) waterStatus = 'excess';
-    else if (waterPct >= 100) waterStatus = 'optimum';
+    const refPct = isToday && timePct !== null ? timePct : waterPct;
+    if (refPct >= 150) waterStatus = 'excess';
+    else if (refPct >= 100) waterStatus = 'optimum';
     else waterStatus = 'deficit';
   }
 
@@ -203,7 +226,7 @@ const latestWeightDeltaAnyDay = latestWeightAnyDay !== null && store.userProfile
 
   return {
     dayIndex: dayIndexNum,
-    water: { amount: waterAmount, goal: waterGoal, pct: waterPct, status: waterStatus },
+    water: { amount: waterAmount, goal: waterGoal, pct: waterPct, status: waterStatus, expectedGoalOnNow, timePct },
     food: { yesterdayFiber },
     digestion: {
       episodes: digestionEntries.length,
