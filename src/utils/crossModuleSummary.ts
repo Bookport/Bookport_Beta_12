@@ -68,7 +68,7 @@ export const buildDailySummary = (dayIndex: number, store: AppState, currentDayI
   // Time-adjusted Goal: для текущего дня суточная норма распределяется на активное окно
   // (14 часов, 08:00–22:00). Ожидаемая норма к текущей минуте — только для оценки статуса
   // коучинга Анны. UI и абсолютные цифры (вода/цель 2400 мл) не зависят от этого.
-  const isToday = dayIndexNum === Number(currentDayIndex ?? dayIndexNum);
+  const isToday = dayIndexNum === Number(currentDayIndex);
   let expectedGoalOnNow: number | null = null;
   let timePct: number | null = null;
 
