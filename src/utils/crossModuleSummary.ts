@@ -132,8 +132,12 @@ export const buildDailySummary = (dayIndex: number, store: AppState): DailySumma
   }
 
   // 3. MOVEMENT
+  // Суммируем в СЕКУНДАХ (duration || durationSeconds), затем переводим в минуты —
+  // идентично MovementDetailsScreen и карточке «Движение», иначе при первом рендере
+  // (когда durationSeconds ещё не нормализован) activeMin=0 и Анна выдаёт «на нуле».
   const movementEntries = store.movementEntries.filter(m => Number(m.dayIndex) === dayIndexNum);
-  const activeMin = movementEntries.reduce((sum, m) => sum + (m.durationSeconds ? Math.round(m.durationSeconds/60) : 0), 0);
+  const activeSeconds = movementEntries.reduce((sum, m) => sum + (Number(m.duration) || Number(m.durationSeconds) || 0), 0);
+  const activeMin = Math.round(activeSeconds / 60);
   let movementStatus: 'sedentary' | 'active' | 'athletic' = 'sedentary';
   if (activeMin >= 30) movementStatus = 'active';
   if (activeMin >= 60) movementStatus = 'athletic';

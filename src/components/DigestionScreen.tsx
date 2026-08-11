@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, Inbox } from "lucide-react";
 import { BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import BottomBar from "./BottomBar";
 import { resolveAvatar } from "../utils/annaAvatarResolver";
@@ -410,18 +410,14 @@ export default function DigestionScreen({
   // ---- CORRELATION LOGIC (Block 5) — 3 карточки, расчёт на лету ----
   const WATER_GOAL_FALLBACK_ML = 2000;
 
-  // Плашка 1: средний % выполнения нормы воды за выбранный период
+  // Плашка 1: % выполнения нормы воды строго за текущий день (как «Движение»)
   const periodWaterAvgPct = React.useMemo(() => {
-    const periodStart = periodDays === "all"
-      ? Math.max(1, firstLogDay)
-      : Math.max(1, currentDayIndex - Number(periodDays) + 1);
-    const totalDays = Math.max(1, currentDayIndex - periodStart + 1);
     const dailyGoal = waterGoal > 0 ? waterGoal : WATER_GOAL_FALLBACK_ML;
-    const totalDrank = waterEntries
-      .filter((w) => Number(w.dayIndex) >= periodStart && Number(w.dayIndex) <= currentDayIndex)
+    const drankToday = waterEntries
+      .filter((w) => Number(w.dayIndex) === Number(currentDayIndex))
       .reduce((sum, w) => sum + (Number(w.amount) || 0), 0);
-    return Math.min(100, Math.round((totalDrank / (totalDays * dailyGoal)) * 100));
-  }, [waterEntries, waterGoal, periodDays, firstLogDay, currentDayIndex]);
+    return Math.min(100, Math.round((drankToday / dailyGoal) * 100));
+  }, [waterEntries, waterGoal, currentDayIndex]);
   const waterNormMet = periodWaterAvgPct >= 100;
 
   // Плашка 2: суммарная клетчатка за последний выбранный день (или сегодня)
@@ -454,16 +450,13 @@ export default function DigestionScreen({
   }, [savedDishesStore, foodCache, selectedGraphDay, currentDayIndex]);
 
   // Плашка 3: минуты активности строго за текущий день (сегодня)
+  // Суммируем в СЕКУНДАХ, затем переводим в минуты — как MovementDetailsScreen (Math.round(totalSec / 60)),
+  // чтобы цифра совпадала даже до нормализации durationSeconds при первом рендере.
   const todayMovementMin = React.useMemo(() => {
-    const totalMin = movementEntries
+    const totalSeconds = movementEntries
       .filter((m) => Number(m.dayIndex) === Number(currentDayIndex))
-      .reduce((sum, m) => {
-        const mins = m.durationSeconds
-          ? Math.round(m.durationSeconds / 60)
-          : (Number(m.duration) || 0);
-        return sum + mins;
-      }, 0);
-    return totalMin;
+      .reduce((sum, m) => sum + (Number(m.duration) || Number(m.durationSeconds) || 0), 0);
+    return Math.round(totalSeconds / 60);
   }, [movementEntries, currentDayIndex]);
 
   // ---- CUSTOM SHAPES FOR STACKED CHART ----
@@ -627,7 +620,7 @@ export default function DigestionScreen({
           {/* Empty state over period */}
           {totalEpisodes === 0 && (
             <div className="flex flex-col items-center justify-center py-5 px-3 bg-slate-50 rounded-2xl border border-dashed border-slate-200/80 mt-4">
-              <span className="text-[22px] mb-1 leading-none select-none">📭</span>
+              <Inbox className="w-5 h-5 text-slate-300 mb-1" strokeWidth={2} />
               <p className="text-slate-700 text-xs font-bold font-sans">Нет записей за период</p>
               <p className="text-slate-400 text-[10.5px] text-center mt-1 leading-tight max-w-[260px]">
                 Добавьте первую запись, чтобы появилась статистика.
@@ -773,7 +766,7 @@ export default function DigestionScreen({
         </div>
 
         {/* BLOCK 3: Динамика пищеварения (Recharts) */}
-        <div className="bg-white border border-slate-100 rounded-[32px] p-5 shadow-sm mb-4">
+        <div className="bg-white border border-slate-100 rounded-[32px] p-5 shadow-sm mb-4 min-h-[350px]">
           <div className="flex justify-between items-start">
             <div>
               <span className="text-[10px] font-bold text-emerald-600 uppercase block">СТАТИСТИКА КУРСА</span>
@@ -867,7 +860,7 @@ export default function DigestionScreen({
             </div>
 
             {selectedDayHist.length > 0 ? (
-              <div className="flex flex-col max-h-[150px] overflow-y-auto scrollbar-none">
+              <div className="flex flex-col max-h-[150px] overflow-y-auto [&::-webkit-scrollbar]:hidden [scrollbar-width:none] overscroll-contain">
                 {selectedDayHist
                   .filter((log) => log?.bristolType && log.bristolType >= 1 && log.bristolType <= 7)
                   .map((log, idx) => {

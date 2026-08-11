@@ -102,10 +102,10 @@ export default function DigestionModal({ day }: DigestionModalProps) {
           <div className="absolute inset-0 z-0" onClick={() => setDigestionModalOpen(false)} />
 
           <motion.div
-            initial={{ y: "100%" }}
-            animate={{ y: 0 }}
-            exit={{ y: "100%" }}
-            transition={{ type: "spring", damping: 25, stiffness: 220 }}
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            transition={{ duration: 0.18 }}
             className="bg-[#FFFFFF] rounded-[32px] w-full max-w-[420px] m-4 p-5 text-left relative z-10 max-h-[90vh] overflow-y-auto scrollbar-none flex flex-col gap-3 text-slate-800"
           >
             <div className="flex justify-between items-center pb-1">

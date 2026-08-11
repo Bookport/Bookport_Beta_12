@@ -200,22 +200,19 @@ export const getDigestionFeedback = (
 
   // ─────────────────────────────────────────────
   // БЛОК 3: Пищевой детектив (только если есть вчерашняя еда)
+  // Взаимоисключающие проверки: название блюда упоминается максимум ОДИН раз.
+  // Приоритет: запрещёнка, затем FODMAP, затем крахмалы (запор), затем сырая клетчатка (диарея).
   // ─────────────────────────────────────────────
   if (yesterdayIngredients.length > 0) {
+    const hasFodmapSymptom = symptoms.some(s => s === "Вздутие" || s === "Газы");
+
     if (hasForbidden) {
       messageParts.push(getRandomPhrase(food_forbidden, ctx));
-    }
-
-    const hasFodmapSymptom = symptoms.some(s => s === "Вздутие" || s === "Газы");
-    if (hasFodmapSymptom && hasKeyword(yesterdayIngredients, FODMAP_KEYWORDS)) {
+    } else if (hasFodmapSymptom && hasKeyword(yesterdayIngredients, FODMAP_KEYWORDS)) {
       messageParts.push(getRandomPhrase(food_fodmap, ctx));
-    }
-
-    if (worstBristol <= 2 && hasKeyword(yesterdayIngredients, STARCH_KEYWORDS)) {
+    } else if (worstBristol <= 2 && hasKeyword(yesterdayIngredients, STARCH_KEYWORDS)) {
       messageParts.push(getRandomPhrase(food_starch, ctx));
-    }
-
-    if (worstBristol >= 6 && hasKeyword(yesterdayIngredients, RAW_KEYWORDS)) {
+    } else if (worstBristol >= 6 && hasKeyword(yesterdayIngredients, RAW_KEYWORDS)) {
       messageParts.push(getRandomPhrase(food_raw, ctx));
     }
   }

@@ -1219,7 +1219,6 @@ export default function App() {
 
       {/* Main viewport Container (No device notched borders or system status overlays, purely the screen UI content) */}
       <motion.div 
-        layout
         className={
           isTelegram
             ? "w-full min-h-screen bg-white flex flex-col"
