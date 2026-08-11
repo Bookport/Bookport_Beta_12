@@ -815,7 +815,7 @@ export default function DigestionScreen({
             })}
           </div>
 
-          <div className="relative pt-4 pb-2 px-1 h-44 outline-none border-none focus:outline-none focus:ring-0" style={{ outline: 'none', border: 'none' }}>
+          <div className="relative pt-4 pb-2 px-1 h-44 min-h-[176px] outline-none border-none focus:outline-none focus:ring-0" style={{ outline: 'none', border: 'none' }}>
             <style>{`
               .recharts-wrapper *:focus,
               .recharts-surface:focus,
@@ -876,21 +876,21 @@ export default function DigestionScreen({
 
             {selectedDayHist.length > 0 ? (
               <div className="flex flex-col max-h-[150px] overflow-y-auto scrollbar-none">
-                {selectedDayHist.map((log) => {
+                {selectedDayHist
+                  .filter((log) => log && log.bristolType)
+                  .map((log, idx) => {
                   const cLabel = getComfortMeta(log.comfort).label;
                   const cBadge = getComfortMeta(log.comfort).badge;
                   const negSymptoms = (log.symptoms || []).filter((s) => s !== "Нет симптомов");
                   return (
                     <div
-                      key={log.id}
-                      className="flex flex-row items-center justify-between py-[2px] border-b border-slate-200/50 last:border-0"
+                      key={log.id || idx}
+                      className="flex flex-row items-center justify-between w-full py-2 border-b border-slate-200/50 last:border-0"
                     >
                       {/* Left part: White circle, Image, Time */}
-                      <div className="flex items-center gap-2 shrink-0">
-                        <div className="w-8 flex-shrink-0 flex items-center justify-center">
-                          <div className="w-6 h-6 bg-white rounded-full flex items-center justify-center text-[11px] font-black text-slate-700 shadow-sm">
-                            {log.bristolType || 4}
-                          </div>
+                      <div className="flex flex-row items-center gap-2 shrink-0">
+                        <div className="w-6 h-6 bg-white rounded-full flex items-center justify-center text-[11px] font-black text-slate-700 shadow-sm shrink-0">
+                          {log.bristolType || 4}
                         </div>
                         <img
                           src={BRISTOL_IMAGES[Math.min(6, Math.max(0, (log.bristolType || 4) - 1))]}
@@ -901,7 +901,7 @@ export default function DigestionScreen({
                       </div>
 
                       {/* Middle part: Symptoms */}
-                      <div className="flex flex-wrap items-center justify-center gap-1.5 flex-1 px-2">
+                      <div className="flex flex-row flex-wrap items-center justify-center gap-1.5 flex-1 px-2">
                         {negSymptoms.length > 0 ? (
                           negSymptoms.map((s) => {
                             const color = DIGESTION_SYMPTOM_COLORS[s]?.active?.split(" ")[0] || "bg-slate-300";
@@ -925,7 +925,7 @@ export default function DigestionScreen({
                       </div>
 
                       {/* Right part: Comfort badge */}
-                      <div className="shrink-0 flex items-center">
+                      <div className="flex flex-row items-center shrink-0">
                         <span className={`px-2.5 flex items-center justify-center h-6 rounded-lg text-[10.5px] font-bold shadow-sm ${cBadge}`}>
                           {cLabel}
                         </span>
