@@ -29,7 +29,7 @@ export default function DigestionModal({ day }: DigestionModalProps) {
   const dayIndex = day ?? digestionModalDay ?? profileDayIndex ?? 1;
 
   const [fastDigestionBristol, setFastDigestionBristol] = useState<number>(4);
-  const [fastDigestionComfort, setFastDigestionComfort] = useState<string>("Нормально");
+  const [fastDigestionComfort, setFastDigestionComfort] = useState<string>("normal");
   const [fastDigestionNote, setFastDigestionNote] = useState<string>("");
   const [fastDigestionTime, setFastDigestionTime] = useState<string>("");
   const [fastDigestionInterval, setFastDigestionInterval] = useState<string>("08:00 - 12:00");
@@ -40,7 +40,7 @@ export default function DigestionModal({ day }: DigestionModalProps) {
   useEffect(() => {
     if (!isDigestionModalOpen) return;
     setFastDigestionBristol(4);
-    setFastDigestionComfort("Нормально");
+    setFastDigestionComfort("normal");
     setFastDigestionNote("");
     setFastDigestionSymptoms([]);
     setIsSymptomsOpen(false);
@@ -210,9 +210,9 @@ export default function DigestionModal({ day }: DigestionModalProps) {
               </div>
               <div className="flex flex-row justify-between space-x-3">
                 {[
-                  { id: "Легко", bg: "bg-[#DBEAFE]" },
-                  { id: "Нормально", bg: "bg-[#D1FAE5]" },
-                  { id: "Тяжело", bg: "bg-[#FFE4E6]" }
+                  { id: "scanty", label: "Скудно", bg: "bg-[#FEF9C3]" },
+                  { id: "normal", label: "Нормально", bg: "bg-[#D1FAE5]" },
+                  { id: "voluminous", label: "Объёмно", bg: "bg-[#DBEAFE]" }
                 ].map((x) => {
                   const active = fastDigestionComfort === x.id;
                   return (
@@ -224,7 +224,7 @@ export default function DigestionModal({ day }: DigestionModalProps) {
                         active ? `${x.bg} text-slate-900` : "bg-[#FFF7ED] text-slate-600"
                       }`}
                     >
-                      {x.id}
+                      {x.label}
                     </button>
                   );
                 })}

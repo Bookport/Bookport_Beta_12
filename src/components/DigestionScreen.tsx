@@ -21,7 +21,7 @@ export interface DigestionLogEntry {
   timeString: string;
   timeInterval?: string;
   bristolType: number;
-  comfort: "easy" | "normal" | "uncomfortable" | "Легко" | "Нормально" | "Тяжело";
+  comfort: "easy" | "normal" | "uncomfortable" | "scanty" | "voluminous" | "Легко" | "Нормально" | "Тяжело";
   symptoms?: string[];
   note?: string;
   linkedMeal?: string;
@@ -33,6 +33,31 @@ export const normalizeComfort = (comfort: string | undefined | null): "easy" | "
   if (comfort === "Нормально") return "normal";
   if (comfort === "Тяжело") return "uncomfortable";
   return (comfort as "easy" | "normal" | "uncomfortable") || "normal";
+};
+
+// Comfort presentation meta for the new scale (scanty/normal/voluminous) with legacy fallback.
+// scanty — жёлтый, normal — зелёный, voluminous — голубой.
+export const getComfortMeta = (
+  comfort: string | undefined | null
+): { label: string; badge: string; fill: string } => {
+  switch (comfort) {
+    case "scanty":
+      return { label: "Скудно", badge: "bg-yellow-100 text-yellow-700", fill: "#FACC15" };
+    case "voluminous":
+      return { label: "Объёмно", badge: "bg-sky-100 text-sky-700", fill: "#38BDF8" };
+    case "normal":
+    case "Нормально":
+      return { label: "Нормально", badge: "bg-emerald-100 text-emerald-700", fill: "#34D399" };
+    // legacy values kept for backward compatibility with older records
+    case "easy":
+    case "Легко":
+      return { label: "Легко", badge: "bg-emerald-100 text-emerald-700", fill: "#34D399" };
+    case "uncomfortable":
+    case "Тяжело":
+      return { label: "Тяжело", badge: "bg-rose-100 text-rose-700", fill: "#FB7185" };
+    default:
+      return { label: "Нормально", badge: "bg-emerald-100 text-emerald-700", fill: "#34D399" };
+  }
 };
 
 interface DigestionScreenProps {
@@ -195,6 +220,144 @@ export default function DigestionScreen({
     .reduce((sum, entry) => sum + entry.amount, 0);
   const waterPct = waterGoal > 0 ? Math.min(100, Math.round((todayWater / waterGoal) * 100)) : null;
 
+  // ---- DASHBOARD METRICS (СТАТУС / РИТМ / КОМФОРТ + % стабильности) ----
+  // Все расчёты — на лету из periodLogs за выбранный период.
+  const dashboard = React.useMemo(() => {
+    // Границы периода в днях (для "all" — от первого лога до текущего дня)
+    const periodStart = periodDays === "all"
+      ? Math.max(1, firstLogDay)
+      : Math.max(1, currentDayIndex - Number(periodDays) + 1);
+    const totalDays = Math.max(0, currentDayIndex - periodStart + 1);
+
+    // Частота по типам Бристоля
+    const freq: Record<number, number> = {};
+    periodLogs.forEach((l) => {
+      const t = Number(l.bristolType);
+      if (t >= 1 && t <= 7) freq[t] = (freq[t] || 0) + 1;
+    });
+
+    // Мода (самый частый тип)
+    let modeType: number | null = null;
+    let modeCount = 0;
+    for (let t = 1; t <= 7; t++) {
+      const c = freq[t] || 0;
+      if (c > modeCount) {
+        modeCount = c;
+        modeType = t;
+      }
+    }
+    const constipationCount = (freq[1] || 0) + (freq[2] || 0);
+    const diarrheaCount = (freq[6] || 0) + (freq[7] || 0);
+
+    // «Качели»: типы 1-2 и 6-7 с одинаково высокой частотой, либо нет явного лидера
+    const isSwing =
+      periodLogs.length > 0 &&
+      constipationCount > 0 &&
+      diarrheaCount > 0 &&
+      Math.abs(constipationCount - diarrheaCount) <= 1;
+
+    let statusLabel = "—";
+    let statusColor = "text-slate-400";
+    if (modeType !== null) {
+      if (isSwing) {
+        statusLabel = "Качели";
+        statusColor = "text-orange-500";
+      } else if (modeType >= 3 && modeType <= 5) {
+        statusLabel = "Норма";
+        statusColor = "text-emerald-500";
+      } else if (modeType <= 2) {
+        statusLabel = "Запор";
+        statusColor = "text-orange-500";
+      } else {
+        statusLabel = "Диарея";
+        statusColor = "text-rose-500";
+      }
+    }
+
+    // Частота записей по дням
+    const perDayCount: Record<number, number> = {};
+    const perDayHasSymptom: Record<number, boolean> = {};
+    for (let d = periodStart; d <= currentDayIndex; d++) {
+      perDayCount[d] = 0;
+      perDayHasSymptom[d] = false;
+    }
+    periodLogs.forEach((l) => {
+      const d = Number(l.dayIndex);
+      if (d < periodStart || d > currentDayIndex) return;
+      perDayCount[d] = (perDayCount[d] || 0) + 1;
+      const syms = (l.symptoms || []).filter((s) => s !== "Нет симптомов");
+      if (syms.length > 0) perDayHasSymptom[d] = true;
+    });
+
+    let emptyDays = 0;
+    let spikeDays = 0; // > 3 записей в день
+    let maxPerDay = 0;
+    for (let d = periodStart; d <= currentDayIndex; d++) {
+      const c = perDayCount[d] || 0;
+      if (c === 0) emptyDays++;
+      if (c > 3) spikeDays++;
+      if (c > maxPerDay) maxPerDay = c;
+    }
+
+    // РИТМ
+    let rhythmLabel = "—";
+    let rhythmColor = "text-slate-400";
+    if (periodLogs.length > 0 && totalDays > 0) {
+      if (emptyDays > 2 || spikeDays > 2) {
+        rhythmLabel = "Хаотично";
+        rhythmColor = "text-rose-500";
+      } else if (emptyDays >= 1 || spikeDays >= 1) {
+        rhythmLabel = "Сбои";
+        rhythmColor = "text-orange-500";
+      } else {
+        rhythmLabel = "Регулярно";
+        rhythmColor = "text-emerald-500";
+      }
+    }
+
+    // КОМФОРТ: дни с симптомами | дни со стулом без симптомов
+    let daysWithSymptoms = 0;
+    let daysWithout = 0;
+    for (let d = periodStart; d <= currentDayIndex; d++) {
+      if ((perDayCount[d] || 0) === 0) continue; // только дни со стулом
+      if (perDayHasSymptom[d]) daysWithSymptoms++;
+      else daysWithout++;
+    }
+
+    // % стабильности: доля дней, где ЕСТЬ стул и все записи (bristol 3-5 И без симптомов)
+    let stableDays = 0;
+    for (let d = periodStart; d <= currentDayIndex; d++) {
+      const dayEntries = periodLogs.filter((l) => Number(l.dayIndex) === d);
+      if (dayEntries.length === 0) continue;
+      const allGood = dayEntries.every((l) => {
+        const t = Number(l.bristolType);
+        const syms = (l.symptoms || []).filter((s) => s !== "Нет симптомов");
+        return t >= 3 && t <= 5 && syms.length === 0;
+      });
+      if (allGood) stableDays++;
+    }
+    const stabilityPct = totalDays > 0 ? Math.round((stableDays / totalDays) * 100) : null;
+
+    let stabilityBadge = "bg-slate-100 text-slate-500";
+    if (stabilityPct !== null) {
+      if (stabilityPct >= 80) stabilityBadge = "bg-emerald-100 text-emerald-700";
+      else if (stabilityPct >= 50) stabilityBadge = "bg-yellow-100 text-yellow-700";
+      else stabilityBadge = "bg-rose-100 text-rose-700";
+    }
+
+    return {
+      statusLabel,
+      statusColor,
+      modeType,
+      rhythmLabel,
+      rhythmColor,
+      daysWithSymptoms,
+      daysWithout,
+      stabilityPct,
+      stabilityBadge,
+    };
+  }, [periodLogs, periodDays, firstLogDay, currentDayIndex]);
+
   // ---- ANNA'S INTELLIGENCE (existing logic from utils) ----
   const todayLogs = React.useMemo(() => {
     return digestionEntries.filter(e => Number(e.dayIndex) === Number(currentDayIndex));
@@ -250,11 +413,7 @@ export default function DigestionScreen({
       return "#FB7185";
     }
     if (tab === "comfort") {
-      const c = normalizeComfort(log.comfort);
-      if (c === "easy") return "#34D399";
-      if (c === "normal") return "#38BDF8"; // sky-400
-      if (c === "uncomfortable") return "#FB7185";
-      return "#cbd5e1";
+      return getComfortMeta(log.comfort).fill;
     }
     return "transparent";
   };
@@ -363,8 +522,7 @@ export default function DigestionScreen({
           
           <div className="flex flex-col gap-2.5">
             {[...logs].map((log: any, idx: number) => {
-               const c = normalizeComfort(log.comfort);
-               const cLabel = c === "easy" ? "Легко" : c === "normal" ? "Нормально" : c === "uncomfortable" ? "Тяжело" : "—";
+               const cLabel = getComfortMeta(log.comfort).label;
                const negSyms = (log.symptoms || []).filter((s: string) => s !== "Нет симптомов");
                const symText = negSyms.length > 0 ? negSyms.join(", ") : "Нет симптомов";
                
@@ -432,8 +590,8 @@ export default function DigestionScreen({
               <h2 className="text-lg font-bold text-slate-800 mt-0.5">Тренды и ритмичность ЖКТ</h2>
             </div>
 
-            <span className="text-slate-800 bg-orange-100/50 px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap">
-              {stabilityIndex === null ? "—%" : `${stabilityIndex}%`} стабильности
+            <span className={`px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap ${dashboard.stabilityBadge}`}>
+              {dashboard.stabilityPct === null ? "—%" : `${dashboard.stabilityPct}%`} стабильности
             </span>
           </div>
 
@@ -470,21 +628,27 @@ export default function DigestionScreen({
           {/* Top three metric tiles */}
           <div className="grid grid-cols-3 gap-3 mt-4">
             <div className="bg-white border border-slate-50 shadow-sm rounded-2xl p-3 flex flex-col items-center justify-center">
-              <span className="text-[10px] font-bold text-slate-400 uppercase mb-1">БРИСТОЛЬ</span>
-              <span className="text-2xl font-black text-orange-500 font-mono mb-1">{avgBristolStyle ?? "—"}</span>
-              <span className="text-[9.5px] font-bold text-slate-500">Средний тип</span>
+              <span className="text-[10px] font-bold text-slate-400 uppercase mb-1">СТАТУС</span>
+              <span className={`text-xl font-black font-mono mb-1 ${dashboard.statusColor}`}>{dashboard.statusLabel}</span>
+              <span className="text-[9.5px] font-bold text-slate-500">
+                {dashboard.modeType === null ? "Нет данных" : `Основной тип ${dashboard.modeType}`}
+              </span>
             </div>
 
             <div className="bg-white border border-slate-50 shadow-sm rounded-2xl p-3 flex flex-col items-center justify-center">
-              <span className="text-[10px] font-bold text-slate-400 uppercase mb-1">СТАБИЛЬНОСТЬ</span>
-              <span className="text-2xl font-black text-emerald-500 font-mono mb-1">{stabilityIndex === null ? "—" : `${stabilityIndex}%`}</span>
-              <span className="text-[9.5px] font-bold text-slate-500">Индекс ритма</span>
+              <span className="text-[10px] font-bold text-slate-400 uppercase mb-1">РИТМ</span>
+              <span className={`text-xl font-black font-mono mb-1 ${dashboard.rhythmColor}`}>{dashboard.rhythmLabel}</span>
+              <span className="text-[9.5px] font-bold text-slate-500">Частота стула</span>
             </div>
 
             <div className="bg-white border border-slate-50 shadow-sm rounded-2xl p-3 flex flex-col items-center justify-center">
               <span className="text-[10px] font-bold text-slate-400 uppercase mb-1">КОМФОРТ</span>
-              <span className="text-2xl font-black text-orange-500 font-mono mb-1">{comfortRatio === null ? "—" : `${comfortRatio}%`}</span>
-              <span className="text-[9.5px] font-bold text-slate-500">Доля комфорта</span>
+              <span className="text-xl font-black font-mono mb-1">
+                <span className={dashboard.daysWithSymptoms > 2 ? "text-orange-500" : "text-slate-700"}>{dashboard.daysWithSymptoms}</span>
+                <span className="text-slate-300 mx-1">|</span>
+                <span className="text-emerald-500">{dashboard.daysWithout}</span>
+              </span>
+              <span className="text-[9.5px] font-bold text-slate-500">Симптоматика</span>
             </div>
           </div>
 
@@ -565,12 +729,8 @@ export default function DigestionScreen({
 
             {/* Right part: Comfort badge */}
             <div className="shrink-0 flex items-center">
-              <span className={`px-2.5 flex items-center justify-center h-6 rounded-lg text-[10.5px] font-bold shadow-sm ${
-                normalizeComfort(latestLog.comfort) === "easy" ? "bg-emerald-100 text-emerald-700" :
-                normalizeComfort(latestLog.comfort) === "normal" ? "bg-sky-100 text-sky-700" :
-                "bg-rose-100 text-rose-700"
-              }`}>
-                {normalizeComfort(latestLog.comfort) === "easy" ? "Легко" : normalizeComfort(latestLog.comfort) === "normal" ? "Нормально" : "Тяжело"}
+              <span className={`px-2.5 flex items-center justify-center h-6 rounded-lg text-[10.5px] font-bold shadow-sm ${getComfortMeta(latestLog.comfort).badge}`}>
+                {getComfortMeta(latestLog.comfort).label}
               </span>
             </div>
           </div>
@@ -699,8 +859,8 @@ export default function DigestionScreen({
             {selectedDayHist.length > 0 ? (
               <div className="flex flex-col max-h-[150px] overflow-y-auto scrollbar-none">
                 {selectedDayHist.map((log) => {
-                  const c = normalizeComfort(log.comfort);
-                  const cLabel = c === "easy" ? "Легко" : c === "normal" ? "Нормально" : c === "uncomfortable" ? "Тяжело" : "—";
+                  const cLabel = getComfortMeta(log.comfort).label;
+                  const cBadge = getComfortMeta(log.comfort).badge;
                   const negSymptoms = (log.symptoms || []).filter((s) => s !== "Нет симптомов");
                   return (
                     <div
@@ -746,11 +906,7 @@ export default function DigestionScreen({
 
                       {/* Right part: Comfort badge */}
                       <div className="shrink-0 flex items-center">
-                        <span className={`px-2.5 flex items-center justify-center h-6 rounded-lg text-[10.5px] font-bold shadow-sm ${
-                          c === "easy" ? "bg-emerald-100 text-emerald-700" :
-                          c === "normal" ? "bg-sky-100 text-sky-700" :
-                          "bg-rose-100 text-rose-700"
-                        }`}>
+                        <span className={`px-2.5 flex items-center justify-center h-6 rounded-lg text-[10.5px] font-bold shadow-sm ${cBadge}`}>
                           {cLabel}
                         </span>
                       </div>
