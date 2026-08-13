@@ -1,5 +1,8 @@
-import { MovementContext, getRandomPhrase } from "./movementPhrases";
+import { MovementContext, MOVEMENT_PHRASES, MOVEMENT_FOOD_CONTEXT_PHRASES, getRandomPhrase } from "./movementPhrases";
 import { DailySummary } from "./crossModuleSummary";
+import { MovementEntry } from "../store/useAppStore";
+import { ACTIVITY_CONFIGS } from "../constants/movement";
+import type { FoodSummary } from "../services/foodSummary";
 
 export interface MovementAdviceResult {
   text: string;
@@ -39,11 +42,33 @@ const LEVEL_STYLES = {
 export const generateMovementSummary = (
   summary: DailySummary,
   userName?: string,
-  userGender?: string
+  userGender?: string,
+  movementEntries: MovementEntry[] = [],
+  foodSummary?: FoodSummary,
+  isCurrentDay: boolean = true
 ): MovementAdviceResult => {
   const movement = summary.movement;
   const activeMinutes = movement.activeMin;
   const dailyGoal = 30; // Общая дневная цель активности (мин)
+
+  // ============ ШАГ 1: ПОДГОТОВКА ДАННЫХ ============
+  const percent = dailyGoal > 0 ? (activeMinutes / dailyGoal) * 100 : 0;
+
+  // Уникальные типы активности за день, замапленные на английские ключи ACTIVITY_CONFIGS
+  const rawActivityTypes = Array.from(
+    new Set(movementEntries.map(e => (e.type || e.activityType || "").trim()).filter(Boolean))
+  );
+  const activityTypes = rawActivityTypes.map(raw => {
+    const match = Object.entries(ACTIVITY_CONFIGS).find(([key, config]) => key === raw || config.name === raw);
+    return match ? match[0] : raw;
+  });
+
+  // Процент выполнения нормы воды
+  const waterGoal = summary.water.goal;
+  const waterPercent = waterGoal > 0 ? (summary.water.amount / waterGoal) * 100 : 0;
+
+  // Серия активных дней (если поле отсутствует — 0)
+  const streak = (movement as { activeStreak?: number }).activeStreak ?? 0;
 
   const ctx: MovementContext = {
     userName,
@@ -51,6 +76,9 @@ export const generateMovementSummary = (
     summary,
     activeMinutes,
     dailyGoal,
+    activityTypes,
+    streak,
+    waterPercent,
     pulse: summary.measurements.latestPulse,
     weightDelta: summary.measurements.weightDelta,
   };
@@ -58,94 +86,89 @@ export const generateMovementSummary = (
   // Сверхактивность всегда помечается отдельно по стилю
   const overactiveStyle = activeMinutes >= 60 ? LEVEL_STYLES.overactive : null;
 
-  // ============ КРОСС-ТРИГГЕРЫ ============
-  // 1. Малоподвижность + запор в ЖКТ
-  if (movement.status === "sedentary" && summary.digestion.status === "constipation") {
-    return {
-      text: getRandomPhrase("movementSedentaryConstipation", ctx),
-      glowBorderClass: overactiveStyle ? overactiveStyle.glowBorderClass : LEVEL_STYLES.low.glowBorderClass,
-      statusBadge: overactiveStyle ? overactiveStyle.statusBadge : LEVEL_STYLES.low.statusBadge,
-      label: overactiveStyle ? overactiveStyle.label : "Кишечник просит движения",
-    };
-  }
+  // ============ ШАГ 3: АДДИТИВНАЯ СБОРКА ============
+  const phrases: string[] = [];
 
-  // 2. Норма движения + высокий тонус
-  if (movement.status === "active" && summary.measurements.tonus === "high") {
-    return {
-      text: getRandomPhrase("movementActiveTonusHigh", ctx),
-      glowBorderClass: overactiveStyle ? overactiveStyle.glowBorderClass : LEVEL_STYLES.done.glowBorderClass,
-      statusBadge: overactiveStyle ? overactiveStyle.statusBadge : LEVEL_STYLES.done.statusBadge,
-      label: overactiveStyle ? overactiveStyle.label : "Идеальный баланс",
-    };
-  }
-
-// 3. Норма движения + низкий тонус
-  if (movement.status === "active" && summary.measurements.tonus === "low") {
-    return {
-      text: getRandomPhrase("movementActiveTonusLow", ctx),
-      glowBorderClass: overactiveStyle ? overactiveStyle.glowBorderClass : LEVEL_STYLES.progress.glowBorderClass,
-      statusBadge: overactiveStyle ? overactiveStyle.statusBadge : LEVEL_STYLES.progress.statusBadge,
-      label: overactiveStyle ? overactiveStyle.label : "Время восстановления",
-    };
-  }
-
-  // 4. Малоподвижность + низкий тонус -> тело в экономии (проверяется до заглушки нулевой активности)
-  if (movement.status === "sedentary" && summary.measurements.tonus === "low") {
-    return {
-      text: getRandomPhrase("movementSedentaryTonusLow", ctx),
-      glowBorderClass: overactiveStyle ? overactiveStyle.glowBorderClass : LEVEL_STYLES.zero.glowBorderClass,
-      statusBadge: overactiveStyle ? overactiveStyle.statusBadge : LEVEL_STYLES.low.statusBadge,
-      label: "Разбудим организм",
-    };
-  }
-
-  // ============ СТАНДАРТНЫЕ ВЕТКИ ============
+  // 1. Базовый статус
   if (activeMinutes === 0) {
-    return {
-      text: "Движение — это жизнь! Давай сделаем хотя бы короткую разминку сегодня.",
-      glowBorderClass: LEVEL_STYLES.zero.glowBorderClass,
-      statusBadge: LEVEL_STYLES.zero.statusBadge,
-      label: LEVEL_STYLES.zero.label,
-    };
+    phrases.push("Движение — это жизнь! Давай сделаем хотя бы короткую разминку сегодня.");
+  } else if (percent < 50) {
+    phrases.push(getRandomPhrase("movementCritical_Base", ctx));
+  } else if (percent >= 50 && percent < 100) {
+    phrases.push(getRandomPhrase("movementProgress", ctx));
+  } else {
+    phrases.push(getRandomPhrase("movementGoalReached_Base", ctx));
   }
 
-  const percent = dailyGoal > 0 ? (activeMinutes / dailyGoal) * 100 : 0;
+  // 2. Тип активности (не больше 1 фразы — берём тип последней записи за день)
+  const lastEntry = movementEntries[movementEntries.length - 1];
+  const lastRaw = (lastEntry?.type || lastEntry?.activityType || "").trim();
+  const lastMatch = lastRaw
+    ? Object.entries(ACTIVITY_CONFIGS).find(
+        ([key, config]) => key === lastRaw || config.name === lastRaw
+      )
+    : undefined;
+  const typeKey = lastMatch ? lastMatch[0] : lastRaw;
 
-  if (percent < 50) {
-    let text = "";
-    if (ctx.pulse && ctx.pulse > 75) text = getRandomPhrase("movementCritical_HighPulse", ctx);
-    else if (ctx.weightDelta && ctx.weightDelta >= 0) text = getRandomPhrase("movementCritical_WeightGain", ctx);
-    else text = getRandomPhrase("movementCritical_Base", ctx);
-    return {
-      text,
-      glowBorderClass: overactiveStyle ? overactiveStyle.glowBorderClass : LEVEL_STYLES.low.glowBorderClass,
-      statusBadge: overactiveStyle ? overactiveStyle.statusBadge : LEVEL_STYLES.low.statusBadge,
-      label: overactiveStyle ? overactiveStyle.label : LEVEL_STYLES.low.label,
-    };
+  if (typeKey && `movementType_${typeKey}` in MOVEMENT_PHRASES) {
+    phrases.push(
+      getRandomPhrase(
+        `movementType_${typeKey}` as keyof typeof MOVEMENT_PHRASES,
+        ctx
+      )
+    );
   }
 
-  if (percent >= 50 && percent < 100) {
-    return {
-      text: getRandomPhrase("movementProgress", ctx),
-      glowBorderClass: overactiveStyle ? overactiveStyle.glowBorderClass : LEVEL_STYLES.progress.glowBorderClass,
-      statusBadge: overactiveStyle ? overactiveStyle.statusBadge : LEVEL_STYLES.progress.statusBadge,
-      label: overactiveStyle ? overactiveStyle.label : LEVEL_STYLES.progress.label,
-    };
+  // 3. Кросс-модульные связи
+  if (waterPercent < 70 && activeMinutes > 15) {
+    phrases.push(getRandomPhrase("crossWater_Deficit", ctx));
+  }
+  if (activeMinutes < 15 && summary.digestion.status === "constipation") {
+    phrases.push(getRandomPhrase("crossDigestion_Constipation", ctx));
+  }
+  if (activeMinutes > 15 && ctx.weightDelta !== null && ctx.weightDelta < 0) {
+    phrases.push(getRandomPhrase("crossMeasurements_WeightLoss", ctx));
+  }
+  if (activeMinutes < 15 && ctx.pulse !== null && ctx.pulse > 75) {
+    phrases.push(getRandomPhrase("crossMeasurements_HighPulse", ctx));
   }
 
-  // >= 100%
-  if (ctx.weightDelta && ctx.weightDelta < 0) {
-    return {
-      text: getRandomPhrase("movementGoalReached_WeightLoss", ctx),
-      glowBorderClass: overactiveStyle ? overactiveStyle.glowBorderClass : LEVEL_STYLES.done.glowBorderClass,
-      statusBadge: overactiveStyle ? overactiveStyle.statusBadge : LEVEL_STYLES.done.statusBadge,
-      label: overactiveStyle ? overactiveStyle.label : LEVEL_STYLES.done.label,
-    };
+  // 4. Серия
+  if (streak >= 3) {
+    phrases.push(getRandomPhrase("streak_Motivation", ctx));
   }
+
+  // 5. B6: Пищевой контекст — ровно один отдельный последний абзац.
+  // Строгий приоритет, максимум одна фраза. Питание приходит ТОЛЬКО через
+  // FoodSummary (не через crossModuleSummary). Никаких calories/protein/fat/
+  // carbohydrates, mealSlot, firstMealAt/lastMealAt, yesterdayFiber.
+  if (foodSummary) {
+    if (foodSummary.mealCount === 0) {
+      phrases.push(
+        isCurrentDay
+          ? MOVEMENT_FOOD_CONTEXT_PHRASES.foodContext_NoMeals_today
+          : MOVEMENT_FOOD_CONTEXT_PHRASES.foodContext_NoMeals_history
+      );
+    } else if (foodSummary.mealCount > foodSummary.strictMealCount) {
+      phrases.push(MOVEMENT_FOOD_CONTEXT_PHRASES.foodContext_PartialMacros);
+    } else if (foodSummary.strictMealCount > 0 && foodSummary.strictTotals.fiber > 0) {
+      phrases.push(MOVEMENT_FOOD_CONTEXT_PHRASES.foodContext_FiberIncluded);
+    }
+  }
+
+  // ============ ШАГ 4: ВОЗВРАТ ============
+  const style = overactiveStyle || (activeMinutes === 0
+    ? LEVEL_STYLES.zero
+    : percent < 50
+      ? LEVEL_STYLES.low
+      : percent < 100
+        ? LEVEL_STYLES.progress
+        : LEVEL_STYLES.done);
+
   return {
-    text: getRandomPhrase("movementGoalReached_Base", ctx),
-    glowBorderClass: overactiveStyle ? overactiveStyle.glowBorderClass : LEVEL_STYLES.done.glowBorderClass,
-    statusBadge: overactiveStyle ? overactiveStyle.statusBadge : LEVEL_STYLES.done.statusBadge,
-    label: overactiveStyle ? overactiveStyle.label : LEVEL_STYLES.done.label,
+    text: phrases.join("\n\n"),
+    glowBorderClass: style.glowBorderClass,
+    statusBadge: style.statusBadge,
+    label: style.label,
   };
 };
