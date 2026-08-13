@@ -17,6 +17,7 @@ import {
   comfort_hard_diarrhea,
   comfort_hard_normal,
   food_forbidden,
+  food_forbidden_multiple,
   food_fodmap,
   food_starch,
   food_raw,
@@ -71,7 +72,7 @@ const hasKeyword = (ingredients: string[], keywords: string[]): boolean =>
   ingredients.some(name => keywords.some(k => name.includes(k)));
 
 // Извлечение вчерашней еды (Пищевой детектив)
-const extractYesterdayFood = (dayIndex: number): { yesterdayIngredients: string[]; problemDishName: string | null; hasForbidden: boolean } => {
+const extractYesterdayFood = (dayIndex: number): { yesterdayIngredients: string[]; problemDishName: string | null; hasForbidden: boolean; forbiddenDishes: any[] } => {
   const savedDishes = useAppStore.getState().savedDishes || [];
   const yesterdayIndex = Number(dayIndex) - 1;
 
@@ -80,7 +81,7 @@ const extractYesterdayFood = (dayIndex: number): { yesterdayIngredients: string[
   );
 
   if (yesterdayDishes.length === 0) {
-    return { yesterdayIngredients: [], problemDishName: null, hasForbidden: false };
+    return { yesterdayIngredients: [], problemDishName: null, hasForbidden: false, forbiddenDishes: [] };
   }
 
   const yesterdayIngredients: string[] = [];
@@ -92,17 +93,19 @@ const extractYesterdayFood = (dayIndex: number): { yesterdayIngredients: string[
 
   // Проблемное блюдо: сначала запрещёнка, иначе максимальное количество клетчатки
   let problemDishName: string | null = null;
-  let hasForbidden = false;
-
-  const forbiddenDish = yesterdayDishes.find(dish =>
+  const forbiddenDishes = yesterdayDishes.filter(dish =>
     (dish.ingredients || []).some(ing =>
       String(ing.status) === "error" || ing.status === "red" || FORBIDDEN_KEYWORDS.some(k => String(ing.name).toLowerCase().includes(k))
     )
   );
+  const hasForbidden = forbiddenDishes.length > 0;
 
-  if (forbiddenDish) {
-    problemDishName = forbiddenDish.name;
-    hasForbidden = true;
+  if (hasForbidden) {
+    if (forbiddenDishes.length === 1) {
+      problemDishName = forbiddenDishes[0].name;
+    } else {
+      problemDishName = null;
+    }
   } else {
     let maxFiber = -1;
     for (const dish of yesterdayDishes) {
@@ -116,7 +119,7 @@ const extractYesterdayFood = (dayIndex: number): { yesterdayIngredients: string[
     }
   }
 
-  return { yesterdayIngredients, problemDishName, hasForbidden };
+  return { yesterdayIngredients, problemDishName, hasForbidden, forbiddenDishes };
 };
 
 export const getDigestionFeedback = (
@@ -146,7 +149,7 @@ export const getDigestionFeedback = (
   // ─────────────────────────────────────────────
   // СБОР КОНТЕКСТА (независимые срезы данных)
   // ─────────────────────────────────────────────
-  const { yesterdayIngredients, problemDishName, hasForbidden } = extractYesterdayFood(summary.dayIndex);
+  const { yesterdayIngredients, problemDishName, hasForbidden, forbiddenDishes } = extractYesterdayFood(summary.dayIndex);
 
   const triad = parseTriad(summary.latestMeasurements?.rawTonus ?? summary.measurements.rawTonus);
   const latestMeasurements: DigestionMeasurements = {
@@ -217,9 +220,16 @@ export const getDigestionFeedback = (
   // ─────────────────────────────────────────────
   if (yesterdayIngredients.length > 0) {
     const hasFodmapSymptom = latestSymptoms.some(s => s === "Вздутие" || s === "Газы");
+    const hasRelevantDigestiveSignal = latestSymptoms.length > 0 || bristolRef <= 2 || bristolRef >= 6;
 
     if (hasForbidden) {
-      messageParts.push(getRandomPhrase(food_forbidden, ctx));
+      if (hasRelevantDigestiveSignal) {
+        if (forbiddenDishes.length === 1) {
+          messageParts.push(getRandomPhrase(food_forbidden, ctx));
+        } else {
+          messageParts.push(getRandomPhrase(food_forbidden_multiple, ctx));
+        }
+      }
     } else if (hasFodmapSymptom && hasKeyword(yesterdayIngredients, FODMAP_KEYWORDS)) {
       messageParts.push(getRandomPhrase(food_fodmap, ctx));
     } else if (bristolRef <= 2 && hasKeyword(yesterdayIngredients, STARCH_KEYWORDS)) {
