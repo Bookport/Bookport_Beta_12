@@ -12,87 +12,103 @@ export const getMeasurementsFeedback = (
 
   const ctx: MeasurementContext = {
     userName,
-    userGender: userGender as 'male' | 'female',
+    userGender: userGender as "male" | "female",
     summary,
     pulse: m.latestPulse,
     systolic: m.systolic,
     diastolic: m.diastolic,
     weight: m.weightAvg,
-    initialWeight: m.weightDelta !== null && m.weightAvg !== null ? m.weightAvg - m.weightDelta : null,
+    initialWeight:
+      m.weightDelta !== null && m.weightAvg !== null
+        ? m.weightAvg - m.weightDelta
+        : null,
     weightDelta: m.weightDelta,
     tonusEnergy: triad.energy,
     tonusMood: triad.mood,
     tonusWellbeing: triad.wellbeing,
   };
 
-  let messageParts: string[] = [];
-  let isCriticalPulse = false;
+  let physiologyPhrase = "";
+  let isCriticalIndicator = false;
 
-  // 1. БЛОК АД (Артериального Давления)
-  if (ctx.systolic && ctx.diastolic) {
-    const sys = ctx.systolic;
-    const dia = ctx.diastolic;
-    const pulsePressure = sys - dia;
+  const sys = ctx.systolic;
+  const dia = ctx.diastolic;
+  const pulse = ctx.pulse;
+  const pulsePressure =
+    sys !== null && dia !== null ? sys - dia : null;
 
-    // Кризис и Гипертония
+  // Одна физиологическая фраза: риск/отклонение АД → пульс → вес → нейтральный показатель.
+  if (sys !== null && dia !== null) {
     if (sys >= 180 || dia >= 120) {
-      messageParts.push(getRandomPhrase('bpHypertensionCrisis', ctx));
-      isCriticalPulse = true; // Используем существующий флаг-предохранитель для блокировки тренировок
+      physiologyPhrase = getRandomPhrase("bpHypertensionCrisis", ctx);
+      isCriticalIndicator = true;
     } else if (sys >= 140 || dia >= 90) {
-      messageParts.push(getRandomPhrase('bpHypertensionStage2', ctx));
-      isCriticalPulse = true; // Блокируем активность
-    } else if (sys >= 130 || dia >= 85) {
-      messageParts.push(getRandomPhrase('bpElevated', ctx));
-    } else if (sys >= 90 && dia >= 60) {
-      messageParts.push(getRandomPhrase('bpOptimal', ctx));
+      physiologyPhrase = getRandomPhrase("bpHypertensionStage2", ctx);
+      isCriticalIndicator = true;
     } else if (sys < 90 || dia < 60) {
-      messageParts.push(getRandomPhrase('bpHypotension', ctx));
-      isCriticalPulse = true; // Блокируем активность при сильной слабости
-    }
-
-    // Пульсовое давление (добавляем как дополнительное замечание, если нет криза)
-    if (sys < 180 && dia < 120) {
-      if (pulsePressure > 70) messageParts.push(getRandomPhrase('bpWidePulsePressure', ctx));
-      if (pulsePressure < 30) messageParts.push(getRandomPhrase('bpNarrowPulsePressure', ctx));
-    }
-  }
-
-  // 2. БЛОК ПУЛЬСА
-  if (ctx.pulse) {
-    if (ctx.pulse >= 100) {
-      messageParts.push(getRandomPhrase('pulseTachycardia', ctx));
-      isCriticalPulse = true;
-    } else if (ctx.pulse > 80 && ctx.pulse < 100) {
-      messageParts.push(getRandomPhrase('pulseElevated', ctx));
-    } else if (ctx.pulse >= 55 && ctx.pulse <= 80) {
-      messageParts.push(getRandomPhrase('pulseOptimal', ctx));
-    } else if (ctx.pulse < 55) {
-      messageParts.push(getRandomPhrase('pulseBradycardia', ctx));
-      isCriticalPulse = true;
+      physiologyPhrase = getRandomPhrase("bpHypotension", ctx);
+      isCriticalIndicator = true;
+    } else if (pulsePressure !== null && pulsePressure > 70) {
+      physiologyPhrase = getRandomPhrase("bpWidePulsePressure", ctx);
+    } else if (pulsePressure !== null && pulsePressure < 30) {
+      physiologyPhrase = getRandomPhrase("bpNarrowPulsePressure", ctx);
+    } else if (sys >= 130 || dia >= 85) {
+      physiologyPhrase = getRandomPhrase("bpElevated", ctx);
     }
   }
 
-  // 3. БЛОК ВЕСА
-  if (ctx.weight !== null && ctx.initialWeight !== null && ctx.weightDelta !== null) {
-    if (ctx.weightDelta <= -1.5) messageParts.push(getRandomPhrase('weightDropGlycogen', ctx));
-    else if (ctx.weightDelta > -1.5 && ctx.weightDelta < -0.2) messageParts.push(getRandomPhrase('weightDropFat', ctx));
-    else if (ctx.weightDelta >= 1.5) messageParts.push(getRandomPhrase('weightGainWater', ctx));
-    else if (ctx.weightDelta >= -0.2 && ctx.weightDelta < 1.5) messageParts.push(getRandomPhrase('weightPlateau', ctx));
+  if (!physiologyPhrase && pulse !== null) {
+    if (pulse >= 100) {
+      physiologyPhrase = getRandomPhrase("pulseTachycardia", ctx);
+      isCriticalIndicator = true;
+    } else if (pulse < 55) {
+      physiologyPhrase = getRandomPhrase("pulseBradycardia", ctx);
+      isCriticalIndicator = true;
+    } else if (pulse > 80) {
+      physiologyPhrase = getRandomPhrase("pulseElevated", ctx);
+    }
   }
 
-  // 4. БЛОК ТРИАДЫ
+  if (
+    !physiologyPhrase &&
+    ctx.weight !== null &&
+    ctx.initialWeight !== null &&
+    ctx.weightDelta !== null
+  ) {
+    if (ctx.weightDelta <= -1.5) {
+      physiologyPhrase = getRandomPhrase("weightDropGlycogen", ctx);
+    } else if (ctx.weightDelta < -0.2) {
+      physiologyPhrase = getRandomPhrase("weightDropFat", ctx);
+    } else if (ctx.weightDelta >= 1.5) {
+      physiologyPhrase = getRandomPhrase("weightGainWater", ctx);
+    }
+  }
+
+  // При спокойных показателях — одна нейтральная опорная фраза.
+  if (!physiologyPhrase) {
+    if (sys !== null && dia !== null) {
+      physiologyPhrase = getRandomPhrase("bpOptimal", ctx);
+    } else if (pulse !== null) {
+      physiologyPhrase = getRandomPhrase("pulseOptimal", ctx);
+    } else if (ctx.weight !== null && ctx.weightDelta !== null) {
+      physiologyPhrase = getRandomPhrase("weightPlateau", ctx);
+    }
+  }
+
   const { energy, mood, wellbeing } = triad;
-  const triadKey = `triad_${wellbeing}_${energy}_${mood}` as keyof typeof MEASUREMENT_PHRASES;
-  
-  if (isCriticalPulse && energy === 'high') {
-    messageParts.push("Я вижу, что по ощущениям у тебя много энергии, но твои показатели говорят об обратном. Пожалуйста, не игнорируй цифры и откажись сегодня от тренировок.");
+  const triadKey =
+    `triad_${wellbeing}_${energy}_${mood}` as keyof typeof MEASUREMENT_PHRASES;
+
+  let triadPhrase = "";
+
+  if (isCriticalIndicator && energy === "high") {
+    triadPhrase =
+      "По ощущениям энергии много, но текущие показатели требуют бережного режима. Отложи интенсивную нагрузку, спокойно повтори измерения и ориентируйся на самочувствие.";
+  } else if (MEASUREMENT_PHRASES[triadKey]) {
+    triadPhrase = getRandomPhrase(triadKey, ctx);
   } else {
-    if (MEASUREMENT_PHRASES[triadKey]) {
-      messageParts.push(getRandomPhrase(triadKey, ctx));
-    } else {
-      messageParts.push(getRandomPhrase('triad_normal_normal_normal', ctx));
-    }
+    triadPhrase = getRandomPhrase("triad_normal_normal_normal", ctx);
   }
 
-  return messageParts.filter(Boolean).join('\n\n');
+  return [physiologyPhrase, triadPhrase].filter(Boolean).join("\n\n");
 };
