@@ -80,7 +80,7 @@ export const getWaterFeedback = (
   if (water.amount === 0) {
     tier = 'zero';
   } else if (isToday) {
-    tier = coachingPct >= 150 ? 'excess'
+    tier = (coachingPct >= 150 && water.pct >= 50) ? 'excess'
       : coachingPct >= 100 ? 'optimum'
       : coachingPct >= 70 ? 'mild'
       : coachingPct >= 50 ? 'behind'

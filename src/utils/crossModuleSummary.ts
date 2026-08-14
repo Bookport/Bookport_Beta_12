@@ -86,8 +86,9 @@ export const buildDailySummary = (dayIndex: number, store: AppState, currentDayI
   let waterStatus: WaterStatus = 'zero';
   if (waterAmount > 0) {
     const refPct = isToday && timePct !== null ? timePct : waterPct;
-    if (refPct >= 150) waterStatus = 'excess';
-    else if (refPct >= 100) waterStatus = 'optimum';
+    const effectivePct = isToday && refPct >= 150 && waterPct < 50 ? 100 : refPct;
+    if (effectivePct >= 150) waterStatus = 'excess';
+    else if (effectivePct >= 100) waterStatus = 'optimum';
     else waterStatus = 'deficit';
   }
 
