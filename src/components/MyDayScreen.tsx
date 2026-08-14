@@ -1942,7 +1942,7 @@ export default function MyDayScreen({
   const mealGoal = 4;
   const activityGoal = MOVEMENT_DAILY_TARGET_MIN;
 
-  const srcWater = (dbMetric?.waterMl ?? 0) + water;
+  const srcWater = water;
   const srcSleep = (dbMetric?.sleepMinutes ?? 0) + sleep;
   const srcMeal = (dbMetric?.mealCount ?? 0) + mealCount;
 
