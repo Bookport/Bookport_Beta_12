@@ -695,10 +695,11 @@ export default function MyDayScreen({
 
     if (showWaterDetails) {
       subScreen = "Детали Водного Баланса";
+      const waterTarget = getWaterGoal(getResolvedWeightForDay(currentDayIndex));
       subScreenData = {
-        water_target_ml: 2500,
+        water_target_ml: waterTarget,
         water_current_ml: water,
-        percent: Math.min(100, Math.floor((water / 2500) * 100))
+        percent: Math.min(100, Math.floor((water / waterTarget) * 100))
       };
     } else if (showFastAddWater) {
       subScreen = "Быстрое Добавление Воды";

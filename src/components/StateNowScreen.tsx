@@ -17,7 +17,7 @@ import type { SavedDish } from "../types/dishes";
 import { DailyNutritionStore } from "../services/DailyNutritionStore";
 import { SystemKeysStore } from "../services/SystemKeysStore";
 import { calculateIntegralScore } from "../utils/integralScore";
-import { getWaterGoal, WATER_GOAL_FALLBACK_KG } from "../utils/waterGoal";
+import { getWaterGoal, WATER_GOAL_FALLBACK_KG, WATER_ACTIVE_START_MIN, WATER_ACTIVE_WINDOW_MIN } from "../utils/waterGoal";
 import BalanceTab from "./statenow/BalanceTab";
 import { getRecommendedNextStep } from "../utils/nextStepEngine";
 import ScalesTab from "./statenow/ScalesTab";
@@ -499,16 +499,15 @@ export default function StateNowScreen({
   const habitsTarget = 20;
 
   // Time-aware water expectations
-  const WAKE_HOUR = 7;
-  const BED_HOUR = 23;
-  const TOTAL_AWAKE_HOURS = BED_HOUR - WAKE_HOUR;
+  const activeStartMin = WATER_ACTIVE_START_MIN;      // 08:00
+  const activeWindowMin = WATER_ACTIVE_WINDOW_MIN;    // 840 мин (08:00–22:00)
+  const activeEndMin = activeStartMin + activeWindowMin;
   const currentHour = new Date().getHours();
   const currentMinute = new Date().getMinutes();
   const nowMinutes = currentHour * 60 + currentMinute;
-  const awakeMinutesToday = Math.max(0, Math.min(nowMinutes - WAKE_HOUR * 60, TOTAL_AWAKE_HOURS * 60));
-  const hoursAwake = Math.max(1, awakeMinutesToday / 60);
-  const expectedWaterByNow = Math.round(waterTarget * (hoursAwake / TOTAL_AWAKE_HOURS));
-  const remainingMinutes = Math.max(0, BED_HOUR * 60 - nowMinutes);
+  const awakeMinutesToday = Math.max(0, Math.min(nowMinutes - activeStartMin, activeWindowMin));
+  const expectedWaterByNow = Math.round(waterTarget * (awakeMinutesToday / activeWindowMin));
+  const remainingMinutes = Math.max(0, activeEndMin - nowMinutes);
   const isAheadOnWater = effWater >= expectedWaterByNow;
 
   const effMealCount = cookedBookDishes.length + todayCustomDishes.length;

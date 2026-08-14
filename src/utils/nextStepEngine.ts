@@ -1,5 +1,6 @@
 import { NormalizedIngredient } from "../services/DailyNutritionStore";
 import { getPlural } from "./pluralize";
+import { WATER_ACTIVE_START_MIN, WATER_ACTIVE_WINDOW_MIN } from "./waterGoal";
 
 export interface NextStepInput {
   water: number;
@@ -84,17 +85,15 @@ export function getRecommendedNextStep(input: NextStepInput): NextStepRecommenda
 
   const GLASS_ML = 250
   const MAX_GAP_HOURS = 2
-  const WAKE_HOUR = 7
-  const BED_HOUR = 23
-  const TOTAL_AWAKE_HOURS = BED_HOUR - WAKE_HOUR
+  const activeStartMin = WATER_ACTIVE_START_MIN      // 08:00
+  const activeWindowMin = WATER_ACTIVE_WINDOW_MIN    // 840 мин (08:00–22:00)
+  const activeEndMin = activeStartMin + activeWindowMin
 
   const currentHour = new Date().getHours()
   const currentMinute = new Date().getMinutes()
   const nowMinutes = currentHour * 60 + currentMinute
-  const wakeMinutes = WAKE_HOUR * 60
-  const bedMinutes = BED_HOUR * 60
-  const awakeMinutesToday = Math.max(1, Math.min(nowMinutes - wakeMinutes, bedMinutes - wakeMinutes))
-  const remainingMinutes = Math.max(0, bedMinutes - nowMinutes)
+  const awakeMinutesToday = Math.max(1, Math.min(nowMinutes - activeStartMin, activeWindowMin))
+  const remainingMinutes = Math.max(0, activeEndMin - nowMinutes)
 
   const hoursSinceLastDrink = (() => {
     if (!input.lastWaterTimestamp) return 99
@@ -104,7 +103,7 @@ export function getRecommendedNextStep(input: NextStepInput): NextStepRecommenda
   const hoursAwake = Math.max(1, awakeMinutesToday / 60)
 
   // Expected water volume by this time (linear projection across waking hours)
-  const expectedWaterByNow = Math.round(waterTarget * (hoursAwake / TOTAL_AWAKE_HOURS))
+  const expectedWaterByNow = Math.round(waterTarget * (awakeMinutesToday / activeWindowMin))
   const waterDeficit = expectedWaterByNow - water
 
   // Projection to end of day: if user continues at same pace

@@ -408,11 +408,10 @@ export default function DigestionScreen({
   }, [periodLogs, selectedGraphDay]);
 
   // ---- CORRELATION LOGIC (Block 5) — 3 карточки, расчёт на лету ----
-  const WATER_GOAL_FALLBACK_ML = 2000;
 
   // Плашка 1: % выполнения нормы воды строго за текущий день (как «Движение»)
   const periodWaterAvgPct = React.useMemo(() => {
-    const dailyGoal = waterGoal > 0 ? waterGoal : WATER_GOAL_FALLBACK_ML;
+    const dailyGoal = waterGoal;
     const drankToday = waterEntries
       .filter((w) => Number(w.dayIndex) === Number(currentDayIndex))
       .reduce((sum, w) => sum + (Number(w.amount) || 0), 0);
