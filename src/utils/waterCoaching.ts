@@ -127,14 +127,9 @@ export const getWaterFeedback = (
   }
 
   // ─────────────────────────────────────────────────────────────
-  // БЛОК 2: ВОДА + ЖКТ (Бристоль)
-  // ─────────────────────────────────────────────────────────────
-  if (showCross && digestion.status === "constipation") push(cross_digestion_constipation);
-  if (showCross && digestion.status === "diarrhea") push(cross_digestion_diarrhea);
-  if (tier === "optimum" && digestion.status === "ideal") push(cross_digestion_ideal);
-
-  // ─────────────────────────────────────────────────────────────
-  // БЛОК 3: ВОДА + ЗАМЕРЫ (Пульс, Давление, Тонус, Динамика веса)
+  // БЛОК 2: КРОСС-МОДУЛЬНЫЕ ФРАЗЫ (ЖКТ, Замеры, Клетчатка, Вес)
+  // Кандидаты собираются в порядке приоритета: самочувствие → активный ЖКТ →
+  // клетчатка → наблюдение веса → нейтральный позитивный ЖКТ. Push только первого.
   // ─────────────────────────────────────────────────────────────
   const pulse = latestMeasurements.pulse;
   const sys = latestMeasurements.systolic;
@@ -142,24 +137,35 @@ export const getWaterFeedback = (
   const weightDelta = latestMeasurements.weightDelta;
   const tonus = latestMeasurements.tonus;
 
-  if (showCross && pulse !== null && pulse > 90) push(cross_measurements_highPulse);
-  if (showCross && pulse !== null && pulse < 55) push(cross_measurements_lowPulse);
-  if (showCross && ((sys !== null && sys >= 140) || (dia !== null && dia >= 90))) push(cross_measurements_highBP);
-  if (showCross && ((sys !== null && sys < 90) || (dia !== null && dia < 60))) push(cross_measurements_lowBP);
-  if (weightDelta !== null && weightDelta < 0) push(cross_measurements_weightLoss);
-  if (showCross && weightDelta !== null && weightDelta >= 0.3) push(cross_measurements_weightGain);
-  if (showCross && tonus === "low") push(cross_measurements_tonusLow);
+  const crossCandidates: string[][] = [];
 
-  // ─────────────────────────────────────────────────────────────
-  // БЛОК 4: ВОДА + ЕДА (вчерашняя клетчатка)
-  // ─────────────────────────────────────────────────────────────
+  // 1. Самочувствие: пульс, давление, тонус
+  if (showCross && pulse !== null && pulse > 90) crossCandidates.push(cross_measurements_highPulse);
+  if (showCross && pulse !== null && pulse < 55) crossCandidates.push(cross_measurements_lowPulse);
+  if (showCross && ((sys !== null && sys >= 140) || (dia !== null && dia >= 90))) crossCandidates.push(cross_measurements_highBP);
+  if (showCross && ((sys !== null && sys < 90) || (dia !== null && dia < 60))) crossCandidates.push(cross_measurements_lowBP);
+  if (showCross && tonus === "low") crossCandidates.push(cross_measurements_tonusLow);
+
+  // 2. ЖКТ с активным контекстом
+  if (showCross && digestion.status === "diarrhea") crossCandidates.push(cross_digestion_diarrhea);
+  if (showCross && digestion.status === "constipation") crossCandidates.push(cross_digestion_constipation);
+
+  // 3. Клетчатка (вчерашняя): при ненулевом объёме воды и заметном отставании от темпа;
+  // при нулевом объёме работает только мягкая базовая ветка base_zero.
   const fiber = summary.food?.yesterdayFiber ?? null;
   if (fiber !== null && fiber >= HIGH_FIBER_THRESHOLD) {
-    // Блок клетчатки — только при ненулевом объёме воды и заметном отставании от темпа;
-    // при нулевом объёме работает только мягкая базовая ветка base_zero.
-    if (showCross && water.amount > 0 && coachingPct < 60) push(cross_food_highFiber_deficit);
-    else if (tier === "optimum") push(cross_food_highFiber_optimum);
+    if (showCross && water.amount > 0 && coachingPct < 60) crossCandidates.push(cross_food_highFiber_deficit);
+    else if (tier === "optimum") crossCandidates.push(cross_food_highFiber_optimum);
   }
+
+  // 4. Наблюдение веса
+  if (weightDelta !== null && weightDelta < 0) crossCandidates.push(cross_measurements_weightLoss);
+  if (showCross && weightDelta !== null && weightDelta >= 0.3) crossCandidates.push(cross_measurements_weightGain);
+
+  // 5. Нейтральный позитивный ЖКТ-контекст
+  if (tier === "optimum" && digestion.status === "ideal") crossCandidates.push(cross_digestion_ideal);
+
+  if (crossCandidates.length > 0) push(crossCandidates[0]);
 
   // ─────────────────────────────────────────────────────────────
   // ВОЗВРАТ
