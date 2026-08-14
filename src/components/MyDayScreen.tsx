@@ -449,7 +449,13 @@ export default function MyDayScreen({
   const [ratingWellbeing, setRatingWellbeing] = useState(5);
   const [ratingEnergy, setRatingEnergy] = useState(5);
   const [ratingLightness, setRatingLightness] = useState(5);
-  const setWeight = (val: number | ((prev: number) => number)) => {};
+  const setWeight = (val: number | ((prev: number) => number)) => {
+    useAppStore.setState((s) => {
+      const prev = s.userProfile?.weight ?? 0;
+      const next = typeof val === "function" ? (val as (p: number) => number)(prev) : val;
+      return { userProfile: { ...s.userProfile, weight: next } };
+    });
+  };
   const setSystolic = (val: number | ((prev: number) => number)) => {};
   const setDiastolic = (val: number | ((prev: number) => number)) => {};
 
