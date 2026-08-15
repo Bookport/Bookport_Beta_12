@@ -20,8 +20,8 @@ COPY public/ ./public/
 COPY prisma ./prisma/
 
 RUN npx vite build
-RUN npx esbuild server.ts --bundle --platform=node --format=cjs \
-    --packages=external --sourcemap --outfile=dist/server.cjs
+RUN npx esbuild server.ts --bundle --platform=node --format=esm \
+    --packages=external --sourcemap --outfile=dist/server.mjs
 RUN mkdir -p dist/src/assets/images/anna && \
     cp -r src/assets/images/anna/* dist/src/assets/images/anna/ 2>/dev/null || true
 
@@ -43,4 +43,4 @@ RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 EXPOSE 3000
 
 ENTRYPOINT ["docker-entrypoint.sh"]
-CMD ["node", "--max-old-space-size=400", "dist/server.cjs"]
+CMD ["node", "--max-old-space-size=400", "dist/server.mjs"]
