@@ -33,6 +33,8 @@ spec:
           value: http://ai-egress-proxy.egress-proxy.svc.cluster.local:3128
         - name: SERVER_URL
           value: https://app.vsedelovede.ru
+        - name: PORT
+          value: "3000"
         envFrom:
         - secretRef:
             name: bookport-db
