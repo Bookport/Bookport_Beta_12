@@ -23,6 +23,22 @@ import DishAnalysisScreen from "./components/DishAnalysisScreen";
 import CalendarOverlay from "./components/CalendarOverlay";
 import RecipesScreen from "./components/RecipesScreen";
 import type { SavedDish } from "./types/dishes";
+// B2: единый список persisted расширенных нутриентных полей SavedDish для гидрации
+// ответа GET /api/saved-dishes. Проверяется на соответствие ключам SavedDish через
+// `satisfies`, чтобы не дублировать расходящиеся списки полей между файлами.
+const SAVED_DISH_NUTRIENT_FIELDS = [
+  "carbohydrates", "water", "sugarTotal", "sucrose", "glucose", "fructose", "lactose", "maltose",
+  "saturatedFat", "monounsaturatedFat", "polyunsaturatedFat", "transFat", "cholesterol",
+  "omega3", "omega6", "omega9",
+  "calcium", "iron", "magnesium", "phosphorus", "potassium", "sodium",
+  "zinc", "copper", "manganese", "iodine", "selenium",
+  "vitaminC", "thiamin", "riboflavin", "niacin", "pantothenicAcid", "vitaminB6",
+  "biotin", "folate", "vitaminB12", "vitaminA", "retinol", "betaCarotene",
+  "vitaminD", "vitaminD2", "vitaminD3", "vitaminE", "vitaminK",
+  "lysine", "methionine", "tryptophan", "threonine", "isoleucine", "leucine",
+  "cystine", "phenylalanine", "tyrosine", "valine", "arginine", "histidine",
+  "alanine", "asparticAcid", "glutamicAcid", "glycine", "proline", "serine",
+] as const satisfies readonly (keyof SavedDish)[];
 import FromWhatIsScreen from "./components/FromWhatIsScreen";
 import BookRecipesScreen from "./components/BookRecipesScreen";
 import MyPurchasesScreen from "./components/MyPurchasesScreen";
@@ -511,27 +527,39 @@ export default function App() {
             const existingIds = new Set(prev.map(d => d.id));
             const newDishes = data.savedDishes
               .filter((d: any) => !existingIds.has(d.id))
-              .map((d: any) => ({
-                id: d.id,
-                name: d.name,
-                time: d.createdAt ? new Date(d.createdAt).toLocaleTimeString("ru-RU", { timeZone: "Europe/Moscow", hour: "2-digit", minute: "2-digit" }) : "",
-                tag: d.tag || "",
-                category: d.category || "Основные блюда",
-                image: d.image || "",
-                isFavorite: d.isFavorite || false,
-                isNew: d.isNew !== false,
-                createdAt: d.createdAt || new Date().toISOString(),
-                ingredients: d.ingredients || [],
-                calories: d.calories || 0,
-                protein: d.protein || "",
-                fiber: d.fiber || "",
-                fat: d.fat || "",
-                annaTip: d.annaTip || "",
-                annaComment: d.annaComment || "",
-                isBookRecipe: d.isBookRecipe || false,
-                dayIndex: d.dayIndex ?? undefined,
-                bookRecipeRef: d.bookRecipeType ? { type: d.bookRecipeType, id: d.bookRecipeId, technicalName: "", emotionalName: "" } : undefined,
-              } as SavedDish));
+              .map((d: any) => {
+                // B2: гидрируем все persisted расширенные нутриенты, не теряя валидный 0.
+                // Отсутствие данных (null/undefined) остаётся отсутствием (поле не задаётся).
+                const nutrients: Partial<SavedDish> = {};
+                for (const field of SAVED_DISH_NUTRIENT_FIELDS) {
+                  const raw = d[field];
+                  if (typeof raw === "number" && Number.isFinite(raw)) {
+                    (nutrients as Record<string, number>)[field] = raw;
+                  }
+                }
+                return {
+                  id: d.id,
+                  name: d.name,
+                  time: d.createdAt ? new Date(d.createdAt).toLocaleTimeString("ru-RU", { timeZone: "Europe/Moscow", hour: "2-digit", minute: "2-digit" }) : "",
+                  tag: d.tag || "",
+                  category: d.category || "Основные блюда",
+                  image: d.image || "",
+                  isFavorite: d.isFavorite || false,
+                  isNew: d.isNew !== false,
+                  createdAt: d.createdAt || new Date().toISOString(),
+                  ingredients: d.ingredients || [],
+                  calories: d.calories || 0,
+                  protein: d.protein || "",
+                  fiber: d.fiber || "",
+                  fat: d.fat || "",
+                  annaTip: d.annaTip || "",
+                  annaComment: d.annaComment || "",
+                  isBookRecipe: d.isBookRecipe || false,
+                  dayIndex: d.dayIndex ?? undefined,
+                  bookRecipeRef: d.bookRecipeType ? { type: d.bookRecipeType, id: d.bookRecipeId, technicalName: "", emotionalName: "" } : undefined,
+                  ...nutrients,
+                } as SavedDish;
+              });
             return [...newDishes, ...prev];
           });
         }
@@ -1131,6 +1159,7 @@ export default function App() {
       protein: macros?.protein ?? "",
       fiber: macros?.fiber ?? "",
       fat: macros?.fat ?? "",
+      ...(macros?.carbohydrates != null ? { carbohydrates: macros.carbohydrates } : {}),
       ingredients: parsedIngredients,
       annaTip: "",
       isBookRecipe: true,
@@ -1156,6 +1185,7 @@ export default function App() {
         protein: newDish.protein,
         fiber: newDish.fiber,
         fat: newDish.fat,
+        ...(macros?.carbohydrates != null ? { carbohydrates: macros.carbohydrates } : {}),
         dayIndex: currentDayIndex,
         annaTip: newDish.annaTip || "",
         isNew: true,
@@ -1437,6 +1467,39 @@ export default function App() {
               <DishAnalysisScreen 
                 ingredients={customMealIngredients || []}
                 onConfirm={(dishName, computedNutrients, annaComment, flatNutrients) => {
+                  // B1: строгая проверка результата собственного анализатора.
+                  // Никаких случайных/примерных/фейковых КБЖУ. Без валидного полного
+                  // результата (calories/protein/fat/fiber — конечные числа) блюдо
+                  // не создаётся, POST не выполняется, DiaryEntry не создаётся.
+                  const parseFiniteNutrient = (v: unknown): number => {
+                    if (typeof v === "number") return Number.isFinite(v) ? v : NaN;
+                    if (typeof v === "string") {
+                      const cleaned = v.replace(",", ".").replace(/[^\d.\-]/g, "");
+                      if (cleaned.trim() === "") return NaN;
+                      const n = parseFloat(cleaned);
+                      return Number.isFinite(n) ? n : NaN;
+                    }
+                    return NaN;
+                  };
+
+                  const cn = computedNutrients;
+                  const nCalories = cn ? parseFiniteNutrient(cn.calories) : NaN;
+                  const nProtein = cn ? parseFiniteNutrient(cn.protein) : NaN;
+                  const nFat = cn ? parseFiniteNutrient(cn.fat) : NaN;
+                  const nFiber = cn ? parseFiniteNutrient(cn.fiber) : NaN;
+
+                  if (!cn || [nCalories, nProtein, nFat, nFiber].some(n => Number.isNaN(n))) {
+                    useAppStore.getState().setActiveNotification({
+                      type: "food-analysis-error",
+                      title: "Блюдо не сохранено",
+                      body: "Анализ блюда не завершён, поэтому добавить его в дневник пока нельзя. Пожалуйста, повторите анализ.",
+                      annaPhrase: "Давай попробуем разобрать блюдо ещё раз — мне нужны точные данные, чтобы посчитать всё честно.",
+                      colorClass: "bg-gradient-to-br from-rose-500 to-red-600",
+                      iconType: "tip",
+                    });
+                    return;
+                  }
+
                   setMealCount(prev => Math.min(4, prev + 1));
                   useAppStore.getState().setClickCount(clickCount + 25);
                   setMeals(prev => prev.map((m, idx) => {
@@ -1481,10 +1544,10 @@ export default function App() {
                     category: determinedCategory,
                     image: currentMealImage || null,
                     isFavorite: false,
-                    calories: computedNutrients ? computedNutrients.calories : Math.floor(Math.random() * 80) + 180,
-                    protein: computedNutrients ? computedNutrients.protein : `${Math.floor(Math.random() * 5) + 6} г`,
-                    fiber: computedNutrients ? computedNutrients.fiber : `${Math.floor(Math.random() * 4) + 5} г`,
-                    fat: computedNutrients ? computedNutrients.fat : `${Math.floor(Math.random() * 3) + 2} г`,
+                    calories: computedNutrients.calories,
+                    protein: computedNutrients.protein,
+                    fiber: computedNutrients.fiber,
+                    fat: computedNutrients.fat,
                     ...flatNutrients,
                     isNew: true,
                     categoryColor: getCategoryColor(determinedCategory).shadow,

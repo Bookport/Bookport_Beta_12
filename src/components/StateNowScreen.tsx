@@ -228,7 +228,7 @@ export default function StateNowScreen({
       cal: macros.calories > 0 ? macros.calories : 180,
       pro: !isNaN(parseFloat(macros.protein)) ? parseFloat(macros.protein) : 6,
       fpt: !isNaN(parseFloat(macros.fat)) ? parseFloat(macros.fat) : 3,
-      carb: !isNaN(parseFloat(macros.carbohydrates)) ? parseFloat(macros.carbohydrates) : 30,
+      carb: (macros.carbohydrates != null && !isNaN(macros.carbohydrates)) ? macros.carbohydrates : 30,
       fib: !isNaN(parseFloat(macros.fiber)) ? parseFloat(macros.fiber) : 4.5
     };
   };

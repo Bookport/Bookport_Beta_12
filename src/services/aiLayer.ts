@@ -152,140 +152,6 @@ export const AISystemConfig = {
 // -------------------------------------------------------------
 
 /**
- * Local high-fidelity USDA database fallback simulation
- */
-export function simulateLocalUSDAPlan(ingredients: any[]): MealAnalysisResult {
-  let totalCals = 0;
-  let totalProt = 0;
-  let totalFat = 0;
-  let totalCarb = 0;
-  let totalFiber = 0;
-  
-  let iron = 0;
-  let zinc = 0;
-  let magnesium = 0;
-  let iodine = 0;
-  let selenium = 0;
-  let vitC = 0;
-  let vitB9 = 0;
-  let lysine = 0;
-  let methionine = 0;
-
-  const hasFails = ingredients.some(ing => {
-    const ingName = ing.fullName || ing.shortName || "";
-    return ing.status === "error" || !checkWFPB(ingName).compliant;
-  });
-
-  ingredients.forEach(ing => {
-    const w = ing.weight || 100;
-    const factor = w / 100;
-    const nameLower = (ing.fullName || ing.shortName || "").toLowerCase();
-
-    if (nameLower.includes("киноа")) {
-      totalCals += 120 * factor;
-      totalProt += 4.4 * factor;
-      totalFat += 1.9 * factor;
-      totalCarb += 21.3 * factor;
-      totalFiber += 2.8 * factor;
-      iron += 1.5 * factor;
-      magnesium += 64 * factor;
-      zinc += 1.1 * factor;
-      vitB9 += 42 * factor;
-      lysine += 0.25 * factor;
-      methionine += 0.09 * factor;
-    } else if (nameLower.includes("нут")) {
-      totalCals += 164 * factor;
-      totalProt += 8.9 * factor;
-      totalFat += 2.6 * factor;
-      totalCarb += 27.4 * factor;
-      totalFiber += 7.6 * factor;
-      iron += 2.9 * factor;
-      magnesium += 48 * factor;
-      zinc += 1.5 * factor;
-      vitB9 += 172 * factor;
-      lysine += 0.58 * factor;
-      methionine += 0.13 * factor;
-    } else if (nameLower.includes("броккол")) {
-      totalCals += 34 * factor;
-      totalProt += 2.8 * factor;
-      totalFat += 0.4 * factor;
-      totalCarb += 6.6 * factor;
-      totalFiber += 2.6 * factor;
-      iron += 0.7 * factor;
-      magnesium += 21 * factor;
-      vitC += 89 * factor;
-      vitB9 += 63 * factor;
-    } else if (nameLower.includes("шпинат")) {
-      totalCals += 23 * factor;
-      totalProt += 2.9 * factor;
-      totalFat += 0.4 * factor;
-      totalCarb += 3.6 * factor;
-      totalFiber += 2.2 * factor;
-      iron += 2.7 * factor;
-      magnesium += 79 * factor;
-      vitC += 28 * factor;
-      vitB9 += 194 * factor;
-    } else {
-      // General vegetable or legume
-      totalCals += 95 * factor;
-      totalProt += 3 * factor;
-      totalFat += 0.5 * factor;
-      totalCarb += 18 * factor;
-      totalFiber += 3.2 * factor;
-      iron += 1.2 * factor;
-      magnesium += 32 * factor;
-      zinc += 0.6 * factor;
-      vitC += 6 * factor;
-      vitB9 += 25 * factor;
-    }
-  });
-
-  const shortNames = ingredients.map(i => i.shortName || i.fullName).slice(0, 2);
-  const dishName = shortNames.length > 0 
-    ? `Зелёный боул с ${shortNames.map(s => s.toLowerCase()).join(" и ")}`
-    : "Зелёный эко-боул";
-
-  return {
-    dishName,
-    nutrients: {
-      calories: { value: Math.round(totalCals) || 310, unit: "ккал" },
-      protein: { value: parseFloat(totalProt.toFixed(1)) || 12.8, unit: "г" },
-      fats: { value: parseFloat(totalFat.toFixed(1)) || 3.1, unit: "г" },
-      carbs: { value: parseFloat(totalCarb.toFixed(1)) || 45.4, unit: "г" },
-      fiber: { value: parseFloat(totalFiber.toFixed(1)) || 8.9, unit: "г" },
-      omegaRatio: { value: "3:1", unit: "" }
-    },
-    micronutrients: {
-      iron: { value: parseFloat(iron.toFixed(1)) || 2.4, unit: "мг" },
-      zinc: { value: parseFloat(zinc.toFixed(1)) || 0.8, unit: "мг" },
-      magnesium: { value: Math.round(magnesium) || 68, unit: "мг" },
-      iodine: { value: 6, unit: "мкг" },
-      selenium: { value: 12, unit: "мкг" },
-      vitaminC: { value: Math.round(vitC) || 35, unit: "мг" },
-      vitaminB9: { value: Math.round(vitB9) || 110, unit: "мкг" },
-      lysine: { value: parseFloat(lysine.toFixed(1)) || 0.4, unit: "г" },
-      methionine: { value: parseFloat(methionine.toFixed(1)) || 0.15, unit: "г" }
-    },
-    insights: {
-      strengths: {
-        title: "Сильные стороны блюда",
-        text: "Изобилие медленных углеводов и ценной цельной клетчатки благотворно влияет на микробиом ЖКТ, стабилизируя показатели сахара."
-      },
-      improvements: {
-        title: "Что можно улучшить",
-        text: "Чтобы дополнительно стимулировать синтез цинка и железа, рекомендуем посыпать готовое блюдо молотыми конопляными семечками 🌱"
-      },
-      compliance: {
-        title: "Соответствие растительному рациону",
-        text: hasFails 
-          ? "Обнаружены спорные или вручную подтвержденные продукты. В оздоровительном WFPB-рационе мы полностью нацелены на отсутствие соли и животных добавок."
-          : "Безупречно! Блюдо выполнено на 100% из цельных растительных продуктов без соли и капли растительного масла."
-      }
-    }
-  };
-}
-
-/**
  * Resilient image recognition local fallback (protects against rate limits)
  */
 export function simulateLocalVisionPlan(): RecognitionResponse {
@@ -420,42 +286,30 @@ export const AnnaVoiceProvider = {
  */
 export const MealAnalysisProvider = {
   async aggregateNutrients(ingredients: any[], meta?: MealAnalysisMeta): Promise<MealAnalysisResult> {
-    const isServerMode = AISystemConfig.currentProvider === "server";
+    // B1: только результат собственного серверного анализатора. При ошибке/недоступности
+    // НЕ подставляем локальные фейковые КБЖУ — пробрасываем ошибку, чтобы UI заблокировал сохранение.
     const body = JSON.stringify({ ingredients, ...meta });
-    
-    if (isServerMode) {
-      try {
-        const resp = await fetch("/api/analyze-dish", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "X-Telegram-Init-Data": getTelegramInitData() },
-          body
-        });
-        if (resp.ok) {
-          const data = await resp.json();
-          return data.result;
-        }
-      } catch (e) {
-        console.warn("[MealAnalysisProvider] Server analysis failed, resorting to fallbacks.", e);
-      }
+
+    const resp = await fetch("/api/analyze-dish", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Telegram-Init-Data": getTelegramInitData() },
+      body
+    });
+
+    if (resp.ok) {
+      const data = await resp.json();
+      if (data && data.result) return data.result;
+      throw new Error("Пустой результат анализа блюда");
     }
 
-    // Default: AI Studio endpoint call
+    let errMessage = `Analyze-dish responded with status: ${resp.status}`;
     try {
-      const resp = await fetch("/api/analyze-dish", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Telegram-Init-Data": getTelegramInitData() },
-        body
-      });
-      if (resp.ok) {
-        const data = await resp.json();
-        return data.result;
-      }
-    } catch (e) {
-      console.warn("[MealAnalysisProvider] AI Studio failed or quota exhausted. Serving USDA local fallback calculation.", e);
+      const errorData = await resp.json();
+      if (errorData.error) errMessage = errorData.error;
+    } catch {
+      // ignore parse error, keep status message
     }
-
-    // Direct local database calculation
-    return simulateLocalUSDAPlan(ingredients);
+    throw new Error(errMessage);
   }
 };
 

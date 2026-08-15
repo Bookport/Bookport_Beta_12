@@ -123,165 +123,6 @@ function buildAnnaToolGuidance(message: string): string {
   ].join("\n");
 }
 
-// Programmatic real local USDA database fallback if API endpoints time out/fail
-function getUsdaFallbackData(ingredients: any[]) {
-  let totalCals = 0;
-  let totalProt = 0;
-  let totalFat = 0;
-  let totalCarb = 0;
-  let totalFiber = 0;
-  
-  let iron = 0;
-  let zinc = 0;
-  let magnesium = 0;
-  let iodine = 0;
-  let selenium = 0;
-  let vitC = 0;
-  let vitB9 = 0;
-  let lysine = 0;
-  let methionine = 0;
-
-  let hasProhibited = false;
-
-  ingredients.forEach(ing => {
-    const parsedW = parseFloat(String(ing.weight).replace(/[^\d.,]/g, '').replace(',', '.'));
-    const w = isNaN(parsedW) ? 100 : parsedW;
-    const factor = w / 100;
-    const nameLower = (ing.fullName || ing.shortName || "").toLowerCase();
-
-    // Check if status is error or has non-WFPB flags (salt, animal products, butter, etc)
-    const isBean = nameLower.includes("фасоль") || nameLower.includes("фасол");
-    const violatesWfpb = ing.status === "error" ||
-      (!isBean && nameLower.includes("соль")) ||
-      (!isBean && nameLower.includes("мясо")) ||
-      (!isBean && nameLower.includes("масло")) ||
-      (!isBean && nameLower.includes("молоко")) ||
-      (!isBean && nameLower.includes("рыб")) ||
-      (!isBean && nameLower.includes("яйц"));
-
-    if (violatesWfpb) {
-      hasProhibited = true;
-    }
-
-    if (nameLower.includes("киноа")) {
-      totalCals += 120 * factor;
-      totalProt += 4.4 * factor;
-      totalFat += 1.9 * factor;
-      totalCarb += 21.3 * factor;
-      totalFiber += 2.8 * factor;
-      iron += 1.5 * factor;
-      magnesium += 64 * factor;
-      zinc += 1.1 * factor;
-      vitB9 += 42 * factor;
-      lysine += 0.25 * factor;
-      methionine += 0.09 * factor;
-    } else if (nameLower.includes("нут")) {
-      totalCals += 164 * factor;
-      totalProt += 8.9 * factor;
-      totalFat += 2.6 * factor;
-      totalCarb += 27.4 * factor;
-      totalFiber += 7.6 * factor;
-      iron += 2.9 * factor;
-      magnesium += 48 * factor;
-      zinc += 1.5 * factor;
-      vitB9 += 172 * factor;
-      lysine += 0.58 * factor;
-      methionine += 0.13 * factor;
-    } else if (nameLower.includes("кунжут")) {
-      totalCals += 573 * factor;
-      totalProt += 17.7 * factor;
-      totalFat += 49.7 * factor;
-      totalCarb += 23.4 * factor;
-      totalFiber += 11.8 * factor;
-      iron += 14.6 * factor;
-      magnesium += 351 * factor;
-      zinc += 7.8 * factor;
-      vitB9 += 97 * factor;
-      lysine += 0.56 * factor;
-      methionine += 0.52 * factor;
-    } else if (nameLower.includes("шпинат")) {
-      totalCals += 23 * factor;
-      totalProt += 2.9 * factor;
-      totalFat += 0.4 * factor;
-      totalCarb += 3.6 * factor;
-      totalFiber += 2.2 * factor;
-      iron += 2.7 * factor;
-      magnesium += 79 * factor;
-      zinc += 0.5 * factor;
-      vitC += 28 * factor;
-      vitB9 += 194 * factor;
-      lysine += 0.17 * factor;
-      methionine += 0.04 * factor;
-    } else if (nameLower.includes("огур")) {
-      totalCals += 15 * factor;
-      totalProt += 0.7 * factor;
-      totalFat += 0.1 * factor;
-      totalCarb += 3.6 * factor;
-      totalFiber += 0.5 * factor;
-      iron += 0.3 * factor;
-      magnesium += 13 * factor;
-      vitC += 2.8 * factor;
-      vitB9 += 7 * factor;
-    } else {
-      // General vegetable or bean
-      totalCals += 95 * factor;
-      totalProt += 3 * factor;
-      totalFat += 0.5 * factor;
-      totalCarb += 18 * factor;
-      totalFiber += 3.2 * factor;
-      iron += 1.2 * factor;
-      magnesium += 32 * factor;
-      zinc += 0.6 * factor;
-      vitC += 6 * factor;
-      vitB9 += 25 * factor;
-    }
-  });
-
-  const mainShortNames = ingredients.map(i => i.shortName || i.fullName).slice(0, 2);
-  const derivedDishName = mainShortNames.length > 0 
-    ? `Тёплый боул с ${mainShortNames.map(s => s.toLowerCase()).join(" и ")}` 
-    : "Тёплый боул с киноа и нутом";
-
-  return {
-    dishName: derivedDishName,
-    nutrients: {
-      calories: { value: Math.round(totalCals) || 436, unit: "ккал" },
-      protein: { value: parseFloat(totalProt.toFixed(1)) || 17.2, unit: "г" },
-      fats: { value: parseFloat(totalFat.toFixed(1)) || 13.6, unit: "г" },
-      carbs: { value: parseFloat(totalCarb.toFixed(1)) || 56.3, unit: "г" },
-      fiber: { value: parseFloat(totalFiber.toFixed(1)) || 11.4, unit: "г" },
-      omegaRatio: { value: "4:1", unit: "" }
-    },
-    micronutrients: {
-      iron: { value: parseFloat(iron.toFixed(1)) || 3.2, unit: "мг" },
-      zinc: { value: parseFloat(zinc.toFixed(1)) || 1.1, unit: "мг" },
-      magnesium: { value: Math.round(magnesium) || 98, unit: "мг" },
-      iodine: { value: hasProhibited ? 0 : 4, unit: "мкг" },
-      selenium: { value: hasProhibited ? 2 : 11, unit: "мкг" },
-      vitaminC: { value: Math.round(vitC) || 28, unit: "мг" },
-      vitaminB9: { value: Math.round(vitB9) || 75, unit: "мкг" },
-      lysine: { value: parseFloat(lysine.toFixed(1)) || 0.6, unit: "г" },
-      methionine: { value: parseFloat(methionine.toFixed(1)) || 0.2, unit: "г" }
-    },
-    insights: {
-      strengths: {
-        title: "Сильные стороны блюда",
-        text: "Высокая концентрация растительной клетчатки, комплексных медленных углеводов, аминокислот лизина и цельного неденатурированного белка."
-      },
-      improvements: {
-        title: "Что можно улучшить",
-        text: "Вы можете обогатить блюдо семенами чиа или молотым льном, чтобы оптимизировать коэффициент незаменимых Омега жирных кислот."
-      },
-      compliance: {
-        title: "Соответствие растительному рациону",
-        text: hasProhibited 
-          ? "Внимание! Вы подтвердили ингредиенты, нарушающие философию WFPB (продукты животного происхождения или добавленная соль). Рекомендуем исключить их для идеального здоровья."
-          : "Идеально! Блюдо на 100% соответствует стандартам цельного растительного WFPB-рациона без капли рафинированных масел или соли."
-      }
-    }
-  };
-}
-
   // ── Local FoodItem Database Nutrient Computation ──
 
 const NUTRIENT_FIELDS = [
@@ -1034,6 +875,13 @@ async function startServer() {
       // ── Step A: Compute nutrients from local FoodItem DB ──
       const nutrientsFlat = await computeNutrientsFromDB(ingredients);
 
+      // B1: если ни один ингредиент не сопоставлен с собственной БД — расчёт не дал
+      // валидного результата. Не возвращаем пустые/нулевые КБЖУ как успешный ответ.
+      if (isEmptyNutrientObj(nutrientsFlat)) {
+        console.error("[analyze-dish] Empty nutrient result — no DB matches");
+        return res.status(422).json({ error: "Не удалось рассчитать нутриенты блюда по базе. Повторите попытку." });
+      }
+
       // ── Step B: LLM generates ONLY dish name + insights (no nutrient guessing) ──
       const ingredientsDescription = ingredients
         .map(ing => `- ${ing.fullName || ing.shortName}: ${ing.weight || 100}g`)
@@ -1178,9 +1026,10 @@ ${ingredientsDescription}
       console.log("[PIPELINE TRACE 4] Response:", JSON.stringify({ dishName: resultData.dishName, nutrientCount: Object.keys(nutrientsFlat).length, insightCount: resultData.insights ? Object.keys(resultData.insights).length : 0 }, null, 2));
       return res.json({ result: resultData });
     } catch (error: any) {
-      console.log("Local program nutrition calculation fallback triggered:", error?.message || error);
-      const fallbackResult = getUsdaFallbackData(ingredients);
-      return res.json({ result: fallbackResult });
+      // B1: никаких локальных/фейковых нутриентов при сбое. Возвращаем корректную
+      // HTTP-ошибку, чтобы клиент не принял фиктивный результат за валидный.
+      console.error("[analyze-dish] Nutrient computation failed:", error?.message || error);
+      return res.status(502).json({ error: "Не удалось рассчитать нутриенты блюда по базе. Повторите попытку." });
     }
   });
 
@@ -2231,16 +2080,24 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
   });
 
   // ── Save Anna daily analysis snapshot ──
+  const ANNA_SENDERS = ["anna_analysis", "anna_movement"] as const;
+  const normalizeAnnaSender = (raw: unknown): string | null => {
+    const sender = typeof raw === "string" && raw.trim() !== "" ? raw : "anna_analysis";
+    return (ANNA_SENDERS as readonly string[]).includes(sender) ? sender : null;
+  };
+
   app.post("/api/anna-analysis/save", async (req, res) => {
     if (!req.userId) return res.status(400).json({ error: "Missing device ID" });
     try {
-      const { dayIndex, analysisText } = req.body;
+      const { dayIndex, analysisText, sender } = req.body;
+      const msgSender = normalizeAnnaSender(sender);
+      if (!msgSender) return res.status(400).json({ error: "Invalid sender" });
       if (!dayIndex || !analysisText) return res.status(400).json({ error: "Missing dayIndex or analysisText" });
       await prisma.annaOverlayMessage.deleteMany({
-        where: { userId: req.userId, dayIndex, sender: "anna_analysis" },
+        where: { userId: req.userId, dayIndex, sender: msgSender },
       });
       const msg = await prisma.annaOverlayMessage.create({
-        data: { userId: req.userId, sender: "anna_analysis", text: analysisText, dayIndex, time: new Date().toISOString() },
+        data: { userId: req.userId, sender: msgSender, text: analysisText, dayIndex, time: new Date().toISOString() },
       });
       res.json({ ok: true, id: msg.id });
     } catch (err: any) {
@@ -2254,8 +2111,10 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
     try {
       const dayIndex = parseInt(req.query.dayIndex as string);
       if (!dayIndex) return res.status(400).json({ error: "Missing dayIndex" });
+      const msgSender = normalizeAnnaSender(req.query.sender);
+      if (!msgSender) return res.status(400).json({ error: "Invalid sender" });
       const msg = await prisma.annaOverlayMessage.findFirst({
-        where: { userId: req.userId, dayIndex, sender: "anna_analysis" },
+        where: { userId: req.userId, dayIndex, sender: msgSender },
         orderBy: { createdAt: "desc" },
       });
       res.json({ text: msg?.text || null });

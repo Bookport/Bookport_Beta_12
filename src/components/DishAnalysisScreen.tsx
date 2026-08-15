@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   ChevronLeft,
@@ -147,6 +147,8 @@ export default function DishAnalysisScreen({
   const [aiComment, setAiComment] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabId>("minerals");
 
+  const analyzedKeyRef = useRef<string | null>(null);
+
   useEffect(() => {
     if (!ingredients.length || !result?.dishName) return;
     const mapped = ingredients.map((i) => ({
@@ -271,6 +273,17 @@ export default function DishAnalysisScreen({
   };
 
   useEffect(() => {
+    const key = JSON.stringify(
+      ingredients.map((ingredient) => [
+        ingredient.fullName,
+        ingredient.weight ?? 100,
+      ])
+    );
+
+    if (analyzedKeyRef.current === key) return;
+
+    analyzedKeyRef.current = key;
+
     let progressInterval: NodeJS.Timeout;
 
     progressInterval = setInterval(() => {
@@ -294,6 +307,13 @@ export default function DishAnalysisScreen({
           { mealSource, dishCategory }
         );
 
+        // B1: результат считается валидным только если собственный серверный
+        // анализатор вернул конечные числовые макросы (calories/protein/fat/fiber).
+        // Никаких локальных/фейковых подстановок.
+        if (!isValidAnalysisResult(resultData)) {
+          throw new Error("Анализатор вернул неполный результат");
+        }
+
         const elapsed = Date.now() - startTime;
         const delay = Math.max(0, 2000 - elapsed);
 
@@ -307,8 +327,7 @@ export default function DishAnalysisScreen({
           }, 400);
         }, delay);
       } catch (err) {
-        console.warn("API Error, falling back to local client analyzer:", err);
-        const calculatedFallback = generateLocalFallback(ingredients);
+        console.warn("[DishAnalysis] Nutrition analysis failed, no local fallback:", err);
 
         const elapsed = Date.now() - startTime;
         const delay = Math.max(0, 2000 - elapsed);
@@ -317,8 +336,10 @@ export default function DishAnalysisScreen({
           clearInterval(progressInterval);
           setProgress(100);
           setTimeout(() => {
-            setResult(calculatedFallback);
-            setCustomTitle(calculatedFallback.dishName);
+            setResult(null);
+            setError(
+              "Не удалось рассчитать нутриенты блюда по базе. Сохранить блюдо в дневник пока нельзя — повторите анализ."
+            );
             setLoading(false);
           }, 400);
         }, delay);
@@ -331,178 +352,27 @@ export default function DishAnalysisScreen({
     };
   }, [ingredients]);
 
-  const generateLocalFallback = (ings: IngredientCard[]): AnalysisResult => {
-    let totalCals = 0;
-    let totalProt = 0;
-    let totalFat = 0;
-    let totalCarb = 0;
-    let totalFiber = 0;
-
-    let iron = 0;
-    let zinc = 0;
-    let magnesium = 0;
-    let iodine = 0;
-    let selenium = 0;
-    let vitC = 0;
-    let vitB9 = 0;
-    let lysineVal = 0;
-    let methionineVal = 0;
-
-    let hasNonCompliant = false;
-
-    ings.forEach((ing) => {
-      const parsedW = parseFloat(String(ing.weight).replace(/[^\d.,]/g, '').replace(',', '.'));
-      const w = isNaN(parsedW) ? 100 : parsedW;
-      const factor = w / 100;
-      const nameLower = (ing.shortName || ing.fullName || "").toLowerCase();
-
-      if (!checkWFPB(ing.fullName || ing.shortName || "").compliant) {
-        hasNonCompliant = true;
+  // B1: строгая валидация результата собственного серверного анализатора.
+  // Валиден только объект с конечными числовыми макросами calories/protein/fat/fiber.
+  function isValidAnalysisResult(r: any): r is AnalysisResult {
+    if (!r || !r.nutrients) return false;
+    const toFinite = (v: unknown): number => {
+      if (typeof v === "number") return Number.isFinite(v) ? v : NaN;
+      if (typeof v === "string") {
+        const cleaned = v.replace(",", ".").replace(/[^\d.\-]/g, "");
+        if (cleaned.trim() === "") return NaN;
+        const n = parseFloat(cleaned);
+        return Number.isFinite(n) ? n : NaN;
       }
-
-      if (nameLower.includes("киноа")) {
-        totalCals += 120 * factor;
-        totalProt += 4.4 * factor;
-        totalFat += 1.9 * factor;
-        totalCarb += 21.3 * factor;
-        totalFiber += 2.8 * factor;
-        iron += 1.5 * factor;
-        magnesium += 64 * factor;
-        zinc += 1.1 * factor;
-        vitB9 += 42 * factor;
-        lysineVal += 0.25 * factor;
-        methionineVal += 0.09 * factor;
-      } else if (nameLower.includes("нут")) {
-        totalCals += 164 * factor;
-        totalProt += 8.9 * factor;
-        totalFat += 2.6 * factor;
-        totalCarb += 27.4 * factor;
-        totalFiber += 7.6 * factor;
-        iron += 2.9 * factor;
-        magnesium += 48 * factor;
-        zinc += 1.5 * factor;
-        vitB9 += 172 * factor;
-        lysineVal += 0.58 * factor;
-        methionineVal += 0.13 * factor;
-      } else if (nameLower.includes("кунжут")) {
-        totalCals += 573 * factor;
-        totalProt += 17.7 * factor;
-        totalFat += 49.7 * factor;
-        totalCarb += 23.4 * factor;
-        totalFiber += 11.8 * factor;
-        iron += 14.6 * factor;
-        magnesium += 351 * factor;
-        zinc += 7.8 * factor;
-        vitB9 += 97 * factor;
-        lysineVal += 0.56 * factor;
-        methionineVal += 0.52 * factor;
-      } else if (nameLower.includes("шпинат")) {
-        totalCals += 23 * factor;
-        totalProt += 2.9 * factor;
-        totalFat += 0.4 * factor;
-        totalCarb += 3.6 * factor;
-        totalFiber += 2.2 * factor;
-        iron += 2.7 * factor;
-        magnesium += 79 * factor;
-        zinc += 0.5 * factor;
-        vitC += 28 * factor;
-        vitB9 += 194 * factor;
-        lysineVal += 0.17 * factor;
-        methionineVal += 0.04 * factor;
-      } else if (nameLower.includes("огур")) {
-        totalCals += 15 * factor;
-        totalProt += 0.7 * factor;
-        totalFat += 0.1 * factor;
-        totalCarb += 3.6 * factor;
-        totalFiber += 0.5 * factor;
-        iron += 0.3 * factor;
-        magnesium += 13 * factor;
-        vitC += 2.8 * factor;
-        vitB9 += 7 * factor;
-      } else {
-        totalCals += 80 * factor;
-        totalProt += 2.5 * factor;
-        totalFat += 0.8 * factor;
-        totalCarb += 15 * factor;
-        totalFiber += 2.5 * factor;
-        iron += 1 * factor;
-        magnesium += 25 * factor;
-        zinc += 0.4 * factor;
-        vitC += 4 * factor;
-        vitB9 += 15 * factor;
-      }
-    });
-
-    const finalDishName =
-      ings.map((i) => i.shortName).slice(0, 3).join(" и ") + " боул";
-
-    const baseFlat: Record<string, { value: number; unit: string }> = {};
-    const flatPairs: [string, number][] = [
-      ["calories", Math.round(totalCals)],
-      ["protein", parseFloat(totalProt.toFixed(1))],
-      ["fat", parseFloat(totalFat.toFixed(1))],
-      ["carbohydrates", parseFloat(totalCarb.toFixed(1))],
-      ["fiber", parseFloat(totalFiber.toFixed(1))],
-      ["iron", parseFloat(iron.toFixed(1))],
-      ["zinc", parseFloat(zinc.toFixed(1)) || 1.1],
-      ["magnesium", Math.round(magnesium) || 98],
-      ["iodine", hasNonCompliant ? 0 : 4],
-      ["selenium", hasNonCompliant ? 2 : 11],
-      ["vitaminC", Math.round(vitC) || 28],
-      ["folate", Math.round(vitB9) || 75],
-      ["lysine", parseFloat(lysineVal.toFixed(1)) || 0.6],
-      ["methionine", parseFloat(methionineVal.toFixed(1)) || 0.2],
-    ];
-    for (const [k, v] of flatPairs) {
-      baseFlat[k] = { value: v, unit: getUnit(k) };
-    }
-
-    return {
-      dishName:
-        finalDishName.length > 5
-          ? `Тёплый боул с ${ings.map((i) => i.shortName.toLowerCase()).slice(0, 2).join(" и ")}`
-          : "Тёплый боул с киноа и нутом",
-      nutrients: {
-        calories: { value: Math.round(totalCals), unit: "ккал" },
-        protein: { value: parseFloat(totalProt.toFixed(1)), unit: "г" },
-        fats: { value: parseFloat(totalFat.toFixed(1)), unit: "г" },
-        carbs: { value: parseFloat(totalCarb.toFixed(1)), unit: "г" },
-        fiber: { value: parseFloat(totalFiber.toFixed(1)), unit: "г" },
-        omegaRatio: { value: "4:1", unit: "" },
-      },
-      micronutrients: {
-        iron: { value: parseFloat(iron.toFixed(1)), unit: "мг" },
-        zinc: { value: parseFloat(zinc.toFixed(1)) || 1.1, unit: "мг" },
-        magnesium: { value: Math.round(magnesium) || 98, unit: "мг" },
-        iodine: { value: hasNonCompliant ? 0 : 4, unit: "мкг" },
-        selenium: { value: hasNonCompliant ? 2 : 11, unit: "мкг" },
-        vitaminC: { value: Math.round(vitC) || 28, unit: "мг" },
-        vitaminB9: { value: Math.round(vitB9) || 75, unit: "мкг" },
-        lysine: { value: parseFloat(lysineVal.toFixed(1)) || 0.6, unit: "г" },
-        methionine: {
-          value: parseFloat(methionineVal.toFixed(1)) || 0.2,
-          unit: "г",
-        },
-      },
-      nutrientsFlat: baseFlat,
-      insights: {
-        strengths: {
-          title: "Сильные стороны блюда",
-          text: "Высокая концентрация растительной клетчатки, комплексных медленных углеводов, аминокислот лизина и цельного неденатурированного белка.",
-        },
-        improvements: {
-          title: "Что можно улучшить",
-          text: "Вы можете обогатить блюдо семенами чиа или молотым льном, чтобы оптимизировать коэффициент незаменимых Омега жирных кислот.",
-        },
-        compliance: {
-          title: "Соответствие растительному рациону",
-          text: hasNonCompliant
-            ? "Внимание! Вы подтвердили ингредиенты, нарушающие философию WFPB (продукты животного происхождения или добавленная соль). Рекомендуем исключить их для идеального здоровья."
-            : "Идеально! Блюдо на 100% соответствует стандартам цельного растительного WFPB-рациона без капли рафинированных масел или соли.",
-        },
-      },
+      return NaN;
     };
-  };
+    const c = toFinite(r.nutrients?.calories?.value);
+    const p = toFinite(r.nutrients?.protein?.value);
+    const f = toFinite(r.nutrients?.fats?.value);
+    const fi = toFinite(r.nutrients?.fiber?.value);
+    return ![c, p, f, fi].some((n) => Number.isNaN(n));
+  }
+
 
   function getNutrientValue(key: string): number {
     if (!result) return 0;
@@ -652,6 +522,41 @@ export default function DishAnalysisScreen({
             className="w-11 h-11 rounded-[16px] shrink-0"
           />
         </div>
+
+        {/* B1: состояние ошибки анализа. Без валидного результата собственного
+            анализатора карточка КБЖУ и кнопка сохранения не показываются. */}
+        {!loading && !result && error && (
+          <div className="flex flex-col items-center justify-center gap-5 mt-8 px-2 text-center">
+            <div className="w-16 h-16 bg-rose-50 rounded-full flex items-center justify-center border border-rose-100">
+              <AlertCircle className="w-8 h-8 text-rose-500 stroke-[2.2]" />
+            </div>
+            <div className="flex flex-col gap-1.5 max-w-[320px]">
+              <h3 className="text-[19px] font-black text-[#2B3137] leading-tight">
+                Анализ не завершён
+              </h3>
+              <p className="text-[13px] text-[#737C86] font-semibold leading-snug">
+                {error}
+              </p>
+            </div>
+            <div className="flex flex-col gap-2 w-full max-w-[320px]">
+              <button
+                type="button"
+                onClick={onBack}
+                className="w-full bg-gradient-to-b from-[#10D150] via-[#16B551] to-[#0A8F3B] hover:brightness-[1.03] rounded-[22px] py-4 px-6 font-bold text-white shadow-[0_8px_20px_rgba(22,181,81,0.22)] flex items-center justify-center gap-2 transition-all duration-300 active:scale-[0.98] text-[16px] cursor-pointer"
+              >
+                <RefreshCw className="w-4.5 h-4.5 stroke-[2.5]" />
+                <span>Повторить анализ</span>
+              </button>
+              <button
+                type="button"
+                onClick={onCancel}
+                className="w-full bg-[#FAFBFB] hover:bg-[#F3F6F8] border border-[#EFF2F3] rounded-[22px] py-3.5 px-6 font-extrabold text-[#737C86] transition-all duration-200 active:scale-[0.98] text-[15px] cursor-pointer"
+              >
+                Вернуться в Мой день
+              </button>
+            </div>
+          </div>
+        )}
 
         {result && (
           <div className="flex flex-col gap-4 mt-2">
