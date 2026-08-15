@@ -1,3 +1,0 @@
--- AlterTable
-ALTER TABLE "User" ADD COLUMN     "feedbackCount" INTEGER NOT NULL DEFAULT 0,
-ADD COLUMN     "shareCount" INTEGER NOT NULL DEFAULT 0;

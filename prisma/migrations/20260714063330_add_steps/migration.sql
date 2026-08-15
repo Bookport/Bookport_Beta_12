@@ -1,2 +1,0 @@
--- AlterTable
-ALTER TABLE "DailyMetric" ADD COLUMN     "steps" INTEGER NOT NULL DEFAULT 0;

@@ -1,4 +1,0 @@
--- AlterTable
-ALTER TABLE "User" ADD COLUMN     "chapterReadCount" INTEGER NOT NULL DEFAULT 0,
-ADD COLUMN     "constructorCount" INTEGER NOT NULL DEFAULT 0,
-ADD COLUMN     "scanCount" INTEGER NOT NULL DEFAULT 0;
