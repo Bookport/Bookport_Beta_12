@@ -6,6 +6,7 @@ import { resolveAvatar } from "../utils/annaAvatarResolver";
 import { useAppStore } from "../store/useAppStore";
 import { api } from "../utils/api";
 import { getDigestionFeedback } from "../utils/digestionCoaching";
+import { getMovementMinutes } from "../utils/movementUtils";
 import { buildDailySummary } from "../utils/crossModuleSummary";
 import { getWaterGoal } from "../utils/waterGoal";
 import AnnaText from "./AnnaText";
@@ -452,10 +453,8 @@ export default function DigestionScreen({
   // Суммируем в СЕКУНДАХ, затем переводим в минуты — как MovementDetailsScreen (Math.round(totalSec / 60)),
   // чтобы цифра совпадала даже до нормализации durationSeconds при первом рендере.
   const todayMovementMin = React.useMemo(() => {
-    const totalSeconds = movementEntries
-      .filter((m) => Number(m.dayIndex) === Number(currentDayIndex))
-      .reduce((sum, m) => sum + (Number(m.duration) || Number(m.durationSeconds) || 0), 0);
-    return Math.round(totalSeconds / 60);
+    const todayEntries = movementEntries.filter((m) => Number(m.dayIndex) === Number(currentDayIndex));
+    return getMovementMinutes(todayEntries);
   }, [movementEntries, currentDayIndex]);
 
   // ---- CUSTOM SHAPES FOR STACKED CHART ----

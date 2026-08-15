@@ -1,15 +1,17 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { motion } from "motion/react";
 import { BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 import BottomBar from "./BottomBar";
-import { MOVEMENT_DAILY_TARGET_MIN, ACTIVITY_CONFIGS } from "../constants/movement";
+import { ACTIVITY_CONFIGS } from "../constants/movement";
 import { getMovementAssetPath } from "../utils/movementAssets";
+import { getMovementGoal, getMovementMinutes } from "../utils/movementUtils";
 import vsegoVremenyImg from "../assets/images/movement/markers/vsego vremeny.webp";
 import spisokAktivnostyImg from "../assets/images/movement/markers/spisok aktivnosty.webp";
 import aktivnayaSeriyaImg from "../assets/images/movement/markers/aktivnaya seriya.webp";
 import vsegoDyisgbiaImg from "../assets/images/movement/markers/vsego dyisgbia.webp";
 import { generateMovementSummary } from "../utils/movementCoaching";
 import { buildDailySummary } from "../utils/crossModuleSummary";
+import { buildFoodSummary } from "../services/foodSummary";
 import AnnaText from "./AnnaText";
 import { getPlural } from "../utils/pluralize";
 import ingrGreenImg from "../assets/ingredients/ingr_green.webp";
@@ -41,29 +43,24 @@ interface MovementDetailsScreenProps {
   userName: string;
   userGender: "female" | "male";
   onBack: () => void;
-
-  // Day notes
-  dayNotes: Record<number, { text: string; time: string; source?: string; tags?: string[]; isVoice?: boolean }[]>;
-  setDayNotes: React.Dispatch<React.SetStateAction<Record<number, { text: string; time: string; source?: string; tags?: string[]; isVoice?: boolean }[]>>>;
 }
 
 export default function MovementDetailsScreen({
   currentDayIndex,
   userName,
   userGender,
-  onBack,
-  dayNotes,
-  setDayNotes
+  onBack
 }: MovementDetailsScreenProps) {
   const movementEntries = useAppStore((s) => s.movementEntries);
   const digestionEntries = useAppStore((s) => s.digestionEntries);
   const waterEntries = useAppStore((s) => s.waterEntries);
   const measurementEntries = useAppStore((s) => s.measurementEntries);
+  const savedDishes = useAppStore((s) => s.savedDishes);
   const selectedGraphDay = useAppStore((s) => s.selectedGraphDay);
   const setSelectedGraphDay = useAppStore((s) => s.setSelectedGraphDay);
 
   // Daily physical target: 30 minutes of logged activity in minutes
-  const dailyTargetMin = MOVEMENT_DAILY_TARGET_MIN;
+  const dailyTargetMin = getMovementGoal();
 
   const getDayEntries = (day: number) =>
     movementEntries.filter((e: MovementEntry) => e.dayIndex === day);
@@ -73,8 +70,7 @@ export default function MovementDetailsScreen({
   // Calculations for current selected day
   const todayEntries = getDayEntries(currentDayIndex);
   const selectedDayEntries = getDayEntries(selectedGraphDay);
-  const selectedDayTotalSec = selectedDayEntries.reduce((sum, entry) => sum + entry.duration, 0);
-  const selectedDayTotalMin = Math.round(selectedDayTotalSec / 60);
+  const selectedDayTotalMin = getMovementMinutes(selectedDayEntries);
   const selectedDayCount = selectedDayEntries.length;
   const selectedDayPercent = Math.min(100, Math.round((selectedDayTotalMin / dailyTargetMin) * 100));
 
@@ -179,19 +175,78 @@ export default function MovementDetailsScreen({
       .catch((err) => console.warn("[MovementDetails] failed to load history:", err));
   }, []);
 
-  const todayTotalMin = Math.round(todayEntries.reduce((sum, e) => sum + e.duration, 0) / 60);
+  const todayTotalMin = getMovementMinutes(todayEntries);
   const latestActivityType = todayEntries.length > 0 ? todayEntries[todayEntries.length - 1].type : null;
 
   const annaCoaching = useMemo(() => {
-    const summary = buildDailySummary(selectedGraphDay ?? currentDayIndex, useAppStore.getState(), currentDayIndex);
-    return generateMovementSummary(summary, userName, userGender);
-  }, [selectedGraphDay, currentDayIndex, digestionEntries, waterEntries, measurementEntries, movementEntries, userName, userGender]);
+    const summaryDay = selectedGraphDay ?? currentDayIndex;
+    const summary = buildDailySummary(summaryDay, useAppStore.getState(), currentDayIndex);
+    const foodSummary = buildFoodSummary(savedDishes, summaryDay);
+    const isCurrentDay = summaryDay === currentDayIndex;
+    return generateMovementSummary(summary, userName, userGender, getDayEntries(summaryDay), foodSummary, isCurrentDay);
+  }, [selectedGraphDay, currentDayIndex, digestionEntries, waterEntries, measurementEntries, movementEntries, savedDishes, userName, userGender]);
+
+  // ── Anna historical snapshot (saved comment for a past selected day) ──
+  const isCurrentSelected = selectedGraphDay === currentDayIndex;
+  const [historicalText, setHistoricalText] = useState<string | null>(null);
+  const [historicalLoading, setHistoricalLoading] = useState(false);
+  const historyRequestDayRef = useRef<number | null>(null);
+  const savedDayRef = useRef<number | null>(null);
+  const savedTextRef = useRef<string | null>(null);
+
+  // Load saved snapshot for a past selected day; guard stale responses on day switch.
+  useEffect(() => {
+    if (isCurrentSelected) {
+      historyRequestDayRef.current = null;
+      setHistoricalText(null);
+      setHistoricalLoading(false);
+      return;
+    }
+    const requestedDay = selectedGraphDay;
+    historyRequestDayRef.current = requestedDay;
+    setHistoricalLoading(true);
+    setHistoricalText(null);
+    api<{ text: string | null }>("/api/anna-analysis?dayIndex=" + requestedDay + "&sender=anna_movement")
+      .then((data) => {
+        if (historyRequestDayRef.current !== requestedDay) return;
+        setHistoricalText(data?.text || null);
+        setHistoricalLoading(false);
+      })
+      .catch(() => {
+        if (historyRequestDayRef.current !== requestedDay) return;
+        setHistoricalText(null);
+        setHistoricalLoading(false);
+      });
+  }, [selectedGraphDay, currentDayIndex, isCurrentSelected]);
+
+  // Debounced save of the live comment for the current day (never inside render/useMemo).
+  useEffect(() => {
+    if (!isCurrentSelected || !currentDayIndex) return;
+    if (savedDayRef.current === currentDayIndex && savedTextRef.current === annaCoaching.text) return;
+    const timer = setTimeout(() => {
+      savedDayRef.current = currentDayIndex;
+      savedTextRef.current = annaCoaching.text;
+      api("/api/anna-analysis/save", {
+        method: "POST",
+        body: { dayIndex: currentDayIndex, analysisText: annaCoaching.text, sender: "anna_movement" },
+      }).catch(() => {});
+    }, 4000);
+    return () => clearTimeout(timer);
+  }, [isCurrentSelected, currentDayIndex, annaCoaching.text]);
+
+  const displayedText = isCurrentSelected
+    ? annaCoaching.text
+    : historicalLoading
+      ? "Загружаем сохраненный комментарий…"
+      : historicalText
+        ? historicalText
+        : "Комментарий Анны за этот день не был сохранен.";
 
   const chartData = useMemo(() => {
     return Array.from({ length: 28 }).map((_, idx) => {
       const dayNum = idx + 1;
       const entries = getDayEntries(dayNum);
-      const minutes = Math.round(entries.reduce((sum, e) => sum + e.duration, 0) / 60);
+      const minutes = getMovementMinutes(entries);
       return { day: dayNum, minutes, isFuture: dayNum > currentDayIndex };
     });
   }, [movementEntries, currentDayIndex]);
@@ -381,7 +436,7 @@ export default function MovementDetailsScreen({
           </div>
 
           <div className="bg-white/80 backdrop-blur-xs p-3.5 rounded-2xl text-[14px] leading-relaxed font-semibold text-slate-800">
-            <AnnaText text={annaCoaching.text} userName={userName} />
+            <AnnaText text={displayedText} userName={userName} />
           </div>
         </div>
 

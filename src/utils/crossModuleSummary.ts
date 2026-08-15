@@ -1,4 +1,5 @@
 import { AppState } from "../store/useAppStore";
+import { getMovementGoal, getMovementMinutes } from "./movementUtils";
 import { getWaterGoal, WATER_ACTIVE_START_MIN, WATER_ACTIVE_WINDOW_MIN } from "./waterGoal";
 
 // Единый набор статусов воды для всех модулей (WaterContext, digestionContext и т.д.)
@@ -163,10 +164,9 @@ export const buildDailySummary = (dayIndex: number, store: AppState, currentDayI
   // идентично MovementDetailsScreen и карточке «Движение», иначе при первом рендере
   // (когда durationSeconds ещё не нормализован) activeMin=0 и Анна выдаёт «на нуле».
   const movementEntries = store.movementEntries.filter(m => Number(m.dayIndex) === dayIndexNum);
-  const activeSeconds = movementEntries.reduce((sum, m) => sum + (Number(m.duration) || Number(m.durationSeconds) || 0), 0);
-  const activeMin = Math.round(activeSeconds / 60);
+  const activeMin = getMovementMinutes(movementEntries);
   let movementStatus: 'sedentary' | 'active' | 'athletic' = 'sedentary';
-  if (activeMin >= 30) movementStatus = 'active';
+  if (activeMin >= getMovementGoal()) movementStatus = 'active';
   if (activeMin >= 60) movementStatus = 'athletic';
 
 // 4. MEASUREMENTS
