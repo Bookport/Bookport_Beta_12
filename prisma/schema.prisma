@@ -33,6 +33,11 @@ model User {
   ritualTime                String?   @default("21:00")
   lastAchievementUnlockedAt DateTime?
 
+  /// Contract: day boundaries for this user are resolved in this IANA time zone.
+  /// The local day is represented as a `YYYY-MM-DD` string (see src/shared/dates.ts).
+  /// Day-only `DateTime` values MUST be written via the shared helper `toDateOnly()`.
+  timeZone                  String    @default("Europe/Moscow")
+
   pendingAchievementId String?
   constructorCount     Int     @default(0)
   scanCount            Int     @default(0)
@@ -146,6 +151,9 @@ model DailyRating {
   userId       String
   user         User     @relation(fields: [userId], references: [id])
   date         DateTime @default(now())
+  /// Contract: local course day index within 1..28 (see `dayIndexBetween` in src/shared/dates.ts).
+  /// Day-only `DateTime` values MUST be written via the shared helper `toDateOnly()`.
+  dayIndex     Int?
   wellbeing    Int
   energy       Int
   lightness    Int

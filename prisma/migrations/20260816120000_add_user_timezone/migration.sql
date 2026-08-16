@@ -1,0 +1,3 @@
+ALTER TABLE "User" ADD COLUMN "timeZone" TEXT NOT NULL DEFAULT 'Europe/Moscow';
+
+ALTER TABLE "DailyRating" ADD COLUMN "dayIndex" INTEGER;
