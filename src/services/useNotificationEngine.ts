@@ -3,6 +3,8 @@ import { useAppStore } from "../store/useAppStore";
 import { getWaterGoal } from "../utils/waterGoal";
 import { UserPreferencesStore, UserPreferences } from "./UserPreferencesStore";
 import { api } from "../utils/api";
+import { formatTimeHM, todayLocalDate } from "../shared/dates";
+import { getUserTimeZone } from "../shared/timeZoneStore";
 
 export function useNotificationEngine() {
   const setActiveNotification = useAppStore((s) => s.setActiveNotification);
@@ -51,10 +53,11 @@ export function useNotificationEngine() {
     if (!prefs) return;
 
     const now = new Date();
-    const currentHour = now.getHours();
-    const currentMinute = now.getMinutes();
+    const nowHM = formatTimeHM(now.toISOString(), getUserTimeZone()).split(":");
+    const currentHour = Number(nowHM[0]);
+    const currentMinute = Number(nowHM[1]);
     const minutesSinceMidnight = currentHour * 60 + currentMinute;
-    const currentDayStr = now.toISOString().split("T")[0];
+    const currentDayStr = todayLocalDate(getUserTimeZone());
 
     // Helper: Check if current time falls within a given "HH:MM - HH:MM" window
     const isInWindow = (windowStr: string): boolean => {

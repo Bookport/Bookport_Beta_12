@@ -17,6 +17,7 @@ import { prisma } from "./src/prisma";
 import { MOVEMENT_DAILY_TARGET_MIN } from "./src/constants/movement";
 import { getWaterContext } from "./src/utils/waterCoaching";
 import { logger } from "./src/utils/logger";
+import { DEFAULT_TIMEZONE, validateIanaTimeZone } from "./src/shared/dates";
 import { achievementService } from "./src/services/AchievementService";
 import { ANNA_TOOL_DEFINITIONS, executeToolCall } from "./src/services/annaTools";
 import { setupTelegramWebhook, getBotUsername, getBot } from "./src/services/telegramBot";
@@ -1352,6 +1353,18 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
     if (!req.userId) return res.status(400).json({ error: "Missing device ID" });
     try {
       const data = req.body;
+      let timeZone: string | undefined;
+      if (data.timeZone !== undefined && data.timeZone !== null) {
+        if (typeof data.timeZone !== "string" || data.timeZone.trim() === "") {
+          return res.status(400).json({ error: "Invalid time zone" });
+        }
+        try {
+          validateIanaTimeZone(data.timeZone);
+          timeZone = data.timeZone;
+        } catch {
+          return res.status(400).json({ error: `Invalid IANA time zone: "${data.timeZone}"` });
+        }
+      }
       const user = await prisma.user.update({
         where: { id: req.userId },
         data: {
@@ -1369,6 +1382,7 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
           initialDiastolic: data.initialDiastolic ?? undefined,
           hasSavedSettings: data.hasSavedSettings === true && data.chronicConditions && data.healthGoals ? true : undefined,
           ritualTime: data.ritualTime ?? undefined,
+          timeZone,
           chronicConditions: data.chronicConditions ? JSON.stringify(data.chronicConditions) : undefined,
           healthGoals: data.healthGoals ? JSON.stringify(data.healthGoals) : undefined,
           clickCount: data.clickCount ?? undefined,
@@ -1402,6 +1416,7 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
         initialDiastolic: user.initialDiastolic,
         hasSavedSettings: user.hasSavedSettings,
         ritualTime: user.ritualTime,
+        timeZone: user.timeZone || DEFAULT_TIMEZONE,
         chronicConditions: user.chronicConditions ? JSON.parse(user.chronicConditions) : [],
         healthGoals: user.healthGoals ? JSON.parse(user.healthGoals) : [],
         clickCount: user.clickCount || 0,
@@ -1486,6 +1501,8 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
           initialSystolic: user.initialSystolic,
           initialDiastolic: user.initialDiastolic,
           hasSavedSettings: user.hasSavedSettings,
+          ritualTime: user.ritualTime,
+          timeZone: user.timeZone || DEFAULT_TIMEZONE,
           chronicConditions: user.chronicConditions ? JSON.parse(user.chronicConditions) : [],
           healthGoals: user.healthGoals ? JSON.parse(user.healthGoals) : [],
           clickCount: user.clickCount || 0,

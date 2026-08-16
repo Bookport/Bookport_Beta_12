@@ -14,6 +14,8 @@ import digestionScaleIcon from "../assets/images/digestion/icons/scale.webp";
 import digestionComfortIcon from "../assets/images/digestion/icons/comfort.webp";
 import digestionSymptomsIcon from "../assets/images/digestion/icons/symptoms.webp";
 import type { DigestionEntry } from "../store/useAppStore";
+import { formatTimeHM, todayLocalDate } from "../shared/dates";
+import { getUserTimeZone } from "../shared/timeZoneStore";
 
 interface DigestionModalProps {
   day?: number;
@@ -45,23 +47,17 @@ export default function DigestionModal({ day }: DigestionModalProps) {
     setFastDigestionSymptoms([]);
     setIsSymptomsOpen(false);
 
-    const d = new Date();
-    const hr = d.getHours().toString().padStart(2, "0");
-    const mn = d.getMinutes().toString().padStart(2, "0");
-    setFastDigestionTime(`${hr}:${mn}`);
+    const nowIso = new Date().toISOString();
+    setFastDigestionTime(formatTimeHM(nowIso, getUserTimeZone()));
 
-    const hour = d.getHours();
+    const hour = Number(formatTimeHM(nowIso, getUserTimeZone()).split(":")[0]);
     const intervalIdx = Math.min(5, Math.floor(hour / 4));
     setFastDigestionInterval(DIGESTION_TIME_INTERVALS[intervalIdx]);
   }, [isDigestionModalOpen]);
 
   const submitFastDigestion = () => {
     const nowStamp = Date.now();
-    const timeStr = fastDigestionTime || (() => {
-      const hr = new Date().getHours().toString().padStart(2, "0");
-      const mn = new Date().getMinutes().toString().padStart(2, "0");
-      return `${hr}:${mn}`;
-    })();
+    const timeStr = fastDigestionTime || formatTimeHM(new Date().toISOString(), getUserTimeZone());
 
     const newLogEntry: DigestionEntry = {
       id: `d-modal-log-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
@@ -82,7 +78,7 @@ export default function DigestionModal({ day }: DigestionModalProps) {
     api("/api/metrics/daily", {
       method: "POST",
       body: {
-        date: new Date().toISOString().split("T")[0],
+        date: todayLocalDate(getUserTimeZone()),
         dayIndex,
         digestionLog: [newLogEntry],
       },
@@ -132,11 +128,9 @@ export default function DigestionModal({ day }: DigestionModalProps) {
                 <button
                   type="button"
                   onClick={() => {
-                    const d = new Date();
-                    const hr = d.getHours().toString().padStart(2, "0");
-                    const mn = d.getMinutes().toString().padStart(2, "0");
-                    setFastDigestionTime(`${hr}:${mn}`);
-                    const intervalIdx = Math.min(5, Math.floor(d.getHours() / 4));
+                    const nowIso = new Date().toISOString();
+                    setFastDigestionTime(formatTimeHM(nowIso, getUserTimeZone()));
+                    const intervalIdx = Math.min(5, Math.floor(Number(formatTimeHM(nowIso, getUserTimeZone()).split(":")[0]) / 4));
                     setFastDigestionInterval(DIGESTION_TIME_INTERVALS[intervalIdx]);
                   }}
                   className="bg-[#34D399] text-white text-[12px] font-extrabold px-4 py-1.5 rounded-xl shadow-sm active:scale-95 transition-all cursor-pointer"

@@ -2,6 +2,9 @@
 // This file solves the architecture requirement of having a single engine
 // that merges all eating tracks (Book, Photo recognition, Hand-written/DIY).
 
+import { toLocalDate, todayLocalDate } from "../shared/dates";
+import { getUserTimeZone } from "../shared/timeZoneStore";
+
 export interface NormalizedIngredient {
   name: string;
   weight: number; // in grams
@@ -349,7 +352,7 @@ export class DailyNutritionStore {
     // ==========================================
     // MODULE 2: HAND-SAVED, PHOTO-SCANNED & SAVED BOOK DISHES (строгая схема)
     // ==========================================
-    const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Moscow" });
+    const todayStr = todayLocalDate(getUserTimeZone());
     const todayCustomDishes = (savedDishes || []).filter(dish => {
       // Исключаем блюда Миксера — они не должны влиять на дневную аналитику
       if (dish.sourceType === "mixer" || dish.category === "Миксер") return false;
@@ -358,7 +361,7 @@ export class DailyNutritionStore {
         return dish.dayIndex === currentDayIndex || (dish as any).current_day === currentDayIndex;
       }
       // Фолбэк для совсем старых блюд без dayIndex (не расширяем — только день 1)
-      const dishDate = dish.createdAt ? new Date(dish.createdAt).toLocaleDateString("en-CA", { timeZone: "Europe/Moscow" }) : null;
+      const dishDate = dish.createdAt ? toLocalDate(new Date(dish.createdAt), getUserTimeZone()) : null;
       return dishDate === todayStr && currentDayIndex === 1;
     });
 

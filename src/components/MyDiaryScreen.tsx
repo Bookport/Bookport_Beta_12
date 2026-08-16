@@ -41,6 +41,8 @@ import { useAppStore } from "../store/useAppStore";
 import { NoteSpeechInputHelper } from "../utils/speechToText";
 import { api } from "../utils/api";
 import { ritualMatrix } from "../utils/ritualMatrix";
+import { addDays, formatTimeHM, toLocalDate } from "../shared/dates";
+import { getUserTimeZone } from "../shared/timeZoneStore";
 
 // Load all recipe images for random daily photo
 const recipeImages = Object.values(import.meta.glob("/src/assets/images/recipes/*.webp", { eager: true } as any)).map((mod: any) => mod.default as string);
@@ -497,10 +499,7 @@ export default function MyDiaryScreen({
   const handleAddNote = (text: string, isFromVoice = false) => {
     if (!text.trim()) return;
 
-    const now = new Date();
-    const hours = String(now.getHours()).padStart(2, '0');
-    const mins = String(now.getMinutes()).padStart(2, '0');
-    const timeStr = `${hours}:${mins}`;
+    const timeStr = formatTimeHM(new Date().toISOString(), getUserTimeZone());
 
     const currentNotes = getSelectedDayNotes();
     const newNote: DiaryNote = {
@@ -600,7 +599,7 @@ export default function MyDiaryScreen({
                 id: entry.id,
                 text: entry.note || '',
                 time: entry.time || (entry.createdAt
-                  ? new Date(entry.createdAt).toLocaleTimeString('ru-RU', { timeZone: 'Europe/Moscow', hour: '2-digit', minute: '2-digit' })
+                  ? formatTimeHM(entry.createdAt, getUserTimeZone())
                   : ''),
                 origin: Array.isArray(entry.tags) ? entry.tags[0] : 'thoughts',
                 isVoice: false,
@@ -622,9 +621,9 @@ export default function MyDiaryScreen({
       }
 
       if (data.courseStartDate) {
-        const csd = new Date(data.courseStartDate);
-        csd.setDate(csd.getDate() + selectedDayIndex - 1);
-        setDayDates(prev => ({ ...prev, [selectedDayIndex]: csd.toISOString().split("T")[0] }));
+        const tz = getUserTimeZone();
+        const targetDate = addDays(toLocalDate(new Date(data.courseStartDate), tz), selectedDayIndex - 1);
+        setDayDates(prev => ({ ...prev, [selectedDayIndex]: toLocalDate(targetDate, tz) }));
       }
 
       const entries: DiaryNote[] = [];

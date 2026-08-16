@@ -4,6 +4,8 @@ import { X, Mic, Send } from "lucide-react";
 import { SpeechToTextSession, ensureMicPermission } from "./utils/speechToText";
 import { useAppStore } from "./store/useAppStore";
 import { useNotificationEngine } from "./services/useNotificationEngine";
+import { formatTimeHM, todayLocalDate } from "./shared/dates";
+import { getUserTimeZone, setUserTimeZone } from "./shared/timeZoneStore";
 import GlobalNotificationOverlay from "./components/GlobalNotificationOverlay";
 import { api } from "./utils/api";
 import { getTelegramInitData } from "./utils/telegramClient";
@@ -511,6 +513,7 @@ export default function App() {
         initFromISOString(initData.courseStartDate);
 
         const data = await api<any>("/api/user/data");
+        setUserTimeZone(data.profile?.timeZone);
         console.log("[Init] profile:", data.profile?.name || "—", "dishes:", data.savedDishes?.length, "diary:", data.diary?.length, "progress:", data.recipeProgress?.length);
 
         // Hydrate achievement engine with server-side unlocked IDs
@@ -540,7 +543,7 @@ export default function App() {
                 return {
                   id: d.id,
                   name: d.name,
-                  time: d.createdAt ? new Date(d.createdAt).toLocaleTimeString("ru-RU", { timeZone: "Europe/Moscow", hour: "2-digit", minute: "2-digit" }) : "",
+                  time: d.createdAt ? formatTimeHM(d.createdAt, getUserTimeZone()) : "",
                   tag: d.tag || "",
                   category: d.category || "Основные блюда",
                   image: d.image || "",
@@ -575,7 +578,7 @@ export default function App() {
                 next[dayIdx] = [{
                   id: entry.id,
                   text: entry.note || "",
-                  time: entry.time || (entry.createdAt ? new Date(entry.createdAt).toLocaleTimeString("ru-RU", { timeZone: "Europe/Moscow", hour: "2-digit", minute: "2-digit" }) : ""),
+                  time: entry.time || (entry.createdAt ? formatTimeHM(entry.createdAt, getUserTimeZone()) : ""),
                   origin: Array.isArray(entry.tags) ? entry.tags[0] : "thoughts",
                   isVoice: false,
                   isImportant: false,
@@ -669,7 +672,8 @@ export default function App() {
       api("/api/metrics/ratings", {
         method: "POST",
         body: {
-          date: new Date().toISOString().split("T")[0],
+          date: todayLocalDate(getUserTimeZone()),
+          dayIndex: currentDayIndex,
           wellbeing: ratingWellbeing,
           energy: ratingEnergy,
           lightness: ratingLightness,
@@ -677,7 +681,7 @@ export default function App() {
       }).catch(() => {});
     }, 2000);
     return () => clearTimeout(timer);
-  }, [ratingWellbeing, ratingEnergy, ratingLightness]);
+  }, [ratingWellbeing, ratingEnergy, ratingLightness, currentDayIndex]);
 
   // --- SPECIAL ANNA LOCAL OVERLAY CHAT STATES ---
   const [isOverlayOpen, setOverlayOpen] = useState(false);
@@ -787,8 +791,7 @@ export default function App() {
       const replyText = rawReply.replace(/^(?:`[^`]+`(?:\s*[-–]\s*\d+|\s*\([^)]*\))?|[\wа-яА-Я]+\s+\d+)\s*\n+/g, '').trim();
 
       const annaMsgId = `back-anna-overlay-${Date.now()}`;
-      const now = new Date();
-      const timeStr = now.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+      const timeStr = formatTimeHM(new Date().toISOString(), getUserTimeZone());
 
       setOverlayState("Отвечаю");
 
@@ -843,8 +846,7 @@ export default function App() {
     setOverlayInput("");
 
     const userMsgId = `overlay-msg-user-${Date.now()}`;
-    const now = new Date();
-    const timeStr = now.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+    const timeStr = formatTimeHM(new Date().toISOString(), getUserTimeZone());
 
     const newUserMsg = {
       id: userMsgId,
@@ -877,7 +879,7 @@ export default function App() {
             id: "overlay-welcome",
             sender: "anna",
             text: getOverlayGreeting(screen),
-            time: new Date().toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })
+            time: formatTimeHM(new Date().toISOString(), getUserTimeZone())
           }];
         }
         return prev;
@@ -896,7 +898,7 @@ export default function App() {
           id: "overlay-welcome",
           sender: "anna",
           text: getOverlayGreeting(screen),
-          time: new Date().toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })
+          time: formatTimeHM(new Date().toISOString(), getUserTimeZone())
         }];
       }
       return prev;
@@ -986,7 +988,7 @@ export default function App() {
           id: "overlay-welcome",
           sender: "anna",
           text: getOverlayGreeting(screen),
-          time: new Date().toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })
+          time: formatTimeHM(new Date().toISOString(), getUserTimeZone())
         }
       ]);
       resetOverlayAutoCloseTimer(30000); // Fades in 30s of pure idle
@@ -1150,7 +1152,7 @@ export default function App() {
       id: generatedId,
       name,
       createdAt: new Date().toISOString(),
-      time: new Date().toLocaleTimeString("ru-RU", { timeZone: "Europe/Moscow", hour: "2-digit", minute: "2-digit" }),
+      time: formatTimeHM(new Date().toISOString(), getUserTimeZone()),
       tag,
       category: "Книга",
       image: image || "",
@@ -1216,7 +1218,7 @@ export default function App() {
     api("/api/metrics/daily", {
       method: "POST",
       body: {
-        date: new Date().toISOString().split("T")[0],
+        date: todayLocalDate(getUserTimeZone()),
         dayIndex: activeDayIndex,
         habitsDone: completedKeysCount,
       },
@@ -1593,7 +1595,7 @@ export default function App() {
                       body: {
                         dayIndex: currentDayIndex,
                         note: `🍳 Приготовлено блюдо: ${dishName}. Ингредиенты: ${ingredientNames}`,
-                        time: new Date().toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" }),
+                        time: formatTimeHM(new Date().toISOString(), getUserTimeZone()),
                         tags: ["food"],
                       },
                     }).catch(() => {});

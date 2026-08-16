@@ -50,6 +50,8 @@ import {
 import BottomBar from "./BottomBar";
 import { useAppStore } from "../store/useAppStore";
 import { api } from "../utils/api";
+import { browserTimezone, validateIanaTimeZone } from "../shared/dates";
+import { getUserTimeZone, setUserTimeZone } from "../shared/timeZoneStore";
 import { 
   UserPreferencesStore, 
   UserPreferences, 
@@ -207,6 +209,8 @@ export default function SettingsScreen({
   const [draftSystolic, setDraftSystolic] = useState(systolic);
   const [draftDiastolic, setDraftDiastolic] = useState(diastolic);
   const [draftRitualTime, setDraftRitualTime] = useState(profile?.ritualTime || "21:00");
+  const [draftTimeZone, setDraftTimeZone] = useState<string>(() => profile?.timeZone || getUserTimeZone());
+  const [timeZoneError, setTimeZoneError] = useState<string | null>(null);
   const [draftChronic, setDraftChronic] = useState<string[]>(() => [...selectedChronic]);
   const [draftGoals, setDraftGoals] = useState<string[]>(() => [...selectedGoals]);
   const [showSavedToast, setShowSavedToast] = useState(false);
@@ -293,6 +297,16 @@ export default function SettingsScreen({
   };
 
   const handleSaveAccount = () => {
+    let tz: string | null = null;
+    if (draftTimeZone.trim()) {
+      try {
+        validateIanaTimeZone(draftTimeZone.trim());
+        tz = draftTimeZone.trim();
+      } catch {
+        setTimeZoneError(`Невалидная IANA-зона: "${draftTimeZone.trim()}"`);
+        return;
+      }
+    }
     setUserName(draftName);
     setUserGender(draftGender);
     setAge(draftAge);
@@ -300,10 +314,12 @@ export default function SettingsScreen({
     setWeight(draftWeight);
     setSystolic(draftSystolic);
     setDiastolic(draftDiastolic);
-    const data = { name: draftName, gender: draftGender, age: draftAge, height: draftHeight, weight: draftWeight, systolic: draftSystolic, diastolic: draftDiastolic, ritualTime: draftRitualTime };
+    const data = { name: draftName, gender: draftGender, age: draftAge, height: draftHeight, weight: draftWeight, systolic: draftSystolic, diastolic: draftDiastolic, ritualTime: draftRitualTime, timeZone: tz ?? undefined };
     setUserProfile({ ...profile, ...data });
+    if (tz) setUserTimeZone(tz);
     api("/api/user/profile", { method: "POST", body: data }).catch(() => {});
     UserPreferencesStore.save(prefs);
+    setTimeZoneError(null);
     setShowSavedToast(true);
     setTimeout(() => setShowSavedToast(false), 2000);
     completeSection("account");
@@ -1603,6 +1619,37 @@ export default function SettingsScreen({
                       <Plus className="w-5 h-5 stroke-[2.5]" />
                     </StepperButton>
                   </div>
+                </div>
+
+                {/* Time zone (effective profile timezone) */}
+                <div className="flex flex-col gap-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-extrabold uppercase text-[#737C86]">Часовой пояс (IANA):</span>
+                    <span className="text-[10.5px] text-text-muted">Текущий: {getUserTimeZone()}</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={draftTimeZone}
+                      onChange={(e) => { setDraftTimeZone(e.target.value); setTimeZoneError(null); }}
+                      placeholder="Напр. Europe/Moscow"
+                      className="w-full h-12 px-4 rounded-xl text-[14px] font-bold text-text-dark bg-gray-50 border border-gray-100 focus:outline-none focus:border-purple-300 focus:bg-white"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => { setDraftTimeZone(browserTimezone()); setTimeZoneError(null); }}
+                      className="shrink-0 h-12 px-3 rounded-xl bg-purple-50 border border-purple-100 text-[12px] font-extrabold text-purple-600 active:scale-95 transition-all cursor-pointer"
+                      title="Использовать часовой пояс устройства"
+                    >
+                      Устройство
+                    </button>
+                  </div>
+                  {timeZoneError && (
+                    <span className="text-[11px] font-bold text-red-500">{timeZoneError}</span>
+                  )}
+                  <span className="text-[10.5px] text-text-muted leading-snug">
+                    Новые записи и отображение времени будут строиться в этом поясе. Исторические данные не переносятся между днями.
+                  </span>
                 </div>
 
               </div>

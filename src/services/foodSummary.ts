@@ -1,5 +1,7 @@
 import type { SavedDish } from "../types/dishes";
 import { DailyNutritionStore, parseFiniteMacro } from "./DailyNutritionStore";
+import { toLocalDate, todayLocalDate } from "../shared/dates";
+import { getUserTimeZone } from "../shared/timeZoneStore";
 
 // ============================================================================
 // B4 + B5: FoodSummary — минимальный read-only контракт питания за один день.
@@ -13,7 +15,7 @@ import { DailyNutritionStore, parseFiniteMacro } from "./DailyNutritionStore";
 // (DailyNutritionStore не импортирует этот файл).
 // ============================================================================
 
-/** Производный слот приёма пищи по локальному времени Europe/Moscow. */
+/** Производный слот приёма пищи по локальному времени профиля. */
 export type MealSlot = "breakfast" | "lunch" | "dinner" | "snack";
 
 /** Компактный снимок одного сохранённого блюда дня. */
@@ -35,8 +37,8 @@ export interface FoodSummaryDish {
   includedInStrictMacros: boolean;
   /** Снимок сохранённых ингредиентов блюда (как есть, без нормализации веса). */
   ingredients: { name: string; weight: string; status: string }[];
-  /** Локальное время приёма (Europe/Moscow, "HH:MM") или null при отсутствии/невалидности createdAt. */
-  timeMsk: string | null;
+  /** Локальное время приёма (timezone профиля, "HH:MM") или null при отсутствии/невалидности createdAt. */
+  timeLocal: string | null;
   /** Производный слот приёма пищи или null, если время недоступно. */
   mealSlot: MealSlot | null;
 }
@@ -78,24 +80,24 @@ export interface FoodSummary {
   ingredients: FoodSummaryIngredient[];
   uniqueIngredientCount: number;
 
-  /** Время первого/последнего приёма пищи (Europe/Moscow, "HH:MM") или null. */
+  /** Время первого/последнего приёма пищи (timezone профиля, "HH:MM") или null. */
   firstMealAt: string | null;
   lastMealAt: string | null;
 }
 
-// ── Вспомогательное: локальное время Europe/Moscow из createdAt ──
+// ── Вспомогательное: локальное время профиля из createdAt ──
 
 /**
- * Возвращает { hour, minute } в зоне Europe/Moscow для валидной ISO-метки,
+ * Возвращает { hour, minute } в timezone профиля для валидной ISO-метки,
  * либо null для отсутствующей/невалидной createdAt. Никогда не бросает.
  */
-function getMoscowHM(createdAt: unknown): { hour: number; minute: number } | null {
+function getLocalHM(createdAt: unknown): { hour: number; minute: number } | null {
   if (typeof createdAt !== "string" || createdAt.trim() === "") return null;
   const d = new Date(createdAt);
   if (Number.isNaN(d.getTime())) return null;
   try {
     const parts = new Intl.DateTimeFormat("en-GB", {
-      timeZone: "Europe/Moscow",
+      timeZone: getUserTimeZone(),
       hour: "2-digit",
       minute: "2-digit",
       hour12: false,
@@ -121,7 +123,7 @@ function formatHM(hm: { hour: number; minute: number } | null): string | null {
 }
 
 /**
- * B5: Централизованный mapper слота приёма пищи по локальному часу Europe/Moscow.
+ * B5: Централизованный mapper слота приёма пищи по локальному часу профиля.
  * Единственное правило в проекте (ранее mealSlot-правила не существовало).
  * Границы слотов:
  *   05:00–10:59 → breakfast
@@ -145,14 +147,14 @@ export function deriveMealSlot(hm: { hour: number; minute: number } | null): Mea
  * т.к. mealCount = число реально сохранённых блюд.
  */
 function filterDayDishes(savedDishes: SavedDish[], dayIndex: number): SavedDish[] {
-  const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Moscow" });
+  const todayStr = todayLocalDate(getUserTimeZone());
   return (savedDishes || []).filter((dish: any) => {
     if (dish.sourceType === "mixer" || dish.category === "Миксер") return false;
     if (dish.dayIndex !== undefined && dish.dayIndex !== null) {
       return dish.dayIndex === dayIndex || dish.current_day === dayIndex;
     }
     const dishDate = dish.createdAt
-      ? new Date(dish.createdAt).toLocaleDateString("en-CA", { timeZone: "Europe/Moscow" })
+      ? toLocalDate(new Date(dish.createdAt), getUserTimeZone())
       : null;
     return dishDate === todayStr && dayIndex === 1;
   });
@@ -196,7 +198,7 @@ export function buildFoodSummary(
     const includedInStrictMacros =
       cal !== null && pro !== null && fat !== null && carb !== null && fiber !== null;
 
-    const hm = getMoscowHM(dish.createdAt);
+    const hm = getLocalHM(dish.createdAt);
 
     const ingredients = Array.isArray(dish.ingredients)
       ? dish.ingredients.map((i: any) => ({
@@ -220,7 +222,7 @@ export function buildFoodSummary(
       fiber: fiber,
       includedInStrictMacros,
       ingredients,
-      timeMsk: formatHM(hm),
+      timeLocal: formatHM(hm),
       mealSlot: deriveMealSlot(hm),
     };
   });
@@ -242,13 +244,13 @@ export function buildFoodSummary(
   }
   const ingredients = Array.from(seen.values());
 
-  // 5) Время первого/последнего приёма (хронологически по createdAt, Europe/Moscow).
+  // 5) Время первого/последнего приёма (хронологически по createdAt, timezone профиля).
   const timed = dayDishes
     .map((d: any) => (typeof d.createdAt === "string" && d.createdAt.trim() !== "" ? new Date(d.createdAt) : null))
     .filter((d): d is Date => d !== null && !Number.isNaN(d.getTime()))
     .sort((a, b) => a.getTime() - b.getTime());
-  const firstMealAt = timed.length > 0 ? formatHM(getMoscowHM(timed[0].toISOString())) : null;
-  const lastMealAt = timed.length > 0 ? formatHM(getMoscowHM(timed[timed.length - 1].toISOString())) : null;
+  const firstMealAt = timed.length > 0 ? formatHM(getLocalHM(timed[0].toISOString())) : null;
+  const lastMealAt = timed.length > 0 ? formatHM(getLocalHM(timed[timed.length - 1].toISOString())) : null;
 
   return {
     dayIndex,

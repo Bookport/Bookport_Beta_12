@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { MOVEMENT_DAILY_TARGET_MIN, MOVEMENT_MAX_POINTS_PER_DAY } from "../constants/movement";
+import { formatTimeHM, todayLocalDate } from "../shared/dates";
+import { getUserTimeZone } from "../shared/timeZoneStore";
 import { 
   Calendar, 
   Moon, 
@@ -529,7 +531,7 @@ export default function MyDayScreen({
   // --- SLEEP MODULE ACTIVE LOGS & SCENARIOS STATE ---
   const [sleepHoursOverride, setSleepHoursOverride] = useState<number | null>(null);
 
-  const currentSystemHour = sleepHoursOverride !== null ? sleepHoursOverride : new Date().getHours();
+  const currentSystemHour = sleepHoursOverride !== null ? sleepHoursOverride : Number(formatTimeHM(new Date().toISOString(), getUserTimeZone()).split(":")[0]);
   const isSleepButtonNightActive = currentSystemHour >= 22 || currentSystemHour < 6;
 
   const [isCurrentlyPulsing, setIsCurrentlyPulsing] = useState(false);
@@ -1061,9 +1063,7 @@ export default function MyDayScreen({
     const activeActivity = movementSession.activityType;
     
     // Save to daily log entries
-    const hour = new Date().getHours().toString().padStart(2, "0");
-    const min = new Date().getMinutes().toString().padStart(2, "0");
-    const timeStr = `${hour}:${min}`;
+    const timeStr = formatTimeHM(new Date().toISOString(), getUserTimeZone());
 
     const newLogEntry = {
       id: `m-log-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
@@ -1082,8 +1082,7 @@ export default function MyDayScreen({
     const allLogsToday = [...movementEntries.filter((e: any) => e.dayIndex === currentDayIndex), newLogEntry];
     const prevActivityMin = Math.round(movementEntries.filter(e => e.dayIndex === currentDayIndex).reduce((sum, e) => sum + e.duration, 0) / 60);
     const totalActivityMin = Math.round(allLogsToday.reduce((sum, e) => sum + e.duration, 0) / 60);
-    const d = new Date();
-    const localDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    const localDate = todayLocalDate(getUserTimeZone());
     api("/api/metrics/daily", {
       method: "POST",
       body: {
@@ -1146,9 +1145,7 @@ export default function MyDayScreen({
     const activeActivity = configObj.name;
     
     // Save to daily log entries
-    const hour = new Date().getHours().toString().padStart(2, "0");
-    const min = new Date().getMinutes().toString().padStart(2, "0");
-    const timeStr = `${hour}:${min}`;
+    const timeStr = formatTimeHM(new Date().toISOString(), getUserTimeZone());
 
     const newLogEntry = {
       id: `m-log-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
@@ -1167,8 +1164,7 @@ export default function MyDayScreen({
     const allLogsToday = [...movementEntries.filter((e: any) => e.dayIndex === currentDayIndex), newLogEntry];
     const prevActivityMin = Math.round(movementEntries.filter(e => e.dayIndex === currentDayIndex).reduce((sum, e) => sum + e.duration, 0) / 60);
     const totalActivityMin = Math.round(allLogsToday.reduce((sum, e) => sum + e.duration, 0) / 60);
-    const d = new Date();
-    const localDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    const localDate = todayLocalDate(getUserTimeZone());
     api("/api/metrics/daily", {
       method: "POST",
       body: {
@@ -1287,9 +1283,7 @@ export default function MyDayScreen({
   const submitFastMeasurement = () => {
     // Generate new entry
     const nowStamp = Date.now();
-    const hr = new Date().getHours().toString().padStart(2, "0");
-    const mn = new Date().getMinutes().toString().padStart(2, "0");
-    const timeStr = `${hr}:${mn}`;
+    const timeStr = formatTimeHM(new Date().toISOString(), getUserTimeZone());
 
     const newLogEntry: MeasurementLogEntry = {
       id: `m-usr-log-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
@@ -1320,7 +1314,7 @@ export default function MyDayScreen({
     api("/api/metrics/daily", {
       method: "POST",
       body: {
-        date: new Date().toISOString().split("T")[0],
+        date: todayLocalDate(getUserTimeZone()),
         dayIndex: currentDayIndex,
         measurements: [newLogEntry],
       },
@@ -1400,15 +1394,14 @@ export default function MyDayScreen({
 
   const handleWakeUpClick = () => {
     playMorningChimes();
-    const now = new Date();
-    const curTime = `${now.getHours().toString().padStart(2, "0")}:${now.getMinutes().toString().padStart(2, "0")}`;
+    const curTime = formatTimeHM(new Date().toISOString(), getUserTimeZone());
     setWakeTimeRecorded(curTime);
     setShowSleepQualityModal(true);
   };
 
   const handleSaveSleepQuality = (quality: "good" | "fair" | "poor") => {
     const finalBedTime = bedTimeRecorded || "23:00";
-    const finalWakeTime = `${new Date().getHours().toString().padStart(2, "0")}:${new Date().getMinutes().toString().padStart(2, "0")}`;
+    const finalWakeTime = formatTimeHM(new Date().toISOString(), getUserTimeZone());
 
     const [bedH, bedM] = finalBedTime.split(":").map(Number);
     const [wakeH, wakeM] = finalWakeTime.split(":").map(Number);
@@ -1443,7 +1436,7 @@ export default function MyDayScreen({
     api("/api/metrics/daily", {
       method: "POST",
       body: {
-        date: new Date().toISOString().split("T")[0],
+        date: todayLocalDate(getUserTimeZone()),
         dayIndex: currentDayIndex,
         sleepMinutes: durationMin,
         sleepLogs: [entry],
@@ -1647,8 +1640,7 @@ export default function MyDayScreen({
 
   // Add water action helper
   const handleAddWaterAmount = (amt: number) => {
-    const now = new Date();
-    const timeStr = now.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+    const timeStr = formatTimeHM(new Date().toISOString(), getUserTimeZone());
     
     const newEntry: WaterLogEntry = {
       id: `water-${Date.now()}-${Math.random()}`,
@@ -1674,7 +1666,7 @@ export default function MyDayScreen({
     api("/api/metrics/daily", {
       method: "POST",
       body: {
-        date: new Date().toISOString().split("T")[0],
+        date: todayLocalDate(getUserTimeZone()),
         dayIndex: currentDayIndex,
         waterMl: sum,
         waterEntries: [newEntry],
@@ -2947,8 +2939,7 @@ export default function MyDayScreen({
                   id="fast-sleep-button-log"
                   onClick={() => {
                     playDeepBellSound();
-                    const now = new Date();
-                    const curTime = `${now.getHours().toString().padStart(2, "0")}:${now.getMinutes().toString().padStart(2, "0")}`;
+                    const curTime = formatTimeHM(new Date().toISOString(), getUserTimeZone());
                     setBedTimeRecorded(curTime);
                     setIsNightModeActive(true);
                     setShowFastSleep(false);
@@ -3605,10 +3596,7 @@ export default function MyDayScreen({
                   type="button"
                   onClick={() => {
                     if (!diaryInputText.trim()) return;
-                    const now = new Date();
-                    const hours = String(now.getHours()).padStart(2, '0');
-                    const mins = String(now.getMinutes()).padStart(2, '0');
-                    const timeStr = `${hours}:${mins}`;
+                    const timeStr = formatTimeHM(new Date().toISOString(), getUserTimeZone());
 
                     const updatedNotes = { ...dayNotes };
                     if (!updatedNotes[currentDayIndex]) {
@@ -3765,10 +3753,7 @@ export default function MyDayScreen({
               <button
                 type="button"
                 onClick={() => {
-                  const now = new Date();
-                  const hours = String(now.getHours()).padStart(2, '0');
-                  const mins = String(now.getMinutes()).padStart(2, '0');
-                  const timeStr = `${hours}:${mins}`;
+                  const timeStr = formatTimeHM(new Date().toISOString(), getUserTimeZone());
 
                   const textEntry = `🧘 Зафиксировано состояние [${timeStr}]:\n• Дзен-состояние: ${ratingWellbeing}/5\n• Энергия: ${ratingEnergy}/5\n• Ощущение лёгкости: ${ratingLightness}/5\nРацион WFPB без соли дарит максимальный комфорт.`;
                   

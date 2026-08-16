@@ -1,3 +1,6 @@
+import { todayLocalDate } from "../shared/dates";
+import { getUserTimeZone } from "../shared/timeZoneStore";
+
 export const DAILY_QUOTES: string[] = [
   "Система «Всё дело в еде!» помогает видеть не только сегодняшнее блюдо, но и привычки, которые день за днём меняют здоровье.",
   "Каждое блюдо — это ещё один выбор в пользу будущего. Система «Всё дело в еде!» помогает сделать этот выбор осознанным.",
@@ -32,20 +35,15 @@ export const DAILY_QUOTES: string[] = [
 const BASE_DATE_UTC = Date.UTC(2026, 0, 1);
 const QUOTE_CYCLE_LENGTH = 28;
 
-// Текущая дата по московскому времени (UTC+3) в формате YYYY-MM-DD
-function getMskDateKey(): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Europe/Moscow",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date());
+// Текущая дата в timezone профиля в формате YYYY-MM-DD
+function getLocalDateKey(): string {
+  return todayLocalDate(getUserTimeZone());
 }
 
 // Индекс цитаты = (количество дней от базовой даты % 28).
-// Меняется ровно в полночь по МСК, без повторов в течение 28-дневного цикла.
+// Меняется ровно в полночь в timezone профиля, без повторов в течение 28-дневного цикла.
 export function getDailyQuoteIndex(): number {
-  const [y, m, d] = getMskDateKey().split("-").map(Number);
+  const [y, m, d] = getLocalDateKey().split("-").map(Number);
   const todayUtc = Date.UTC(y, m - 1, d);
   const days = Math.floor((todayUtc - BASE_DATE_UTC) / 86400000);
   return ((days % QUOTE_CYCLE_LENGTH) + QUOTE_CYCLE_LENGTH) % QUOTE_CYCLE_LENGTH;

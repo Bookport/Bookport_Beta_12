@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { getTelegramInitData } from "../utils/telegramClient";
+import { setUserTimeZone } from "../shared/timeZoneStore";
 import type { SavedDish } from "../types/dishes";
 
 export interface FoodCacheItem {
@@ -39,6 +40,7 @@ export interface UserProfile {
   hasSavedSettings?: boolean;
   ritualTime?: string;
   currentDayIndex?: number;
+  timeZone?: string;
   chronicConditions?: string[];
   healthGoals?: string[];
 }
@@ -254,6 +256,7 @@ export const useAppStore = create<AppState>((set) => ({
       if (resp.ok) {
         const data = await resp.json();
         set({ userProfile: data, clickCount: data.clickCount || 0, globalProgress: data.globalProgress || 0 });
+        setUserTimeZone(data.timeZone);
       }
     } catch {
       // Server not available — continue with empty profile

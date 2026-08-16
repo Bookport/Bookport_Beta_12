@@ -35,8 +35,9 @@ export function toDateOnly(date: string): Date {
   return new Date(`${date}T00:00:00.000Z`);
 }
 
-export function addDays(date: Date, n: number): Date {
-  const result = new Date(date.getTime());
+export function addDays(date: string | Date, n: number): Date {
+  const base = typeof date === "string" ? new Date(`${date}T00:00:00.000Z`) : date;
+  const result = new Date(base.getTime());
   result.setUTCDate(result.getUTCDate() + n);
   return result;
 }

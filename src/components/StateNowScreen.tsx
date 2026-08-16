@@ -30,6 +30,8 @@ import { api } from "../utils/api";
 import { getBookMacros } from "../utils/bookMacros";
 import { getRecipeImagePath } from "../utils/recipeImageMapper";
 import { getPlural } from "../utils/pluralize";
+import { formatTimeHM, todayLocalDate, toLocalDate } from "../shared/dates";
+import { getUserTimeZone } from "../shared/timeZoneStore";
 
 interface StateNowScreenProps {
   dayNotes: Record<number, { text: string; time: string }[]>;
@@ -170,7 +172,7 @@ export default function StateNowScreen({
   }, [currentDayIndex]);
 
   const handleWakeConfirm = (minutes: number) => {
-    const todayStr = new Date().toLocaleDateString("en-CA");
+    const todayStr = todayLocalDate(getUserTimeZone());
     api("/api/metrics/daily", {
       method: "POST",
       body: { date: todayStr, dayIndex: currentDayIndex, sleepMinutes: minutes },
@@ -214,7 +216,7 @@ export default function StateNowScreen({
   const activityLogs = apiStateNowData?.dailyMetric?.movementLog ? (typeof apiStateNowData.dailyMetric.movementLog === 'string' ? JSON.parse(apiStateNowData.dailyMetric.movementLog) : apiStateNowData.dailyMetric.movementLog) : [];
   const effSavedDishes = savedDishes.length ? savedDishes : (apiStateNowData?.savedDishes || []);
   const effHabitsDone = SystemKeysStore.calculateKeysForDay(currentDayIndex || 1, effSavedDishes, effWater).closedCount;
-  const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Moscow" });
+  const todayStr = todayLocalDate(getUserTimeZone());
 
   // Set up cooked book recipes
   const cookedBookDishes: any[] = [];
@@ -373,7 +375,7 @@ export default function StateNowScreen({
       if (dish.dayIndex !== undefined && dish.dayIndex !== null) {
         if (dish.dayIndex !== currentDayIndex) continue;
       } else {
-        const dishDate = dish.createdAt ? new Date(dish.createdAt).toLocaleDateString("en-CA", { timeZone: "Europe/Moscow" }) : null;
+        const dishDate = dish.createdAt ? toLocalDate(new Date(dish.createdAt), getUserTimeZone()) : null;
         if (dishDate !== todayStr) continue;
       }
       const bookType = (dish as any).bookRecipeRef?.type || (dish as any).bookRecipeType;
@@ -389,7 +391,7 @@ export default function StateNowScreen({
           category: dish.category || "Книга",
           page: 0,
           time: dish.time || (dish.createdAt
-            ? new Date(dish.createdAt).toLocaleTimeString("ru-RU", { timeZone: "Europe/Moscow", hour: "2-digit", minute: "2-digit" })
+            ? formatTimeHM(dish.createdAt, getUserTimeZone())
             : ""),
           image: dish.image || "",
           calories: dish.calories || 0,
@@ -420,7 +422,7 @@ export default function StateNowScreen({
         fat: dish.fat,
         fiber: dish.fiber,
         time: dish.time || (dish.createdAt
-          ? new Date(dish.createdAt).toLocaleTimeString("ru-RU", { timeZone: "Europe/Moscow", hour: "2-digit", minute: "2-digit" })
+          ? formatTimeHM(dish.createdAt, getUserTimeZone())
           : "")
       };
     });
@@ -502,8 +504,9 @@ export default function StateNowScreen({
   const activeStartMin = WATER_ACTIVE_START_MIN;      // 08:00
   const activeWindowMin = WATER_ACTIVE_WINDOW_MIN;    // 840 мин (08:00–22:00)
   const activeEndMin = activeStartMin + activeWindowMin;
-  const currentHour = new Date().getHours();
-  const currentMinute = new Date().getMinutes();
+  const nowTimeHM = formatTimeHM(new Date().toISOString(), getUserTimeZone()).split(":");
+  const currentHour = Number(nowTimeHM[0]);
+  const currentMinute = Number(nowTimeHM[1]);
   const nowMinutes = currentHour * 60 + currentMinute;
   const awakeMinutesToday = Math.max(0, Math.min(nowMinutes - activeStartMin, activeWindowMin));
   const expectedWaterByNow = Math.round(waterTarget * (awakeMinutesToday / activeWindowMin));
@@ -1058,13 +1061,13 @@ export default function StateNowScreen({
   };
 
   const handleRatingChange = (type: "zen" | "energy" | "lightness", val: number) => {
-    const time = new Date().toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+    const time = formatTimeHM(new Date().toISOString(), getUserTimeZone());
     const logEntry = { type, time, value: val };
     
     api("/api/metrics/ratings", {
       method: "POST",
       body: {
-        date: new Date().toISOString().split("T")[0],
+        date: todayLocalDate(getUserTimeZone()),
         wellbeing: type === "zen" ? val : effRatingWellbeing,
         energy: type === "energy" ? val : effRatingEnergy,
         lightness: type === "lightness" ? val : effRatingLightness,
@@ -1085,7 +1088,7 @@ export default function StateNowScreen({
 
     // Save automatic diary trace if required
     if (onSaveWellbeingComment) {
-      const timeStr = new Date().toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+      const timeStr = formatTimeHM(new Date().toISOString(), getUserTimeZone());
       onSaveWellbeingComment(
         `Зафиксированы параметры состояния в ${timeStr}:\n• Дзен-состояние: ${effRatingWellbeing}/5\n• Энергия: ${effRatingEnergy}/5\n• Лёгкость: ${effRatingLightness}/5`
       );
@@ -1158,7 +1161,7 @@ export default function StateNowScreen({
         <div className="flex items-center justify-center gap-1.5 mb-5 select-none font-mono">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
           <span className="text-[11px] font-extrabold text-gray-400 uppercase tracking-widest">
-            данные обновлены на {new Date().toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })} • экспертная оценка
+            данные обновлены на {formatTimeHM(new Date().toISOString(), getUserTimeZone())} • экспертная оценка
           </span>
         </div>
 
