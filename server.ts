@@ -13,11 +13,12 @@ import { callLLM } from "./src/services/llmAdapter";
 import { PromptCompiler } from "./src/services/promptCompiler";
 import { safeParseJSON } from "./src/utils/safeParseJSON";
 import { getPlural } from "./src/utils/pluralize";
+import { Prisma } from "@prisma/client";
 import { prisma } from "./src/prisma";
 import { MOVEMENT_DAILY_TARGET_MIN } from "./src/constants/movement";
 import { getWaterContext } from "./src/utils/waterCoaching";
 import { logger } from "./src/utils/logger";
-import { DEFAULT_TIMEZONE, validateIanaTimeZone } from "./src/shared/dates";
+import { DEFAULT_TIMEZONE, addDays, toDateOnly, todayLocalDate, validateIanaTimeZone } from "./src/shared/dates";
 import { achievementService } from "./src/services/AchievementService";
 import { ANNA_TOOL_DEFINITIONS, executeToolCall } from "./src/services/annaTools";
 import { setupTelegramWebhook, getBotUsername, getBot } from "./src/services/telegramBot";
@@ -414,6 +415,77 @@ async function fetchUsdaNutrition(ingredients: { foodName: string; weightInGrams
     console.warn("[USDA] fetchUsdaNutrition error:", error);
     return null;
   }
+}
+
+// ── B3c: deterministic journal merge + transaction helpers ──
+
+function parseJsonArray<T = any>(raw: string | null | undefined): T[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function stableKeyOf(entry: any, keyFn: (e: any) => string | number): string {
+  const raw = keyFn(entry);
+  if (typeof raw === "string") return raw;
+  if (typeof raw === "number" && Number.isFinite(raw)) return String(raw);
+  return JSON.stringify(entry ?? null);
+}
+
+function isExternalRetryError(err: any): boolean {
+  const code = err?.code;
+  return code === "P2034" || code === "40001" || code === "40P01";
+}
+
+const waterKey = (e: any) => e?.id ?? e?.timestamp ?? "";
+const movementKey = (e: any) => e?.id ?? e?.timestamp ?? "";
+const measurementKey = (e: any) => e?.id ?? e?.timestamp ?? "";
+const digestionKey = (e: any) => e?.id ?? `${e?.timestamp ?? ""}|${e?.timeString ?? ""}`;
+const sleepKey = (e: any) => `${e?.sleepTime ?? ""}|${e?.wakeTime ?? ""}|${e?.duration ?? ""}`;
+
+// Deterministic union: existing entries preserved, new (by stable key) appended,
+// canonical sort by timestamp asc, then stable key asc (entries without a usable
+// timestamp sort by stable key).
+function dedupeUnion(existing: any[] | null | undefined, incoming: any[] | null | undefined, keyFn: (e: any) => string | number): any[] {
+  const seen = new Set<string>();
+  const merged: any[] = [];
+  for (const e of existing ?? []) {
+    const k = stableKeyOf(e, keyFn);
+    if (!seen.has(k)) {
+      seen.add(k);
+      merged.push(e);
+    }
+  }
+  for (const e of incoming ?? []) {
+    const k = stableKeyOf(e, keyFn);
+    if (!seen.has(k)) {
+      seen.add(k);
+      merged.push(e);
+    }
+  }
+  merged.sort((a, b) => {
+    const ta = typeof a?.timestamp === "number" && Number.isFinite(a.timestamp) ? a.timestamp : typeof a?.timestamp === "string" ? Date.parse(a.timestamp) : NaN;
+    const tb = typeof b?.timestamp === "number" && Number.isFinite(b.timestamp) ? b.timestamp : typeof b?.timestamp === "string" ? Date.parse(b.timestamp) : NaN;
+    const ka = stableKeyOf(a, keyFn);
+    const kb = stableKeyOf(b, keyFn);
+    if (Number.isFinite(ta) && Number.isFinite(tb)) {
+      if (ta !== tb) return ta - tb;
+    } else if (Number.isFinite(ta)) {
+      return -1;
+    } else if (Number.isFinite(tb)) {
+      return 1;
+    }
+    return ka < kb ? -1 : ka > kb ? 1 : 0;
+  });
+  return merged;
+}
+
+function isValidDayIndex(v: unknown): v is number {
+  return typeof v === "number" && Number.isInteger(v) && v >= 1 && v <= 28;
 }
 
 async function startServer() {
@@ -1293,33 +1365,47 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
   app.get("/api/user/init", async (req, res) => {
     if (!req.userId) return res.status(400).json({ error: "Missing device ID" });
     try {
-      const user = await prisma.user.findUnique({ where: { id: req.userId } });
+      let user = await prisma.user.findUnique({ where: { id: req.userId } });
       if (!user) return res.status(404).json({ error: "User not found" });
 
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      // Server-side canonical local day in the user's timezone (User.timeZone is the
+      // single source; query tz / clientToday are never used as decision input).
+      const tz = user.timeZone || DEFAULT_TIMEZONE;
+      const todayStr = todayLocalDate(tz);
+      const todayDate = toDateOnly(todayStr);
 
-      let courseStartDate = user.courseStartDate;
-      let currentDayIndex = user.currentDayIndex || 1;
-      let lastActiveDate = user.lastActiveDate;
-
-      if (!courseStartDate) {
-        courseStartDate = today;
-        currentDayIndex = 1;
-        lastActiveDate = today;
-      } else if (lastActiveDate) {
-        const lastActive = new Date(lastActiveDate);
-        lastActive.setHours(0, 0, 0, 0);
-        if (today.getTime() > lastActive.getTime()) {
-          currentDayIndex = Math.min((currentDayIndex || 1) + 1, 28);
-          lastActiveDate = today;
+      if (!user.courseStartDate) {
+        // New course: only the request that lands the CAS (courseStartDate === null)
+        // seeds it; the loser re-reads instead of double-creating.
+        const applied = await prisma.user.updateMany({
+          where: { id: req.userId, courseStartDate: null },
+          data: { courseStartDate: todayDate, currentDayIndex: 1, lastActiveDate: todayDate },
+        });
+        if (applied.count === 0) {
+          user = (await prisma.user.findUnique({ where: { id: req.userId } }))!;
+        } else {
+          user = { ...user, courseStartDate: todayDate, currentDayIndex: 1, lastActiveDate: todayDate } as typeof user;
+        }
+      } else {
+        // Rollover: advance +1 only on the first server-confirmed entry into a new
+        // local day (no catch-up of skipped days), clamp 1..28.
+        const desired = Math.min((user.currentDayIndex || 1) + 1, 28);
+        const applied = await prisma.user.updateMany({
+          where: { id: req.userId, OR: [{ lastActiveDate: null }, { lastActiveDate: { lt: todayDate } }] },
+          data: { currentDayIndex: desired, lastActiveDate: todayDate },
+        });
+        if (applied.count === 0) {
+          // Same local day or a concurrent init already advanced the day — re-read
+          // the authoritative stored values, never increment twice.
+          user = (await prisma.user.findUnique({ where: { id: req.userId } }))!;
+        } else {
+          user = { ...user, currentDayIndex: desired, lastActiveDate: todayDate } as typeof user;
         }
       }
 
-      await prisma.user.update({
-        where: { id: req.userId },
-        data: { courseStartDate, currentDayIndex, lastActiveDate },
-      });
+      const courseStartDate = user.courseStartDate;
+      const currentDayIndex = user.currentDayIndex || 1;
+      const lastActiveDate = user.lastActiveDate;
 
       res.json({
         currentDayIndex,
@@ -1534,14 +1620,31 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
     try {
       const dayIndex = parseInt(req.query.dayIndex as string) || 1;
 
-      const [user, dishes, diary, recipeProgress, dailyMetric, dailyRating] = await Promise.all([
+      const [user, dishes, diary, recipeProgress, dailyMetric] = await Promise.all([
         prisma.user.findUnique({ where: { id: req.userId } }),
         prisma.savedDish.findMany({ where: { userId: req.userId }, orderBy: { createdAt: "desc" }, take: 50 }),
         prisma.diaryEntry.findMany({ where: { userId: req.userId, dayIndex }, orderBy: { createdAt: "desc" } }),
         prisma.recipeProgress.findMany({ where: { userId: req.userId } }),
         prisma.dailyMetric.findFirst({ where: { userId: req.userId, dayIndex }, orderBy: { date: "desc" } }),
-        prisma.dailyRating.findFirst({ where: { userId: req.userId }, orderBy: { date: "desc" } }),
       ]);
+
+      // Rating: exact (userId + dayIndex) lookup first, then legacy fallback for
+      // rows with dayIndex IS NULL scoped to the correct local day range.
+      const todayLocal = todayLocalDate(user?.timeZone || DEFAULT_TIMEZONE);
+      let dailyRating = await prisma.dailyRating.findFirst({
+        where: { userId: req.userId, dayIndex },
+        orderBy: { date: "desc" },
+      });
+      if (!dailyRating) {
+        dailyRating = await prisma.dailyRating.findFirst({
+          where: {
+            userId: req.userId,
+            dayIndex: null,
+            date: { gte: toDateOnly(todayLocal), lt: addDays(todayLocal, 1) },
+          },
+          orderBy: { date: "desc" },
+        });
+      }
 
       res.json({
         currentDayIndex: user?.currentDayIndex || 1,
@@ -1599,122 +1702,172 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
     if (!req.userId) return res.status(400).json({ error: "Missing device ID" });
     try {
       const { date, dayIndex, waterMl, sleepMinutes, mealCount, habitsDone, activityMinutes, steps, waterEntries, sleepLogs, digestionLog, movementLog, measurements, dayMood, dayBookmark } = req.body;
-      
-      // Fetch existing record
-      const existing = await prisma.dailyMetric.findUnique({
-        where: { userId_date: { userId: req.userId, date: new Date(date) } }
-      });
-      
-      // Merge logic for logs
-      const currentWaterEntries = existing?.waterEntries ? JSON.parse(existing.waterEntries) : [];
-      const newWaterEntries = waterEntries ? [...currentWaterEntries, ...waterEntries] : currentWaterEntries;
 
-      const currentSleepLogs = existing?.sleepLogs ? JSON.parse(existing.sleepLogs) : [];
-      const newSleepLogs = sleepLogs ? [...currentSleepLogs, ...sleepLogs] : currentSleepLogs;
-      
-      const currentMovementLog = existing?.movementLog ? JSON.parse(existing.movementLog) : [];
-      const newMovementLog = movementLog ? [...currentMovementLog, ...movementLog] : currentMovementLog;
-      
-      const currentDigestionLog = existing?.digestionLog ? JSON.parse(existing.digestionLog) : [];
-      const newDigestionLog = digestionLog ? [...currentDigestionLog, ...digestionLog] : currentDigestionLog;
-      
-      const currentMeasurements = existing?.measurements ? JSON.parse(existing.measurements) : [];
-      const newMeasurements = measurements ? [...currentMeasurements, ...measurements] : currentMeasurements;
-
-      // Extract the latest incoming measurement for direct access via dedicated columns.
-      const latestMeasurement = measurements && Array.isArray(measurements) && measurements.length > 0
-        ? measurements[measurements.length - 1] as any
-        : null;
-
-      const metricColumns: { pulse?: number; weight?: number; systolic?: number; diastolic?: number; tonus?: string } = {};
-      if (latestMeasurement) {
-        if (typeof latestMeasurement.pulse === "number" && latestMeasurement.pulse > 0) metricColumns.pulse = latestMeasurement.pulse;
-        if (typeof latestMeasurement.weight === "number" && latestMeasurement.weight > 0) metricColumns.weight = latestMeasurement.weight;
-        if (typeof latestMeasurement.systolic === "number" && latestMeasurement.systolic > 0) metricColumns.systolic = latestMeasurement.systolic;
-        if (typeof latestMeasurement.diastolic === "number" && latestMeasurement.diastolic > 0) metricColumns.diastolic = latestMeasurement.diastolic;
-        if (typeof latestMeasurement.tonus === "string" && latestMeasurement.tonus) metricColumns.tonus = latestMeasurement.tonus;
+      if (typeof date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        return res.status(400).json({ error: "Invalid date: expected YYYY-MM-DD" });
       }
+      const normDayIndex = dayIndex == null ? undefined : Number(dayIndex);
+      if (normDayIndex !== undefined && !isValidDayIndex(normDayIndex)) {
+        return res.status(400).json({ error: "Invalid dayIndex: expected integer 1..28" });
+      }
+      const dateValue = toDateOnly(date);
 
-      // Sync the latest entered measurement (weight / blood pressure) to the User profile
-      // so the measurement modal is a first-class source of the user's current biometrics.
-      if (latestMeasurement) {
-        const profileUpdate: Record<string, number> = {};
-        if (typeof latestMeasurement?.weight === "number" && latestMeasurement.weight > 0) profileUpdate.weight = latestMeasurement.weight;
-        if (typeof latestMeasurement?.systolic === "number" && latestMeasurement.systolic > 0) profileUpdate.systolic = latestMeasurement.systolic;
-        if (typeof latestMeasurement?.diastolic === "number" && latestMeasurement.diastolic > 0) profileUpdate.diastolic = latestMeasurement.diastolic;
-        if (Object.keys(profileUpdate).length > 0) {
-          await prisma.user.update({
-            where: { id: req.userId },
-            data: profileUpdate,
-          }).catch((err: any) => console.error("[DailyMetric] User profile sync error:", err.message));
+      const runTransaction = async (): Promise<any> => {
+        return prisma.$transaction(async (tx) => {
+          const existing = await tx.dailyMetric.findUnique({
+            where: { userId_date: { userId: req.userId!, date: dateValue } },
+          });
+
+          // Deterministic union + dedupe + canonical sort for every journal.
+          const mergedWater = dedupeUnion(existing ? parseJsonArray(existing.waterEntries) : [], waterEntries, waterKey);
+          const mergedSleep = dedupeUnion(existing ? parseJsonArray(existing.sleepLogs) : [], sleepLogs, sleepKey);
+          const mergedMovement = dedupeUnion(existing ? parseJsonArray(existing.movementLog) : [], movementLog, movementKey);
+          const mergedMeasurements = dedupeUnion(existing ? parseJsonArray(existing.measurements) : [], measurements, measurementKey);
+          const mergedDigestion = dedupeUnion(existing ? parseJsonArray(existing.digestionLog) : [], digestionLog, digestionKey);
+
+          // Scalars. waterMl/activityMinutes are recomputed from the merged journals
+          // when non-empty (units confirmed: amount in ml, duration in seconds); when
+          // the merged journal is empty an explicit valid payload value is preserved.
+          let newWaterMl = existing?.waterMl ?? 0;
+          if (mergedWater.length > 0) {
+            newWaterMl = mergedWater.reduce((sum, e) => sum + (Number(e?.amount) || 0), 0);
+          } else if (typeof waterMl === "number" && Number.isFinite(waterMl) && waterMl >= 0) {
+            newWaterMl = Math.round(waterMl);
+          }
+
+          let newActivityMinutes = existing?.activityMinutes ?? 0;
+          if (mergedMovement.length > 0) {
+            const totalSeconds = mergedMovement.reduce((sum, e) => sum + (Number(e?.duration ?? e?.durationSeconds) || 0), 0);
+            newActivityMinutes = Math.round(totalSeconds / 60);
+          } else if (typeof activityMinutes === "number" && Number.isFinite(activityMinutes) && activityMinutes >= 0) {
+            newActivityMinutes = Math.round(activityMinutes);
+          }
+
+          const newSleepMinutes = typeof sleepMinutes === "number" && Number.isFinite(sleepMinutes) && sleepMinutes >= 0
+            ? Math.round(sleepMinutes)
+            : existing?.sleepMinutes ?? 0;
+          const newMealCount = typeof mealCount === "number" && Number.isFinite(mealCount) ? Math.round(mealCount) : existing?.mealCount ?? 0;
+          const newHabitsDone = typeof habitsDone === "number" && Number.isFinite(habitsDone) ? Math.round(habitsDone) : existing?.habitsDone ?? 0;
+          const newSteps = typeof steps === "number" && Number.isFinite(steps) ? Math.round(steps) : existing?.steps ?? 0;
+          const newDayMood = typeof dayMood === "string" && dayMood ? dayMood : existing?.dayMood ?? undefined;
+          const newDayBookmark = typeof dayBookmark === "string" && dayBookmark ? dayBookmark : existing?.dayBookmark ?? undefined;
+
+          // Latest valid biometric from the MERGED measurements (by timestamp, then stable id),
+          // written into DailyMetric columns and the User profile within the same transaction.
+          const latestMeasurement = mergedMeasurements.length > 0 ? mergedMeasurements[mergedMeasurements.length - 1] : null;
+          const metricColumns: { pulse?: number; weight?: number; systolic?: number; diastolic?: number; tonus?: string } = {};
+          if (latestMeasurement) {
+            if (typeof latestMeasurement.pulse === "number" && latestMeasurement.pulse > 0) metricColumns.pulse = latestMeasurement.pulse;
+            if (typeof latestMeasurement.weight === "number" && latestMeasurement.weight > 0) metricColumns.weight = latestMeasurement.weight;
+            if (typeof latestMeasurement.systolic === "number" && latestMeasurement.systolic > 0) metricColumns.systolic = latestMeasurement.systolic;
+            if (typeof latestMeasurement.diastolic === "number" && latestMeasurement.diastolic > 0) metricColumns.diastolic = latestMeasurement.diastolic;
+            if (typeof latestMeasurement.tonus === "string" && latestMeasurement.tonus) metricColumns.tonus = latestMeasurement.tonus;
+          }
+
+          if (latestMeasurement) {
+            const profileUpdate: Record<string, number> = {};
+            if (typeof latestMeasurement.weight === "number" && latestMeasurement.weight > 0) profileUpdate.weight = latestMeasurement.weight;
+            if (typeof latestMeasurement.systolic === "number" && latestMeasurement.systolic > 0) profileUpdate.systolic = latestMeasurement.systolic;
+            if (typeof latestMeasurement.diastolic === "number" && latestMeasurement.diastolic > 0) profileUpdate.diastolic = latestMeasurement.diastolic;
+            if (Object.keys(profileUpdate).length > 0) {
+              await tx.user.update({ where: { id: req.userId! }, data: profileUpdate });
+            }
+          }
+
+          const record = await tx.dailyMetric.upsert({
+            where: { userId_date: { userId: req.userId!, date: dateValue } },
+            update: {
+              dayIndex: normDayIndex ?? existing?.dayIndex,
+              waterMl: newWaterMl,
+              sleepMinutes: newSleepMinutes,
+              mealCount: newMealCount,
+              habitsDone: newHabitsDone,
+              activityMinutes: newActivityMinutes,
+              steps: newSteps,
+              waterEntries: JSON.stringify(mergedWater),
+              sleepLogs: JSON.stringify(mergedSleep),
+              digestionLog: JSON.stringify(mergedDigestion),
+              movementLog: JSON.stringify(mergedMovement),
+              measurements: JSON.stringify(mergedMeasurements),
+              ...metricColumns,
+              dayMood: newDayMood,
+              dayBookmark: newDayBookmark,
+            },
+            create: {
+              userId: req.userId!,
+              date: dateValue,
+              dayIndex: normDayIndex ?? 1,
+              waterMl: newWaterMl,
+              sleepMinutes: newSleepMinutes,
+              mealCount: newMealCount,
+              habitsDone: newHabitsDone,
+              activityMinutes: newActivityMinutes,
+              steps: newSteps,
+              waterEntries: JSON.stringify(mergedWater),
+              sleepLogs: JSON.stringify(mergedSleep),
+              digestionLog: JSON.stringify(mergedDigestion),
+              movementLog: JSON.stringify(mergedMovement),
+              measurements: JSON.stringify(mergedMeasurements),
+              pulse: metricColumns.pulse ?? null,
+              weight: metricColumns.weight ?? null,
+              systolic: metricColumns.systolic ?? null,
+              diastolic: metricColumns.diastolic ?? null,
+              tonus: metricColumns.tonus ?? null,
+              dayMood: typeof newDayMood === "string" ? newDayMood : null,
+              dayBookmark: typeof newDayBookmark === "string" ? newDayBookmark : null,
+            },
+          });
+
+          // Native DigestionLog rows only for digestion entries not already present
+          // in the STORED journal (stable key dedupe against pre-merge JSON).
+          const existingDigestionKeys = new Set(
+            (existing ? parseJsonArray(existing.digestionLog) : []).map((e) => stableKeyOf(e, digestionKey))
+          );
+          const nativeRows = Array.isArray(digestionLog) && digestionLog.length > 0
+            ? digestionLog
+                .filter((entry: any) => !existingDigestionKeys.has(stableKeyOf(entry, digestionKey)))
+                .map((entry: any) => ({
+                  userId: req.userId!,
+                  dailyMetricId: record.id,
+                  date: dateValue,
+                  dayIndex: typeof entry?.dayIndex === "number" ? entry.dayIndex : (normDayIndex ?? record.dayIndex),
+                  timeInterval: entry?.timeInterval ?? null,
+                  timeString: entry?.timeString ?? null,
+                  bristolType: typeof entry?.bristolType === "number" ? entry.bristolType : 4,
+                  comfort: entry?.comfort ?? "Нормально",
+                  symptoms: Array.isArray(entry?.symptoms) ? entry.symptoms : [],
+                  note: entry?.note ?? null,
+                  linkedMeal: entry?.linkedMeal ?? null,
+                  timestamp: typeof entry?.timestamp === "number" ? BigInt(entry.timestamp) : null,
+                }))
+            : [];
+          if (nativeRows.length > 0) {
+            await tx.digestionLog.createMany({ data: nativeRows });
+          }
+
+          return record;
+        }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+      };
+
+      // Serializable retry: only external serialization failures (P2034 / 40001 / 40P01),
+      // max 3 attempts; each retry runs on a fresh snapshot so it never clobbers newer data.
+      let record: any = null;
+      let lastError: any = null;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          record = await runTransaction();
+          lastError = null;
+          break;
+        } catch (err: any) {
+          lastError = err;
+          if (isExternalRetryError(err) && attempt < 2) {
+            continue;
+          }
+          throw err;
         }
       }
 
-      const record = await prisma.dailyMetric.upsert({
-        where: { userId_date: { userId: req.userId, date: new Date(date) } },
-        update: {
-          dayIndex,
-          waterMl: waterMl ?? undefined,
-          sleepMinutes: sleepMinutes ?? undefined,
-          mealCount: mealCount ?? undefined,
-          habitsDone: habitsDone ?? undefined,
-          activityMinutes: activityMinutes ?? undefined,
-          steps: steps ?? undefined,
-          waterEntries: JSON.stringify(newWaterEntries),
-          sleepLogs: JSON.stringify(newSleepLogs),
-          digestionLog: JSON.stringify(newDigestionLog),
-          movementLog: JSON.stringify(newMovementLog),
-          measurements: JSON.stringify(newMeasurements),
-          ...metricColumns,
-          dayMood: dayMood ?? undefined,
-          dayBookmark: dayBookmark ?? undefined,
-        },
-        create: {
-          userId: req.userId,
-          date: new Date(date),
-          dayIndex,
-          waterMl: waterMl ?? 0,
-          sleepMinutes: sleepMinutes ?? 0,
-          mealCount: mealCount ?? 0,
-          habitsDone: habitsDone ?? 0,
-          activityMinutes: activityMinutes ?? 0,
-          steps: steps ?? 0,
-          waterEntries: JSON.stringify(newWaterEntries),
-          sleepLogs: JSON.stringify(newSleepLogs),
-          digestionLog: JSON.stringify(newDigestionLog),
-          movementLog: JSON.stringify(newMovementLog),
-          measurements: JSON.stringify(newMeasurements),
-          pulse: metricColumns.pulse ?? null,
-          weight: metricColumns.weight ?? null,
-          systolic: metricColumns.systolic ?? null,
-          diastolic: metricColumns.diastolic ?? null,
-          tonus: metricColumns.tonus ?? null,
-          dayMood: dayMood ?? null,
-          dayBookmark: dayBookmark ?? null,
-        },
-      });
       res.json({ ok: true, id: record.id });
-
-      // Persist digestion entries into the native DigestionLog table (PostgreSQL array for symptoms)
-      if (digestionLog && Array.isArray(digestionLog) && digestionLog.length > 0) {
-        const nativeRows = digestionLog.map((entry: any) => ({
-          userId: req.userId,
-          dailyMetricId: record.id,
-          date: new Date(date),
-          dayIndex: entry.dayIndex ?? dayIndex,
-          timeInterval: entry.timeInterval ?? null,
-          timeString: entry.timeString ?? null,
-          bristolType: typeof entry.bristolType === "number" ? entry.bristolType : 4,
-          comfort: entry.comfort ?? "Нормально",
-          symptoms: Array.isArray(entry.symptoms) ? entry.symptoms : [],
-          note: entry.note ?? null,
-          linkedMeal: entry.linkedMeal ?? null,
-          timestamp: typeof entry.timestamp === "number" ? BigInt(entry.timestamp) : null,
-        }));
-        await prisma.digestionLog.createMany({ data: nativeRows }).catch((err: any) => {
-          console.error("[DigestionLog] native persist error:", err.message);
-        });
-      }
     } catch (err: any) {
       console.error("[DailyMetric] error:", err.message);
       res.status(500).json({ error: err.message });
@@ -1746,40 +1899,68 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
   app.post("/api/metrics/ratings", async (req, res) => {
     if (!req.userId) return res.status(400).json({ error: "Missing device ID" });
     try {
-      const { date, wellbeing, energy, lightness, logEntry } = req.body;
-      
-      const existing = await prisma.dailyRating.findUnique({
-        where: { userId_date: { userId: req.userId, date: new Date(date) } }
-      });
+      const { date, dayIndex, wellbeing, energy, lightness, logEntry } = req.body;
 
-      let wellbeingLog = existing?.wellbeingLog ? JSON.parse(existing.wellbeingLog) : [];
-      let energyLog = existing?.energyLog ? JSON.parse(existing.energyLog) : [];
-      let lightnessLog = existing?.lightnessLog ? JSON.parse(existing.lightnessLog) : [];
-
-      if (logEntry) {
-        if (logEntry.type === "zen") wellbeingLog.push({ time: logEntry.time, val: logEntry.value });
-        if (logEntry.type === "energy") energyLog.push({ time: logEntry.time, val: logEntry.value });
-        if (logEntry.type === "lightness") lightnessLog.push({ time: logEntry.time, val: logEntry.value });
+      if (typeof date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        return res.status(400).json({ error: "Invalid date: expected YYYY-MM-DD" });
       }
+      const normDayIndex = dayIndex == null ? undefined : Number(dayIndex);
+      if (normDayIndex !== undefined && !isValidDayIndex(normDayIndex)) {
+        return res.status(400).json({ error: "Invalid dayIndex: expected integer 1..28" });
+      }
+      const dateValue = toDateOnly(date);
 
-      const updateData = { 
-        wellbeing, 
-        energy, 
-        lightness,
-        wellbeingLog: JSON.stringify(wellbeingLog),
-        energyLog: JSON.stringify(energyLog),
-        lightnessLog: JSON.stringify(lightnessLog)
-      };
+      // Atomic merge of rating log entries inside a transaction.
+      const record = await prisma.$transaction(async (tx) => {
+        const existing = await tx.dailyRating.findUnique({
+          where: { userId_date: { userId: req.userId!, date: dateValue } },
+        });
 
-      const record = await prisma.dailyRating.upsert({
-        where: { userId_date: { userId: req.userId, date: new Date(date) } },
-        update: updateData,
-        create: { 
-          userId: req.userId, 
-          date: new Date(date), 
-          ...updateData 
-        },
+        const pushLogEntry = (log: any[], item: any): any[] => {
+          const key = `${item?.time ?? ""}|${item?.val ?? ""}`;
+          if (!log.some((x: any) => `${x?.time ?? ""}|${x?.val ?? ""}` === key)) {
+            log.push(item);
+          }
+          log.sort((a: any, b: any) => {
+            const ta = a?.time ?? "";
+            const tb = b?.time ?? "";
+            return ta < tb ? -1 : ta > tb ? 1 : 0;
+          });
+          return log;
+        };
+
+        let wellbeingLog = existing ? parseJsonArray(existing.wellbeingLog) : [];
+        let energyLog = existing ? parseJsonArray(existing.energyLog) : [];
+        let lightnessLog = existing ? parseJsonArray(existing.lightnessLog) : [];
+
+        if (logEntry) {
+          const item = { time: logEntry.time, val: logEntry.value };
+          if (logEntry.type === "zen") wellbeingLog = pushLogEntry(wellbeingLog, item);
+          if (logEntry.type === "energy") energyLog = pushLogEntry(energyLog, item);
+          if (logEntry.type === "lightness") lightnessLog = pushLogEntry(lightnessLog, item);
+        }
+
+        const updateData = {
+          wellbeing,
+          energy,
+          lightness,
+          wellbeingLog: JSON.stringify(wellbeingLog),
+          energyLog: JSON.stringify(energyLog),
+          lightnessLog: JSON.stringify(lightnessLog),
+        };
+
+        return tx.dailyRating.upsert({
+          where: { userId_date: { userId: req.userId!, date: dateValue } },
+          update: { ...updateData, dayIndex: normDayIndex ?? undefined },
+          create: {
+            userId: req.userId!,
+            date: dateValue,
+            dayIndex: normDayIndex ?? null,
+            ...updateData,
+          },
+        });
       });
+
       res.json({ ok: true, id: record.id, record });
     } catch (err: any) {
       console.error("[DailyRating] error:", err.message);
@@ -2110,11 +2291,16 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
       const msgSender = normalizeAnnaSender(sender);
       if (!msgSender) return res.status(400).json({ error: "Invalid sender" });
       if (!dayIndex || !analysisText) return res.status(400).json({ error: "Missing dayIndex or analysisText" });
-      await prisma.annaOverlayMessage.deleteMany({
-        where: { userId: req.userId, dayIndex, sender: msgSender },
-      });
-      const msg = await prisma.annaOverlayMessage.create({
-        data: { userId: req.userId, sender: msgSender, text: analysisText, dayIndex, time: new Date().toISOString() },
+      const msg = await prisma.$transaction(async (tx) => {
+        // Serialize concurrent snapshots for the same (user, dayIndex, sender) key so
+        // delete+create behaves atomically and only one row survives.
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`anna:${req.userId}:${dayIndex}:${msgSender}`}))`;
+        await tx.annaOverlayMessage.deleteMany({
+          where: { userId: req.userId!, dayIndex, sender: msgSender },
+        });
+        return tx.annaOverlayMessage.create({
+          data: { userId: req.userId!, sender: msgSender, text: analysisText, dayIndex, time: new Date().toISOString() },
+        });
       });
       res.json({ ok: true, id: msg.id });
     } catch (err: any) {
