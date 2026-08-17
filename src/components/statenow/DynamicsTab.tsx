@@ -64,7 +64,6 @@ interface DynamicsTabProps {
   recommendedAction?: NextStepRecommendation;
   currentDayIndex?: number;
   savedDishes?: any[];
-  onWakeConfirm?: (minutes: number) => void;
   activityLogs?: { timestamp: number; durationSeconds: number }[];
 }
 
@@ -78,7 +77,6 @@ export default function DynamicsTab({
   habitsTarget,
   cookedBookDishes,
   annaAnalysisText,
-  onWakeConfirm,
   recommendedAction,
   currentDayIndex = 1,
   savedDishes = [],
@@ -236,20 +234,13 @@ export default function DynamicsTab({
       categoryLabel: "Старт Дня",
       title: "Выход из ночной нейрогормональной фазы",
       description: localSleep > 0
-        ? `Пробуждение подтверждено. Запущен обратный отсчет циркадного ритма. Восстановительный сон: ${Math.round(localSleep / 60)} ч.`
-        : "Система ожидает подтверждения пробуждения. Режим сна не закрыт, данные вчерашнего периода в режиме ожидания.",
+        ? `Пробуждение подтверждено. Восстановительный сон: ${Math.round(localSleep / 60)} ч.`
+        : "Время пробуждения не зафиксировано. Запись сна появится здесь после быстрой записи сна в карточке «Сон».",
       status: localSleep > 0
         ? (localSleep >= 420 ? "green" : "orange") 
         : "waiting" as const,
       type: localSleep > 0 ? "actual" as const : "recommendation" as const,
       interpretationText: "Момент фиксации подъема запускает выброс утреннего кортизола, настраивая ритм сосудов на 16 часов вперед.",
-      actionButtonLabel: "Подтвердить пробуждение",
-      onExecute: () => {
-        if (localSleep === 0) {
-          setLocalSleep(480);
-          onWakeConfirm?.(480);
-        }
-      }
     },
     {
       id: "water_morning",
@@ -613,7 +604,7 @@ export default function DynamicsTab({
                     )}
 
                     {/* Recommendation mini action button (if waiting/needed) */}
-                    {item.status === "waiting" && (
+                    {item.status === "waiting" && item.onExecute && (
                       <div className="mt-2.5 flex items-center select-none">
                         <button
                           type="button"

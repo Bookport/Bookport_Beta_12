@@ -30,7 +30,7 @@ export interface SleepLogEntry {
   sleepTime: string; // e.g., "22:40"
   wakeTime: string;  // e.g., "07:15"
   duration: number;  // in minutes
-  quality: "good" | "fair" | "poor"; // "Хорошо", "Удовлетворительно", "Плохо"
+  quality: "good" | "fair" | "poor" | null; // "Хорошо", "Удовлетворительно", "Плохо", или не отмечено (для legacy)
 }
 
 interface SleepDetailsScreenProps {
@@ -62,7 +62,6 @@ export default function SleepDetailsScreen({
 }: SleepDetailsScreenProps) {
   const [selectedGraphDay, setSelectedGraphDay] = useState<number>(currentDayIndex);
   const [noteSavedOrSkipped, setNoteSavedOrSkipped] = useState(false);
-  const [sleepHoursOverride, setSleepHoursOverride] = useState<string | null>(null);
 
   const handleSaveSleepNote = (noteText: string, selectedTags: string[], isVoice: boolean) => {
     if (!noteText.trim() && selectedTags.length === 0) return;
@@ -88,48 +87,6 @@ export default function SleepDetailsScreen({
     setNoteSavedOrSkipped(true);
   };
 
-  // Seed historical logs on mount if empty
-  useEffect(() => {
-    if (Object.keys(sleepLogs).length > 0) return;
-
-    const initialLogs: Record<number, SleepLogEntry> = {};
-    
-    for (let day = 1; day < currentDayIndex; day++) {
-      const bedHour = 22 + Math.floor(Math.random() * 2);
-      const bedMin = [0, 15, 30, 45][Math.floor(Math.random() * 4)];
-      const wakeHour = 6 + Math.floor(Math.random() * 2);
-      const wakeMin = [0, 15, 30, 45][Math.floor(Math.random() * 4)];
-      
-      let duration = (wakeHour * 60 + wakeMin) - (bedHour * 60 + bedMin);
-      if (duration < 0) {
-        duration += 24 * 60;
-      }
-      
-      const r = Math.random();
-      const quality = r > 0.4 ? "good" as const : (r > 0.12 ? "fair" as const : "poor" as const);
-      
-      initialLogs[day] = {
-        dayIndex: day,
-        sleepTime: `${bedHour.toString().padStart(2, "0")}:${bedMin.toString().padStart(2, "0")}`,
-        wakeTime: `${wakeHour.toString().padStart(2, "0")}:${wakeMin.toString().padStart(2, "0")}`,
-        duration,
-        quality
-      };
-    }
-    
-    if (sleep > 0 && !initialLogs[currentDayIndex]) {
-      initialLogs[currentDayIndex] = {
-        dayIndex: currentDayIndex,
-        sleepTime: "22:30",
-        wakeTime: "07:00",
-        duration: sleep,
-        quality: "good"
-      };
-    }
-
-    setSleepLogs(initialLogs);
-  }, [currentDayIndex, sleep, setSleepLogs, sleepLogs]);
-
   // Fetch historical sleep logs from server on mount
   useEffect(() => {
     api<Record<string, any>[]>("/api/metrics/daily")
@@ -141,18 +98,36 @@ export default function SleepDetailsScreen({
           let logs: any[] = [];
           if (typeof rawLogs === 'string') { try { logs = JSON.parse(rawLogs); } catch {} }
           else if (Array.isArray(rawLogs)) { logs = rawLogs; }
+
+          let hasValidLog = false;
           for (const entry of logs) {
             if (entry && entry.dayIndex !== undefined && entry.sleepTime && entry.wakeTime) {
               const di = Number(entry.dayIndex);
+              hasValidLog = true;
               if (!serverLogs[di]) {
                 serverLogs[di] = {
                   dayIndex: di,
                   sleepTime: entry.sleepTime,
                   wakeTime: entry.wakeTime,
                   duration: entry.duration || entry.durationSeconds || 0,
-                  quality: entry.quality || "fair",
+                  quality: entry.quality || null,
                 };
               }
+            }
+          }
+
+          // Legacy row: sleepMinutes recorded, but sleepLogs absent -> honest entry
+          // without invented bed/wake times and without fake quality.
+          const rDay = Number(r.dayIndex);
+          if (!hasValidLog && r.sleepMinutes > 0 && rDay) {
+            if (!serverLogs[rDay]) {
+              serverLogs[rDay] = {
+                dayIndex: rDay,
+                sleepTime: "",
+                wakeTime: "",
+                duration: r.sleepMinutes,
+                quality: null,
+              };
             }
           }
         }
@@ -183,11 +158,11 @@ export default function SleepDetailsScreen({
       return {
         averageDuration: 0,
         goodQualityCount: 0,
-        bedtimeStability: "Не определено",
-        waketimeStability: "Не определено",
+        bedtimeStability: "Нет данных",
+        waketimeStability: "Нет данных",
         streak: 0,
-        bestDay: "-",
-        worstDay: "-",
+        bestDay: "Нет записей",
+        worstDay: "Нет записей",
         totalDaysLogged: 0
       };
     }
@@ -198,28 +173,38 @@ export default function SleepDetailsScreen({
 
     // Bedtime stability (checking if bedtime is usually before 23:30)
     let earlyBedtimes = 0;
+    let bedtimesWithTime = 0;
     entries.forEach(e => {
+      if (!e.sleepTime) return;
+      bedtimesWithTime++;
       const [h, m] = e.sleepTime.split(":").map(Number);
       // bedtimes like 22:00, 23:00, 21:00 are early
       if (h === 21 || h === 22 || (h === 23 && m <= 15)) {
         earlyBedtimes++;
       }
     });
-    const bedtimeStability = earlyBedtimes / count > 0.7 
-      ? "Стабильный (22:00–23:15)" 
-      : (earlyBedtimes / count > 0.4 ? "Умеренный ритм" : "Плавающий график ⚠️");
+    const bedtimeStability = bedtimesWithTime === 0
+      ? "Нет данных"
+      : (earlyBedtimes / bedtimesWithTime > 0.7 
+        ? "Стабильный (22:00–23:15)" 
+        : (earlyBedtimes / bedtimesWithTime > 0.4 ? "Умеренный ритм" : "Плавающий график ⚠️"));
 
     // Waketime stability (consistent wake minutes after midnight ratio)
     let properWake = 0;
+    let waketimesWithTime = 0;
     entries.forEach(e => {
+      if (!e.wakeTime) return;
+      waketimesWithTime++;
       const [h] = e.wakeTime.split(":").map(Number);
       if (h >= 6 && h <= 8) {
         properWake++;
       }
     });
-    const waketimeStability = properWake / count > 0.75 
-      ? "Высокая (06:00–08:00)" 
-      : "Нерегулярная";
+    const waketimeStability = waketimesWithTime === 0
+      ? "Нет данных"
+      : (properWake / waketimesWithTime > 0.75 
+        ? "Высокая (06:00–08:00)" 
+        : "Нерегулярная");
 
     // Streak of meeting at least 7 hours (420 mins)
     let currentStreak = 0;
@@ -268,19 +253,15 @@ export default function SleepDetailsScreen({
   // Dynamic coaching commentary by Anna based on user habits
   const getAnnaSleepCoaching = () => {
     // Current day statistics
-    const todayLog = sleepLogs[currentDayIndex] || { duration: sleep, quality: "good" as const };
-    const dMin = todayLog.duration || sleep || 0;
-    const dQuality = todayLog.quality || "good";
-    
-    const isFemale = userGender === "female";
-    const ending = isFemale ? "заметила" : "заметил";
-    const pleased = isFemale ? "рада" : "рад";
+    const todayLog = sleepLogs[currentDayIndex];
+    const dMin = todayLog ? todayLog.duration : (sleep || 0);
+    const dQuality = todayLog ? todayLog.quality : null;
 
     if (dMin === 0) {
       return {
-        text: `Привет, ${userName}! Полноценный сон — это фундамент WFPB стиля жизни! Во время глубокого сна клетки очищаются от клеточного мусора, снижается тяга к сладкому и солёному. Для твоего организма норма — 8 часов. Давай зафиксируем сон сегодня кнопками быстрой записи! 🔋`,
+        text: `Привет, ${userName}! Запись сна за сегодня ещё не добавлена. Когда завершится ночь, зафиксируй сон кнопкой быстрой записи в карточке «Сон» — и я помогу разобраться, как прошло восстановление. 🌙`,
         mood: "neutral" as const,
-        label: "Готовность к сну"
+        label: "Ожидание записи сна"
       };
     }
 
@@ -360,52 +341,6 @@ export default function SleepDetailsScreen({
           </div>
         </div>
 
-        {/* Элегантная панель симулиции времени для рецензента */}
-        <div className="bg-gradient-to-r from-violet-500/5 to-indigo-500/5 border border-violet-100 rounded-3xl p-3.5 flex flex-col gap-2.5 text-left mb-5">
-          <div className="flex items-center gap-2">
-            <span className="text-[15px]">⏱️</span>
-            <span className="text-[12px] font-bold text-violet-800 uppercase tracking-wider">Тестирование циркадных режимов</span>
-          </div>
-          <p className="text-[11.5px] text-slate-600 leading-normal">
-            Используйте переключатель ниже для удобной проверки логики приложения. Кнопка «Сон» имеет два состояния: <strong>дневная аналитика</strong> (до 22:00) и <strong>запись нового цикла сна</strong> (начиная с 22:00, кнопка начинает мягко пульсировать каждые 10 минут):
-          </p>
-          <div className="flex gap-2 mt-1">
-            <button
-              type="button"
-              onClick={() => setSleepHoursOverride("14")}
-              className={`flex-1 py-2 rounded-2xl text-[11px] font-bold border transition-all cursor-pointer ${
-                sleepHoursOverride === "14"
-                  ? "bg-white text-slate-800 shadow-[0_3px_10px_rgba(0,0,0,0.05)] border-slate-200 font-extrabold"
-                  : "bg-slate-50 text-slate-500 hover:bg-slate-100 border-transparent"
-              }`}
-            >
-              ☀️ День (14:00)
-            </button>
-            <button
-              type="button"
-              onClick={() => setSleepHoursOverride("23")}
-              className={`flex-1 py-2 rounded-2xl text-[11px] font-bold border transition-all cursor-pointer ${
-                sleepHoursOverride === "23"
-                  ? "bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-md border-transparent font-extrabold"
-                  : "bg-slate-50 text-slate-500 hover:bg-slate-100 border-transparent"
-              }`}
-            >
-              🌌 Ночь (23:00)
-            </button>
-            <button
-              type="button"
-              onClick={() => setSleepHoursOverride(null)}
-              className={`flex-1 py-2 rounded-2xl text-[11px] font-bold border transition-all cursor-pointer ${
-                sleepHoursOverride === null
-                  ? "bg-slate-200 text-slate-800 border-slate-350 font-extrabold"
-                  : "bg-slate-50 text-slate-500 hover:bg-slate-100 border-transparent"
-              }`}
-            >
-              ⏰ Системное
-            </button>
-          </div>
-        </div>
-
         {/* 1. UPPER PART: LAST NIGHT SUMMARY */}
         <div className="bg-white rounded-[32px] border border-gray-100/80 p-4.5 shadow-[0_5px_15px_-3px_rgba(43,49,55,0.03)] flex flex-col gap-4 text-left mb-5">
           <div className="flex justify-between items-start">
@@ -429,16 +364,22 @@ export default function SleepDetailsScreen({
                 <Clock className="w-4 h-4 text-violet-500" />
               </div>
               
-              <div className="flex items-baseline gap-1 mt-2.5 z-10">
-                <span className="text-[34px] font-black text-text-dark font-mono leading-none">
-                  {Math.floor(graphDayDuration / 60)}
-                </span>
-                <span className="text-[14px] text-text-muted font-bold">ч</span>
-                <span className="text-[34px] font-black text-text-dark font-mono leading-none ml-2">
-                  {graphDayDuration % 60}
-                </span>
-                <span className="text-[14px] text-text-muted font-bold">мин</span>
-              </div>
+              {graphDayDuration > 0 ? (
+                <div className="flex items-baseline gap-1 mt-2.5 z-10">
+                  <span className="text-[34px] font-black text-text-dark font-mono leading-none">
+                    {Math.floor(graphDayDuration / 60)}
+                  </span>
+                  <span className="text-[14px] text-text-muted font-bold">ч</span>
+                  <span className="text-[34px] font-black text-text-dark font-mono leading-none ml-2">
+                    {graphDayDuration % 60}
+                  </span>
+                  <span className="text-[14px] text-text-muted font-bold">мин</span>
+                </div>
+              ) : (
+                <div className="flex items-center mt-3.5 z-10">
+                  <span className="text-[18px] font-bold text-text-muted">Нет записи</span>
+                </div>
+              )}
 
               {/* Progress Slider tube */}
               <div className="w-full h-2.5 rounded-full bg-slate-200/50 border border-gray-100 overflow-hidden mt-3 relative z-10">
@@ -456,7 +397,7 @@ export default function SleepDetailsScreen({
               <div className="flex flex-col gap-0.5">
                 <span className="text-[10px] text-text-muted font-black tracking-wider uppercase">ОТБОЙ</span>
                 <span className="text-[14px] font-black text-slate-800 font-mono">
-                  {graphDayEntry ? graphDayEntry.sleepTime : "—:—"}
+                  {graphDayEntry ? (graphDayEntry.sleepTime || "Время не указано") : "—:—"}
                 </span>
               </div>
               <span className="text-[18px]">🌙</span>
@@ -467,7 +408,7 @@ export default function SleepDetailsScreen({
               <div className="flex flex-col gap-0.5">
                 <span className="text-[10px] text-text-muted font-black tracking-wider uppercase">ПОДЪЁМ</span>
                 <span className="text-[14px] font-black text-slate-800 font-mono">
-                  {graphDayEntry ? graphDayEntry.wakeTime : "—:—"}
+                  {graphDayEntry ? (graphDayEntry.wakeTime || "Время не указано") : "—:—"}
                 </span>
               </div>
               <span className="text-[18px]">☀️</span>
@@ -478,7 +419,7 @@ export default function SleepDetailsScreen({
               <div className="flex flex-col gap-0.5">
                 <span className="text-[10px] text-text-muted font-black tracking-wider uppercase">СУБЪЕКТИВНОЕ САМОЧУВСТВИЕ</span>
                 <span className="text-[13px] font-bold text-slate-800">
-                  {graphDayEntry ? getQualityLabel(graphDayEntry.quality) : "Нет данных"}
+                  {graphDayEntry ? (graphDayEntry.quality ? getQualityLabel(graphDayEntry.quality) : "Не отмечено") : "Нет данных"}
                 </span>
               </div>
               <div className="w-8 h-8 rounded-full bg-white border border-gray-100 flex items-center justify-center shadow-xs">
@@ -566,7 +507,7 @@ export default function SleepDetailsScreen({
                 
                 const entry = sleepLogs[dayNum];
                 const dDur = entry ? entry.duration : 0;
-                const dQual = entry ? entry.quality : "good";
+                const dQual = entry ? entry.quality : null;
                 
                 // Height calculation capped between 8% and 100%
                 let heightPct = 6;
@@ -581,8 +522,11 @@ export default function SleepDetailsScreen({
                     barBg = "bg-gradient-to-t from-emerald-500 to-emerald-400 shadow-xs";
                   } else if (dQual === "fair") {
                     barBg = "bg-gradient-to-t from-violet-500 to-fuchsia-400 shadow-xs";
-                  } else {
+                  } else if (dQual === "poor") {
                     barBg = "bg-gradient-to-t from-amber-500 to-amber-400 shadow-xs";
+                  } else {
+                    // Quality not marked (e.g. legacy duration-only record)
+                    barBg = "bg-gradient-to-t from-violet-400/80 to-indigo-400/80 shadow-xs";
                   }
                 } else if (dayNum === currentDayIndex && sleep > 0) {
                   // Today live bar representing active progress
@@ -641,7 +585,7 @@ export default function SleepDetailsScreen({
             
             <span className="font-bold text-text-dark font-mono">
               {graphDayDuration > 0 
-                ? `${Math.floor(graphDayDuration / 60)}ч ${graphDayDuration % 60}м (${graphDayPercent}%) | ${getQualityLabel(graphDayEntry?.quality || "good")}` 
+                ? `${Math.floor(graphDayDuration / 60)}ч ${graphDayDuration % 60}м (${graphDayPercent}%) | ${graphDayEntry?.quality ? getQualityLabel(graphDayEntry.quality) : "Самочувствие не отмечено"}` 
                 : "Данных нет"
               }
             </span>
@@ -659,7 +603,10 @@ export default function SleepDetailsScreen({
               <TrendingUp className="w-5 h-5 text-violet-500 mb-1" />
               <span className="text-[11px] text-text-muted font-bold block">СРЕДНИЙ СОН</span>
               <span className="text-[17px] font-black text-text-dark mt-0.5 font-mono">
-                {Math.floor(metrics.averageDuration / 60)}ч {metrics.averageDuration % 60}м
+                {metrics.averageDuration > 0 
+                  ? `${Math.floor(metrics.averageDuration / 60)}ч ${metrics.averageDuration % 60}м` 
+                  : "Нет данных"
+                }
               </span>
               <span className="text-[9px] text-text-muted">динамика за {metrics.totalDaysLogged} дн</span>
             </div>

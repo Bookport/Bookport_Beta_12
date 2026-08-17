@@ -529,9 +529,7 @@ export default function MyDayScreen({
   }, [isPulsating]);
 
   // --- SLEEP MODULE ACTIVE LOGS & SCENARIOS STATE ---
-  const [sleepHoursOverride, setSleepHoursOverride] = useState<number | null>(null);
-
-  const currentSystemHour = sleepHoursOverride !== null ? sleepHoursOverride : Number(formatTimeHM(new Date().toISOString(), getUserTimeZone()).split(":")[0]);
+  const currentSystemHour = Number(formatTimeHM(new Date().toISOString(), getUserTimeZone()).split(":")[0]);
   const isSleepButtonNightActive = currentSystemHour >= 22 || currentSystemHour < 6;
 
   const [isCurrentlyPulsing, setIsCurrentlyPulsing] = useState(false);
@@ -1400,7 +1398,18 @@ export default function MyDayScreen({
   };
 
   const handleSaveSleepQuality = (quality: "good" | "fair" | "poor") => {
-    const finalBedTime = bedTimeRecorded || "23:00";
+    if (!bedTimeRecorded) {
+      setActiveNotification({
+        text: "Время начала сна не зафиксировано — нажмите «Лечь спать», чтобы внести сон.",
+        type: "error"
+      });
+      setShowSleepQualityModal(false);
+      setIsNightModeActive(false);
+      setShowFastSleep(false);
+      return;
+    }
+
+    const finalBedTime = bedTimeRecorded;
     const finalWakeTime = formatTimeHM(new Date().toISOString(), getUserTimeZone());
 
     const [bedH, bedM] = finalBedTime.split(":").map(Number);
@@ -3109,7 +3118,9 @@ export default function MyDayScreen({
               <button
                 type="button"
                 onClick={() => {
-                  handleSaveSleepQuality("good");
+                  setShowSleepQualityModal(false);
+                  setIsNightModeActive(false);
+                  setShowFastSleep(false);
                 }}
                 className="text-[12px] font-bold text-text-muted hover:text-text-dark transition-colors mt-1 cursor-pointer"
               >

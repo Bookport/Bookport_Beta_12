@@ -131,18 +131,6 @@ const PLACEHOLDERS: Record<BriefNoteModuleKey, string> = {
   purchases: "Что хочется зафиксировать о пользе товаров в вашей корзине здоровья?"
 };
 
-// Custom voice dictation transcripts to simulate real automatic conversion
-const VOICE_TRANSCRIPTS: Record<BriefNoteModuleKey, string> = {
-  water: "Выпила стакан чистой теплой воды с лимоном натощак. Очень освежает! 🍋",
-  food: "Полноценный WFPB обед из чечевицы и запечённой тыквы без капли соли. Вкусно и чисто! 🥗",
-  movement: "Завершила 30 минут быстрой ходьбы в парке, суставы лёгкие, дыхание стабильное 🌱",
-  sleep: "Спала отлично, проснулась бодрой и с ясной головой без звонка будильника 😴",
-  measurements: "Вес снижается плавно, чувствуется небывалая лёгкость и свобода в теле ⚖️",
-  digestion: "Усвоение идеальное, кишечник работает как часы на растительной пище 🌿",
-  recipes: "Рецепт выглядит потрясающе простым, хочу приготовить на ужин для всей семьи 🍲",
-  purchases: "Собрала корзину зелени, свежих овощей и бобовых на всю неделю. Готовы к циклу!"
-};
-
 // Theme configurations with Hex values only
 const MODULE_THEMES = {
   water: {

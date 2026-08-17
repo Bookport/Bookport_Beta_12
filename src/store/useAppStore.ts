@@ -59,14 +59,6 @@ export interface WaterEntry {
   dayIndex: number;
 }
 
-export interface SleepEntry {
-  sleepTime: string;
-  wakeTime: string;
-  duration: number;
-  dayIndex: number;
-  timestamp: number;
-}
-
 export interface MovementEntry {
   id: string;
   type: string;
@@ -138,7 +130,6 @@ export interface AppState {
   activeNotification: AppNotification | null;
 
   waterEntries: WaterEntry[];
-  sleepEntries: SleepEntry[];
   movementEntries: MovementEntry[];
   measurementEntries: MeasurementEntry[];
   digestionEntries: DigestionEntry[];
@@ -167,7 +158,6 @@ export interface AppState {
   setActiveNotification: (notif: AppNotification | null) => void;
 
   setWaterEntries: (entries: WaterEntry[]) => void;
-  setSleepEntries: (entries: SleepEntry[]) => void;
   setMovementEntries: (entries: MovementEntry[]) => void;
   addMovementEntry: (entry: MovementEntry) => void;
   setMeasurementEntries: (entries: MeasurementEntry[]) => void;
@@ -195,7 +185,6 @@ export const useAppStore = create<AppState>((set) => ({
   selectedGraphDay: 1,
   activeNotification: null,
   waterEntries: [],
-  sleepEntries: [],
   movementEntries: [],
   measurementEntries: [],
   digestionEntries: [],
@@ -221,7 +210,6 @@ export const useAppStore = create<AppState>((set) => ({
   setActiveNotification: (notif) => set({ activeNotification: notif }),
 
   setWaterEntries: (entries) => set({ waterEntries: entries }),
-  setSleepEntries: (entries) => set({ sleepEntries: entries }),
   setMovementEntries: (entries) => set({ movementEntries: entries }),
   addMovementEntry: (entry) => set((s) => ({ movementEntries: [...s.movementEntries, entry] })),
   setMeasurementEntries: (entries) => set({ measurementEntries: entries }),

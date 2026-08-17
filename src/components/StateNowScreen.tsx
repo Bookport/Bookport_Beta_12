@@ -171,19 +171,6 @@ export default function StateNowScreen({
       .catch(() => {});
   }, [currentDayIndex]);
 
-  const handleWakeConfirm = (minutes: number) => {
-    const todayStr = todayLocalDate(getUserTimeZone());
-    api("/api/metrics/daily", {
-      method: "POST",
-      body: { date: todayStr, dayIndex: currentDayIndex, sleepMinutes: minutes },
-    }).then(() => {
-      const dayIdx = currentDayIndex || 1;
-      api<any>("/api/user/state-now?dayIndex=" + dayIdx).then(data => {
-        setApiStateNowData(data);
-      });
-    }).catch(() => {});
-  };
-
   // ── Effective values: props take precedence, API data is fallback ──
   const effWater = apiStateNowData?.dailyMetric?.waterMl ?? water;
   const effSleep = apiStateNowData?.dailyMetric?.sleepMinutes ?? sleep;
@@ -1449,7 +1436,6 @@ export default function StateNowScreen({
           {activeTab === "dynamics" && (
             <DynamicsTab
               key="dynamics"
-              onWakeConfirm={handleWakeConfirm}
               sleep={effSleep}
               water={effWater}
               ratingEnergy={effRatingEnergy}
