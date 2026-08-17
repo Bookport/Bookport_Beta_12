@@ -3,6 +3,16 @@ import { motion, AnimatePresence } from "motion/react";
 import { MOVEMENT_DAILY_TARGET_MIN, MOVEMENT_MAX_POINTS_PER_DAY } from "../constants/movement";
 import { formatTimeHM, todayLocalDate } from "../shared/dates";
 import { getUserTimeZone } from "../shared/timeZoneStore";
+import {
+  SleepDaySummary,
+  SleepEntry,
+  aggregateSleepPerDay,
+  makeSleepId,
+  mergeSleepEntries,
+  normalizeSleepEntry,
+  sleepDurationMinutes,
+  sumCompletedSleepMinutes,
+} from "../shared/sleep";
 import { 
   Calendar, 
   Moon, 
@@ -80,7 +90,7 @@ const annaAvatarSrc = resolveAvatar({ toneGroup: 'positive', intent: 'success' }
 import BottomBar from "./BottomBar";
 import CalendarButton from "./CalendarButton";
 import WaterDetailsScreen from "./WaterDetailsScreen";
-import SleepDetailsScreen, { SleepLogEntry } from "./SleepDetailsScreen";
+import SleepDetailsScreen from "./SleepDetailsScreen";
 import MovementDetailsScreen from "./MovementDetailsScreen";
 import MeasurementsDetailsScreen, { MeasurementLogEntry } from "./MeasurementsDetailsScreen";
 import DigestionScreen from "./DigestionScreen";
@@ -367,20 +377,18 @@ export default function MyDayScreen({
           allLogs[currentDayIndex] = dbWaterEntries;
           localStorage.setItem('wfpb_daily_water_entries_v3', JSON.stringify(allLogs));
         } catch {}
-        // Load sleep logs from DB into localStorage cache
+        // Load sleep journal from DB (canonical source) into client state
         try {
           const dbSleep = d?.dailyMetric?.sleepLogs;
           if (dbSleep) {
             const parsedSleep = typeof dbSleep === 'string' ? JSON.parse(dbSleep) : dbSleep;
             if (Array.isArray(parsedSleep)) {
-              const sleepRaw = localStorage.getItem('wfpb_daily_sleep_logs_v1');
-              const sleepCache = sleepRaw ? JSON.parse(sleepRaw) : {};
-              for (const entry of parsedSleep) {
-                if (entry.dayIndex !== undefined) {
-                  sleepCache[entry.dayIndex] = entry;
-                }
+              const normalized = parsedSleep
+                .map((e: any) => normalizeSleepEntry(e))
+                .filter((e: SleepEntry | null): e is SleepEntry => e !== null);
+              if (normalized.length > 0) {
+                setSleepJournal(prev => mergeSleepEntries(prev, normalized));
               }
-              localStorage.setItem('wfpb_daily_sleep_logs_v1', JSON.stringify(sleepCache));
             }
           }
         } catch {}
@@ -566,17 +574,49 @@ export default function MyDayScreen({
     };
   }, [isSleepButtonNightActive]);
 
-  const [sleepLogs, setSleepLogs] = useState<Record<number, SleepLogEntry>>({});
+  const [sleepLogs, setSleepLogs] = useState<Record<number, SleepDaySummary>>({});
 
   const [showSleepDetails, setShowSleepDetails] = useState(false);
   const [showFastSleep, setShowFastSleep] = useState(false);
   const [showSleepQualityModal, setShowSleepQualityModal] = useState(false);
 
-  const [isNightModeActive, setIsNightModeActive] = useState<boolean>(false);
+  const [isNightModeActive, setIsNightModeActive] = useState<boolean>(() => {
+    try {
+      const stored = localStorage.getItem('wfpb_sleep_session');
+      return stored ? (JSON.parse(stored)?.active === true && !!JSON.parse(stored)?.bedTime) : false;
+    } catch {
+      return false;
+    }
+  });
 
-  const [bedTimeRecorded, setBedTimeRecorded] = useState<string>("");
+  const [bedTimeRecorded, setBedTimeRecorded] = useState<string>(() => {
+    try {
+      const stored = localStorage.getItem('wfpb_sleep_session');
+      return stored ? (JSON.parse(stored)?.bedTime ?? "") : "";
+    } catch {
+      return "";
+    }
+  });
 
   const [wakeTimeRecorded, setWakeTimeRecorded] = useState<string>("");
+
+  // Canonical client-side sleep journal (mirror of DailyMetric.sleepLogs).
+  const [sleepJournal, setSleepJournal] = useState<SleepEntry[]>([]);
+
+  // Persist the unfinished overnight sleep session so a reload does not lose bedtime.
+  useEffect(() => {
+    try {
+      if (isNightModeActive && bedTimeRecorded) {
+        localStorage.setItem('wfpb_sleep_session', JSON.stringify({
+          bedTime: bedTimeRecorded,
+          active: true,
+          draftTimestamp: Date.now(),
+        }));
+      } else {
+        localStorage.removeItem('wfpb_sleep_session');
+      }
+    } catch {}
+  }, [isNightModeActive, bedTimeRecorded]);
 
   // Timers to handle double click vs. single click vs. long press without intersection conflicts
   const sleepClickTimeoutRef = React.useRef<number | null>(null);
@@ -793,13 +833,23 @@ export default function MyDayScreen({
     selectedGoals
   ]);
 
-  // Clean helper to sync live logs
-  const persistSleepLog = (dayIdx: number, log: SleepLogEntry) => {
-    setSleepLogs(prev => {
-      const updated = { ...prev, [dayIdx]: log };
-      return updated;
-    });
-  };
+  // Derive per-day aggregates + achievements cache from the canonical journal.
+  useEffect(() => {
+    const aggregated = aggregateSleepPerDay(sleepJournal);
+    setSleepLogs(aggregated);
+    try {
+      const sleepRaw = localStorage.getItem('wfpb_daily_sleep_logs_v1');
+      const sleepCache = sleepRaw ? JSON.parse(sleepRaw) : {};
+      for (const [dayStr, summary] of Object.entries(aggregated)) {
+        sleepCache[Number(dayStr)] = summary;
+      }
+      localStorage.setItem('wfpb_daily_sleep_logs_v1', JSON.stringify(sleepCache));
+    } catch {}
+    const today = aggregated[currentDayIndex];
+    if (today && today.duration > 0) {
+      setSleep(today.duration);
+    }
+  }, [sleepJournal]);
 
   // Synthesize Sound: Deep Temple Bell (strike sound) on "Сон"
   const playDeepBellSound = () => {
@@ -1409,53 +1459,48 @@ export default function MyDayScreen({
       return;
     }
 
+    const tz = getUserTimeZone();
     const finalBedTime = bedTimeRecorded;
-    const finalWakeTime = formatTimeHM(new Date().toISOString(), getUserTimeZone());
+    const finalWakeTime = formatTimeHM(new Date().toISOString(), tz);
+    const durationMin = sleepDurationMinutes(finalBedTime, finalWakeTime);
 
-    const [bedH, bedM] = finalBedTime.split(":").map(Number);
-    const [wakeH, wakeM] = finalWakeTime.split(":").map(Number);
-
-    let durationMin = (wakeH * 60 + wakeM) - (bedH * 60 + bedM);
-    if (durationMin < 0) {
-      durationMin += 24 * 60; // Rollover midnight wrapper
-    }
-
-    // Set sleep global minutes
-    setSleep(durationMin);
-
-    // Save sleep log entry
-    const entry: SleepLogEntry = {
+    const now = Date.now();
+    const entry: SleepEntry = {
+      id: makeSleepId(),
       dayIndex: currentDayIndex,
+      sleepDate: todayLocalDate(tz),
+      bedtime: finalBedTime,
       sleepTime: finalBedTime,
       wakeTime: finalWakeTime,
       duration: durationMin,
-      quality
+      quality,
+      source: "quick",
+      status: "completed",
+      timezone: tz,
+      createdAt: now,
+      updatedAt: now,
     };
-    persistSleepLog(currentDayIndex, entry);
 
-    // Sync sleep logs to localStorage cache (for achievement snapshot)
-    try {
-      const sleepRaw = localStorage.getItem('wfpb_daily_sleep_logs_v1');
-      const sleepCache = sleepRaw ? JSON.parse(sleepRaw) : {};
-      sleepCache[currentDayIndex] = entry;
-      localStorage.setItem('wfpb_daily_sleep_logs_v1', JSON.stringify(sleepCache));
-    } catch {}
+    const updatedJournal = mergeSleepEntries(sleepJournal, [entry]);
+    setSleepJournal(updatedJournal);
 
-    // Persist sleep metric to DB (fire-and-forget)
+    // Persist the canonical journal to the DB (sleepMinutes recomputed server-side).
     api("/api/metrics/daily", {
       method: "POST",
       body: {
-        date: todayLocalDate(getUserTimeZone()),
+        date: todayLocalDate(tz),
         dayIndex: currentDayIndex,
-        sleepMinutes: durationMin,
-        sleepLogs: [entry],
+        sleepMinutes: sumCompletedSleepMinutes(updatedJournal),
+        sleepLogs: updatedJournal,
       },
     }).catch(() => {});
 
-    // Close overlays
+    // Close overlays and clear the overnight session.
     setShowSleepQualityModal(false);
     setIsNightModeActive(false);
     setShowFastSleep(false);
+    setWakeTimeRecorded("");
+    setBedTimeRecorded("");
 
     recordClick(20);
     setActiveNotification({
@@ -1464,6 +1509,31 @@ export default function MyDayScreen({
       }. Так держать! ☀️`,
       type: "success"
     });
+  };
+
+  // Single pipeline for manual sleep entries (from SleepDetailsScreen form).
+  const handleSaveSleepEntry = (entry: SleepEntry) => {
+    const updatedJournal = mergeSleepEntries(sleepJournal, [entry]);
+    setSleepJournal(updatedJournal);
+    const tz = getUserTimeZone();
+    api("/api/metrics/daily", {
+      method: "POST",
+      body: {
+        date: entry.sleepDate || todayLocalDate(tz),
+        dayIndex: entry.dayIndex,
+        sleepMinutes: sumCompletedSleepMinutes(updatedJournal),
+        sleepLogs: updatedJournal,
+      },
+    }).catch(() => {});
+    setActiveNotification({
+      text: `Сон записан: ${Math.floor(entry.duration / 60)} ч ${entry.duration % 60} мин. День ${entry.dayIndex}.`,
+      type: "success"
+    });
+  };
+
+  // Hydrate the canonical journal from the server (called by SleepDetailsScreen on mount).
+  const handleHydrateJournal = (serverEntries: SleepEntry[]) => {
+    setSleepJournal(prev => mergeSleepEntries(prev, serverEntries));
   };
 
   // Sync today's sum to primary upper state
@@ -2084,6 +2154,9 @@ export default function MyDayScreen({
         onBack={() => setShowSleepDetails(false)}
         sleepLogs={sleepLogs}
         setSleepLogs={setSleepLogs}
+        sleepJournal={sleepJournal}
+        onSaveSleepEntry={handleSaveSleepEntry}
+        onHydrateJournal={handleHydrateJournal}
         dayNotes={dayNotes}
         setDayNotes={setDayNotes}
       />

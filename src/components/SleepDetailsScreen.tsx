@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { motion } from "motion/react";
+import { motion, AnimatePresence } from "motion/react";
 import BottomBar from "./BottomBar";
 import { 
   ArrowLeft, 
@@ -11,6 +11,7 @@ import {
   Zap, 
   Plus, 
   Minus, 
+  X,
   HelpCircle,
   CheckCircle2,
   Smile,
@@ -21,17 +22,20 @@ import {
 } from "lucide-react";
 import { resolveAvatar } from "../utils/annaAvatarResolver";
 import { api } from "../utils/api";
+import { addDays, formatTimeHM, toLocalDate } from "../shared/dates";
+import { getUserTimeZone } from "../shared/timeZoneStore";
+import {
+  SleepDaySummary,
+  SleepEntry,
+  SleepQuality,
+  makeSleepId,
+  normalizeSleepEntry,
+  sleepDurationMinutes,
+  isValidHHMM,
+} from "../shared/sleep";
 
 const annaAvatarSrc = resolveAvatar({ toneGroup: 'neutral_thoughtful', intent: 'thoughtful' }).src;
 import BriefNoteBlock from "./BriefNoteBlock";
-
-export interface SleepLogEntry {
-  dayIndex: number;
-  sleepTime: string; // e.g., "22:40"
-  wakeTime: string;  // e.g., "07:15"
-  duration: number;  // in minutes
-  quality: "good" | "fair" | "poor" | null; // "Хорошо", "Удовлетворительно", "Плохо", или не отмечено (для legacy)
-}
 
 interface SleepDetailsScreenProps {
   currentDayIndex: number;
@@ -40,8 +44,13 @@ interface SleepDetailsScreenProps {
   sleep: number; // today's sleep minutes
   setSleep: (val: number) => void;
   onBack: () => void;
-  sleepLogs: Record<number, SleepLogEntry>;
-  setSleepLogs: React.Dispatch<React.SetStateAction<Record<number, SleepLogEntry>>>;
+  sleepLogs: Record<number, SleepDaySummary>;
+  setSleepLogs: React.Dispatch<React.SetStateAction<Record<number, SleepDaySummary>>>;
+
+  // Canonical journal (multiple sleeps per day) + save pipeline
+  sleepJournal?: SleepEntry[];
+  onSaveSleepEntry?: (entry: SleepEntry) => void;
+  onHydrateJournal?: (serverEntries: SleepEntry[]) => void;
 
   // Day notes
   dayNotes: Record<number, { text: string; time: string; source?: string; tags?: string[]; isVoice?: boolean }[]>;
@@ -58,10 +67,22 @@ export default function SleepDetailsScreen({
   sleepLogs,
   setSleepLogs,
   dayNotes,
-  setDayNotes
+  setDayNotes,
+  sleepJournal = [],
+  onSaveSleepEntry,
+  onHydrateJournal,
 }: SleepDetailsScreenProps) {
   const [selectedGraphDay, setSelectedGraphDay] = useState<number>(currentDayIndex);
   const [noteSavedOrSkipped, setNoteSavedOrSkipped] = useState(false);
+
+  // Manual sleep entry form state
+  const [showManualEntry, setShowManualEntry] = useState(false);
+  const [manualDay, setManualDay] = useState<number>(currentDayIndex);
+  const [manualBedtime, setManualBedtime] = useState<string>("23:00");
+  const [manualWakeTime, setManualWakeTime] = useState<string>("07:00");
+  const [manualQuality, setManualQuality] = useState<SleepQuality>(null);
+  const [manualNote, setManualNote] = useState<string>("");
+  const [manualError, setManualError] = useState<string>("");
 
   const handleSaveSleepNote = (noteText: string, selectedTags: string[], isVoice: boolean) => {
     if (!noteText.trim() && selectedTags.length === 0) return;
@@ -87,12 +108,46 @@ export default function SleepDetailsScreen({
     setNoteSavedOrSkipped(true);
   };
 
-  // Fetch historical sleep logs from server on mount
+  const submitManualEntry = () => {
+    if (!isValidHHMM(manualBedtime) || !isValidHHMM(manualWakeTime)) {
+      setManualError("Укажите корректное время в формате ЧЧ:ММ.");
+      return;
+    }
+    const durationMin = sleepDurationMinutes(manualBedtime, manualWakeTime);
+    if (durationMin <= 0) {
+      setManualError("Время подъёма должно отличаться от времени отбоя.");
+      return;
+    }
+    const tz = getUserTimeZone();
+    const now = Date.now();
+    const sleepDate = toLocalDate(addDays(new Date(), manualDay - currentDayIndex), tz);
+    const entry: SleepEntry = {
+      id: makeSleepId(),
+      dayIndex: manualDay,
+      sleepDate,
+      bedtime: manualBedtime,
+      sleepTime: manualBedtime,
+      wakeTime: manualWakeTime,
+      duration: durationMin,
+      quality: manualQuality,
+      note: manualNote.trim() ? manualNote.trim() : undefined,
+      source: "manual",
+      status: "completed",
+      timezone: tz,
+      createdAt: now,
+      updatedAt: now,
+    };
+    onSaveSleepEntry?.(entry);
+    setShowManualEntry(false);
+    setManualError("");
+  };
+
+  // Fetch historical sleep journal from server on mount and hydrate the parent.
   useEffect(() => {
     api<Record<string, any>[]>("/api/metrics/daily")
       .then(records => {
         if (!records || !Array.isArray(records)) return;
-        const serverLogs: Record<number, SleepLogEntry> = {};
+        const allEntries: SleepEntry[] = [];
         for (const r of records) {
           const rawLogs = r.sleepLogs;
           let logs: any[] = [];
@@ -101,44 +156,38 @@ export default function SleepDetailsScreen({
 
           let hasValidLog = false;
           for (const entry of logs) {
-            if (entry && entry.dayIndex !== undefined && entry.sleepTime && entry.wakeTime) {
-              const di = Number(entry.dayIndex);
+            const norm = normalizeSleepEntry(entry);
+            if (norm) {
               hasValidLog = true;
-              if (!serverLogs[di]) {
-                serverLogs[di] = {
-                  dayIndex: di,
-                  sleepTime: entry.sleepTime,
-                  wakeTime: entry.wakeTime,
-                  duration: entry.duration || entry.durationSeconds || 0,
-                  quality: entry.quality || null,
-                };
-              }
+              allEntries.push(norm);
             }
           }
 
-          // Legacy row: sleepMinutes recorded, but sleepLogs absent -> honest entry
+          // Legacy row: sleepMinutes recorded but journal absent -> honest entry
           // without invented bed/wake times and without fake quality.
           const rDay = Number(r.dayIndex);
           if (!hasValidLog && r.sleepMinutes > 0 && rDay) {
-            if (!serverLogs[rDay]) {
-              serverLogs[rDay] = {
-                dayIndex: rDay,
-                sleepTime: "",
-                wakeTime: "",
-                duration: r.sleepMinutes,
-                quality: null,
-              };
-            }
+            const now = Date.now();
+            allEntries.push({
+              id: `legacy-${rDay}`,
+              dayIndex: rDay,
+              sleepDate: "",
+              bedtime: "",
+              sleepTime: "",
+              wakeTime: "",
+              duration: r.sleepMinutes,
+              quality: null,
+              source: "legacy",
+              status: "completed",
+              timezone: "",
+              createdAt: now,
+              updatedAt: now,
+            });
           }
         }
-        setSleepLogs(prev => {
-          const merged = { ...prev };
-          for (const [di, log] of Object.entries(serverLogs)) {
-            const key = Number(di);
-            if (!merged[key]) merged[key] = log as SleepLogEntry;
-          }
-          return merged;
-        });
+        if (allEntries.length > 0) {
+          onHydrateJournal?.(allEntries);
+        }
       })
       .catch((err) => console.warn("[SleepDetails] failed to load history:", err));
   }, []);
@@ -148,6 +197,7 @@ export default function SleepDetailsScreen({
   const graphDayEntry = sleepLogs[selectedGraphDay];
   const graphDayDuration = graphDayEntry ? graphDayEntry.duration : 0;
   const graphDayPercent = Math.min(100, Math.round((graphDayDuration / sleepGoalToday) * 100));
+  const dayJournalEntries = (sleepJournal || []).filter(e => e.dayIndex === selectedGraphDay && e.status !== "draft");
 
   // Global calculations for the entire course period
   const getGlobalMetrics = () => {
@@ -341,6 +391,19 @@ export default function SleepDetailsScreen({
           </div>
         </div>
 
+        {/* Manual sleep entry trigger */}
+        <button
+          type="button"
+          id="sleep-manual-entry-btn"
+          onClick={() => {
+            setShowManualEntry(true);
+            setManualError("");
+          }}
+          className="w-full mb-5 py-2.5 rounded-2xl border border-violet-200/70 bg-violet-50/70 text-violet-700 text-[12.5px] font-bold flex items-center justify-center gap-1.5 cursor-pointer hover:bg-violet-100 transition-colors"
+        >
+          <Plus className="w-4 h-4" /> Записать сон вручную
+        </button>
+
         {/* 1. UPPER PART: LAST NIGHT SUMMARY */}
         <div className="bg-white rounded-[32px] border border-gray-100/80 p-4.5 shadow-[0_5px_15px_-3px_rgba(43,49,55,0.03)] flex flex-col gap-4 text-left mb-5">
           <div className="flex justify-between items-start">
@@ -434,6 +497,13 @@ export default function SleepDetailsScreen({
                 )}
               </div>
             </div>
+
+            {dayJournalEntries.length > 1 && (
+              <div className="col-span-2 flex items-center justify-between text-[11px] font-bold text-slate-500 bg-violet-50/60 rounded-2xl border border-violet-100 px-3 py-2">
+                <span>Несколько периодов сна за день</span>
+                <span className="text-violet-600 font-black">{dayJournalEntries.length} записи</span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -666,6 +736,145 @@ export default function SleepDetailsScreen({
         </div>
 
       </div>
+
+      {/* Manual sleep entry modal */}
+      <AnimatePresence>
+        {showManualEntry && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.45 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowManualEntry(false)}
+              className="absolute inset-0 bg-[#0F172A] z-50 cursor-pointer pointer-events-auto"
+            />
+
+            <motion.div
+              initial={{ opacity: 0, scale: 0.94 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.94 }}
+              transition={{ type: "spring", damping: 26, stiffness: 300 }}
+              className="absolute inset-0 z-[60] flex items-center justify-center p-6 pointer-events-none"
+            >
+              <div className="w-full max-w-[360px] bg-white rounded-[28px] p-5 shadow-2xl text-left pointer-events-auto max-h-[88%] overflow-y-auto scrollbar-none">
+                <div className="flex justify-between items-center mb-4">
+                  <div className="flex flex-col">
+                    <span className="text-[11px] font-bold text-violet-600 tracking-wider uppercase">РУЧНОЙ ВВОД</span>
+                    <h3 className="text-[17px] font-black text-text-dark" style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}>
+                      Запись сна задним числом
+                    </h3>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowManualEntry(false)}
+                    className="w-8 h-8 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
+                  >
+                    <X className="w-4 h-4 pointer-events-none" />
+                  </button>
+                </div>
+
+                <div className="flex flex-col gap-4">
+                  {/* Day picker */}
+                  <div>
+                    <span className="text-[11px] text-text-muted font-black tracking-wider uppercase mb-1.5 block">ДЕНЬ КУРСА</span>
+                    <div className="flex items-center justify-between gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setManualDay(d => Math.max(1, d - 1))}
+                        className="w-10 h-10 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-600 hover:bg-slate-100 cursor-pointer"
+                      >
+                        <Minus className="w-4 h-4 pointer-events-none" />
+                      </button>
+                      <span className="text-[18px] font-black text-slate-800 font-mono">День {manualDay}</span>
+                      <button
+                        type="button"
+                        onClick={() => setManualDay(d => Math.min(currentDayIndex, d + 1))}
+                        className="w-10 h-10 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-600 hover:bg-slate-100 cursor-pointer"
+                      >
+                        <Plus className="w-4 h-4 pointer-events-none" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Times */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <label className="flex flex-col gap-1">
+                      <span className="text-[11px] text-text-muted font-black tracking-wider uppercase">🌙 ОТБОЙ</span>
+                      <input
+                        type="time"
+                        value={manualBedtime}
+                        onChange={(e) => setManualBedtime(e.target.value)}
+                        className="w-full px-3 py-2.5 rounded-2xl border border-slate-200 bg-slate-50 text-[15px] font-bold font-mono text-slate-800 focus:outline-none focus:ring-2 focus:ring-violet-300"
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1">
+                      <span className="text-[11px] text-text-muted font-black tracking-wider uppercase">☀️ ПОДЪЁМ</span>
+                      <input
+                        type="time"
+                        value={manualWakeTime}
+                        onChange={(e) => setManualWakeTime(e.target.value)}
+                        className="w-full px-3 py-2.5 rounded-2xl border border-slate-200 bg-slate-50 text-[15px] font-bold font-mono text-slate-800 focus:outline-none focus:ring-2 focus:ring-violet-300"
+                      />
+                    </label>
+                  </div>
+
+                  {/* Quality */}
+                  <div>
+                    <span className="text-[11px] text-text-muted font-black tracking-wider uppercase mb-1.5 block">САМОЧУВСТВИЕ (необязательно)</span>
+                    <div className="flex gap-2 flex-wrap">
+                      {([
+                        { v: "good" as const, label: "😀 Хорошо" },
+                        { v: "fair" as const, label: "😐 Средне" },
+                        { v: "poor" as const, label: "😴 Плохо" },
+                        { v: null, label: "Не отмечено" },
+                      ]).map(opt => (
+                        <button
+                          key={opt.label}
+                          type="button"
+                          onClick={() => setManualQuality(opt.v)}
+                          className={`px-3 py-2 rounded-xl text-[12px] font-bold border transition-all cursor-pointer ${
+                            manualQuality === opt.v
+                              ? "bg-violet-600 text-white border-violet-600"
+                              : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Note */}
+                  <label className="flex flex-col gap-1">
+                    <span className="text-[11px] text-text-muted font-black tracking-wider uppercase">ЗАМЕТКА (необязательно)</span>
+                    <input
+                      type="text"
+                      value={manualNote}
+                      onChange={(e) => setManualNote(e.target.value)}
+                      placeholder="Например: дневной сон после обеда"
+                      className="w-full px-3 py-2.5 rounded-2xl border border-slate-200 bg-slate-50 text-[14px] font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-violet-300"
+                    />
+                  </label>
+
+                  {manualError && (
+                    <span className="text-[12px] font-bold text-rose-600 bg-rose-50 border border-rose-100 rounded-xl px-3 py-2">
+                      {manualError}
+                    </span>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={submitManualEntry}
+                    className="w-full py-3 rounded-2xl bg-gradient-to-r from-violet-600 to-indigo-600 text-white text-[14px] font-extrabold shadow-md hover:scale-[1.01] active:scale-98 transition-all cursor-pointer"
+                  >
+                    Сохранить запись
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
 
       {/* Embedded Bottom Bar */}
       <div className="w-full">

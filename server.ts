@@ -445,7 +445,13 @@ const waterKey = (e: any) => e?.id ?? e?.timestamp ?? "";
 const movementKey = (e: any) => e?.id ?? e?.timestamp ?? "";
 const measurementKey = (e: any) => e?.id ?? e?.timestamp ?? "";
 const digestionKey = (e: any) => e?.id ?? `${e?.timestamp ?? ""}|${e?.timeString ?? ""}`;
-const sleepKey = (e: any) => `${e?.sleepTime ?? ""}|${e?.wakeTime ?? ""}|${e?.duration ?? ""}`;
+const sleepKey = (e: any) => {
+  if (e?.id) return `id:${e.id}`;
+  const bed = e?.bedtime ?? e?.sleepTime ?? "";
+  const wake = e?.wakeTime ?? "";
+  const day = e?.dayIndex ?? "";
+  return `d${day}|${bed}|${wake}`;
+};
 
 // Deterministic union: existing entries preserved, new (by stable key) appended,
 // canonical sort by timestamp asc, then stable key asc (entries without a usable
@@ -1671,6 +1677,7 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
         dailyMetric: dailyMetric ? {
           waterMl: dailyMetric.waterMl,
           sleepMinutes: dailyMetric.sleepMinutes,
+          sleepLogs: dailyMetric.sleepLogs ? JSON.parse(dailyMetric.sleepLogs) : [],
           mealCount: dailyMetric.mealCount,
           habitsDone: dailyMetric.habitsDone,
           activityMinutes: dailyMetric.activityMinutes,
@@ -1743,9 +1750,17 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
             newActivityMinutes = Math.round(activityMinutes);
           }
 
-          const newSleepMinutes = typeof sleepMinutes === "number" && Number.isFinite(sleepMinutes) && sleepMinutes >= 0
-            ? Math.round(sleepMinutes)
-            : existing?.sleepMinutes ?? 0;
+          let newSleepMinutes = existing?.sleepMinutes ?? 0;
+          if (mergedSleep.length > 0) {
+            // Canonical journal present: sleepMinutes is the sum of completed entries.
+            const completedSleep = mergedSleep.filter((e: any) => e && e.status !== "draft");
+            if (completedSleep.length > 0) {
+              newSleepMinutes = completedSleep.reduce((sum, e: any) => sum + (Number(e?.duration) || 0), 0);
+            }
+          } else if (typeof sleepMinutes === "number" && Number.isFinite(sleepMinutes) && sleepMinutes >= 0) {
+            // Empty journal with an explicit scalar (legacy protection).
+            newSleepMinutes = Math.round(sleepMinutes);
+          }
           const newMealCount = typeof mealCount === "number" && Number.isFinite(mealCount) ? Math.round(mealCount) : existing?.mealCount ?? 0;
           const newHabitsDone = typeof habitsDone === "number" && Number.isFinite(habitsDone) ? Math.round(habitsDone) : existing?.habitsDone ?? 0;
           const newSteps = typeof steps === "number" && Number.isFinite(steps) ? Math.round(steps) : existing?.steps ?? 0;
@@ -1885,6 +1900,7 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
       });
       res.json(records.map(r => ({
         ...r,
+        sleepLogs: r.sleepLogs ? JSON.parse(r.sleepLogs) : null,
         digestionLog: r.digestionLog ? JSON.parse(r.digestionLog) : null,
         movementLog: r.movementLog ? JSON.parse(r.movementLog) : null,
         measurements: r.measurements ? JSON.parse(r.measurements) : null,
