@@ -26,6 +26,14 @@ export interface SavedMixerDish {
 
 let savedDishes: SavedMixerDish[] = []
 
+let onMixerSavedCallback: ((dish: SavedMixerDish) => void) | null = null
+
+export function setOnMixerSaved(
+  callback: ((dish: SavedMixerDish) => void) | null
+): void {
+  onMixerSavedCallback = callback;
+}
+
 export function saveMixerDish(dish: SavedMixerDish): void {
   savedDishes.unshift(dish)
   savedDishes = savedDishes.slice(0, 100)
@@ -55,6 +63,9 @@ export function saveMixerDish(dish: SavedMixerDish): void {
       if (idx !== -1) {
         savedDishes[idx] = { ...savedDishes[idx], id: res.id };
       }
+    }
+    if (onMixerSavedCallback) {
+      onMixerSavedCallback(dish);
     }
   }).catch(() => {});
 }
