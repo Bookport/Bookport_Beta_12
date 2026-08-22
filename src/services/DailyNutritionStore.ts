@@ -4,6 +4,7 @@
 
 import { toLocalDate, todayLocalDate } from "../shared/dates";
 import { getUserTimeZone } from "../shared/timeZoneStore";
+import { DAILY_VALUES } from "../utils/nutrientConstants";
 
 export interface NormalizedIngredient {
   name: string;
@@ -23,6 +24,24 @@ export interface DayNutritionLog {
   fiber: number;
   ingredients: NormalizedIngredient[];
   time?: string;
+  // B2: блюдо без заполненного extended nutrient profile.
+  // Участвует в КБЖУ/составе, но исключено из микро-агрегации (витамины/минералы/аминокислоты).
+  excludeFromMicro?: boolean;
+  // B4: реальный расширенный профиль (записанный серверным resolver для любого SavedDish).
+  // Если задан — микро-агрегация использует эти абсолютные значения вместо getFoodProfile-эвристик.
+  extendedMicros?: {
+    vitA: number;
+    vitC: number;
+    vitB9: number;
+    vitE: number;
+    vitK: number;
+    iron: number;
+    magnesium: number;
+    zinc: number;
+    potassium: number;
+    lysine: number;
+    selenium: number;
+  } | null;
 }
 
 export interface DailyAggregationResult {
@@ -49,6 +68,14 @@ export interface DailyAggregationResult {
     lysine: number;
     selenium: number;
   };
+  // B2: true, если в рационе есть хотя бы одно блюдо Книги без реального
+  // extended nutrient profile — микро-проценты неполны и не должны показываться как полные.
+  hasPartialBookDishes: boolean;
+  // BUILD-1: число блюд с реальным extended-профилем (участвуют в сумме).
+  realProfileCount: number;
+  // BUILD-1: true, если хотя бы одно блюдо дня имеет реальный профиль —
+  // grid процентов показывается, partial-блюда не скрывают его.
+  hasAnyRealMicronutrientProfile: boolean;
 }
 
 // Nutritional database for common WFPB ingredients (per 100 grams)
@@ -118,6 +145,35 @@ const NUTRITION_DATABASE: Record<string, FoodProfile> = {
   "сахар": { calories: 387, protein: 0, fat: 0, carbs: 100, fiber: 0, vitA: 0, vitC: 0, vitB9: 0, vitE: 0, vitK: 0, iron: 0, magnesium: 0, zinc: 0, potassium: 0, lysine: 0, selenium: 0, defaultStatus: "red" },
   "уксус": { calories: 22, protein: 0, fat: 0, carbs: 0.9, fiber: 0, vitA: 0, vitC: 0, vitB9: 0, vitE: 0, vitK: 0, iron: 1, magnesium: 1, zinc: 0, potassium: 2, lysine: 0, selenium: 0, defaultStatus: "yellow" },
 };
+
+// B2: микроэлементные extended-поля SavedDish (витамины/минералы/аминокислоты).
+// Наличие хотя бы одного конечного значения означает, что у записи есть реальный
+// расширенный профиль нутриентов (заполняется будущим BUILD при «Приготовил»).
+// Макросы и вода НЕ входят: их наличие не говорит о полноте микро-профиля.
+const EXTENDED_MICRO_FIELDS = [
+  "vitaminA", "vitaminC", "vitaminD", "vitaminE", "vitaminK",
+  "thiamin", "riboflavin", "niacin", "pantothenicAcid", "vitaminB6",
+  "biotin", "folate", "vitaminB12",
+  "calcium", "iron", "magnesium", "phosphorus", "potassium", "sodium",
+  "zinc", "copper", "manganese", "iodine", "selenium",
+  "lysine", "methionine", "tryptophan", "threonine", "isoleucine", "leucine",
+  "cystine", "phenylalanine", "tyrosine", "valine", "arginine", "histidine",
+  "alanine", "asparticAcid", "glutamicAcid", "glycine", "proline", "serine",
+] as const;
+
+/**
+ * B2: есть ли у записи реально заполненный расширенный профиль нутриентов
+ * (хотя бы одно конечное микроэлементное extended-поле).
+ */
+function hasRealExtendedNutrientProfile(dish: any): boolean {
+  for (const field of EXTENDED_MICRO_FIELDS) {
+    const v = dish?.[field];
+    // Только ненулевые значения: Prisma @default(0) для невычисленных записей
+    // не должен считаться «реальным профилем» (иначе partial-блюда проходили бы гейт).
+    if (typeof v === "number" && v > 0) return true;
+  }
+  return false;
+}
 
 // Fallback profile if ingredient is unrecognized
 const DEFAULT_PROFILE: FoodProfile = {
@@ -303,6 +359,14 @@ function parseStrictWeightGrams(weightStr: unknown): number | null {
   return null;
 }
 
+// B4: перевод абсолютного значения нутриента в процент суточной нормы.
+// Единицы сохраняемых полей должны совпадать с единицами DAILY_VALUES
+// (минералы в мг, витамины в мг/мкг, аминокислоты в мг).
+function pctOfDaily(value: number, daily: number | null | undefined): number {
+  if (daily == null || daily <= 0) return 0;
+  return (value / daily) * 100;
+}
+
 /**
  * Universal Core Engine: parses any dish (Book recipe or Scanned custom dish) and converts it to standard DayNutritionLog
  */
@@ -393,6 +457,24 @@ export class DailyNutritionStore {
         });
       }
 
+      // B4: для любого блюда с реальным extended-профилем микро берём из
+      // сохранённых абсолютных значений (серверный resolver), а не из getFoodProfile-эвристик.
+      const extendedMicros = hasRealExtendedNutrientProfile(dish)
+        ? {
+              vitA: Number(dish.vitaminA) || 0,
+              vitC: Number(dish.vitaminC) || 0,
+              vitB9: Number(dish.folate) || 0,
+              vitE: Number(dish.vitaminE) || 0,
+              vitK: Number(dish.vitaminK) || 0,
+              iron: Number(dish.iron) || 0,
+              magnesium: Number(dish.magnesium) || 0,
+              zinc: Number(dish.zinc) || 0,
+              potassium: Number(dish.potassium) || 0,
+              lysine: Number(dish.lysine) || 0,
+              selenium: Number(dish.selenium) || 0,
+            }
+          : null;
+
       logs.push({
         dishId: dish.id,
         name: dish.name,
@@ -404,7 +486,11 @@ export class DailyNutritionStore {
         carbohydrates: carb,
         fiber: fiber,
         ingredients: mappedIngs,
-        time: dish.time || "14:00"
+        time: dish.time || "14:00",
+        // B2: блюдо без реального extended nutrient profile — только КБЖУ-оценка.
+        // Исключается из микро-агрегации, но остаётся в КБЖУ/составе дня.
+        excludeFromMicro: !hasRealExtendedNutrientProfile(dish),
+        extendedMicros,
       });
     });
 
@@ -442,31 +528,35 @@ export class DailyNutritionStore {
       log.ingredients.forEach(ing => {
         const canonical = ing.name.charAt(0).toUpperCase() + ing.name.slice(1).trim();
         const weightNum = ing.weight;
-        
+
         // Add up visual raw weights
         if (ingSummaryMap[canonical]) {
           ingSummaryMap[canonical].weight += weightNum;
         } else {
           ingSummaryMap[canonical] = { weight: weightNum, status: ing.status };
         }
-
-        // Add up real biological microminerals mathematically
-        const profile = getFoodProfile(ing.name);
-        const fraction = weightNum / 100;
-
-        dayVitA += profile.vitA * fraction;
-        dayVitC += profile.vitC * fraction;
-        dayVitB9 += profile.vitB9 * fraction;
-        dayVitE += profile.vitE * fraction;
-        dayVitK += profile.vitK * fraction;
-
-        dayIron += profile.iron * fraction;
-        dayMagnesium += profile.magnesium * fraction;
-        dayZinc += profile.zinc * fraction;
-        dayPotassium += profile.potassium * fraction;
-        dayLysine += profile.lysine * fraction;
-        daySelenium += profile.selenium * fraction;
       });
+
+      // B2: блюда без заполненного extended nutrient profile не кормят
+      // микро-агрегацию (никаких getFoodProfile/default-профилей для их ингредиентов).
+      if (log.excludeFromMicro) return;
+
+      // B4: реальные extended-значения из БД вместо эвристик.
+      if (log.extendedMicros) {
+        dayVitA += log.extendedMicros.vitA;
+        dayVitC += log.extendedMicros.vitC;
+        dayVitB9 += log.extendedMicros.vitB9;
+        dayVitE += log.extendedMicros.vitE;
+        dayVitK += log.extendedMicros.vitK;
+
+        dayIron += log.extendedMicros.iron;
+        dayMagnesium += log.extendedMicros.magnesium;
+        dayZinc += log.extendedMicros.zinc;
+        dayPotassium += log.extendedMicros.potassium;
+        dayLysine += log.extendedMicros.lysine;
+        daySelenium += log.extendedMicros.selenium;
+        return;
+      }
     });
 
     // Format final sorted list of unique ingredients
@@ -488,20 +578,24 @@ export class DailyNutritionStore {
       totalMassOfRational,
       aggregatedIngredients,
       vitamins: {
-        vitA: Math.min(250, parseFloat(dayVitA.toFixed(1))),
-        vitC: Math.min(250, parseFloat(dayVitC.toFixed(1))),
-        vitB9: Math.min(250, parseFloat(dayVitB9.toFixed(1))),
-        vitE: Math.min(250, parseFloat(dayVitE.toFixed(1))),
-        vitK: Math.min(250, parseFloat(dayVitK.toFixed(1))),
+        vitA: Math.min(250, parseFloat(pctOfDaily(dayVitA, DAILY_VALUES.vitaminA).toFixed(1))),
+        vitC: Math.min(250, parseFloat(pctOfDaily(dayVitC, DAILY_VALUES.vitaminC).toFixed(1))),
+        vitB9: Math.min(250, parseFloat(pctOfDaily(dayVitB9, DAILY_VALUES.folate).toFixed(1))),
+        vitE: Math.min(250, parseFloat(pctOfDaily(dayVitE, DAILY_VALUES.vitaminE).toFixed(1))),
+        vitK: Math.min(250, parseFloat(pctOfDaily(dayVitK, DAILY_VALUES.vitaminK).toFixed(1))),
       },
       minerals: {
-        iron: Math.min(250, parseFloat(dayIron.toFixed(1))),
-        magnesium: Math.min(250, parseFloat(dayMagnesium.toFixed(1))),
-        zinc: Math.min(250, parseFloat(dayZinc.toFixed(1))),
-        potassium: Math.min(250, parseFloat(dayPotassium.toFixed(1))),
-        lysine: Math.min(250, parseFloat(dayLysine.toFixed(1))),
-        selenium: Math.min(250, parseFloat(daySelenium.toFixed(1))),
-      }
+        iron: Math.min(250, parseFloat(pctOfDaily(dayIron, DAILY_VALUES.iron).toFixed(1))),
+        magnesium: Math.min(250, parseFloat(pctOfDaily(dayMagnesium, DAILY_VALUES.magnesium).toFixed(1))),
+        zinc: Math.min(250, parseFloat(pctOfDaily(dayZinc, DAILY_VALUES.zinc).toFixed(1))),
+        potassium: Math.min(250, parseFloat(pctOfDaily(dayPotassium, DAILY_VALUES.potassium).toFixed(1))),
+        lysine: Math.min(250, parseFloat(pctOfDaily(dayLysine * 1000, DAILY_VALUES.lysine).toFixed(1))),
+        selenium: Math.min(250, parseFloat(pctOfDaily(daySelenium, DAILY_VALUES.selenium).toFixed(1))),
+      },
+      hasPartialBookDishes: logs.some(log => log.excludeFromMicro),
+      // BUILD-1: partial-блюда не скрывают профиль realProfile-блюд.
+      realProfileCount: logs.filter(log => !log.excludeFromMicro).length,
+      hasAnyRealMicronutrientProfile: logs.some(log => !log.excludeFromMicro),
     };
   }
 }

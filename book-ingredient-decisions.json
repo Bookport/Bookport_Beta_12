@@ -1,0 +1,513 @@
+{
+  "schemaVersion": "1.0",
+  "purpose": "Approved nutrition mappings for Book recipes. Use these values as specification for structured recipe data; do not use runtime fuzzy substitution for these entries.",
+  "globalRules": {
+    "vegetableBroth": { "action": "excluded", "reason": "treated_as_water" },
+    "water": { "action": "excluded", "reason": "water" },
+    "salt": { "action": "excluded", "reason": "salt" },
+    "pinchAndToTaste": { "action": "excluded", "reason": "negligible_or_unspecified" },
+    "misoIngredient": { "action": "foodKey", "foodKey": "мисо", "gramsWhenMissing": 5, "requiredStatus": "green" },
+    "misoRecipe": { "recipeId": "must_have_6", "action": "excluded_recipe", "reason": "user_approved_exception" },
+    "p2Exclusions": [
+      {
+        "ruleId": "p2_seasoning_knife_tip",
+        "phrases": [
+          "на кончике ножа"
+        ],
+        "ingredients": [
+          "асафетида",
+          "тмин",
+          "копченая паприка",
+          "черный перец",
+          "куркума"
+        ],
+        "action": "excluded",
+        "reason": "seasoning_amount_on_knife_tip"
+      },
+      {
+        "ruleId": "p2_seasoning_by_pinch",
+        "phrases": [
+          "по щепотке"
+        ],
+        "ingredients": [
+          "куркума, черный перец"
+        ],
+        "action": "excluded",
+        "reason": "seasoning_amount_by_pinch"
+      },
+      {
+        "ruleId": "p2_purpose_sprouting",
+        "recipeId": "must_have_5",
+        "phrases": [
+          "для проращивания"
+        ],
+        "action": "excluded",
+        "reason": "purpose_only_sprouting"
+      },
+      {
+        "ruleId": "p2_purpose_fermentation",
+        "recipeId": "must_have_6",
+        "phrases": [
+          "для ферментации"
+        ],
+        "action": "excluded",
+        "reason": "purpose_only_fermentation"
+      },
+      {
+        "ruleId": "p2_purpose_base",
+        "recipeId": "must_have_6",
+        "phrases": [
+          "для основы"
+        ],
+        "action": "excluded",
+        "reason": "purpose_only_base"
+      },
+      {
+        "ruleId": "p2_salt_recipe",
+        "recipeId": "must_have_6",
+        "phrases": [
+          "по рецепту"
+        ],
+        "action": "excluded",
+        "reason": "purpose_only_recipe_salt"
+      },
+      {
+        "ruleId": "p2_purpose_koji",
+        "recipeId": "must_have_6",
+        "phrases": [
+          "закваска"
+        ],
+        "ingredients": [
+          "aspergillus oryzae"
+        ],
+        "action": "excluded",
+        "reason": "purpose_only_koji_starter"
+      },
+      {
+        "ruleId": "p2_purpose_flour",
+        "recipeId": "must_have_7",
+        "phrases": [
+          "для муки"
+        ],
+        "action": "excluded",
+        "reason": "purpose_only_flour"
+      },
+      {
+        "ruleId": "p2_purpose_aroma",
+        "recipeId": "breakfast_18",
+        "phrases": [
+          "для аромата"
+        ],
+        "action": "excluded",
+        "reason": "purpose_only_aroma"
+      },
+      {
+        "ruleId": "p2_purpose_heat",
+        "recipeId": "compliment_5",
+        "phrases": [
+          "для остроты"
+        ],
+        "action": "excluded",
+        "reason": "purpose_only_heat"
+      },
+      {
+        "ruleId": "p2_purpose_tip_ref",
+        "recipeId": "compliment_7",
+        "phrases": [
+          "см. совет дня"
+        ],
+        "action": "excluded",
+        "reason": "purpose_only_tip_reference"
+      },
+      {
+        "ruleId": "p2_salt_himalayan",
+        "recipeId": "recipe_day_1",
+        "phrases": [
+          "гималайская соль"
+        ],
+        "action": "excluded",
+        "reason": "purpose_only_himalayan_salt"
+      }
+    ],
+    "gramDefaults": [
+      { "ruleId": "gd_limon_sok", "ingredientKey": "лимонный сок", "gramsWhenMissing": 5 },
+      { "ruleId": "gd_kurkuma", "ingredientKey": "куркума", "gramsWhenMissing": 1 },
+      { "ruleId": "gd_koritsa", "ingredientKey": "корица", "gramsWhenMissing": 1 },
+      { "ruleId": "gd_chesnok", "ingredientKey": "чеснок", "gramsWhenMissing": 3 },
+      { "ruleId": "gd_tkhina", "ingredientKey": "тхина", "gramsWhenMissing": 15 },
+      { "ruleId": "gd_miso", "ingredientKey": "мисо", "gramsWhenMissing": 5, "coverVariants": true },
+      { "ruleId": "gd_yablochny_uksus", "ingredientKey": "яблочный уксус", "gramsWhenMissing": 10 },
+      { "ruleId": "gd_имбирь_1_tsp", "ingredientKey": "имбирь", "amount": "1 tsp", "gramsWhenMissing": 3 },
+      { "ruleId": "gd_имбирь_0.25_tsp", "ingredientKey": "имбирь", "amount": "0.25 tsp", "gramsWhenMissing": 1 },
+      { "ruleId": "gd_имбирь_0.75_tsp", "ingredientKey": "имбирь", "amount": "0.75 tsp", "gramsWhenMissing": 2 },
+      { "ruleId": "gd_имбирь_молотый_0.25_tsp", "ingredientKey": "имбирь молотый", "amount": "0.25 tsp", "gramsWhenMissing": 0.5 },
+      { "ruleId": "gd_орегано_1_tsp", "ingredientKey": "орегано", "amount": "1 tsp", "gramsWhenMissing": 1 },
+      { "ruleId": "gd_орегано_0.5_tsp", "ingredientKey": "орегано", "amount": "0.5 tsp", "gramsWhenMissing": 0.5 },
+      { "ruleId": "gd_тмин_1_tsp", "ingredientKey": "тмин", "amount": "1 tsp", "gramsWhenMissing": 2 },
+      { "ruleId": "gd_тмин_0.25_tsp", "ingredientKey": "тмин", "amount": "0.25 tsp", "gramsWhenMissing": 0.5 },
+      { "ruleId": "gd_ваниль_0.5_tsp", "ingredientKey": "ваниль", "amount": "0.5 tsp", "gramsWhenMissing": 1 },
+      { "ruleId": "gd_ваниль_0.25_tsp", "ingredientKey": "ваниль", "amount": "0.25 tsp", "gramsWhenMissing": 0.5 },
+      { "ruleId": "gd_чёрный_перец_0.25_tsp", "ingredientKey": "чёрный перец", "amount": "0.25 tsp", "gramsWhenMissing": 0.5 },
+      { "ruleId": "gd_псиллиум_1_tsp", "ingredientKey": "псиллиум", "amount": "1 tsp", "gramsWhenMissing": 2 },
+      { "ruleId": "gd_льняная_мука_1_tsp", "ingredientKey": "льняная мука", "amount": "1 tsp", "gramsWhenMissing": 2.5 },
+      { "ruleId": "gd_пищевые_дрожжи_1_tsp", "ingredientKey": "пищевые дрожжи", "amount": "1 tsp", "gramsWhenMissing": 3 },
+      { "ruleId": "gd_базилик_0.5_tsp", "ingredientKey": "базилик", "amount": "0.5 tsp", "gramsWhenMissing": 0.5 },
+      { "ruleId": "gd_кориандр_1.5_tsp", "ingredientKey": "кориандр", "amount": "1.5 tsp", "gramsWhenMissing": 3 },
+      { "ruleId": "gd_паприка_1_tsp", "ingredientKey": "паприка", "amount": "1 tsp", "gramsWhenMissing": 2 },
+      { "ruleId": "gd_паприка_0.5_tsp", "ingredientKey": "паприка", "amount": "0.5 tsp", "gramsWhenMissing": 1 },
+      { "ruleId": "gd_паприка_1.3_tsp", "ingredientKey": "паприка", "amount": "1.3 tsp", "gramsWhenMissing": 3 },
+      { "ruleId": "gd_семена_чиа_1.3_tsp", "ingredientKey": "семена чиа", "amount": "1.3 tsp", "gramsWhenMissing": 4 },
+      { "ruleId": "gd_тимьян_0.25_tsp", "ingredientKey": "тимьян", "amount": "0.25 tsp", "gramsWhenMissing": 0.5 },
+      { "ruleId": "gd_кардамон_0.25_tsp", "ingredientKey": "кардамон", "amount": "0.25 tsp", "gramsWhenMissing": 0.5 },
+      { "ruleId": "gd_чёрный_кунжут_1_tsp", "ingredientKey": "чёрный кунжут", "amount": "1 tsp", "gramsWhenMissing": 3 },
+      { "ruleId": "gd_порошок_сельдерея_0.5_tsp", "ingredientKey": "порошок сельдерея", "amount": "0.5 tsp", "gramsWhenMissing": 1 },
+      { "ruleId": "gd_сода_0.25_tsp", "ingredientKey": "сода", "amount": "0.25 tsp", "gramsWhenMissing": 1 },
+      { "ruleId": "gd_горчица_0.25_tsp", "ingredientKey": "горчица", "amount": "0.25 tsp", "gramsWhenMissing": 0.5 },
+      { "ruleId": "gd_какао-порошок_1_tsp", "ingredientKey": "какао-порошок", "amount": "1 tsp", "gramsWhenMissing": 2 },
+      { "ruleId": "gd_имбирь_1_tbsp", "ingredientKey": "имбирь", "amount": "1 tbsp", "gramsWhenMissing": 6 },
+      { "ruleId": "gd_svezhii_natertyi_imbir_1_tbsp", "ingredientKey": "свежий натертый имбирь", "amount": "1 tbsp", "gramsWhenMissing": 6 },
+      { "ruleId": "gd_imbir_svezhii_1_sm", "ingredientKey": "имбирь свежий", "amount": "piece-only", "pieceAmount": "1 см (натёртый);", "gramsWhenMissing": 10 },
+      { "ruleId": "gd_svezhii_imbir_1_tbsp", "ingredientKey": "свежий имбирь", "amount": "1 tbsp", "gramsWhenMissing": 6 },
+      { "ruleId": "gd_томатная_паста_1_tbsp", "ingredientKey": "томатная паста", "amount": "1 tbsp", "gramsWhenMissing": 16 },
+      { "ruleId": "gd_яблочное_пюре_4_tbsp", "ingredientKey": "яблочное пюре", "amount": "4 tbsp", "gramsWhenMissing": 60 },
+      { "ruleId": "gd_кешью-жмых_2_tbsp", "ingredientKey": "кешью-жмых", "amount": "2 tbsp", "gramsWhenMissing": 16 },
+      { "ruleId": "gd_рис_коричневый_1_tbsp", "ingredientKey": "рис коричневый", "amount": "1 tbsp", "gramsWhenMissing": 12 },
+      { "ruleId": "gd_сода_0.33_tbsp", "ingredientKey": "сода", "amount": "0.33 tbsp", "gramsWhenMissing": 1.5 },
+      { "ruleId": "gd_lavrovyi_list_1_sht", "ingredientKey": "лавровый лист", "pieceAmount": "1 шт", "gramsWhenMissing": 0.2 },
+      { "ruleId": "gd_laim_0.5_sht", "ingredientKey": "лайм", "pieceAmount": "½ шт", "gramsWhenMissing": 25 },
+      { "ruleId": "gd_petrushka_1_puchok", "ingredientKey": "петрушка", "pieceAmount": "1 пучок", "gramsWhenMissing": 20 },
+      { "ruleId": "gd_bazilik_10_listikov", "ingredientKey": "базилик", "pieceAmount": "10 листиков", "gramsWhenMissing": 3 },
+      { "ruleId": "gd_baklazhan_1_sht", "ingredientKey": "баклажан", "pieceAmount": "1 шт", "gramsWhenMissing": 300 },
+      { "ruleId": "gd_yabloko_1_sht", "ingredientKey": "яблоко", "pieceAmount": "1 шт", "gramsWhenMissing": 180 },
+      { "ruleId": "gd_shpinat_neskolko_listev", "ingredientKey": "шпинат", "pieceAmount": "несколько листьев", "gramsWhenMissing": 20 },
+      { "ruleId": "gd_krasnyi_perets_1_sht", "ingredientKey": "красный перец", "amount": "piece-only", "pieceAmount": "1 шт", "gramsWhenMissing": 120 },
+      { "ruleId": "gd_krasnyi_perets_1_sht_tselikom", "ingredientKey": "красный перец", "amount": "piece-only", "pieceAmount": "1 шт. (целиком);", "gramsWhenMissing": 120 },
+      { "ruleId": "gd_krasnyi_perets_2_sht_tselikom", "ingredientKey": "красный перец", "amount": "piece-only", "pieceAmount": "2 шт (целиком);", "gramsWhenMissing": 240 },
+      { "ruleId": "gd_krasnyi_perets_3_sht", "ingredientKey": "красный перец", "amount": "piece-only", "pieceAmount": "3 шт", "gramsWhenMissing": 360 },
+      { "ruleId": "gd_zheltyi_perets_2_sht", "ingredientKey": "желтый перец", "amount": "piece-only", "pieceAmount": "2 шт", "gramsWhenMissing": 240 },
+      { "ruleId": "gd_ostryi_perets_chili_1_sht", "ingredientKey": "острый перец чили", "amount": "piece-only", "pieceAmount": "1 шт", "gramsWhenMissing": 10 },
+      { "ruleId": "gd_finik_1_sht", "ingredientKey": "финик", "amount": "piece-only", "pieceAmount": "1 шт", "gramsWhenMissing": 8 },
+      { "ruleId": "gd_listya_pekinskoi_kapusty_4_sht", "ingredientKey": "листья пекинской капусты", "amount": "piece-only", "pieceAmount": "4 шт", "gramsWhenMissing": 120 },
+      { "ruleId": "gd_yabloko_zelenoe_1_sht", "ingredientKey": "яблоко зеленое", "amount": "piece-only", "pieceAmount": "1 шт", "gramsWhenMissing": 180 }
+    ]
+  },
+  "ingredients": [
+    {
+      "sourceName": "смесь «Земляной умами»",
+      "action": "split_scaled",
+      "batch": {
+        "components": [
+          { "foodKey": "тмин", "grams": 10 },
+          { "foodKey": "кориандр", "grams": 10 },
+          { "foodKey": "паприка", "grams": 5 },
+          { "action": "excluded", "name": "асафетида", "reason": "pinch" }
+        ]
+      },
+      "note": "Scale counted components proportionally to the grams of the blend specified by the recipe."
+    },
+    {
+      "sourceName": "смесь «Карри WFPB»",
+      "action": "split_scaled",
+      "batch": {
+        "components": [
+          { "foodKey": "куркума", "grams": 10 },
+          { "foodKey": "кориандр", "grams": 5 },
+          { "foodKey": "тмин", "grams": 5 },
+          { "foodKey": "кайенский перец", "grams": 1.25 }
+        ]
+      },
+      "note": "Scale counted components proportionally to the grams of the blend specified by the recipe."
+    },
+    {
+      "sourceName": "смесь «Солнечный имбирь»",
+      "action": "split_scaled",
+      "batch": {
+        "components": [
+          { "foodKey": "имбирь", "grams": 5 },
+          { "foodKey": "куркума", "grams": 2.5 },
+          { "foodKey": "лимон", "grams": 1.25 },
+          { "action": "excluded", "name": "кориандр", "reason": "pinch" }
+        ]
+      },
+      "note": "Scale counted components proportionally to the grams of the blend specified by the recipe."
+    },
+    { "sourceName": "смесь специй «Суперзаряд»", "action": "excluded", "reason": "no composition_or_weight_supplied" },
+    { "sourceName": "соус «Красный бархат»", "action": "use_recipe_source", "sourceRecipeId": "compliment_10", "consumptionGrams": 45 },
+    { "sourceName": "соус «Огненный поцелуй»", "action": "use_recipe_source", "sourceRecipeId": "compliment_13", "consumptionGrams": 45 },
+    { "sourceName": "кешью-соус", "action": "foodKey", "foodKey": "кешью", "grams": 60, "note": "Recipe declares raw cashew plus water only; water excluded." },
+    { "sourceName": "кешью-паста", "action": "foodKey", "foodKey": "кешью", "grams": 30, "note": "200 g cashew plus water only; water excluded." },
+    { "sourceName": "паста из тыквенных семечек", "action": "foodKey", "foodKey": "тыквенные семечки", "gramsWhenMissing": 30 },
+    {
+      "sourceName": "микс зелени",
+      "action": "split",
+      "components": [
+        { "foodKey": "укроп", "ratio": 0.5 },
+        { "foodKey": "петрушка", "ratio": 0.5 }
+      ]
+    },
+    {
+      "sourceName": "смесь кунжута и дроблёных грецких орехов",
+      "action": "split",
+      "components": [
+        { "foodKey": "семена кунжута белые", "grams": 8 },
+        { "foodKey": "грецкие орехи", "grams": 12 }
+      ]
+    },
+    {
+      "sourceName": "укроп, петрушка",
+      "action": "split",
+      "components": [
+        { "foodKey": "укроп", "ratio": 0.5 },
+        { "foodKey": "петрушка", "ratio": 0.5 }
+      ],
+      "perHandful": [
+        { "foodKey": "укроп", "grams": 7.5 },
+        { "foodKey": "петрушка", "grams": 7.5 }
+      ],
+      "note": "Explicit: «укроп, петрушка — 1 горсть» = укроп 7.5 г + петрушка 7.5 г.",
+      "eachMatchPieceKey": "1 ст л",
+      "eachGrams": [
+        { "foodKey": "укроп", "grams": 6 },
+        { "foodKey": "петрушка", "grams": 6 }
+      ]
+    },
+    {
+      "sourceName": "укроп, петрушка, руккола",
+      "action": "split",
+      "components": [
+        { "foodKey": "укроп", "ratio": 0.3333333333 },
+        { "foodKey": "петрушка", "ratio": 0.3333333333 },
+        { "foodKey": "руккола", "ratio": 0.3333333334 }
+      ]
+    },
+    {
+      "sourceName": "тмин + кориандр",
+      "action": "split",
+      "components": [
+        { "foodKey": "тмин", "ratio": 0.5 },
+        { "foodKey": "кориандр", "ratio": 0.5 }
+      ],
+      "eachMatchPieceKey": "по 1 ч л (обжаренные и молотые)",
+      "eachGrams": [
+        { "foodKey": "тмин", "grams": 6 },
+        { "foodKey": "кориандр", "grams": 6 }
+      ]
+    },
+    {
+      "sourceName": "орегано, тмин",
+      "action": "split",
+      "components": [
+        { "foodKey": "орегано", "ratio": 0.5 },
+        { "foodKey": "тмин", "ratio": 0.5 }
+      ],
+      "eachMatchPieceKey": "по ½ ч л",
+      "eachGrams": [
+        { "foodKey": "орегано", "grams": 3 },
+        { "foodKey": "тмин", "grams": 3 }
+      ]
+    },
+    {
+      "sourceName": "укроп + мята",
+      "action": "split",
+      "components": [
+        { "foodKey": "укроп", "ratio": 0.5 },
+        { "foodKey": "мята", "ratio": 0.5 }
+      ]
+    },
+    {
+      "sourceName": "красный и жёлтый перец",
+      "action": "split",
+      "components": [
+        { "foodKey": "перец красный", "ratio": 0.5 },
+        { "foodKey": "перец жёлтый", "ratio": 0.5 }
+      ]
+    },
+    {
+      "sourceName": "семена подсолнечника, тыквы, кунжута",
+      "action": "split",
+      "components": [
+        { "foodKey": "семена подсолнечника", "ratio": 0.3333333333 },
+        { "foodKey": "тыквенные семечки", "ratio": 0.3333333333 },
+        { "foodKey": "семена кунжута белые", "ratio": 0.3333333334 }
+      ]
+    },
+    {
+      "sourceName": "смесь семян (тыква, кунжут, амарант, чёрный тмин, расторопша)",
+      "action": "split",
+      "components": [
+        { "foodKey": "тыквенные семечки", "ratio": 0.2 },
+        { "foodKey": "семена кунжута белые", "ratio": 0.2 },
+        { "foodKey": "амарант", "ratio": 0.2 },
+        { "foodKey": "калинджи семена", "ratio": 0.2 },
+        { "foodKey": "семена расторопши", "ratio": 0.2 }
+      ]
+    },
+    {
+      "sourceName": "свежие или замороженные ягоды",
+      "action": "split",
+      "components": [
+        { "foodKey": "малина", "ratio": 0.25 },
+        { "foodKey": "черника", "ratio": 0.25 },
+        { "foodKey": "голубика", "ratio": 0.25 },
+        { "foodKey": "клубника", "ratio": 0.25 }
+      ]
+    },
+    {
+      "sourceName": "ягоды",
+      "action": "split",
+      "components": [
+        { "foodKey": "малина", "ratio": 0.25 },
+        { "foodKey": "черника", "ratio": 0.25 },
+        { "foodKey": "голубика", "ratio": 0.25 },
+        { "foodKey": "клубника", "ratio": 0.25 }
+      ]
+    },
+    { "sourceName": "томаты или томатная паста", "action": "foodKey", "foodKey": "помидор", "note": "Chosen approved option: tomato." },
+    { "sourceName": "шпинат или листовая капуста", "action": "foodKey", "foodKey": "шпинат" },
+    { "sourceName": "шпинат (или листовой салат)", "action": "foodKey", "foodKey": "шпинат" },
+    { "sourceName": "вода или растительное молоко", "action": "excluded", "selectedOption": "вода", "reason": "water" },
+    {
+      "sourceName": "зелень (петрушка, укроп, шпинат или руккола)",
+      "action": "split",
+      "components": [
+        { "foodKey": "петрушка", "ratio": 0.25 },
+        { "foodKey": "укроп", "ratio": 0.25 },
+        { "foodKey": "шпинат", "ratio": 0.25 },
+        { "foodKey": "руккола", "ratio": 0.25 }
+      ]
+    },
+    { "sourceName": "грибы (шампиньоны или лесные)", "action": "foodKey", "foodKey": "шампиньоны" },
+    {
+      "sourceName": "льняное «яйцо»",
+      "action": "foodKey",
+      "foodKey": "семена льна",
+      "gramsWhenExplicitOneTablespoon": 10,
+      "gramsWhenExplicitOneAndHalfTablespoons": 15,
+      "whenOnePiece": {
+        "components": [
+          { "foodKey": "семена льна", "grams": 10 },
+          { "action": "excluded", "name": "вода", "reason": "water" }
+        ]
+      },
+      "note": "Explicit: «льняное яйцо — 1 шт.» = семена льна 10 г + вода excluded. Water excluded."
+    },
+    { "sourceName": "льняной гель", "action": "foodKey", "foodKey": "семена льна", "ratio": 0.2, "note": "Treat gel as 20% flaxseed and 80% water excluded." },
+    { "sourceName": "ореховый сыр (быстрый)", "action": "use_recipe_source", "sourceRecipeId": "compliment_7" },
+    { "sourceName": "ферментированный миндальный сыр", "action": "use_recipe_source", "sourceRecipeId": "recipe_day_30" },
+    { "sourceName": "домашний тофу", "action": "foodKey", "foodKey": "тофу" },
+    { "sourceName": "домашнее кокосовое молоко", "action": "foodKey", "foodKey": "кокосовая стружка", "ratio": 0.2307692308, "note": "30 g coconut shreds plus 100 ml water yields 130 g. A 50 ml serving contains 11.54 g coconut shreds; water excluded." },
+    { "sourceName": "пробиотическая закваска", "action": "excluded", "reason": "starter_culture" },
+    { "sourceName": "закваска", "action": "excluded", "reason": "starter_culture" },
+    { "sourceName": "рисовая вода", "action": "excluded", "reason": "treated_as_water" },
+    { "sourceName": "яблочный джем без сахара", "action": "foodKey", "foodKey": "яблоко" },
+    { "sourceName": "аквафаба", "action": "excluded", "reason": "approved_zero_liquid" },
+    { "sourceName": "мак", "action": "foodKey", "foodKey": "мак", "note": "FoodItem «семена мака» (FDC 171330, green) exists after prerequisite seed; alias мак → семена мака." },
+    { "sourceName": "кокосовое молоко", "action": "foodKey", "foodKey": "кокосовое молоко" },
+    {
+      "sourceName": "растительное молоко",
+      "action": "split",
+      "components": [
+        { "foodKey": "миндаль", "grams": 100 },
+        { "action": "excluded", "name": "вода", "reason": "water" }
+      ],
+      "recipeSpecific": {
+        "recipe_day_16": { "declaredServingMl": 180, "foodKey": "миндаль", "grams": 100 }
+      }
+    },
+    { "sourceName": "семена конопли", "action": "foodKey", "foodKey": "конопляные семена" },
+    { "sourceName": "порошок из овсяных отрубей", "action": "foodKey", "foodKey": "овсяные отруби" },
+    { "sourceName": "порошок из семян фенхеля", "action": "foodKey", "foodKey": "семена фенхеля" },
+    { "sourceName": "семена сельдерея", "action": "foodKey", "foodKey": "сельдерей семена" },
+    { "sourceName": "жёлтый горох колотый", "action": "foodKey", "foodKey": "горох сушёный сырой" },
+    { "sourceName": "порошок сушёных шиитаке", "action": "foodKey", "foodKey": "грибы шиитаке", "preparation": "dried" },
+    { "sourceName": "перец чили", "action": "foodKey", "foodKey": "перец чили" },
+    { "sourceName": "порошок чили", "action": "foodKey", "foodKey": "кайенский перец" },
+    { "sourceName": "томатная паста без масла (рецепт есть выше)", "recipeId": "compliment_10", "action": "foodKey", "foodKey": "томатная паста" },
+    { "sourceName": "порошок сельдерея", "recipeId": "compliment_10", "action": "foodKey", "foodKey": "порошок сельдерея" },
+    { "sourceName": "яблочный уксус", "recipeId": "compliment_10", "action": "foodKey", "foodKey": "яблочный уксус" },
+    {
+      "sourceName": "Полный аминокислотный профиль",
+      "action": "recipe_batch_with_portion",
+      "recipeId": "must_have_7",
+      "batchGrams": 100,
+      "savedDishGrams": 30,
+      "components": [
+        { "foodKey": "конопляные семена", "batchGrams": 40, "savedDishGrams": 12 },
+        { "foodKey": "тыквенные семечки", "batchGrams": 30, "savedDishGrams": 9 },
+        { "foodKey": "семена кунжута белые", "batchGrams": 20, "savedDishGrams": 6 },
+        { "foodKey": "амарант", "batchGrams": 10, "savedDishGrams": 3 }
+      ]
+    },
+    {
+      "sourceName": "Умная насыщающая матрица",
+      "action": "recipe_batch",
+      "recipeId": "must_have_8",
+      "batchGrams": 100,
+      "savedDishGrams": 100,
+      "components": [
+        { "foodKey": "псиллиум", "grams": 30 },
+        { "foodKey": "семена льна", "grams": 20 },
+        { "foodKey": "овсяные отруби", "grams": 15 },
+        { "foodKey": "порошок ламинарии", "grams": 10 },
+        { "foodKey": "порошок свёклы", "grams": 10 },
+        { "foodKey": "тыквенные семечки", "grams": 2 },
+        { "foodKey": "семена кунжута белые", "grams": 2 },
+        { "foodKey": "амарант", "grams": 2 },
+        { "foodKey": "калинджи семена", "grams": 2 },
+        { "foodKey": "семена расторопши", "grams": 2 },
+        { "foodKey": "куркума", "grams": 5 }
+      ]
+    },
+    { "sourceName": "миндальная паста", "recipeId": "recipe_day_23", "action": "foodKey", "foodKey": "миндаль", "grams": 30, "note": "Approved structural substitution: almond butter → almonds, 30 g." },
+    { "sourceName": "Проростки", "action": "recipe_portion", "recipeId": "must_have_5", "savedDishGrams": 100, "selectedLegume": "маш", "note": "Selected legume fixed: маш (mung beans). FoodItem «маш» green. A 100 g dry-legume portion; do not blend." },
+    { "sourceName": "готовый овощной бульон", "action": "excluded", "reason": "treated_as_water" },
+    { "sourceName": "овощной бульон", "action": "excluded", "reason": "treated_as_water" },
+    { "sourceName": "насыщенный овощной бульон", "action": "excluded", "reason": "treated_as_water" },
+    { "sourceName": "кумин", "action": "excluded", "reason": "approved_excluded_no_fooditem" },
+    { "sourceName": "апельсиновая цедра", "action": "excluded", "reason": "approved_excluded_no_fooditem" },
+    { "sourceName": "цедра лимона", "action": "excluded", "reason": "approved_excluded_no_fooditem" },
+    { "sourceName": "тапиоковый крахмал", "action": "excluded", "reason": "approved_excluded_no_fooditem" },
+    { "sourceName": "смесь специй", "action": "excluded", "reason": "approved_excluded_no_fooditem" },
+    { "sourceName": "кешью-паста с белой мисо и нори", "action": "excluded", "reason": "approved_excluded_no_fooditem" },
+    {
+      "sourceName": "замороженные ягоды",
+      "action": "split",
+      "components": [
+        { "foodKey": "малина", "ratio": 0.25 },
+        { "foodKey": "черника", "ratio": 0.25 },
+        { "foodKey": "голубика", "ratio": 0.25 },
+        { "foodKey": "клубника", "ratio": 0.25 }
+      ]
+    },
+    {
+      "sourceName": "замороженные/свежие ягоды",
+      "action": "split",
+      "components": [
+        { "foodKey": "малина", "ratio": 0.25 },
+        { "foodKey": "черника", "ratio": 0.25 },
+        { "foodKey": "голубика", "ratio": 0.25 },
+        { "foodKey": "клубника", "ratio": 0.25 }
+      ]
+    },
+    {
+      "sourceName": "свежие/замороженные ягоды",
+      "action": "split",
+      "components": [
+        { "foodKey": "малина", "ratio": 0.25 },
+        { "foodKey": "черника", "ratio": 0.25 },
+        { "foodKey": "голубика", "ratio": 0.25 },
+        { "foodKey": "клубника", "ratio": 0.25 }
+      ]
+    },
+    {
+      "sourceName": "ягоды свежие или замороженные",
+      "action": "split",
+      "components": [
+        { "foodKey": "малина", "ratio": 0.25 },
+        { "foodKey": "черника", "ratio": 0.25 },
+        { "foodKey": "голубика", "ratio": 0.25 },
+        { "foodKey": "клубника", "ratio": 0.25 }
+      ]
+    }
+  ]
+}

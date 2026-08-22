@@ -78,6 +78,22 @@ import {
   DRINKS_RECIPES,
 } from "./components/BookRecipesScreen";
 import { getFoodProfile, parseWeightGrams } from "./services/DailyNutritionStore";
+import { setOnMixerSaved } from "./modules/mixer/services/mixerSave";
+import {
+  splitAmount,
+  cleanName,
+  parseGrams,
+  isWater,
+  isSeasoningAmount,
+  normalizeBookIngredientName,
+} from "./utils/bookRecipeNutrients";
+import { breakfastBackData } from "./data/breakfast_back";
+import { lunchBackData } from "./data/lunch_back";
+import { dinnerBackData } from "./data/dinner_back";
+import { mustHaveBackData } from "./data/must_have_back";
+import { recipeDayBackData } from "./data/recipe_day_back";
+import { complimentsBackData } from "./data/compliments_back";
+import type { ComplimentBackData } from "./data/compliments_back";
 const SHOW_DEBUG_ACHIEVEMENTS_PANEL = false;
 import AchievementsDebugPanel from "./components/AchievementsDebugPanel";
 
@@ -89,6 +105,18 @@ const RECIPE_TYPE_TO_ARRAY: Record<string, any[]> = {
   compliment: COMPLIMENTS_RECIPES,
   recipe_of_day: RECIPE_OF_DAY_RECIPES,
   drinks: DRINKS_RECIPES,
+};
+
+// Back-данные рецептов Книги (реальные веса ингредиентов). Используются при
+// сохранении SavedDish вместо display-строки без весов (иначе fallback 75 г).
+const BACK_SOURCE_DATA: Record<string, ComplimentBackData[] | null> = {
+  breakfast: breakfastBackData,
+  lunch: lunchBackData,
+  dinner: dinnerBackData,
+  must_have: mustHaveBackData,
+  compliment: complimentsBackData,
+  recipe_of_day: recipeDayBackData,
+  drinks: null,
 };
 
 function getAnnaBubbleStyle(currentScreen: string) {
@@ -1017,12 +1045,22 @@ export default function App() {
   }, [screen]);
 
   const [savedDishes, setSavedDishes] = useState<SavedDish[]>([]);
+  const [deletingDishId, setDeletingDishId] = useState<string | null>(null);
 
   // Mirror savedDishes into the zustand store so Anna engines (e.g. digestionCoaching)
   // can read yesterday's meals without prop drilling.
   useEffect(() => {
     useAppStore.getState().setSavedDishes(savedDishes);
   }, [savedDishes]);
+
+  // Успешно сохранённый результат Миксера попадает в общий серверный архив
+  // («Мои блюда → Миксер») через единый список savedDishes.
+  useEffect(() => {
+    setOnMixerSaved((dish) => {
+      setSavedDishes(prev => [dish, ...prev]);
+    });
+    return () => setOnMixerSaved(null);
+  }, []);
 
   // ─── ACHIEVEMENT SNAPSHOT INGESTION ────────────────────────────
   const buildSnapshot = (): AchievementStateSnapshot => {
@@ -1031,13 +1069,13 @@ export default function App() {
     let allWaterEntries: AchievementStateSnapshot['waterEntries'] = []
     try {
       const raw = localStorage.getItem('wfpb_daily_water_entries_v3')
-      const allLogs: Record<number, { amount: number; time: string; timestamp: number }[]> = raw ? JSON.parse(raw) : {}
+      const allLogs: Record<number, { amount: number; time: string; timestamp: number }[]> = raw ? (JSON.parse(raw) ?? {}) : {}
       allWaterEntries = Object.values(allLogs).flat()
     } catch {}
     let allSleepLogs: AchievementStateSnapshot['sleepLogs'] = []
     try {
       const sleepRaw = localStorage.getItem('wfpb_daily_sleep_logs_v1')
-      const sleepCache: Record<number, { dayIndex: number; sleepTime: string; duration: number; quality?: string }> = sleepRaw ? JSON.parse(sleepRaw) : {}
+      const sleepCache: Record<number, { dayIndex: number; sleepTime: string; duration: number; quality?: string }> = sleepRaw ? (JSON.parse(sleepRaw) ?? {}) : {}
       allSleepLogs = Object.values(sleepCache)
     } catch {}
     return {
@@ -1113,7 +1151,22 @@ export default function App() {
     }).catch(() => {});
   };
 
-  const handleSaveBookRecipe = (name: string, image: string, sourceType: string, ref: any) => {
+  const handleDeleteDish = async (id: string): Promise<boolean> => {
+    if (deletingDishId) return false;
+    setDeletingDishId(id);
+    try {
+      await api("/api/saved-dishes/" + encodeURIComponent(id), { method: "DELETE" });
+      setSavedDishes(prev => prev.filter(d => d.id !== id));
+      return true;
+    } catch (err: any) {
+      console.error("[SavedDish] DELETE error:", err?.message);
+      return false;
+    } finally {
+      setDeletingDishId(null);
+    }
+  };
+
+  const handleSaveBookRecipe = (name: string, image: string, sourceType: string, ref: any, dayIndex: number) => {
     const tag = sourceType === "breakfast" ? "Завтрак" :
                 sourceType === "lunch" ? "Обед" :
                 sourceType === "dinner" ? "Ужин" :
@@ -1124,26 +1177,52 @@ export default function App() {
     const macros = ref?.type && ref?.id != null ? getBookMacros(ref.type, ref.id) : null;
     const generatedId = `book_${sourceType}_${Date.now()}`;
 
-    // Parse ingredients from the recipe definition
+    // Parse ingredients from the recipe definition.
+    // Сначала back-data рецепта (реальные веса), fallback на display-строку —
+    // только если back-data недоступен.
     let parsedIngredients: { name: string; weight: string; status: "green" | "yellow" | "red" }[] = [];
     if (ref?.type && ref?.id != null) {
-      const recipeArray = RECIPE_TYPE_TO_ARRAY[ref.type];
-      if (recipeArray) {
-        const recipeDef = recipeArray.find((r: any) => r.id === ref.id || r.day === ref.id);
-        if (recipeDef?.ingredients) {
-          parsedIngredients = recipeDef.ingredients
-            .split(",")
-            .map((i: string) => i.trim())
-            .filter(Boolean)
-            .map((ingName: string) => {
-              const weightNum = parseWeightGrams(ingName);
-              const profile = getFoodProfile(ingName);
-              return {
-                name: ingName.charAt(0).toUpperCase() + ingName.slice(1),
-                weight: String(Math.round(weightNum)) + " г",
-                status: profile.defaultStatus,
-              };
-            });
+      const backArr = BACK_SOURCE_DATA[ref.type] || null;
+      const backKey = ref.type === "recipe_of_day" ? "recipe_day" : ref.type;
+      const backEntry = backArr ? backArr.find((d: ComplimentBackData) => d.id === `${backKey}_${ref.id}`) : undefined;
+      if (backEntry?.ingredients?.length) {
+        parsedIngredients = backEntry.ingredients
+          .map((line: string) => {
+            const sp = splitAmount(line);
+            if (!sp) return null;
+            const clean = cleanName(sp.name);
+            if (!clean) return null;
+            const grams = parseGrams(sp.amount);
+            if (grams == null) return null;
+            if (isWater(clean) || isSeasoningAmount(sp.amount)) return null;
+            const profile = getFoodProfile(clean);
+            const displayName = normalizeBookIngredientName(clean);
+            return {
+              name: displayName.charAt(0).toUpperCase() + displayName.slice(1),
+              weight: String(Math.round(grams)) + " г",
+              status: profile.defaultStatus,
+            };
+          })
+          .filter((x: { name: string; weight: string; status: "green" | "yellow" | "red" } | null): x is { name: string; weight: string; status: "green" | "yellow" | "red" } => x != null);
+      } else {
+        const recipeArray = RECIPE_TYPE_TO_ARRAY[ref.type];
+        if (recipeArray) {
+          const recipeDef = recipeArray.find((r: any) => r.id === ref.id || r.day === ref.id);
+          if (recipeDef?.ingredients) {
+            parsedIngredients = recipeDef.ingredients
+              .split(",")
+              .map((i: string) => i.trim())
+              .filter(Boolean)
+              .map((ingName: string) => {
+                const weightNum = parseWeightGrams(ingName);
+                const profile = getFoodProfile(ingName);
+                return {
+                  name: ingName.charAt(0).toUpperCase() + ingName.slice(1),
+                  weight: String(Math.round(weightNum)) + " г",
+                  status: profile.defaultStatus,
+                };
+              });
+          }
         }
       }
     }
@@ -1166,10 +1245,14 @@ export default function App() {
       annaTip: "",
       isBookRecipe: true,
       bookRecipeRef: ref,
+      dayIndex,
     };
     setSavedDishes(prev => [newDish, ...prev]);
 
-    // Persist SavedDish to the database (fire-and-forget)
+    // Persist SavedDish to the database (fire-and-forget UX: оптимистичная
+    // запись уже показана). Ответ содержит полную серверную запись с
+    // рассчитанными extended micronutrients — заменяем ею optimistic-копию
+    // по временному generatedId (без дублей и без изменения порядка).
     api("/api/saved-dishes", {
       method: "POST",
       body: {
@@ -1188,11 +1271,28 @@ export default function App() {
         fiber: newDish.fiber,
         fat: newDish.fat,
         ...(macros?.carbohydrates != null ? { carbohydrates: macros.carbohydrates } : {}),
-        dayIndex: currentDayIndex,
+        dayIndex,
         annaTip: newDish.annaTip || "",
         isNew: true,
       },
-    }).catch(() => {});
+    })
+      .then((response: any) => {
+        if (response?.ok && response?.dish) {
+          setSavedDishes(prev =>
+            prev.map(item =>
+              item.id === generatedId
+                ? {
+                    ...item,
+                    ...response.dish,
+                    id: response.dish.id,
+                    bookRecipeRef: item.bookRecipeRef,
+                  }
+                : item
+            )
+          );
+        }
+      })
+      .catch(() => {});
   };
 
   const handleSaveProgress = (updatedHabits: any) => {
@@ -1621,6 +1721,8 @@ export default function App() {
                 savedDishes={savedDishes}
                 onToggleFavorite={handleToggleFavorite}
                 onSaveDishCategory={handleSaveDishCategory}
+                onDeleteDish={handleDeleteDish}
+                deletingDishId={deletingDishId}
               />
             </motion.div>
           ) : screen === "from-what-is" ? (

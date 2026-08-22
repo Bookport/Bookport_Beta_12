@@ -38,7 +38,7 @@ export interface BookRecipesScreenProps {
   onNavigateHome?: () => void;
   onNavigateDiary?: () => void;
   onNavigateProgress?: () => void;
-  onSaveBookRecipe?: (name: string, image: string, sourceType: string, ref: any) => void;
+  onSaveBookRecipe?: (name: string, image: string, sourceType: string, ref: any, dayIndex: number) => void;
 }
 
 interface TabConfig {
@@ -59,6 +59,8 @@ interface TabConfig {
 export interface ComplimentRecipe {
   id: number;
   week: string;
+  /** BUILD-2: "technical" — справочный материал, не сохраняется как блюдо */
+  kind?: "recipe" | "technical";
   technicalName: string;
   emotionalName?: string;
   page: number;
@@ -279,6 +281,7 @@ export const MUST_HAVE_RECIPES: ComplimentRecipe[] = [
   {
     id: 5,
     week: "Неделя 2",
+    kind: "technical",
     technicalName: "Проростки (бобовые, злаки, семена)",
     page: 445,
     ingredients: "пшеница, овёс, чечевица, маш, гречка, подсолнечник, тыква, кунжут, лён, конопля"
@@ -287,6 +290,7 @@ export const MUST_HAVE_RECIPES: ComplimentRecipe[] = [
   {
     id: 6,
     week: "Неделя 3",
+    kind: "technical",
     technicalName: "Мисо-паста (ферментированная)",
     page: 715,
     ingredients: "соевые бобы, соль, Aspergillus oryzae, рис/ячмень"
@@ -296,6 +300,7 @@ export const MUST_HAVE_RECIPES: ComplimentRecipe[] = [
     id: 7,
     week: "Неделя 4",
     technicalName: "Домашняя протеиновая смесь",
+    kind: "technical",
     emotionalName: "ПОЛНЫЙ АМИНОКИСЛОТНЫЙ ПРОФИЛЬ",
     page: 980,
     ingredients: "семена конопли, семена тыквы, кунжут, амарант"
@@ -1488,7 +1493,8 @@ export default function BookRecipesScreen({
   
   const setScreen = useAppStore((s) => s.setScreen);
   const onBack = propsOnBack || (() => setScreen("my-day" as Screen));
-  const navScreen = propsScreen || useAppStore((s) => s.screen);
+  const storeScreen = useAppStore((s) => s.screen);
+  const navScreen = propsScreen || storeScreen;
   const onOpenCalendar = propsOnOpenCalendar || (() => {});
   const onNavigateHome = propsOnNavigateHome || (() => setScreen("my-day" as Screen));
   const onNavigateDiary = propsOnNavigateDiary || (() => setScreen("what-i-eat" as Screen));
@@ -1567,6 +1573,13 @@ export default function BookRecipesScreen({
   // Modal open states for chosen Compliment Card
   const [selectedRecipe, setSelectedRecipe] = useState<ComplimentRecipe | null>(null);
   const [selectedRecipeType, setSelectedRecipeType] = useState<"compliment" | "must_have" | "breakfast" | "lunch" | "dinner" | "recipe_of_day" | "drinks" | null>(null);
+
+  // BUILD-2: выбранный рецепт является technical (справочный материал,
+  // не сохраняется как блюдо)
+  const selectedRecipeIsTechnical =
+    selectedRecipeType === "must_have" &&
+    !!selectedRecipe &&
+    MUST_HAVE_RECIPES.find((r) => r.id === selectedRecipe.id)?.kind === "technical";
   const [recipeActionType, setRecipeActionType] = useState<"ponder" | "cooked" | null>(null);
   const [recipeFlipped, setRecipeFlipped] = useState(false);
   const [modalNote, setModalNote] = useState<string>("");
@@ -1946,6 +1959,16 @@ export default function BookRecipesScreen({
   ) => {
     if (!selectedRecipe || !selectedRecipeType) return;
 
+    // BUILD-2: технические рецепты (must_have_5/6/7) — справочные материалы,
+    // сохранение как блюдо запрещено (включая обходные пути).
+    if (
+      statusType === "cooked" &&
+      selectedRecipeType === "must_have" &&
+      MUST_HAVE_RECIPES.find((r) => r.id === selectedRecipe?.id)?.kind === "technical"
+    ) {
+      return;
+    }
+
     const finalNote = typeof textOverride === "string" ? textOverride : modalNote;
     const finalTags = tagsOverride || modalTags;
 
@@ -2119,7 +2142,8 @@ export default function BookRecipesScreen({
           id: selectedRecipe.id,
           technicalName: selectedRecipe.technicalName,
           emotionalName: selectedRecipe.emotionalName,
-        }
+        },
+        currentDayIndex
       );
     }
 
@@ -3399,6 +3423,14 @@ export default function BookRecipesScreen({
                 </div>
 
                 {/* 4. NOTE WRAPPER AND ACTIONS FLOW */}
+                {/* BUILD-2: технические рецепты — справочный материал */}
+                {selectedRecipeIsTechnical && (
+                  <div className="bg-slate-50/70 border border-gray-150/70 rounded-[20px] p-3.5 mt-4 text-left">
+                    <p className="text-[12.5px] text-slate-600 leading-relaxed font-sans">
+                      Справочный материал — не отдельное блюдо.
+                    </p>
+                  </div>
+                )}
                 {recipeActionType === null ? (
                   <div className="flex gap-2.5 pt-3.5 border-t border-dashed border-gray-150 mt-4" id="modal-actions-wrapper">
                     
@@ -3413,7 +3445,8 @@ export default function BookRecipesScreen({
                       <span>Подумаю</span>
                     </button>
 
-                    {/* Right execution action button 'Приготовил' in soft healthy emerald layout */}
+                    {/* BUILD-2: для technical recipes кнопка «Приготовил» скрыта */}
+                    {!selectedRecipeIsTechnical && (
                     <button
                       type="button"
                       onClick={() => setRecipeActionType("cooked")}
@@ -3423,6 +3456,7 @@ export default function BookRecipesScreen({
                       <Check className="w-4 h-4 text-emerald-700 shrink-0" />
                       <span>Приготовил</span>
                     </button>
+                    )}
 
                   </div>
                 ) : (
@@ -3537,6 +3571,7 @@ export default function BookRecipesScreen({
                                 <Award className="w-4 h-4 shrink-0" />
                                 <span>Подумаю</span>
                               </button>
+                              {!selectedRecipeIsTechnical && (
                               <button
                                 type="button"
                                 onClick={() => { playSound(cookSound); setRecipeActionType("cooked"); }}
@@ -3546,6 +3581,7 @@ export default function BookRecipesScreen({
                                 <Check className="w-4 h-4 shrink-0" />
                                 <span>Приготовил</span>
                               </button>
+                              )}
                             </div>
                           ) : (
                             <div className="bg-black/40 backdrop-blur-md rounded-[24px] p-4 border border-white/20">
@@ -3716,6 +3752,7 @@ export default function BookRecipesScreen({
                           <Award className="w-4 h-4 shrink-0" />
                           <span>Подумаю</span>
                         </button>
+                        {!selectedRecipeIsTechnical && (
                         <button
                           type="button"
                           onClick={() => setRecipeActionType("cooked")}
@@ -3725,6 +3762,7 @@ export default function BookRecipesScreen({
                           <Check className="w-4 h-4 shrink-0" />
                           <span>Приготовил</span>
                         </button>
+                        )}
                       </div>
                     ) : (
                       <div className="bg-black/40 backdrop-blur-md rounded-[24px] p-4 border border-white/20">

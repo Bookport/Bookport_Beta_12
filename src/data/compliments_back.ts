@@ -1,9 +1,21 @@
+export interface StructuredIngredient {
+  originalName: string;
+  foodKey: string;
+  grams: number | null;
+  resolution: "food" | "excluded" | "recipe";
+  note?: string;
+}
+
 export interface ComplimentBackData {
   id: string;
   title: string;
+  /** BUILD-2: "technical" — справочный материал, не сохраняется как блюдо */
+  kind?: "recipe" | "technical";
   ingredients: string[];
   instructions: string;
   kbju: string[];
+  structuredIngredients?: StructuredIngredient[];
+  selectedLegume?: string;
 }
 
 export const complimentsBackData: ComplimentBackData[] = [
