@@ -487,6 +487,10 @@ export default function StateNowScreen({
   const dayLysine = dbData.minerals.lysine;
   const daySelenium = dbData.minerals.selenium;
 
+  const hasPartialBookDishes = dbData.hasPartialBookDishes;
+  const realProfileCount = dbData.realProfileCount;
+  const hasAnyRealMicronutrientProfile = dbData.hasAnyRealMicronutrientProfile;
+
   const aggregatedIngredients = dbData.aggregatedIngredients;
 
   // Core target definitions
@@ -1425,6 +1429,9 @@ export default function StateNowScreen({
               dayPotassium={dayPotassium}
               dayLysine={dayLysine}
               daySelenium={daySelenium}
+              hasPartialBookDishes={hasPartialBookDishes}
+              realProfileCount={realProfileCount}
+              hasAnyRealMicronutrientProfile={hasAnyRealMicronutrientProfile}
               annaAnalysisText={getDisplayedAnalysis("micro")}
               recommendedAction={recommendedAction}
             />

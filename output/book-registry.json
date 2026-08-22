@@ -1,0 +1,3861 @@
+{
+  "version": 1,
+  "generatedAt": "2026-08-22T14:27:40.510Z",
+  "inputs": {
+    "decisionsSha256": "6cfc566f44ec22d5181c122ba9338731f297495b4b0244aa4058943e587f094c",
+    "synonymsSha256": "7e6d41320da164a5eb4dd732c2b3999920580daca0c77d0a57dfc165b8da0bc2",
+    "backDataSha256": "5f0c918917b9af4be35b0c13211479dfbe84e9c5d80463dabd52acdbed3eb622",
+    "foodItemIndexSize": 1111
+  },
+  "globalRules": [
+    {
+      "ruleId": "dec_excluded:аквафаба",
+      "action": "excluded",
+      "normalizedKey": "аквафаба",
+      "reason": "approved_zero_liquid",
+      "precedence": 20
+    },
+    {
+      "ruleId": "dec_excluded:апельсиновая цедра",
+      "action": "excluded",
+      "normalizedKey": "апельсиновая цедра",
+      "reason": "approved_excluded_no_fooditem",
+      "precedence": 20
+    },
+    {
+      "ruleId": "dec_excluded:вода или растительное молоко",
+      "action": "excluded",
+      "normalizedKey": "вода или растительное молоко",
+      "reason": "water",
+      "precedence": 20
+    },
+    {
+      "ruleId": "dec_excluded:готовый овощной бульон",
+      "action": "excluded",
+      "normalizedKey": "готовый овощной бульон",
+      "reason": "treated_as_water",
+      "precedence": 20
+    },
+    {
+      "ruleId": "dec_excluded:закваска",
+      "action": "excluded",
+      "normalizedKey": "закваска",
+      "reason": "starter_culture",
+      "precedence": 20
+    },
+    {
+      "ruleId": "dec_excluded:кешью-паста с белой мисо и нори",
+      "action": "excluded",
+      "normalizedKey": "кешью-паста с белой мисо и нори",
+      "reason": "approved_excluded_no_fooditem",
+      "precedence": 20
+    },
+    {
+      "ruleId": "dec_excluded:кумин",
+      "action": "excluded",
+      "normalizedKey": "кумин",
+      "reason": "approved_excluded_no_fooditem",
+      "precedence": 20
+    },
+    {
+      "ruleId": "dec_excluded:насыщенный овощной бульон",
+      "action": "excluded",
+      "normalizedKey": "насыщенный овощной бульон",
+      "reason": "treated_as_water",
+      "precedence": 20
+    },
+    {
+      "ruleId": "dec_excluded:овощной бульон",
+      "action": "excluded",
+      "normalizedKey": "овощной бульон",
+      "reason": "treated_as_water",
+      "precedence": 20
+    },
+    {
+      "ruleId": "dec_excluded:пробиотическая закваска",
+      "action": "excluded",
+      "normalizedKey": "пробиотическая закваска",
+      "reason": "starter_culture",
+      "precedence": 20
+    },
+    {
+      "ruleId": "dec_excluded:рисовая вода",
+      "action": "excluded",
+      "normalizedKey": "рисовая вода",
+      "reason": "treated_as_water",
+      "precedence": 20
+    },
+    {
+      "ruleId": "dec_excluded:смесь специй",
+      "action": "excluded",
+      "normalizedKey": "смесь специй",
+      "reason": "approved_excluded_no_fooditem",
+      "precedence": 20
+    },
+    {
+      "ruleId": "dec_excluded:смесь специй суперзаряд",
+      "action": "excluded",
+      "normalizedKey": "смесь специй суперзаряд",
+      "reason": "no composition_or_weight_supplied",
+      "precedence": 20
+    },
+    {
+      "ruleId": "dec_excluded:тапиоковый крахмал",
+      "action": "excluded",
+      "normalizedKey": "тапиоковый крахмал",
+      "reason": "approved_excluded_no_fooditem",
+      "precedence": 20
+    },
+    {
+      "ruleId": "dec_excluded:цедра лимона",
+      "action": "excluded",
+      "normalizedKey": "цедра лимона",
+      "reason": "approved_excluded_no_fooditem",
+      "precedence": 20
+    },
+    {
+      "ruleId": "dec_food_key:желтый горох колотый",
+      "action": "food_key",
+      "normalizedKey": "желтый горох колотый",
+      "target": {
+        "foodKey": "горох сушёный сырой",
+        "resolvedNameRu": "Горох сушёный сырой",
+        "wfpbStatus": "green"
+      },
+      "precedence": 30
+    },
+    {
+      "ruleId": "dec_food_key:кешью-соус",
+      "action": "food_key",
+      "normalizedKey": "кешью-соус",
+      "target": {
+        "foodKey": "кешью",
+        "resolvedNameRu": "кешью",
+        "wfpbStatus": "green"
+      },
+      "precedence": 30,
+      "grams": 60,
+      "gramsSource": "fixed"
+    },
+    {
+      "ruleId": "dec_food_key:паста из тыквенных семечек",
+      "action": "food_key",
+      "normalizedKey": "паста из тыквенных семечек",
+      "target": {
+        "foodKey": "тыквенные семечки",
+        "resolvedNameRu": "тыквенные семечки",
+        "wfpbStatus": "green"
+      },
+      "precedence": 30,
+      "grams": 30,
+      "gramsSource": "when_missing"
+    },
+    {
+      "ruleId": "dec_food_key:яблочный джем без сахара",
+      "action": "food_key",
+      "normalizedKey": "яблочный джем без сахара",
+      "target": {
+        "foodKey": "яблоко",
+        "resolvedNameRu": "яблоко",
+        "wfpbStatus": "green"
+      },
+      "precedence": 30
+    },
+    {
+      "ruleId": "gd_baklazhan_1_sht",
+      "action": "piece_default",
+      "normalizedKey": "баклажан",
+      "amountMatcher": {
+        "kind": "piece_key",
+        "value": "1 шт"
+      },
+      "target": {
+        "foodKey": "баклажан",
+        "resolvedNameRu": "баклажан",
+        "wfpbStatus": "green"
+      },
+      "grams": 300,
+      "gramsSource": "when_missing",
+      "precedence": 50
+    },
+    {
+      "ruleId": "gd_bazilik_10_listikov",
+      "action": "piece_default",
+      "normalizedKey": "базилик",
+      "amountMatcher": {
+        "kind": "piece_key",
+        "value": "10 листиков"
+      },
+      "target": {
+        "foodKey": "базилик",
+        "resolvedNameRu": "базилик",
+        "wfpbStatus": "green"
+      },
+      "grams": 3,
+      "gramsSource": "when_missing",
+      "precedence": 50
+    },
+    {
+      "ruleId": "gd_finik_1_sht",
+      "action": "piece_default",
+      "normalizedKey": "финик",
+      "amountMatcher": {
+        "kind": "piece_key",
+        "value": "1 шт"
+      },
+      "target": {
+        "foodKey": "финик",
+        "resolvedNameRu": "финики",
+        "wfpbStatus": "green"
+      },
+      "grams": 8,
+      "gramsSource": "when_missing",
+      "precedence": 50
+    },
+    {
+      "ruleId": "gd_imbir_svezhii_1_sm",
+      "action": "piece_default",
+      "normalizedKey": "имбирь свежий",
+      "amountMatcher": {
+        "kind": "piece_key",
+        "value": "1 см (натертый)"
+      },
+      "target": {
+        "foodKey": "имбирь свежий",
+        "resolvedNameRu": "имбирь",
+        "wfpbStatus": "green"
+      },
+      "grams": 10,
+      "gramsSource": "when_missing",
+      "precedence": 50
+    },
+    {
+      "ruleId": "gd_krasnyi_perets_1_sht",
+      "action": "piece_default",
+      "normalizedKey": "красный перец",
+      "amountMatcher": {
+        "kind": "piece_key",
+        "value": "1 шт"
+      },
+      "target": {
+        "foodKey": "красный перец",
+        "resolvedNameRu": "перец красный",
+        "wfpbStatus": "green"
+      },
+      "grams": 120,
+      "gramsSource": "when_missing",
+      "precedence": 50
+    },
+    {
+      "ruleId": "gd_krasnyi_perets_1_sht_tselikom",
+      "action": "piece_default",
+      "normalizedKey": "красный перец",
+      "amountMatcher": {
+        "kind": "piece_key",
+        "value": "1 шт (целиком)"
+      },
+      "target": {
+        "foodKey": "красный перец",
+        "resolvedNameRu": "перец красный",
+        "wfpbStatus": "green"
+      },
+      "grams": 120,
+      "gramsSource": "when_missing",
+      "precedence": 50
+    },
+    {
+      "ruleId": "gd_krasnyi_perets_2_sht_tselikom",
+      "action": "piece_default",
+      "normalizedKey": "красный перец",
+      "amountMatcher": {
+        "kind": "piece_key",
+        "value": "2 шт (целиком)"
+      },
+      "target": {
+        "foodKey": "красный перец",
+        "resolvedNameRu": "перец красный",
+        "wfpbStatus": "green"
+      },
+      "grams": 240,
+      "gramsSource": "when_missing",
+      "precedence": 50
+    },
+    {
+      "ruleId": "gd_krasnyi_perets_3_sht",
+      "action": "piece_default",
+      "normalizedKey": "красный перец",
+      "amountMatcher": {
+        "kind": "piece_key",
+        "value": "3 шт"
+      },
+      "target": {
+        "foodKey": "красный перец",
+        "resolvedNameRu": "перец красный",
+        "wfpbStatus": "green"
+      },
+      "grams": 360,
+      "gramsSource": "when_missing",
+      "precedence": 50
+    },
+    {
+      "ruleId": "gd_laim_0.5_sht",
+      "action": "piece_default",
+      "normalizedKey": "лайм",
+      "amountMatcher": {
+        "kind": "piece_key",
+        "value": "½ шт"
+      },
+      "target": {
+        "foodKey": "лайм",
+        "resolvedNameRu": "лайм",
+        "wfpbStatus": "green"
+      },
+      "grams": 25,
+      "gramsSource": "when_missing",
+      "precedence": 50
+    },
+    {
+      "ruleId": "gd_lavrovyi_list_1_sht",
+      "action": "piece_default",
+      "normalizedKey": "лавровый лист",
+      "amountMatcher": {
+        "kind": "piece_key",
+        "value": "1 шт"
+      },
+      "target": {
+        "foodKey": "лавровый лист",
+        "resolvedNameRu": "лавровый лист",
+        "wfpbStatus": "green"
+      },
+      "grams": 0.2,
+      "gramsSource": "when_missing",
+      "precedence": 50
+    },
+    {
+      "ruleId": "gd_listya_pekinskoi_kapusty_4_sht",
+      "action": "piece_default",
+      "normalizedKey": "листья пекинской капусты",
+      "amountMatcher": {
+        "kind": "piece_key",
+        "value": "4 шт"
+      },
+      "target": {
+        "foodKey": "листья пекинской капусты",
+        "resolvedNameRu": "капуста пекинская",
+        "wfpbStatus": "green"
+      },
+      "grams": 120,
+      "gramsSource": "when_missing",
+      "precedence": 50
+    },
+    {
+      "ruleId": "gd_ostryi_perets_chili_1_sht",
+      "action": "piece_default",
+      "normalizedKey": "острый перец чили",
+      "amountMatcher": {
+        "kind": "piece_key",
+        "value": "1 шт"
+      },
+      "target": {
+        "foodKey": "острый перец чили",
+        "resolvedNameRu": "перец чили",
+        "wfpbStatus": "green"
+      },
+      "grams": 10,
+      "gramsSource": "when_missing",
+      "precedence": 50
+    },
+    {
+      "ruleId": "gd_petrushka_1_puchok",
+      "action": "piece_default",
+      "normalizedKey": "петрушка",
+      "amountMatcher": {
+        "kind": "piece_key",
+        "value": "1 пучок"
+      },
+      "target": {
+        "foodKey": "петрушка",
+        "resolvedNameRu": "петрушка",
+        "wfpbStatus": "green"
+      },
+      "grams": 20,
+      "gramsSource": "when_missing",
+      "precedence": 50
+    },
+    {
+      "ruleId": "gd_shpinat_neskolko_listev",
+      "action": "piece_default",
+      "normalizedKey": "шпинат",
+      "amountMatcher": {
+        "kind": "piece_key",
+        "value": "несколько листьев"
+      },
+      "target": {
+        "foodKey": "шпинат",
+        "resolvedNameRu": "шпинат",
+        "wfpbStatus": "green"
+      },
+      "grams": 20,
+      "gramsSource": "when_missing",
+      "precedence": 50
+    },
+    {
+      "ruleId": "gd_yabloko_1_sht",
+      "action": "piece_default",
+      "normalizedKey": "яблоко",
+      "amountMatcher": {
+        "kind": "piece_key",
+        "value": "1 шт"
+      },
+      "target": {
+        "foodKey": "яблоко",
+        "resolvedNameRu": "яблоко",
+        "wfpbStatus": "green"
+      },
+      "grams": 180,
+      "gramsSource": "when_missing",
+      "precedence": 50
+    },
+    {
+      "ruleId": "gd_yabloko_zelenoe_1_sht",
+      "action": "piece_default",
+      "normalizedKey": "яблоко зеленое",
+      "amountMatcher": {
+        "kind": "piece_key",
+        "value": "1 шт"
+      },
+      "target": {
+        "foodKey": "яблоко зеленое",
+        "resolvedNameRu": "яблоко",
+        "wfpbStatus": "green"
+      },
+      "grams": 180,
+      "gramsSource": "when_missing",
+      "precedence": 50
+    },
+    {
+      "ruleId": "gd_zheltyi_perets_2_sht",
+      "action": "piece_default",
+      "normalizedKey": "желтый перец",
+      "amountMatcher": {
+        "kind": "piece_key",
+        "value": "2 шт"
+      },
+      "target": {
+        "foodKey": "желтый перец",
+        "resolvedNameRu": "перец жёлтый",
+        "wfpbStatus": "green"
+      },
+      "grams": 240,
+      "gramsSource": "when_missing",
+      "precedence": 50
+    },
+    {
+      "ruleId": "gd_chesnok",
+      "action": "gram_default",
+      "normalizedKey": "чеснок",
+      "target": {
+        "foodKey": "чеснок",
+        "resolvedNameRu": "чеснок",
+        "wfpbStatus": "green"
+      },
+      "grams": 3,
+      "gramsSource": "when_missing",
+      "precedence": 60
+    },
+    {
+      "ruleId": "gd_koritsa",
+      "action": "gram_default",
+      "normalizedKey": "корица",
+      "target": {
+        "foodKey": "корица",
+        "resolvedNameRu": "корица",
+        "wfpbStatus": "green"
+      },
+      "grams": 1,
+      "gramsSource": "when_missing",
+      "precedence": 60
+    },
+    {
+      "ruleId": "gd_kurkuma",
+      "action": "gram_default",
+      "normalizedKey": "куркума",
+      "target": {
+        "foodKey": "куркума",
+        "resolvedNameRu": "куркума",
+        "wfpbStatus": "green"
+      },
+      "grams": 1,
+      "gramsSource": "when_missing",
+      "precedence": 60
+    },
+    {
+      "ruleId": "gd_limon_sok",
+      "action": "gram_default",
+      "normalizedKey": "лимонный сок",
+      "target": {
+        "foodKey": "лимонный сок",
+        "resolvedNameRu": "Лимон свеж. сок",
+        "wfpbStatus": "green"
+      },
+      "grams": 5,
+      "gramsSource": "when_missing",
+      "precedence": 60
+    },
+    {
+      "ruleId": "gd_miso",
+      "action": "gram_default",
+      "normalizedKey": "мисо",
+      "target": {
+        "foodKey": "мисо",
+        "resolvedNameRu": "мисо",
+        "wfpbStatus": "green"
+      },
+      "grams": 5,
+      "gramsSource": "when_missing",
+      "precedence": 60
+    },
+    {
+      "ruleId": "gd_svezhii_imbir_1_tbsp",
+      "action": "gram_default",
+      "normalizedKey": "свежий имбирь",
+      "amountMatcher": {
+        "kind": "amount_key",
+        "value": "1 tbsp"
+      },
+      "target": {
+        "foodKey": "свежий имбирь",
+        "resolvedNameRu": "имбирь",
+        "wfpbStatus": "green"
+      },
+      "grams": 6,
+      "gramsSource": "when_missing",
+      "precedence": 60
+    },
+    {
+      "ruleId": "gd_svezhii_natertyi_imbir_1_tbsp",
+      "action": "gram_default",
+      "normalizedKey": "свежий натертый имбирь",
+      "amountMatcher": {
+        "kind": "amount_key",
+        "value": "1 tbsp"
+      },
+      "target": {
+        "foodKey": "свежий натертый имбирь",
+        "resolvedNameRu": "имбирь",
+        "wfpbStatus": "green"
+      },
+      "grams": 6,
+      "gramsSource": "when_missing",
+      "precedence": 60
+    },
+    {
+      "ruleId": "gd_tkhina",
+      "action": "gram_default",
+      "normalizedKey": "тхина",
+      "target": {
+        "foodKey": "тхина",
+        "resolvedNameRu": "тхина",
+        "wfpbStatus": "green"
+      },
+      "grams": 15,
+      "gramsSource": "when_missing",
+      "precedence": 60
+    },
+    {
+      "ruleId": "gd_yablochny_uksus",
+      "action": "gram_default",
+      "normalizedKey": "яблочный уксус",
+      "target": {
+        "foodKey": "яблочный уксус",
+        "resolvedNameRu": "яблочный уксус",
+        "wfpbStatus": "green"
+      },
+      "grams": 10,
+      "gramsSource": "when_missing",
+      "precedence": 60
+    },
+    {
+      "ruleId": "gd_базилик_0.5_tsp",
+      "action": "gram_default",
+      "normalizedKey": "базилик",
+      "amountMatcher": {
+        "kind": "amount_key",
+        "value": "0.5 tsp"
+      },
+      "target": {
+        "foodKey": "базилик",
+        "resolvedNameRu": "базилик",
+        "wfpbStatus": "green"
+      },
+      "grams": 0.5,
+      "gramsSource": "when_missing",
+      "precedence": 60
+    },
+    {
+      "ruleId": "gd_ваниль_0.25_tsp",
+      "action": "gram_default",
+      "normalizedKey": "ваниль",
+      "amountMatcher": {
+        "kind": "amount_key",
+        "value": "0.25 tsp"
+      },
+      "target": {
+        "foodKey": "ваниль",
+        "resolvedNameRu": "ваниль",
+        "wfpbStatus": "green"
+      },
+      "grams": 0.5,
+      "gramsSource": "when_missing",
+      "precedence": 60
+    },
+    {
+      "ruleId": "gd_ваниль_0.5_tsp",
+      "action": "gram_default",
+      "normalizedKey": "ваниль",
+      "amountMatcher": {
+        "kind": "amount_key",
+        "value": "0.5 tsp"
+      },
+      "target": {
+        "foodKey": "ваниль",
+        "resolvedNameRu": "ваниль",
+        "wfpbStatus": "green"
+      },
+      "grams": 1,
+      "gramsSource": "when_missing",
+      "precedence": 60
+    },
+    {
+      "ruleId": "gd_горчица_0.25_tsp",
+      "action": "gram_default",
+      "normalizedKey": "горчица",
+      "amountMatcher": {
+        "kind": "amount_key",
+        "value": "0.25 tsp"
+      },
+      "target": {
+        "foodKey": "горчица",
+        "resolvedNameRu": "горчица",
+        "wfpbStatus": "green"
+      },
+      "grams": 0.5,
+      "gramsSource": "when_missing",
+      "precedence": 60
+    },
+    {
+      "ruleId": "gd_имбирь_0.25_tsp",
+      "action": "gram_default",
+      "normalizedKey": "имбирь",
+      "amountMatcher": {
+        "kind": "amount_key",
+        "value": "0.25 tsp"
+      },
+      "target": {
+        "foodKey": "имбирь",
+        "resolvedNameRu": "имбирь",
+        "wfpbStatus": "green"
+      },
+      "grams": 1,
+      "gramsSource": "when_missing",
+      "precedence": 60
+    },
+    {
+      "ruleId": "gd_имбирь_0.75_tsp",
+      "action": "gram_default",
+      "normalizedKey": "имбирь",
+      "amountMatcher": {
+        "kind": "amount_key",
+        "value": "0.75 tsp"
+      },
+      "target": {
+        "foodKey": "имбирь",
+        "resolvedNameRu": "имбирь",
+        "wfpbStatus": "green"
+      },
+      "grams": 2,
+      "gramsSource": "when_missing",
+      "precedence": 60
+    },
+    {
+      "ruleId": "gd_имбирь_1_tbsp",
+      "action": "gram_default",
+      "normalizedKey": "имбирь",
+      "amountMatcher": {
+        "kind": "amount_key",
+        "value": "1 tbsp"
+      },
+      "target": {
+        "foodKey": "имбирь",
+        "resolvedNameRu": "имбирь",
+        "wfpbStatus": "green"
+      },
+      "grams": 6,
+      "gramsSource": "when_missing",
+      "precedence": 60
+    },
+    {
+      "ruleId": "gd_имбирь_1_tsp",
+      "action": "gram_default",
+      "normalizedKey": "имбирь",
+      "amountMatcher": {
+        "kind": "amount_key",
+        "value": "1 tsp"
+      },
+      "target": {
+        "foodKey": "имбирь",
+        "resolvedNameRu": "имбирь",
+        "wfpbStatus": "green"
+      },
+      "grams": 3,
+      "gramsSource": "when_missing",
+      "precedence": 60
+    },
+    {
+      "ruleId": "gd_имбирь_молотый_0.25_tsp",
+      "action": "gram_default",
+      "normalizedKey": "имбирь молотый",
+      "amountMatcher": {
+        "kind": "amount_key",
+        "value": "0.25 tsp"
+      },
+      "target": {
+        "foodKey": "имбирь молотый",
+        "resolvedNameRu": "Имбирь молотый",
+        "wfpbStatus": "green"
+      },
+      "grams": 0.5,
+      "gramsSource": "when_missing",
+      "precedence": 60
+    },
+    {
+      "ruleId": "gd_какао-порошок_1_tsp",
+      "action": "gram_default",
+      "normalizedKey": "какао-порошок",
+      "amountMatcher": {
+        "kind": "amount_key",
+        "value": "1 tsp"
+      },
+      "target": {
+        "foodKey": "какао-порошок",
+        "resolvedNameRu": "какао-порошок",
+        "wfpbStatus": "green"
+      },
+      "grams": 2,
+      "gramsSource": "when_missing",
+      "precedence": 60
+    },
+    {
+      "ruleId": "gd_кардамон_0.25_tsp",
+      "action": "gram_default",
+      "normalizedKey": "кардамон",
+      "amountMatcher": {
+        "kind": "amount_key",
+        "value": "0.25 tsp"
+      },
+      "target": {
+        "foodKey": "кардамон",
+        "resolvedNameRu": "кардамон",
+        "wfpbStatus": "green"
+      },
+      "grams": 0.5,
+      "gramsSource": "when_missing",
+      "precedence": 60
+    },
+    {
+      "ruleId": "gd_кешью-жмых_2_tbsp",
+      "action": "gram_default",
+      "normalizedKey": "кешью-жмых",
+      "amountMatcher": {
+        "kind": "amount_key",
+        "value": "2 tbsp"
+      },
+      "target": {
+        "foodKey": "кешью-жмых",
+        "resolvedNameRu": "кешью-жмых",
+        "wfpbStatus": "green"
+      },
+      "grams": 16,
+      "gramsSource": "when_missing",
+      "precedence": 60
+    },
+    {
+      "ruleId": "gd_кориандр_1.5_tsp",
+      "action": "gram_default",
+      "normalizedKey": "кориандр",
+      "amountMatcher": {
+        "kind": "amount_key",
+        "value": "1.5 tsp"
+      },
+      "target": {
+        "foodKey": "кориандр",
+        "resolvedNameRu": "кориандр",
+        "wfpbStatus": "green"
+      },
+      "grams": 3,
+      "gramsSource": "when_missing",
+      "precedence": 60
+    },
+    {
+      "ruleId": "gd_льняная_мука_1_tsp",
+      "action": "gram_default",
+      "normalizedKey": "льняная мука",
+      "amountMatcher": {
+        "kind": "amount_key",
+        "value": "1 tsp"
+      },
+      "target": {
+        "foodKey": "льняная мука",
+        "resolvedNameRu": "льняная мука",
+        "wfpbStatus": "green"
+      },
+      "grams": 2.5,
+      "gramsSource": "when_missing",
+      "precedence": 60
+    },
+    {
+      "ruleId": "gd_орегано_0.5_tsp",
+      "action": "gram_default",
+      "normalizedKey": "орегано",
+      "amountMatcher": {
+        "kind": "amount_key",
+        "value": "0.5 tsp"
+      },
+      "target": {
+        "foodKey": "орегано",
+        "resolvedNameRu": "орегано",
+        "wfpbStatus": "green"
+      },
+      "grams": 0.5,
+      "gramsSource": "when_missing",
+      "precedence": 60
+    },
+    {
+      "ruleId": "gd_орегано_1_tsp",
+      "action": "gram_default",
+      "normalizedKey": "орегано",
+      "amountMatcher": {
+        "kind": "amount_key",
+        "value": "1 tsp"
+      },
+      "target": {
+        "foodKey": "орегано",
+        "resolvedNameRu": "орегано",
+        "wfpbStatus": "green"
+      },
+      "grams": 1,
+      "gramsSource": "when_missing",
+      "precedence": 60
+    },
+    {
+      "ruleId": "gd_паприка_0.5_tsp",
+      "action": "gram_default",
+      "normalizedKey": "паприка",
+      "amountMatcher": {
+        "kind": "amount_key",
+        "value": "0.5 tsp"
+      },
+      "target": {
+        "foodKey": "паприка",
+        "resolvedNameRu": "паприка",
+        "wfpbStatus": "green"
+      },
+      "grams": 1,
+      "gramsSource": "when_missing",
+      "precedence": 60
+    },
+    {
+      "ruleId": "gd_паприка_1_tsp",
+      "action": "gram_default",
+      "normalizedKey": "паприка",
+      "amountMatcher": {
+        "kind": "amount_key",
+        "value": "1 tsp"
+      },
+      "target": {
+        "foodKey": "паприка",
+        "resolvedNameRu": "паприка",
+        "wfpbStatus": "green"
+      },
+      "grams": 2,
+      "gramsSource": "when_missing",
+      "precedence": 60
+    },
+    {
+      "ruleId": "gd_паприка_1.3_tsp",
+      "action": "gram_default",
+      "normalizedKey": "паприка",
+      "amountMatcher": {
+        "kind": "amount_key",
+        "value": "1.3 tsp"
+      },
+      "target": {
+        "foodKey": "паприка",
+        "resolvedNameRu": "паприка",
+        "wfpbStatus": "green"
+      },
+      "grams": 3,
+      "gramsSource": "when_missing",
+      "precedence": 60
+    },
+    {
+      "ruleId": "gd_пищевые_дрожжи_1_tsp",
+      "action": "gram_default",
+      "normalizedKey": "пищевые дрожжи",
+      "amountMatcher": {
+        "kind": "amount_key",
+        "value": "1 tsp"
+      },
+      "target": {
+        "foodKey": "пищевые дрожжи",
+        "resolvedNameRu": "пищевые неактивные дрожжи",
+        "wfpbStatus": "green"
+      },
+      "grams": 3,
+      "gramsSource": "when_missing",
+      "precedence": 60
+    },
+    {
+      "ruleId": "gd_порошок_сельдерея_0.5_tsp",
+      "action": "gram_default",
+      "normalizedKey": "порошок сельдерея",
+      "amountMatcher": {
+        "kind": "amount_key",
+        "value": "0.5 tsp"
+      },
+      "target": {
+        "foodKey": "порошок сельдерея",
+        "resolvedNameRu": "порошок сельдерея",
+        "wfpbStatus": "green"
+      },
+      "grams": 1,
+      "gramsSource": "when_missing",
+      "precedence": 60
+    },
+    {
+      "ruleId": "gd_псиллиум_1_tsp",
+      "action": "gram_default",
+      "normalizedKey": "псиллиум",
+      "amountMatcher": {
+        "kind": "amount_key",
+        "value": "1 tsp"
+      },
+      "target": {
+        "foodKey": "псиллиум",
+        "resolvedNameRu": "псиллиум",
+        "wfpbStatus": "green"
+      },
+      "grams": 2,
+      "gramsSource": "when_missing",
+      "precedence": 60
+    },
+    {
+      "ruleId": "gd_рис_коричневый_1_tbsp",
+      "action": "gram_default",
+      "normalizedKey": "рис коричневый",
+      "amountMatcher": {
+        "kind": "amount_key",
+        "value": "1 tbsp"
+      },
+      "target": {
+        "foodKey": "рис коричневый",
+        "resolvedNameRu": "рис коричневый",
+        "wfpbStatus": "green"
+      },
+      "grams": 12,
+      "gramsSource": "when_missing",
+      "precedence": 60
+    },
+    {
+      "ruleId": "gd_семена_чиа_1.3_tsp",
+      "action": "gram_default",
+      "normalizedKey": "семена чиа",
+      "amountMatcher": {
+        "kind": "amount_key",
+        "value": "1.3 tsp"
+      },
+      "target": {
+        "foodKey": "семена чиа",
+        "resolvedNameRu": "семена чиа белые",
+        "wfpbStatus": "green"
+      },
+      "grams": 4,
+      "gramsSource": "when_missing",
+      "precedence": 60
+    },
+    {
+      "ruleId": "gd_сода_0.25_tsp",
+      "action": "gram_default",
+      "normalizedKey": "сода",
+      "amountMatcher": {
+        "kind": "amount_key",
+        "value": "0.25 tsp"
+      },
+      "target": {
+        "foodKey": "сода",
+        "resolvedNameRu": "сода",
+        "wfpbStatus": "green"
+      },
+      "grams": 1,
+      "gramsSource": "when_missing",
+      "precedence": 60
+    },
+    {
+      "ruleId": "gd_сода_0.33_tbsp",
+      "action": "gram_default",
+      "normalizedKey": "сода",
+      "amountMatcher": {
+        "kind": "amount_key",
+        "value": "0.33 tbsp"
+      },
+      "target": {
+        "foodKey": "сода",
+        "resolvedNameRu": "сода",
+        "wfpbStatus": "green"
+      },
+      "grams": 1.5,
+      "gramsSource": "when_missing",
+      "precedence": 60
+    },
+    {
+      "ruleId": "gd_тимьян_0.25_tsp",
+      "action": "gram_default",
+      "normalizedKey": "тимьян",
+      "amountMatcher": {
+        "kind": "amount_key",
+        "value": "0.25 tsp"
+      },
+      "target": {
+        "foodKey": "тимьян",
+        "resolvedNameRu": "тимьян",
+        "wfpbStatus": "green"
+      },
+      "grams": 0.5,
+      "gramsSource": "when_missing",
+      "precedence": 60
+    },
+    {
+      "ruleId": "gd_тмин_0.25_tsp",
+      "action": "gram_default",
+      "normalizedKey": "тмин",
+      "amountMatcher": {
+        "kind": "amount_key",
+        "value": "0.25 tsp"
+      },
+      "target": {
+        "foodKey": "тмин",
+        "resolvedNameRu": "тмин",
+        "wfpbStatus": "green"
+      },
+      "grams": 0.5,
+      "gramsSource": "when_missing",
+      "precedence": 60
+    },
+    {
+      "ruleId": "gd_тмин_1_tsp",
+      "action": "gram_default",
+      "normalizedKey": "тмин",
+      "amountMatcher": {
+        "kind": "amount_key",
+        "value": "1 tsp"
+      },
+      "target": {
+        "foodKey": "тмин",
+        "resolvedNameRu": "тмин",
+        "wfpbStatus": "green"
+      },
+      "grams": 2,
+      "gramsSource": "when_missing",
+      "precedence": 60
+    },
+    {
+      "ruleId": "gd_томатная_паста_1_tbsp",
+      "action": "gram_default",
+      "normalizedKey": "томатная паста",
+      "amountMatcher": {
+        "kind": "amount_key",
+        "value": "1 tbsp"
+      },
+      "target": {
+        "foodKey": "томатная паста",
+        "resolvedNameRu": "томатная паста",
+        "wfpbStatus": "green"
+      },
+      "grams": 16,
+      "gramsSource": "when_missing",
+      "precedence": 60
+    },
+    {
+      "ruleId": "gd_чёрный_кунжут_1_tsp",
+      "action": "gram_default",
+      "normalizedKey": "черный кунжут",
+      "amountMatcher": {
+        "kind": "amount_key",
+        "value": "1 tsp"
+      },
+      "target": {
+        "foodKey": "чёрный кунжут",
+        "resolvedNameRu": "кунжут чёрный",
+        "wfpbStatus": "green"
+      },
+      "grams": 3,
+      "gramsSource": "when_missing",
+      "precedence": 60
+    },
+    {
+      "ruleId": "gd_чёрный_перец_0.25_tsp",
+      "action": "gram_default",
+      "normalizedKey": "черный перец",
+      "amountMatcher": {
+        "kind": "amount_key",
+        "value": "0.25 tsp"
+      },
+      "target": {
+        "foodKey": "чёрный перец",
+        "resolvedNameRu": "чёрный перец",
+        "wfpbStatus": "green"
+      },
+      "grams": 0.5,
+      "gramsSource": "when_missing",
+      "precedence": 60
+    },
+    {
+      "ruleId": "gd_яблочное_пюре_4_tbsp",
+      "action": "gram_default",
+      "normalizedKey": "яблочное пюре",
+      "amountMatcher": {
+        "kind": "amount_key",
+        "value": "4 tbsp"
+      },
+      "target": {
+        "foodKey": "яблочное пюре",
+        "resolvedNameRu": "яблочное пюре",
+        "wfpbStatus": "green"
+      },
+      "grams": 60,
+      "gramsSource": "when_missing",
+      "precedence": 60
+    },
+    {
+      "ruleId": "alias:апельсины",
+      "action": "alias",
+      "normalizedKey": "апельсины",
+      "target": {
+        "foodKey": "апельсин",
+        "resolvedNameRu": "апельсин",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:баклажаны",
+      "action": "alias",
+      "normalizedKey": "баклажаны",
+      "target": {
+        "foodKey": "баклажан",
+        "resolvedNameRu": "баклажан",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:бананы",
+      "action": "alias",
+      "normalizedKey": "бананы",
+      "target": {
+        "foodKey": "банан",
+        "resolvedNameRu": "банан",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:белая мисо-паста",
+      "action": "alias",
+      "normalizedKey": "белая мисо-паста",
+      "target": {
+        "foodKey": "мисо",
+        "resolvedNameRu": "мисо",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:белая фасоль",
+      "action": "alias",
+      "normalizedKey": "белая фасоль",
+      "target": {
+        "foodKey": "фасоль белая, сырая",
+        "resolvedNameRu": "Фасоль белая, сырая",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:белая фасоль вареная",
+      "action": "alias",
+      "normalizedKey": "белая фасоль вареная",
+      "target": {
+        "foodKey": "фасоль белая, вареная",
+        "resolvedNameRu": "Фасоль белая, варёная",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:белокочанная капуста",
+      "action": "alias",
+      "normalizedKey": "белокочанная капуста",
+      "target": {
+        "foodKey": "капуста белокочанная",
+        "resolvedNameRu": "капуста белокочанная",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:болгарский перец",
+      "action": "alias",
+      "normalizedKey": "болгарский перец",
+      "target": {
+        "foodKey": "сладкий перец",
+        "resolvedNameRu": "сладкий перец",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:болгарский перец красный",
+      "action": "alias",
+      "normalizedKey": "болгарский перец красный",
+      "target": {
+        "foodKey": "перец красный",
+        "resolvedNameRu": "перец красный",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:брюссельская капуста",
+      "action": "alias",
+      "normalizedKey": "брюссельская капуста",
+      "target": {
+        "foodKey": "капуста брюссельская",
+        "resolvedNameRu": "капуста брюссельская",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:бурый рис",
+      "action": "alias",
+      "normalizedKey": "бурый рис",
+      "target": {
+        "foodKey": "рис коричневый",
+        "resolvedNameRu": "рис коричневый",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:вареная белая фасоль",
+      "action": "alias",
+      "normalizedKey": "вареная белая фасоль",
+      "target": {
+        "foodKey": "фасоль белая, вареная",
+        "resolvedNameRu": "Фасоль белая, варёная",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:вареный нут",
+      "action": "alias",
+      "normalizedKey": "вареный нут",
+      "target": {
+        "foodKey": "нут консервированный",
+        "resolvedNameRu": "нут консервированный",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:газированная вода",
+      "action": "alias",
+      "normalizedKey": "газированная вода",
+      "target": {
+        "foodKey": "вода",
+        "resolvedNameRu": "вода",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:горошек",
+      "action": "alias",
+      "normalizedKey": "горошек",
+      "target": {
+        "foodKey": "зеленый горошек замороженный",
+        "resolvedNameRu": "зеленый горошек замороженный",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:готовая красная чечевица",
+      "action": "alias",
+      "normalizedKey": "готовая красная чечевица",
+      "target": {
+        "foodKey": "чечевица вареная",
+        "resolvedNameRu": "Чечевица варёная",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:грецкие орехи",
+      "action": "alias",
+      "normalizedKey": "грецкие орехи",
+      "target": {
+        "foodKey": "грецкий орех сырой",
+        "resolvedNameRu": "Грецкий орех сырой",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:грибы",
+      "action": "alias",
+      "normalizedKey": "грибы",
+      "target": {
+        "foodKey": "шампиньоны",
+        "resolvedNameRu": "шампиньоны",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:груши",
+      "action": "alias",
+      "normalizedKey": "груши",
+      "target": {
+        "foodKey": "груша",
+        "resolvedNameRu": "груша",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:домашнее кокосовое молоко",
+      "action": "alias",
+      "normalizedKey": "домашнее кокосовое молоко",
+      "target": {
+        "foodKey": "кокос молоко",
+        "resolvedNameRu": "Кокос молоко",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:домашний тофу",
+      "action": "alias",
+      "normalizedKey": "домашний тофу",
+      "target": {
+        "foodKey": "тофу",
+        "resolvedNameRu": "тофу",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:желтый болгарский перец",
+      "action": "alias",
+      "normalizedKey": "желтый болгарский перец",
+      "target": {
+        "foodKey": "перец желтый",
+        "resolvedNameRu": "перец жёлтый",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:желтый перец",
+      "action": "alias",
+      "normalizedKey": "желтый перец",
+      "target": {
+        "foodKey": "перец желтый",
+        "resolvedNameRu": "перец жёлтый",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:желтый сладкий перец",
+      "action": "alias",
+      "normalizedKey": "желтый сладкий перец",
+      "target": {
+        "foodKey": "перец желтый",
+        "resolvedNameRu": "перец жёлтый",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:запеченная свекла",
+      "action": "alias",
+      "normalizedKey": "запеченная свекла",
+      "target": {
+        "foodKey": "свекла",
+        "resolvedNameRu": "свекла",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:запеченные яблоки",
+      "action": "alias",
+      "normalizedKey": "запеченные яблоки",
+      "target": {
+        "foodKey": "яблоко",
+        "resolvedNameRu": "яблоко",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:зеленая гречка",
+      "action": "alias",
+      "normalizedKey": "зеленая гречка",
+      "target": {
+        "foodKey": "гречка зеленая",
+        "resolvedNameRu": "гречка зеленая",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:зеленая чечевица",
+      "action": "alias",
+      "normalizedKey": "зеленая чечевица",
+      "target": {
+        "foodKey": "чечевица",
+        "resolvedNameRu": "чечевица",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:зеленый болгарский перец",
+      "action": "alias",
+      "normalizedKey": "зеленый болгарский перец",
+      "target": {
+        "foodKey": "сладкий перец",
+        "resolvedNameRu": "сладкий перец",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:зеленый горошек",
+      "action": "alias",
+      "normalizedKey": "зеленый горошек",
+      "target": {
+        "foodKey": "горох зеленый сырой",
+        "resolvedNameRu": "Горох зелёный сырой",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:зеленый перец чили",
+      "action": "alias",
+      "normalizedKey": "зеленый перец чили",
+      "target": {
+        "foodKey": "перец чили",
+        "resolvedNameRu": "перец чили",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:зелень",
+      "action": "alias",
+      "normalizedKey": "зелень",
+      "target": {
+        "foodKey": "петрушка",
+        "resolvedNameRu": "петрушка",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:зелень мелко рубленая",
+      "action": "alias",
+      "normalizedKey": "зелень мелко рубленая",
+      "target": {
+        "foodKey": "петрушка",
+        "resolvedNameRu": "петрушка",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:зерна граната",
+      "action": "alias",
+      "normalizedKey": "зерна граната",
+      "target": {
+        "foodKey": "гранат",
+        "resolvedNameRu": "гранат",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:имбирь свежий",
+      "action": "alias",
+      "normalizedKey": "имбирь свежий",
+      "target": {
+        "foodKey": "имбирь",
+        "resolvedNameRu": "имбирь",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:имбирь тертый",
+      "action": "alias",
+      "normalizedKey": "имбирь тертый",
+      "target": {
+        "foodKey": "имбирь",
+        "resolvedNameRu": "имбирь",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:кабачки",
+      "action": "alias",
+      "normalizedKey": "кабачки",
+      "target": {
+        "foodKey": "кабачок",
+        "resolvedNameRu": "кабачок",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:какао",
+      "action": "alias",
+      "normalizedKey": "какао",
+      "target": {
+        "foodKey": "какао-порошок",
+        "resolvedNameRu": "какао-порошок",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:капуста цветная",
+      "action": "alias",
+      "normalizedKey": "капуста цветная",
+      "target": {
+        "foodKey": "цветная капуста сырая",
+        "resolvedNameRu": "Цветная капуста сырая",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:квашеная капуста",
+      "action": "alias",
+      "normalizedKey": "квашеная капуста",
+      "target": {
+        "foodKey": "капуста квашеная",
+        "resolvedNameRu": "капуста квашеная",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:кокосовая стружка несладкая",
+      "action": "alias",
+      "normalizedKey": "кокосовая стружка несладкая",
+      "target": {
+        "foodKey": "кокосовая стружка",
+        "resolvedNameRu": "кокосовая стружка",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:кокосовое молоко",
+      "action": "alias",
+      "normalizedKey": "кокосовое молоко",
+      "target": {
+        "foodKey": "кокос молоко",
+        "resolvedNameRu": "Кокос молоко",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:корень имбиря",
+      "action": "alias",
+      "normalizedKey": "корень имбиря",
+      "target": {
+        "foodKey": "имбирь",
+        "resolvedNameRu": "имбирь",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:кориандр молотый",
+      "action": "alias",
+      "normalizedKey": "кориандр молотый",
+      "target": {
+        "foodKey": "кориандр",
+        "resolvedNameRu": "кориандр",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:коричневая чечевица",
+      "action": "alias",
+      "normalizedKey": "коричневая чечевица",
+      "target": {
+        "foodKey": "чечевица",
+        "resolvedNameRu": "чечевица",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:красная фасоль",
+      "action": "alias",
+      "normalizedKey": "красная фасоль",
+      "target": {
+        "foodKey": "фасоль красная, сырая",
+        "resolvedNameRu": "Фасоль красная, сырая",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:красная чечевица",
+      "action": "alias",
+      "normalizedKey": "красная чечевица",
+      "target": {
+        "foodKey": "чечевица",
+        "resolvedNameRu": "чечевица",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:краснокочанная капуста",
+      "action": "alias",
+      "normalizedKey": "краснокочанная капуста",
+      "target": {
+        "foodKey": "светло-фиолетовая капуста",
+        "resolvedNameRu": "светло-фиолетовая капуста",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:красный болгарский перец",
+      "action": "alias",
+      "normalizedKey": "красный болгарский перец",
+      "target": {
+        "foodKey": "перец красный",
+        "resolvedNameRu": "перец красный",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:красный лук",
+      "action": "alias",
+      "normalizedKey": "красный лук",
+      "target": {
+        "foodKey": "лук красный",
+        "resolvedNameRu": "лук красный",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:красный перец",
+      "action": "alias",
+      "normalizedKey": "красный перец",
+      "target": {
+        "foodKey": "перец красный",
+        "resolvedNameRu": "перец красный",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:красный сладкий перец",
+      "action": "alias",
+      "normalizedKey": "красный сладкий перец",
+      "target": {
+        "foodKey": "перец красный",
+        "resolvedNameRu": "перец красный",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:кукуруза замороженная",
+      "action": "alias",
+      "normalizedKey": "кукуруза замороженная",
+      "target": {
+        "foodKey": "кукуруза",
+        "resolvedNameRu": "кукуруза",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:кунжут",
+      "action": "alias",
+      "normalizedKey": "кунжут",
+      "target": {
+        "foodKey": "семена кунжута белые",
+        "resolvedNameRu": "семена кунжута белые",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:кунжут молотый",
+      "action": "alias",
+      "normalizedKey": "кунжут молотый",
+      "target": {
+        "foodKey": "семена кунжута белые",
+        "resolvedNameRu": "семена кунжута белые",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:лен",
+      "action": "alias",
+      "normalizedKey": "лен",
+      "target": {
+        "foodKey": "льна семя сырой",
+        "resolvedNameRu": "Льна семя сырой",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:лен молотый",
+      "action": "alias",
+      "normalizedKey": "лен молотый",
+      "target": {
+        "foodKey": "семена льна",
+        "resolvedNameRu": "семена льна",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:лимонный сок",
+      "action": "alias",
+      "normalizedKey": "лимонный сок",
+      "target": {
+        "foodKey": "лимон свеж. сок",
+        "resolvedNameRu": "Лимон свеж. сок",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:листовой салат",
+      "action": "alias",
+      "normalizedKey": "листовой салат",
+      "target": {
+        "foodKey": "салат листья",
+        "resolvedNameRu": "салат листья",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:листья пекинской капусты",
+      "action": "alias",
+      "normalizedKey": "листья пекинской капусты",
+      "target": {
+        "foodKey": "капуста пекинская",
+        "resolvedNameRu": "капуста пекинская",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:листья салата",
+      "action": "alias",
+      "normalizedKey": "листья салата",
+      "target": {
+        "foodKey": "салат листья",
+        "resolvedNameRu": "салат листья",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:лук зеленый",
+      "action": "alias",
+      "normalizedKey": "лук зеленый",
+      "target": {
+        "foodKey": "зеленый лук",
+        "resolvedNameRu": "зелёный лук",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:лук репчатый",
+      "action": "alias",
+      "normalizedKey": "лук репчатый",
+      "target": {
+        "foodKey": "лук",
+        "resolvedNameRu": "лук",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:льняная мука",
+      "action": "alias",
+      "normalizedKey": "льняная мука",
+      "target": {
+        "foodKey": "мука льняная",
+        "resolvedNameRu": "мука льняная",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:льняное семя",
+      "action": "alias",
+      "normalizedKey": "льняное семя",
+      "target": {
+        "foodKey": "льна семя сырой",
+        "resolvedNameRu": "Льна семя сырой",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:льняное семя молотое",
+      "action": "alias",
+      "normalizedKey": "льняное семя молотое",
+      "target": {
+        "foodKey": "семена льна",
+        "resolvedNameRu": "семена льна",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:любая свежая зелень",
+      "action": "alias",
+      "normalizedKey": "любая свежая зелень",
+      "target": {
+        "foodKey": "петрушка",
+        "resolvedNameRu": "петрушка",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:мак",
+      "action": "alias",
+      "normalizedKey": "мак",
+      "target": {
+        "foodKey": "семена мака",
+        "resolvedNameRu": "семена мака",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:маш пророщенный",
+      "action": "alias",
+      "normalizedKey": "маш пророщенный",
+      "target": {
+        "foodKey": "маш (бобы мунг) пророщенный",
+        "resolvedNameRu": "Маш (бобы мунг) пророщенный",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:мисо",
+      "action": "alias",
+      "normalizedKey": "мисо",
+      "target": {
+        "foodKey": "мисо",
+        "resolvedNameRu": "мисо",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:мисо-паста",
+      "action": "alias",
+      "normalizedKey": "мисо-паста",
+      "target": {
+        "foodKey": "мисо",
+        "resolvedNameRu": "мисо",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:мисо-паста белая",
+      "action": "alias",
+      "normalizedKey": "мисо-паста белая",
+      "target": {
+        "foodKey": "мисо",
+        "resolvedNameRu": "мисо",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:мисо-паста светлая",
+      "action": "alias",
+      "normalizedKey": "мисо-паста светлая",
+      "target": {
+        "foodKey": "мисо",
+        "resolvedNameRu": "мисо",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:мисо-соус",
+      "action": "alias",
+      "normalizedKey": "мисо-соус",
+      "target": {
+        "foodKey": "мисо",
+        "resolvedNameRu": "мисо",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:молотые семена льна",
+      "action": "alias",
+      "normalizedKey": "молотые семена льна",
+      "target": {
+        "foodKey": "семена льна",
+        "resolvedNameRu": "семена льна",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:молотый кардамон",
+      "action": "alias",
+      "normalizedKey": "молотый кардамон",
+      "target": {
+        "foodKey": "кардамон",
+        "resolvedNameRu": "кардамон",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:молотый кориандр",
+      "action": "alias",
+      "normalizedKey": "молотый кориандр",
+      "target": {
+        "foodKey": "кориандр",
+        "resolvedNameRu": "кориандр",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:молотый лен",
+      "action": "alias",
+      "normalizedKey": "молотый лен",
+      "target": {
+        "foodKey": "льна семя сырой",
+        "resolvedNameRu": "Льна семя сырой",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:молотый фенхель",
+      "action": "alias",
+      "normalizedKey": "молотый фенхель",
+      "target": {
+        "foodKey": "фенхель семена",
+        "resolvedNameRu": "Фенхель семена",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:морковь большая",
+      "action": "alias",
+      "normalizedKey": "морковь большая",
+      "target": {
+        "foodKey": "морковь",
+        "resolvedNameRu": "морковь",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:морковь маленькая",
+      "action": "alias",
+      "normalizedKey": "морковь маленькая",
+      "target": {
+        "foodKey": "морковь",
+        "resolvedNameRu": "морковь",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:морковь свежая",
+      "action": "alias",
+      "normalizedKey": "морковь свежая",
+      "target": {
+        "foodKey": "морковь",
+        "resolvedNameRu": "морковь",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:морковь сырая тертая",
+      "action": "alias",
+      "normalizedKey": "морковь сырая тертая",
+      "target": {
+        "foodKey": "морковь",
+        "resolvedNameRu": "морковь",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:морковь тертая",
+      "action": "alias",
+      "normalizedKey": "морковь тертая",
+      "target": {
+        "foodKey": "морковь",
+        "resolvedNameRu": "морковь",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:мука зеленой гречки",
+      "action": "alias",
+      "normalizedKey": "мука зеленой гречки",
+      "target": {
+        "foodKey": "мука гречневая",
+        "resolvedNameRu": "мука гречневая",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:мука из зеленой гречки",
+      "action": "alias",
+      "normalizedKey": "мука из зеленой гречки",
+      "target": {
+        "foodKey": "мука гречневая",
+        "resolvedNameRu": "мука гречневая",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:мякоть авокадо",
+      "action": "alias",
+      "normalizedKey": "мякоть авокадо",
+      "target": {
+        "foodKey": "авокадо",
+        "resolvedNameRu": "авокадо",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:натуральная ваниль",
+      "action": "alias",
+      "normalizedKey": "натуральная ваниль",
+      "target": {
+        "foodKey": "ваниль",
+        "resolvedNameRu": "ваниль",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:нут",
+      "action": "alias",
+      "normalizedKey": "нут",
+      "target": {
+        "foodKey": "нут (турецкий горох) сырой",
+        "resolvedNameRu": "Нут (турецкий горох) сырой",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:нут вареный",
+      "action": "alias",
+      "normalizedKey": "нут вареный",
+      "target": {
+        "foodKey": "нут консервированный",
+        "resolvedNameRu": "нут консервированный",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:овсяная мука",
+      "action": "alias",
+      "normalizedKey": "овсяная мука",
+      "target": {
+        "foodKey": "мука овсяная",
+        "resolvedNameRu": "мука овсяная",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:овсяная мука без глютена",
+      "action": "alias",
+      "normalizedKey": "овсяная мука без глютена",
+      "target": {
+        "foodKey": "овсяная мука",
+        "resolvedNameRu": "овсяная мука",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:овсяные хлопья без глютена",
+      "action": "alias",
+      "normalizedKey": "овсяные хлопья без глютена",
+      "target": {
+        "foodKey": "овсяные хлопья",
+        "resolvedNameRu": "овсяные хлопья",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:огурец свежий",
+      "action": "alias",
+      "normalizedKey": "огурец свежий",
+      "target": {
+        "foodKey": "огурец",
+        "resolvedNameRu": "огурец",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:огурцы",
+      "action": "alias",
+      "normalizedKey": "огурцы",
+      "target": {
+        "foodKey": "огурец",
+        "resolvedNameRu": "огурец",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:оранжевая чечевица",
+      "action": "alias",
+      "normalizedKey": "оранжевая чечевица",
+      "target": {
+        "foodKey": "чечевица красная",
+        "resolvedNameRu": "чечевица красная",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:органическая сода",
+      "action": "alias",
+      "normalizedKey": "органическая сода",
+      "target": {
+        "foodKey": "сода",
+        "resolvedNameRu": "сода",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:орехи грецкие",
+      "action": "alias",
+      "normalizedKey": "орехи грецкие",
+      "target": {
+        "foodKey": "грецкий орех сырой",
+        "resolvedNameRu": "Грецкий орех сырой",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:острый перец чили",
+      "action": "alias",
+      "normalizedKey": "острый перец чили",
+      "target": {
+        "foodKey": "перец чили",
+        "resolvedNameRu": "перец чили",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:паприка сладкая",
+      "action": "alias",
+      "normalizedKey": "паприка сладкая",
+      "target": {
+        "foodKey": "паприка",
+        "resolvedNameRu": "паприка",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:перец болгарский",
+      "action": "alias",
+      "normalizedKey": "перец болгарский",
+      "target": {
+        "foodKey": "перец сладкий зеленый",
+        "resolvedNameRu": "Перец сладкий зелёный",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:перец красный сладкий",
+      "action": "alias",
+      "normalizedKey": "перец красный сладкий",
+      "target": {
+        "foodKey": "перец красный",
+        "resolvedNameRu": "перец красный",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:перец сладкий",
+      "action": "alias",
+      "normalizedKey": "перец сладкий",
+      "target": {
+        "foodKey": "перец сладкий зеленый",
+        "resolvedNameRu": "Перец сладкий зелёный",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:пищевые дрожжи",
+      "action": "alias",
+      "normalizedKey": "пищевые дрожжи",
+      "target": {
+        "foodKey": "пищевые неактивные дрожжи",
+        "resolvedNameRu": "пищевые неактивные дрожжи",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:подсолнечные семечки",
+      "action": "alias",
+      "normalizedKey": "подсолнечные семечки",
+      "target": {
+        "foodKey": "семена подсолнечника",
+        "resolvedNameRu": "семена подсолнечника",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:помидор свежий",
+      "action": "alias",
+      "normalizedKey": "помидор свежий",
+      "target": {
+        "foodKey": "помидор",
+        "resolvedNameRu": "помидор",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:помидоры",
+      "action": "alias",
+      "normalizedKey": "помидоры",
+      "target": {
+        "foodKey": "помидор",
+        "resolvedNameRu": "помидор",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:порошок из овсяных отрубей",
+      "action": "alias",
+      "normalizedKey": "порошок из овсяных отрубей",
+      "target": {
+        "foodKey": "овсяные отруби",
+        "resolvedNameRu": "овсяные отруби",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:порошок из семян фенхеля",
+      "action": "alias",
+      "normalizedKey": "порошок из семян фенхеля",
+      "target": {
+        "foodKey": "фенхель семена",
+        "resolvedNameRu": "Фенхель семена",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:порошок сушеных шиитаке",
+      "action": "alias",
+      "normalizedKey": "порошок сушеных шиитаке",
+      "target": {
+        "foodKey": "грибной порошок",
+        "resolvedNameRu": "грибной порошок",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:порошок чили",
+      "action": "alias",
+      "normalizedKey": "порошок чили",
+      "target": {
+        "foodKey": "кайенский перец",
+        "resolvedNameRu": "кайенский перец",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:проростки маша",
+      "action": "alias",
+      "normalizedKey": "проростки маша",
+      "target": {
+        "foodKey": "маш (бобы мунг) пророщенный",
+        "resolvedNameRu": "Маш (бобы мунг) пророщенный",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:репчатый лук",
+      "action": "alias",
+      "normalizedKey": "репчатый лук",
+      "target": {
+        "foodKey": "лук",
+        "resolvedNameRu": "лук",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:рис бурый",
+      "action": "alias",
+      "normalizedKey": "рис бурый",
+      "target": {
+        "foodKey": "рис коричневый",
+        "resolvedNameRu": "рис коричневый",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:руккола",
+      "action": "alias",
+      "normalizedKey": "руккола",
+      "target": {
+        "foodKey": "руккола свежая",
+        "resolvedNameRu": "Руккола свежая",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:рукола",
+      "action": "alias",
+      "normalizedKey": "рукола",
+      "target": {
+        "foodKey": "светло-красная рукола",
+        "resolvedNameRu": "светло-красная рукола",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:салат-латук",
+      "action": "alias",
+      "normalizedKey": "салат-латук",
+      "target": {
+        "foodKey": "салат",
+        "resolvedNameRu": "салат",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:салатные листья",
+      "action": "alias",
+      "normalizedKey": "салатные листья",
+      "target": {
+        "foodKey": "салат листья",
+        "resolvedNameRu": "салат листья",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:свежая зелень",
+      "action": "alias",
+      "normalizedKey": "свежая зелень",
+      "target": {
+        "foodKey": "петрушка",
+        "resolvedNameRu": "петрушка",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:свежая петрушка",
+      "action": "alias",
+      "normalizedKey": "свежая петрушка",
+      "target": {
+        "foodKey": "петрушка",
+        "resolvedNameRu": "петрушка",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:свежий зеленый горошек",
+      "action": "alias",
+      "normalizedKey": "свежий зеленый горошек",
+      "target": {
+        "foodKey": "горох зеленый",
+        "resolvedNameRu": "горох зеленый",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:свежий имбирь",
+      "action": "alias",
+      "normalizedKey": "свежий имбирь",
+      "target": {
+        "foodKey": "имбирь",
+        "resolvedNameRu": "имбирь",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:свежий натертый имбирь",
+      "action": "alias",
+      "normalizedKey": "свежий натертый имбирь",
+      "target": {
+        "foodKey": "имбирь",
+        "resolvedNameRu": "имбирь",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:свекла запеченная",
+      "action": "alias",
+      "normalizedKey": "свекла запеченная",
+      "target": {
+        "foodKey": "свекла",
+        "resolvedNameRu": "свекла",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:светлая мисо-паста",
+      "action": "alias",
+      "normalizedKey": "светлая мисо-паста",
+      "target": {
+        "foodKey": "мисо",
+        "resolvedNameRu": "мисо",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:семена кунжута",
+      "action": "alias",
+      "normalizedKey": "семена кунжута",
+      "target": {
+        "foodKey": "семена кунжута белые",
+        "resolvedNameRu": "семена кунжута белые",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:семена льна",
+      "action": "alias",
+      "normalizedKey": "семена льна",
+      "target": {
+        "foodKey": "льна семя сырой",
+        "resolvedNameRu": "Льна семя сырой",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:семена льна молотые",
+      "action": "alias",
+      "normalizedKey": "семена льна молотые",
+      "target": {
+        "foodKey": "семена льна",
+        "resolvedNameRu": "семена льна",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:семена сельдерея",
+      "action": "alias",
+      "normalizedKey": "семена сельдерея",
+      "target": {
+        "foodKey": "сельдерей семена",
+        "resolvedNameRu": "Сельдерей семена",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:семена тыквы",
+      "action": "alias",
+      "normalizedKey": "семена тыквы",
+      "target": {
+        "foodKey": "тыквы и кабачка семя сырой, сушен",
+        "resolvedNameRu": "Тыквы и кабачка семя сырой, сушён.",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:семена чиа",
+      "action": "alias",
+      "normalizedKey": "семена чиа",
+      "target": {
+        "foodKey": "семена чиа белые",
+        "resolvedNameRu": "семена чиа белые",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:семечки льна",
+      "action": "alias",
+      "normalizedKey": "семечки льна",
+      "target": {
+        "foodKey": "льна семя сырой",
+        "resolvedNameRu": "Льна семя сырой",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:семечки подсолнечника",
+      "action": "alias",
+      "normalizedKey": "семечки подсолнечника",
+      "target": {
+        "foodKey": "семена подсолнечника",
+        "resolvedNameRu": "семена подсолнечника",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:семечки тыквы",
+      "action": "alias",
+      "normalizedKey": "семечки тыквы",
+      "target": {
+        "foodKey": "тыквенные семечки",
+        "resolvedNameRu": "тыквенные семечки",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:семя льна",
+      "action": "alias",
+      "normalizedKey": "семя льна",
+      "target": {
+        "foodKey": "льна семя сырой",
+        "resolvedNameRu": "Льна семя сырой",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:семя подсолнечника",
+      "action": "alias",
+      "normalizedKey": "семя подсолнечника",
+      "target": {
+        "foodKey": "подсолнечника семя сырой, сушен",
+        "resolvedNameRu": "Подсолнечника семя сырой, сушён.",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:сладкая паприка",
+      "action": "alias",
+      "normalizedKey": "сладкая паприка",
+      "target": {
+        "foodKey": "паприка",
+        "resolvedNameRu": "паприка",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:смородина красная",
+      "action": "alias",
+      "normalizedKey": "смородина красная",
+      "target": {
+        "foodKey": "смородина красная",
+        "resolvedNameRu": "смородина красная",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:сода пищевая",
+      "action": "alias",
+      "normalizedKey": "сода пищевая",
+      "target": {
+        "foodKey": "сода",
+        "resolvedNameRu": "сода",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:сок лимона",
+      "action": "alias",
+      "normalizedKey": "сок лимона",
+      "target": {
+        "foodKey": "лимон свеж. сок",
+        "resolvedNameRu": "Лимон свеж. сок",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:спелые бананы",
+      "action": "alias",
+      "normalizedKey": "спелые бананы",
+      "target": {
+        "foodKey": "банан",
+        "resolvedNameRu": "банан",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:спелые финики",
+      "action": "alias",
+      "normalizedKey": "спелые финики",
+      "target": {
+        "foodKey": "финики",
+        "resolvedNameRu": "финики",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:сухая коричневая чечевица",
+      "action": "alias",
+      "normalizedKey": "сухая коричневая чечевица",
+      "target": {
+        "foodKey": "чечевица",
+        "resolvedNameRu": "чечевица",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:сухая красная чечевица",
+      "action": "alias",
+      "normalizedKey": "сухая красная чечевица",
+      "target": {
+        "foodKey": "чечевица",
+        "resolvedNameRu": "чечевица",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:сухой нут",
+      "action": "alias",
+      "normalizedKey": "сухой нут",
+      "target": {
+        "foodKey": "нут (турецкий горох) сырой",
+        "resolvedNameRu": "Нут (турецкий горох) сырой",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:сушеный чеснок",
+      "action": "alias",
+      "normalizedKey": "сушеный чеснок",
+      "target": {
+        "foodKey": "чесночный порошок",
+        "resolvedNameRu": "чесночный порошок",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:тертый имбирь",
+      "action": "alias",
+      "normalizedKey": "тертый имбирь",
+      "target": {
+        "foodKey": "имбирь",
+        "resolvedNameRu": "имбирь",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:тимьян",
+      "action": "alias",
+      "normalizedKey": "тимьян",
+      "target": {
+        "foodKey": "тимьян свежий",
+        "resolvedNameRu": "тимьян свежий",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:тмин молотый",
+      "action": "alias",
+      "normalizedKey": "тмин молотый",
+      "target": {
+        "foodKey": "тмин",
+        "resolvedNameRu": "тмин",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:томат",
+      "action": "alias",
+      "normalizedKey": "томат",
+      "target": {
+        "foodKey": "помидор",
+        "resolvedNameRu": "помидор",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:томаты",
+      "action": "alias",
+      "normalizedKey": "томаты",
+      "target": {
+        "foodKey": "помидор",
+        "resolvedNameRu": "помидор",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:тофу домашний",
+      "action": "alias",
+      "normalizedKey": "тофу домашний",
+      "target": {
+        "foodKey": "тофу",
+        "resolvedNameRu": "тофу",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:тыква",
+      "action": "alias",
+      "normalizedKey": "тыква",
+      "target": {
+        "foodKey": "тыква сырая",
+        "resolvedNameRu": "Тыква сырая",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:тыквенные семечки сырые",
+      "action": "alias",
+      "normalizedKey": "тыквенные семечки сырые",
+      "target": {
+        "foodKey": "тыквенные семечки",
+        "resolvedNameRu": "тыквенные семечки",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:уксус",
+      "action": "alias",
+      "normalizedKey": "уксус",
+      "target": {
+        "foodKey": "яблочный уксус",
+        "resolvedNameRu": "яблочный уксус",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:уксус яблочный",
+      "action": "alias",
+      "normalizedKey": "уксус яблочный",
+      "target": {
+        "foodKey": "яблочный уксус",
+        "resolvedNameRu": "яблочный уксус",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:фасоль",
+      "action": "alias",
+      "normalizedKey": "фасоль",
+      "target": {
+        "foodKey": "фасоль красная",
+        "resolvedNameRu": "фасоль красная",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:фасоль белая",
+      "action": "alias",
+      "normalizedKey": "фасоль белая",
+      "target": {
+        "foodKey": "фасоль белая, сырая",
+        "resolvedNameRu": "Фасоль белая, сырая",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:фасоль красная",
+      "action": "alias",
+      "normalizedKey": "фасоль красная",
+      "target": {
+        "foodKey": "фасоль красная, сырая",
+        "resolvedNameRu": "Фасоль красная, сырая",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:ферментированная капуста",
+      "action": "alias",
+      "normalizedKey": "ферментированная капуста",
+      "target": {
+        "foodKey": "капуста квашеная",
+        "resolvedNameRu": "капуста квашеная",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:финик",
+      "action": "alias",
+      "normalizedKey": "финик",
+      "target": {
+        "foodKey": "финики",
+        "resolvedNameRu": "финики",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:финики",
+      "action": "alias",
+      "normalizedKey": "финики",
+      "target": {
+        "foodKey": "финики",
+        "resolvedNameRu": "финики",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:финики без косточек",
+      "action": "alias",
+      "normalizedKey": "финики без косточек",
+      "target": {
+        "foodKey": "финики",
+        "resolvedNameRu": "финики",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:цветная капуста",
+      "action": "alias",
+      "normalizedKey": "цветная капуста",
+      "target": {
+        "foodKey": "цветная капуста сырая",
+        "resolvedNameRu": "Цветная капуста сырая",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:цейлонская корица",
+      "action": "alias",
+      "normalizedKey": "цейлонская корица",
+      "target": {
+        "foodKey": "корица",
+        "resolvedNameRu": "корица",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:черешня",
+      "action": "alias",
+      "normalizedKey": "черешня",
+      "target": {
+        "foodKey": "черешня сырая",
+        "resolvedNameRu": "Черешня сырая",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:черная фасоль",
+      "action": "alias",
+      "normalizedKey": "черная фасоль",
+      "target": {
+        "foodKey": "фасоль черная",
+        "resolvedNameRu": "фасоль черная",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:черная чечевица",
+      "action": "alias",
+      "normalizedKey": "черная чечевица",
+      "target": {
+        "foodKey": "чечевица",
+        "resolvedNameRu": "чечевица",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:черный кунжут",
+      "action": "alias",
+      "normalizedKey": "черный кунжут",
+      "target": {
+        "foodKey": "кунжут черный",
+        "resolvedNameRu": "кунжут чёрный",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:черный рис",
+      "action": "alias",
+      "normalizedKey": "черный рис",
+      "target": {
+        "foodKey": "рис черный",
+        "resolvedNameRu": "рис черный",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:чиа",
+      "action": "alias",
+      "normalizedKey": "чиа",
+      "target": {
+        "foodKey": "семена чиа белые",
+        "resolvedNameRu": "семена чиа белые",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:щепотка асафетиды",
+      "action": "alias",
+      "normalizedKey": "щепотка асафетиды",
+      "target": {
+        "foodKey": "асафетида",
+        "resolvedNameRu": "асафетида",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:яблоки",
+      "action": "alias",
+      "normalizedKey": "яблоки",
+      "target": {
+        "foodKey": "яблоко",
+        "resolvedNameRu": "яблоко",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:яблоко зеленое",
+      "action": "alias",
+      "normalizedKey": "яблоко зеленое",
+      "target": {
+        "foodKey": "яблоко",
+        "resolvedNameRu": "яблоко",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:яблоко зеленое с кожурой",
+      "action": "alias",
+      "normalizedKey": "яблоко зеленое с кожурой",
+      "target": {
+        "foodKey": "яблоко",
+        "resolvedNameRu": "яблоко",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    },
+    {
+      "ruleId": "alias:яблоко кисло-сладкое",
+      "action": "alias",
+      "normalizedKey": "яблоко кисло-сладкое",
+      "target": {
+        "foodKey": "яблоко",
+        "resolvedNameRu": "яблоко",
+        "wfpbStatus": "green"
+      },
+      "precedence": 70
+    }
+  ],
+  "recipeScoped": {
+    "compliment_1": [
+      {
+        "ruleId": "override:compliment_1:limonnogo",
+        "action": "alias",
+        "normalizedKey": "лимонного",
+        "recipeId": "compliment_1",
+        "target": {
+          "foodKey": "лимон свеж. сок",
+          "resolvedNameRu": "Лимон свеж. сок",
+          "wfpbStatus": "green"
+        },
+        "precedence": 10
+      },
+      {
+        "ruleId": "dec_split:свежие или замороженные ягоды@compliment_1",
+        "action": "split",
+        "normalizedKey": "свежие или замороженные ягоды",
+        "components": [
+          {
+            "foodKey": "малина",
+            "resolvedNameRu": "малина",
+            "wfpbStatus": "green",
+            "ratio": 0.25
+          },
+          {
+            "foodKey": "черника",
+            "resolvedNameRu": "черника",
+            "wfpbStatus": "green",
+            "ratio": 0.25
+          },
+          {
+            "foodKey": "голубика",
+            "resolvedNameRu": "голубика",
+            "wfpbStatus": "green",
+            "ratio": 0.25
+          },
+          {
+            "foodKey": "клубника",
+            "resolvedNameRu": "клубника",
+            "wfpbStatus": "green",
+            "ratio": 0.25
+          }
+        ],
+        "precedence": 40,
+        "recipeId": "compliment_1"
+      }
+    ],
+    "compliment_11": [
+      {
+        "ruleId": "override:compliment_11:imbir_primary_line",
+        "action": "line_override",
+        "normalizedKey": "compliment_11::свежий натертый имбирь - 1 ст. л. Если используете чеснок, тогда - 5 зубчиков целиком. Можно заменить асафетидой;",
+        "recipeId": "compliment_11",
+        "amountMatcher": {
+          "kind": "exact_line",
+          "value": "свежий натертый имбирь - 1 ст. л."
+        },
+        "replacementLine": "свежий натертый имбирь - 1 ст. л.",
+        "precedence": 10
+      }
+    ],
+    "recipe_day_29": [
+      {
+        "ruleId": "override:recipe_day_29:strip_leading_ili",
+        "action": "line_override",
+        "normalizedKey": "leading_или",
+        "recipeId": "recipe_day_29",
+        "transform": "strip_leading_ili",
+        "precedence": 10
+      }
+    ],
+    "recipe_day_23": [
+      {
+        "ruleId": "structured:recipe_day_23:миндальная паста",
+        "action": "structured",
+        "normalizedKey": "миндальная паста",
+        "recipeId": "recipe_day_23",
+        "target": {
+          "foodKey": "миндаль",
+          "resolvedNameRu": "миндаль",
+          "wfpbStatus": "green"
+        },
+        "precedence": 30,
+        "grams": 30,
+        "gramsSource": "fixed"
+      },
+      {
+        "ruleId": "dec_split:замороженные ягоды@recipe_day_23",
+        "action": "split",
+        "normalizedKey": "замороженные ягоды",
+        "components": [
+          {
+            "foodKey": "малина",
+            "resolvedNameRu": "малина",
+            "wfpbStatus": "green",
+            "ratio": 0.25
+          },
+          {
+            "foodKey": "черника",
+            "resolvedNameRu": "черника",
+            "wfpbStatus": "green",
+            "ratio": 0.25
+          },
+          {
+            "foodKey": "голубика",
+            "resolvedNameRu": "голубика",
+            "wfpbStatus": "green",
+            "ratio": 0.25
+          },
+          {
+            "foodKey": "клубника",
+            "resolvedNameRu": "клубника",
+            "wfpbStatus": "green",
+            "ratio": 0.25
+          }
+        ],
+        "precedence": 40,
+        "recipeId": "recipe_day_23"
+      }
+    ],
+    "lunch_15": [
+      {
+        "ruleId": "dec_split_each:орегано тмин@lunch_15",
+        "action": "split_each",
+        "normalizedKey": "орегано тмин",
+        "recipeId": "lunch_15",
+        "amountMatcher": {
+          "kind": "piece_key",
+          "value": "по ½ ч л"
+        },
+        "components": [
+          {
+            "foodKey": "орегано",
+            "resolvedNameRu": "орегано",
+            "wfpbStatus": "green",
+            "grams": 3
+          },
+          {
+            "foodKey": "тмин",
+            "resolvedNameRu": "тмин",
+            "wfpbStatus": "green",
+            "grams": 3
+          }
+        ],
+        "precedence": 35
+      }
+    ],
+    "compliment_13": [
+      {
+        "ruleId": "dec_split_each:тмин + кориандр@compliment_13",
+        "action": "split_each",
+        "normalizedKey": "тмин + кориандр",
+        "recipeId": "compliment_13",
+        "amountMatcher": {
+          "kind": "piece_key",
+          "value": "по 1 ч л (обжаренные и молотые)"
+        },
+        "components": [
+          {
+            "foodKey": "тмин",
+            "resolvedNameRu": "тмин",
+            "wfpbStatus": "green",
+            "grams": 6
+          },
+          {
+            "foodKey": "кориандр",
+            "resolvedNameRu": "кориандр",
+            "wfpbStatus": "green",
+            "grams": 6
+          }
+        ],
+        "precedence": 35
+      }
+    ],
+    "recipe_day_7": [
+      {
+        "ruleId": "dec_split_each:укроп петрушка@recipe_day_7",
+        "action": "split_each",
+        "normalizedKey": "укроп петрушка",
+        "recipeId": "recipe_day_7",
+        "amountMatcher": {
+          "kind": "piece_key",
+          "value": "1 ст л"
+        },
+        "components": [
+          {
+            "foodKey": "укроп",
+            "resolvedNameRu": "укроп",
+            "wfpbStatus": "green",
+            "grams": 6
+          },
+          {
+            "foodKey": "петрушка",
+            "resolvedNameRu": "петрушка",
+            "wfpbStatus": "green",
+            "grams": 6
+          }
+        ],
+        "precedence": 35
+      }
+    ],
+    "breakfast_14": [
+      {
+        "ruleId": "dec_split:замороженные/свежие ягоды@breakfast_14",
+        "action": "split",
+        "normalizedKey": "замороженные/свежие ягоды",
+        "components": [
+          {
+            "foodKey": "малина",
+            "resolvedNameRu": "малина",
+            "wfpbStatus": "green",
+            "ratio": 0.25
+          },
+          {
+            "foodKey": "черника",
+            "resolvedNameRu": "черника",
+            "wfpbStatus": "green",
+            "ratio": 0.25
+          },
+          {
+            "foodKey": "голубика",
+            "resolvedNameRu": "голубика",
+            "wfpbStatus": "green",
+            "ratio": 0.25
+          },
+          {
+            "foodKey": "клубника",
+            "resolvedNameRu": "клубника",
+            "wfpbStatus": "green",
+            "ratio": 0.25
+          }
+        ],
+        "precedence": 40,
+        "recipeId": "breakfast_14"
+      }
+    ],
+    "breakfast_25": [
+      {
+        "ruleId": "dec_split:красный и желтый перец@breakfast_25",
+        "action": "split",
+        "normalizedKey": "красный и желтый перец",
+        "components": [
+          {
+            "foodKey": "перец красный",
+            "resolvedNameRu": "перец красный",
+            "wfpbStatus": "green",
+            "ratio": 0.5
+          },
+          {
+            "foodKey": "перец жёлтый",
+            "resolvedNameRu": "перец жёлтый",
+            "wfpbStatus": "green",
+            "ratio": 0.5
+          }
+        ],
+        "precedence": 40,
+        "recipeId": "breakfast_25"
+      }
+    ],
+    "dinner_20": [
+      {
+        "ruleId": "dec_split:микс зелени@dinner_20",
+        "action": "split",
+        "normalizedKey": "микс зелени",
+        "components": [
+          {
+            "foodKey": "укроп",
+            "resolvedNameRu": "укроп",
+            "wfpbStatus": "green",
+            "ratio": 0.5
+          },
+          {
+            "foodKey": "петрушка",
+            "resolvedNameRu": "петрушка",
+            "wfpbStatus": "green",
+            "ratio": 0.5
+          }
+        ],
+        "precedence": 40,
+        "recipeId": "dinner_20"
+      }
+    ],
+    "breakfast_3": [
+      {
+        "ruleId": "dec_split:свежие или замороженные ягоды@breakfast_3",
+        "action": "split",
+        "normalizedKey": "свежие или замороженные ягоды",
+        "components": [
+          {
+            "foodKey": "малина",
+            "resolvedNameRu": "малина",
+            "wfpbStatus": "green",
+            "ratio": 0.25
+          },
+          {
+            "foodKey": "черника",
+            "resolvedNameRu": "черника",
+            "wfpbStatus": "green",
+            "ratio": 0.25
+          },
+          {
+            "foodKey": "голубика",
+            "resolvedNameRu": "голубика",
+            "wfpbStatus": "green",
+            "ratio": 0.25
+          },
+          {
+            "foodKey": "клубника",
+            "resolvedNameRu": "клубника",
+            "wfpbStatus": "green",
+            "ratio": 0.25
+          }
+        ],
+        "precedence": 40,
+        "recipeId": "breakfast_3"
+      }
+    ],
+    "breakfast_16": [
+      {
+        "ruleId": "dec_split:свежие/замороженные ягоды@breakfast_16",
+        "action": "split",
+        "normalizedKey": "свежие/замороженные ягоды",
+        "components": [
+          {
+            "foodKey": "малина",
+            "resolvedNameRu": "малина",
+            "wfpbStatus": "green",
+            "ratio": 0.25
+          },
+          {
+            "foodKey": "черника",
+            "resolvedNameRu": "черника",
+            "wfpbStatus": "green",
+            "ratio": 0.25
+          },
+          {
+            "foodKey": "голубика",
+            "resolvedNameRu": "голубика",
+            "wfpbStatus": "green",
+            "ratio": 0.25
+          },
+          {
+            "foodKey": "клубника",
+            "resolvedNameRu": "клубника",
+            "wfpbStatus": "green",
+            "ratio": 0.25
+          }
+        ],
+        "precedence": 40,
+        "recipeId": "breakfast_16"
+      }
+    ],
+    "dinner_2": [
+      {
+        "ruleId": "dec_split:семена подсолнечника тыквы кунжута@dinner_2",
+        "action": "split",
+        "normalizedKey": "семена подсолнечника тыквы кунжута",
+        "components": [
+          {
+            "foodKey": "семена подсолнечника",
+            "resolvedNameRu": "семена подсолнечника",
+            "wfpbStatus": "green",
+            "ratio": 0.3333333333
+          },
+          {
+            "foodKey": "тыквенные семечки",
+            "resolvedNameRu": "тыквенные семечки",
+            "wfpbStatus": "green",
+            "ratio": 0.3333333333
+          },
+          {
+            "foodKey": "семена кунжута белые",
+            "resolvedNameRu": "семена кунжута белые",
+            "wfpbStatus": "green",
+            "ratio": 0.3333333334
+          }
+        ],
+        "precedence": 40,
+        "recipeId": "dinner_2"
+      }
+    ],
+    "breakfast_13": [
+      {
+        "ruleId": "dec_split:смесь кунжута и дробленых грецких орехов@breakfast_13",
+        "action": "split",
+        "normalizedKey": "смесь кунжута и дробленых грецких орехов",
+        "components": [
+          {
+            "foodKey": "семена кунжута белые",
+            "resolvedNameRu": "семена кунжута белые",
+            "wfpbStatus": "green",
+            "grams": 8
+          },
+          {
+            "foodKey": "грецкие орехи",
+            "resolvedNameRu": "грецкие орехи",
+            "wfpbStatus": "green",
+            "grams": 12
+          }
+        ],
+        "precedence": 40,
+        "recipeId": "breakfast_13"
+      }
+    ],
+    "must_have_8": [
+      {
+        "ruleId": "dec_split:смесь семян@must_have_8",
+        "action": "split",
+        "normalizedKey": "смесь семян",
+        "components": [
+          {
+            "foodKey": "тыквенные семечки",
+            "resolvedNameRu": "тыквенные семечки",
+            "wfpbStatus": "green",
+            "ratio": 0.2
+          },
+          {
+            "foodKey": "семена кунжута белые",
+            "resolvedNameRu": "семена кунжута белые",
+            "wfpbStatus": "green",
+            "ratio": 0.2
+          },
+          {
+            "foodKey": "амарант",
+            "resolvedNameRu": "амарант",
+            "wfpbStatus": "green",
+            "ratio": 0.2
+          },
+          {
+            "foodKey": "калинджи семена",
+            "resolvedNameRu": "калинджи семена",
+            "wfpbStatus": "green",
+            "ratio": 0.2
+          },
+          {
+            "foodKey": "семена расторопши",
+            "resolvedNameRu": "семена расторопши",
+            "wfpbStatus": "green",
+            "ratio": 0.2
+          }
+        ],
+        "precedence": 40,
+        "recipeId": "must_have_8"
+      }
+    ],
+    "recipe_day_39": [
+      {
+        "ruleId": "dec_split:укроп + мята@recipe_day_39",
+        "action": "split",
+        "normalizedKey": "укроп + мята",
+        "components": [
+          {
+            "foodKey": "укроп",
+            "resolvedNameRu": "укроп",
+            "wfpbStatus": "green",
+            "ratio": 0.5
+          },
+          {
+            "foodKey": "мята",
+            "resolvedNameRu": "мята",
+            "wfpbStatus": "green",
+            "ratio": 0.5
+          }
+        ],
+        "precedence": 40,
+        "recipeId": "recipe_day_39"
+      }
+    ],
+    "lunch_5": [
+      {
+        "ruleId": "dec_split:укроп петрушка руккола@lunch_5",
+        "action": "split",
+        "normalizedKey": "укроп петрушка руккола",
+        "components": [
+          {
+            "foodKey": "укроп",
+            "resolvedNameRu": "укроп",
+            "wfpbStatus": "green",
+            "ratio": 0.3333333333
+          },
+          {
+            "foodKey": "петрушка",
+            "resolvedNameRu": "петрушка",
+            "wfpbStatus": "green",
+            "ratio": 0.3333333333
+          },
+          {
+            "foodKey": "руккола",
+            "resolvedNameRu": "Руккола свежая",
+            "wfpbStatus": "green",
+            "ratio": 0.3333333334
+          }
+        ],
+        "precedence": 40,
+        "recipeId": "lunch_5"
+      }
+    ],
+    "compliment_7": [
+      {
+        "ruleId": "dec_split:укроп петрушка@compliment_7",
+        "action": "split",
+        "normalizedKey": "укроп петрушка",
+        "components": [
+          {
+            "foodKey": "укроп",
+            "resolvedNameRu": "укроп",
+            "wfpbStatus": "green",
+            "ratio": 0.5
+          },
+          {
+            "foodKey": "петрушка",
+            "resolvedNameRu": "петрушка",
+            "wfpbStatus": "green",
+            "ratio": 0.5
+          }
+        ],
+        "precedence": 40,
+        "amountOverrides": [
+          {
+            "matchPieceKey": "1 горсть",
+            "grams": [
+              {
+                "resolvedNameRu": "укроп",
+                "grams": 7.5
+              },
+              {
+                "resolvedNameRu": "петрушка",
+                "grams": 7.5
+              }
+            ]
+          }
+        ],
+        "recipeId": "compliment_7"
+      }
+    ],
+    "lunch_2": [
+      {
+        "ruleId": "dec_split:укроп петрушка@lunch_2",
+        "action": "split",
+        "normalizedKey": "укроп петрушка",
+        "components": [
+          {
+            "foodKey": "укроп",
+            "resolvedNameRu": "укроп",
+            "wfpbStatus": "green",
+            "ratio": 0.5
+          },
+          {
+            "foodKey": "петрушка",
+            "resolvedNameRu": "петрушка",
+            "wfpbStatus": "green",
+            "ratio": 0.5
+          }
+        ],
+        "precedence": 40,
+        "amountOverrides": [
+          {
+            "matchPieceKey": "1 горсть",
+            "grams": [
+              {
+                "resolvedNameRu": "укроп",
+                "grams": 7.5
+              },
+              {
+                "resolvedNameRu": "петрушка",
+                "grams": 7.5
+              }
+            ]
+          }
+        ],
+        "recipeId": "lunch_2"
+      }
+    ],
+    "breakfast_4": [
+      {
+        "ruleId": "dec_split:ягоды свежие или замороженные@breakfast_4",
+        "action": "split",
+        "normalizedKey": "ягоды свежие или замороженные",
+        "components": [
+          {
+            "foodKey": "малина",
+            "resolvedNameRu": "малина",
+            "wfpbStatus": "green",
+            "ratio": 0.25
+          },
+          {
+            "foodKey": "черника",
+            "resolvedNameRu": "черника",
+            "wfpbStatus": "green",
+            "ratio": 0.25
+          },
+          {
+            "foodKey": "голубика",
+            "resolvedNameRu": "голубика",
+            "wfpbStatus": "green",
+            "ratio": 0.25
+          },
+          {
+            "foodKey": "клубника",
+            "resolvedNameRu": "клубника",
+            "wfpbStatus": "green",
+            "ratio": 0.25
+          }
+        ],
+        "precedence": 40,
+        "recipeId": "breakfast_4"
+      }
+    ],
+    "breakfast_11": [
+      {
+        "ruleId": "dec_split:ягоды@breakfast_11",
+        "action": "split",
+        "normalizedKey": "ягоды",
+        "components": [
+          {
+            "foodKey": "малина",
+            "resolvedNameRu": "малина",
+            "wfpbStatus": "green",
+            "ratio": 0.25
+          },
+          {
+            "foodKey": "черника",
+            "resolvedNameRu": "черника",
+            "wfpbStatus": "green",
+            "ratio": 0.25
+          },
+          {
+            "foodKey": "голубика",
+            "resolvedNameRu": "голубика",
+            "wfpbStatus": "green",
+            "ratio": 0.25
+          },
+          {
+            "foodKey": "клубника",
+            "resolvedNameRu": "клубника",
+            "wfpbStatus": "green",
+            "ratio": 0.25
+          }
+        ],
+        "precedence": 40,
+        "recipeId": "breakfast_11"
+      }
+    ],
+    "breakfast_18": [
+      {
+        "ruleId": "dec_split:ягоды@breakfast_18",
+        "action": "split",
+        "normalizedKey": "ягоды",
+        "components": [
+          {
+            "foodKey": "малина",
+            "resolvedNameRu": "малина",
+            "wfpbStatus": "green",
+            "ratio": 0.25
+          },
+          {
+            "foodKey": "черника",
+            "resolvedNameRu": "черника",
+            "wfpbStatus": "green",
+            "ratio": 0.25
+          },
+          {
+            "foodKey": "голубика",
+            "resolvedNameRu": "голубика",
+            "wfpbStatus": "green",
+            "ratio": 0.25
+          },
+          {
+            "foodKey": "клубника",
+            "resolvedNameRu": "клубника",
+            "wfpbStatus": "green",
+            "ratio": 0.25
+          }
+        ],
+        "precedence": 40,
+        "recipeId": "breakfast_18"
+      }
+    ],
+    "recipe_day_13": [
+      {
+        "ruleId": "dec_split:ягоды@recipe_day_13",
+        "action": "split",
+        "normalizedKey": "ягоды",
+        "components": [
+          {
+            "foodKey": "малина",
+            "resolvedNameRu": "малина",
+            "wfpbStatus": "green",
+            "ratio": 0.25
+          },
+          {
+            "foodKey": "черника",
+            "resolvedNameRu": "черника",
+            "wfpbStatus": "green",
+            "ratio": 0.25
+          },
+          {
+            "foodKey": "голубика",
+            "resolvedNameRu": "голубика",
+            "wfpbStatus": "green",
+            "ratio": 0.25
+          },
+          {
+            "foodKey": "клубника",
+            "resolvedNameRu": "клубника",
+            "wfpbStatus": "green",
+            "ratio": 0.25
+          }
+        ],
+        "precedence": 40,
+        "recipeId": "recipe_day_13"
+      }
+    ],
+    "recipe_day_14": [
+      {
+        "ruleId": "dec_split:ягоды@recipe_day_14",
+        "action": "split",
+        "normalizedKey": "ягоды",
+        "components": [
+          {
+            "foodKey": "малина",
+            "resolvedNameRu": "малина",
+            "wfpbStatus": "green",
+            "ratio": 0.25
+          },
+          {
+            "foodKey": "черника",
+            "resolvedNameRu": "черника",
+            "wfpbStatus": "green",
+            "ratio": 0.25
+          },
+          {
+            "foodKey": "голубика",
+            "resolvedNameRu": "голубика",
+            "wfpbStatus": "green",
+            "ratio": 0.25
+          },
+          {
+            "foodKey": "клубника",
+            "resolvedNameRu": "клубника",
+            "wfpbStatus": "green",
+            "ratio": 0.25
+          }
+        ],
+        "precedence": 40,
+        "recipeId": "recipe_day_14"
+      }
+    ],
+    "recipe_day_19": [
+      {
+        "ruleId": "dec_split:ягоды@recipe_day_19",
+        "action": "split",
+        "normalizedKey": "ягоды",
+        "components": [
+          {
+            "foodKey": "малина",
+            "resolvedNameRu": "малина",
+            "wfpbStatus": "green",
+            "ratio": 0.25
+          },
+          {
+            "foodKey": "черника",
+            "resolvedNameRu": "черника",
+            "wfpbStatus": "green",
+            "ratio": 0.25
+          },
+          {
+            "foodKey": "голубика",
+            "resolvedNameRu": "голубика",
+            "wfpbStatus": "green",
+            "ratio": 0.25
+          },
+          {
+            "foodKey": "клубника",
+            "resolvedNameRu": "клубника",
+            "wfpbStatus": "green",
+            "ratio": 0.25
+          }
+        ],
+        "precedence": 40,
+        "recipeId": "recipe_day_19"
+      }
+    ]
+  }
+}

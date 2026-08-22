@@ -12,6 +12,8 @@ import { PromptCompiler } from "./src/services/promptCompiler";
 import { safeParseJSON } from "./src/utils/safeParseJSON";
 import { prisma } from "./src/prisma";
 import { logger } from "./src/utils/logger";
+import { resolveBookRecipeNutrients, BOOK_MACRO_FIELDS } from "./src/utils/bookRecipeNutrients";
+import { DEFAULT_TIMEZONE, addDays, toDateOnly, todayLocalDate, validateIanaTimeZone } from "./src/shared/dates";
 import { achievementService } from "./src/services/AchievementService";
 import { ANNA_TOOL_DEFINITIONS, executeToolCall } from "./src/services/annaTools";
 import { setupTelegramWebhook, getBotUsername, getBot } from "./src/services/telegramBot";
@@ -1634,6 +1636,40 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
         }
       }
 
+      // Единый расчёт полного нутриентного профиля для рецептов Книги.
+      // КБЖУ/клетчатка/вода остаются авторитетными значениями из Книги —
+      // resolver добавляет только extended nutrient fields (витамины, минералы,
+      // аминокислоты, жирные кислоты и т.д.), и только для complete-рецептов.
+      if (
+        data.isBookRecipe === true &&
+        data.bookRecipeType != null &&
+        data.bookRecipeId != null
+      ) {
+        const book = await resolveBookRecipeNutrients(
+          String(data.bookRecipeType),
+          Number(data.bookRecipeId)
+        );
+        if (book.status === "complete") {
+          const profileInput = book.ingredients
+            .filter((i) => !i.excluded && i.grams != null && i.foodItemNameRu)
+            .map((i) => ({
+              shortName: i.normalizedName,
+              dbKey: i.foodItemNameRu!,
+              weight: i.grams!,
+            }));
+          if (profileInput.length > 0) {
+            const computed = await computeNutrientsFromDB(profileInput);
+            for (const key of NUTRIENT_FIELDS) {
+              if (BOOK_MACRO_FIELDS.has(key)) continue;
+              const val = computed[key];
+              if (typeof val === "number" && Number.isFinite(val) && val > 0) {
+                nutrientData[key] = val;
+              }
+            }
+          }
+        }
+      }
+
       const dish = await prisma.savedDish.create({
         data: {
           userId: req.userId,
@@ -1654,7 +1690,9 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
           ...nutrientData,
         },
       });
-      res.json({ ok: true, id: dish.id });
+      // F-sync: возвращаем полную созданную запись (включая extended
+      // micronutrients) — клиент заменяет ею optimistic-копию.
+      res.json({ ok: true, dish });
     } catch (err: any) {
       console.error("[SavedDish] error:", err.message);
       res.status(500).json({ error: err.message });
