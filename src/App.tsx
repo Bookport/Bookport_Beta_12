@@ -58,6 +58,22 @@ import {
   DRINKS_RECIPES,
 } from "./components/BookRecipesScreen";
 import { getFoodProfile, parseWeightGrams } from "./services/DailyNutritionStore";
+import { setOnMixerSaved } from "./modules/mixer/services/mixerSave";
+import {
+  splitAmount,
+  cleanName,
+  parseGrams,
+  isWater,
+  isSeasoningAmount,
+  normalizeBookIngredientName,
+} from "./utils/bookRecipeNutrients";
+import { breakfastBackData } from "./data/breakfast_back";
+import { lunchBackData } from "./data/lunch_back";
+import { dinnerBackData } from "./data/dinner_back";
+import { mustHaveBackData } from "./data/must_have_back";
+import { recipeDayBackData } from "./data/recipe_day_back";
+import { complimentsBackData } from "./data/compliments_back";
+import type { ComplimentBackData } from "./data/compliments_back";
 const SHOW_DEBUG_ACHIEVEMENTS_PANEL = false;
 import AchievementsDebugPanel from "./components/AchievementsDebugPanel";
 
@@ -69,6 +85,18 @@ const RECIPE_TYPE_TO_ARRAY: Record<string, any[]> = {
   compliment: COMPLIMENTS_RECIPES,
   recipe_of_day: RECIPE_OF_DAY_RECIPES,
   drinks: DRINKS_RECIPES,
+};
+
+// Back-данные рецептов Книги (реальные веса ингредиентов). Используются при
+// сохранении SavedDish вместо display-строки без весов (иначе fallback 75 г).
+const BACK_SOURCE_DATA: Record<string, ComplimentBackData[] | null> = {
+  breakfast: breakfastBackData,
+  lunch: lunchBackData,
+  dinner: dinnerBackData,
+  must_have: mustHaveBackData,
+  compliment: complimentsBackData,
+  recipe_of_day: recipeDayBackData,
+  drinks: null,
 };
 
 function getAnnaBubbleStyle(currentScreen: string) {
@@ -982,174 +1010,32 @@ export default function App() {
   }, [screen]);
 
   const [savedDishes, setSavedDishes] = useState<SavedDish[]>([]);
+  const [deletingDishId, setDeletingDishId] = useState<string | null>(null);
 
-  // ─── ACHIEVEMENT SNAPSHOT INGESTION ────────────────────────────
-  const buildSnapshot = (): AchievementStateSnapshot => {
-    const storeState = useAppStore.getState()
-    // Read water/sleep from localStorage (populated by MyDayScreen)
-    let allWaterEntries: AchievementStateSnapshot['waterEntries'] = []
-    try {
-      const raw = localStorage.getItem('wfpb_daily_water_entries_v3')
-      const allLogs: Record<number, { amount: number; time: string; timestamp: number }[]> = raw ? JSON.parse(raw) : {}
-      allWaterEntries = Object.values(allLogs).flat()
-    } catch {}
-    let allSleepLogs: AchievementStateSnapshot['sleepLogs'] = []
-    try {
-      const sleepRaw = localStorage.getItem('wfpb_daily_sleep_logs_v1')
-      const sleepCache: Record<number, { dayIndex: number; sleepTime: string; duration: number; quality?: string }> = sleepRaw ? JSON.parse(sleepRaw) : {}
-      allSleepLogs = Object.values(sleepCache)
-    } catch {}
-    return {
-      savedDishes,
-      water,
-      sleep,
-      mealCount,
-      clickCount: storeState.clickCount,
-      habitsDone,
-      currentDayIndex,
-      dayNotes,
-      weight,
-      systolic,
-      initialWeight,
-      initialSystolic,
-      overlayState: overlayStateRef.current,
-      waterEntries: allWaterEntries,
-      sleepLogs: allSleepLogs,
-      movementEntries: storeState.movementEntries.map((e) => ({ dayIndex: e.dayIndex, duration: e.duration, type: e.type, timestamp: e.timestamp })),
-    }
-  }
-
-  // Zustand subscribe — fires on any store change (movement, clickCount, etc.)
-  const lastSnapshotRef = useRef('')
-  useEffect(() => {
-    const unsub = useAppStore.subscribe(() => {
-      const snapshot = buildSnapshot()
-      const json = JSON.stringify(snapshot)
-      if (json === lastSnapshotRef.current) return
-      lastSnapshotRef.current = json
-      ingestAchievementEvent({ type: 'state:updated', snapshot })
-    })
-    return unsub
-  }, [])
-
-  // React deps — fires on React state changes (water, sleep, savedDishes, etc.)
-  useEffect(() => {
-    const snapshot = buildSnapshot()
-    const json = JSON.stringify(snapshot)
-    if (json === lastSnapshotRef.current) return
-    lastSnapshotRef.current = json
-    ingestAchievementEvent({ type: 'state:updated', snapshot })
-  }, [
-    savedDishes, water, sleep, mealCount, habitsDone,
-    currentDayIndex, dayNotes, weight, systolic, initialWeight, initialSystolic, overlayState,
-  ])
-
-  // Synchronize dynamic habits progress in real-time from SystemKeysStore
-  useEffect(() => {
-    const { closedCount } = SystemKeysStore.calculateKeysForDay(currentDayIndex, savedDishes, water);
-    setHabitsDone(closedCount);
-  }, [currentDayIndex, savedDishes, water]);
-
-  const handleToggleFavorite = (id: string) => {
-    setSavedDishes(prev => {
-      const dish = prev.find(d => d.id === id);
-      const next = dish ? !dish.isFavorite : false;
-      // Persist to DB (fire-and-forget)
-      api("/api/saved-dishes/" + encodeURIComponent(id), {
-        method: "PATCH",
-        body: { isFavorite: next },
-      }).catch(() => {});
-      return prev.map(d => d.id === id ? { ...d, isFavorite: next } : d);
-    });
-  };
-
-  const handleSaveDishCategory = (id: string, category: string) => {
-    setSavedDishes(prev => prev.map(d => d.id === id ? { ...d, category, isNew: false, categoryColor: getCategoryColor(category).shadow } : d));
-    // Persist category change to DB (fire-and-forget)
-    api("/api/saved-dishes/" + encodeURIComponent(id), {
-      method: "PATCH",
-      body: { category, isNew: false },
-    }).catch(() => {});
-  };
-
-  const handleSaveBookRecipe = (name: string, image: string, sourceType: string, ref: any) => {
-    const tag = sourceType === "breakfast" ? "Завтрак" :
-                sourceType === "lunch" ? "Обед" :
-                sourceType === "dinner" ? "Ужин" :
-                sourceType === "recipe_of_day" ? "Рецепт дня" :
-                sourceType === "must_have" ? "Маст Хев" :
-                sourceType === "drinks" ? "Напитки" :
-                sourceType === "compliment" ? "Комплименты" : "";
-    const macros = ref?.type && ref?.id != null ? getBookMacros(ref.type, ref.id) : null;
-    const generatedId = `book_${sourceType}_${Date.now()}`;
-
-    // Parse ingredients from the recipe definition
-    let parsedIngredients: { name: string; weight: string; status: "green" | "yellow" | "red" }[] = [];
-    if (ref?.type && ref?.id != null) {
-      const recipeArray = RECIPE_TYPE_TO_ARRAY[ref.type];
-      if (recipeArray) {
-        const recipeDef = recipeArray.find((r: any) => r.id === ref.id || r.day === ref.id);
-        if (recipeDef?.ingredients) {
-          parsedIngredients = recipeDef.ingredients
-            .split(",")
-            .map((i: string) => i.trim())
-            .filter(Boolean)
-            .map((ingName: string) => {
-              const weightNum = parseWeightGrams(ingName);
-              const profile = getFoodProfile(ingName);
-              return {
-                name: ingName.charAt(0).toUpperCase() + ingName.slice(1),
-                weight: String(Math.round(weightNum)) + " г",
-                status: profile.defaultStatus,
-              };
-            });
-        }
-      }
-    }
-
-    const newDish: SavedDish = {
-      id: generatedId,
-      name,
-      createdAt: new Date().toISOString(),
-      time: new Date().toLocaleTimeString("ru-RU", { timeZone: "Europe/Moscow", hour: "2-digit", minute: "2-digit" }),
-      tag,
-      category: "Книга",
-      image: image || "",
-      isFavorite: false,
-      calories: macros?.calories ?? 0,
-      protein: macros?.protein ?? "",
-      fiber: macros?.fiber ?? "",
-      fat: macros?.fat ?? "",
-      ingredients: parsedIngredients,
-      annaTip: "",
-      isBookRecipe: true,
-      bookRecipeRef: ref,
-    };
-    setSavedDishes(prev => [newDish, ...prev]);
-
-    // Persist SavedDish to the database (fire-and-forget)
-    api("/api/saved-dishes", {
-      method: "POST",
-      body: {
-        name: newDish.name,
-        image: newDish.image || null,
-        category: newDish.category,
-        tag: newDish.tag || null,
-        isFavorite: newDish.isFavorite,
-        isBookRecipe: true,
-        bookRecipeType: ref?.type || null,
-        bookRecipeId: ref?.id || null,
-        sourceType: ref?.type || null,
-        ingredients: parsedIngredients,
-        calories: newDish.calories,
-        protein: newDish.protein,
-        fiber: newDish.fiber,
-        fat: newDish.fat,
-        dayIndex: currentDayIndex,
+        ...(macros?.carbohydrates != null ? { carbohydrates: macros.carbohydrates } : {}),
+        dayIndex,
+ 7123309 (feat(book): compiled registry, F-sync, each-split, technical guard, approved excluded, BUILD-1 partial fix)
         annaTip: newDish.annaTip || "",
         isNew: true,
       },
-    }).catch(() => {});
+    })
+      .then((response: any) => {
+        if (response?.ok && response?.dish) {
+          setSavedDishes(prev =>
+            prev.map(item =>
+              item.id === generatedId
+                ? {
+                    ...item,
+                    ...response.dish,
+                    id: response.dish.id,
+                    bookRecipeRef: item.bookRecipeRef,
+                  }
+                : item
+            )
+          );
+        }
+      })
+      .catch(() => {});
   };
 
   const handleSaveProgress = (updatedHabits: any) => {
@@ -1546,6 +1432,8 @@ export default function App() {
                 savedDishes={savedDishes}
                 onToggleFavorite={handleToggleFavorite}
                 onSaveDishCategory={handleSaveDishCategory}
+                onDeleteDish={handleDeleteDish}
+                deletingDishId={deletingDishId}
               />
             </motion.div>
           ) : screen === "from-what-is" ? (

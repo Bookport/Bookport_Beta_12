@@ -16,6 +16,9 @@ interface MicroTabProps {
   dayPotassium: number;
   dayLysine: number;
   daySelenium: number;
+  hasPartialBookDishes?: boolean;
+  realProfileCount?: number;
+  hasAnyRealMicronutrientProfile?: boolean;
   annaAnalysisText?: string;
   recommendedAction?: NextStepRecommendation;
 }
@@ -32,6 +35,9 @@ export default function MicroTab({
   dayPotassium,
   dayLysine,
   daySelenium,
+  hasPartialBookDishes = false,
+  realProfileCount = 0,
+  hasAnyRealMicronutrientProfile = false,
   annaAnalysisText,
   recommendedAction,
 }: MicroTabProps) {
@@ -52,8 +58,35 @@ export default function MicroTab({
           recommendedAction={recommendedAction}
         />
       )}
+
+      {/* BUILD-1: neutral empty state — ни одно блюдо дня не имеет реального профиля */}
+      {!hasAnyRealMicronutrientProfile && (
+        <div className="bg-slate-50/70 border border-gray-150/70 rounded-[28px] p-5 text-left">
+          <h2 className="text-[13px] font-black text-slate-850 tracking-tight mb-2 uppercase flex items-center gap-1.5 select-none font-sans">
+            <span className="text-slate-400">🧬</span> Микроэлементы
+          </h2>
+          <p className="text-[12.5px] text-slate-600 leading-relaxed font-sans">
+            Для блюд этого дня пока нет полного профиля микроэлементов.
+          </p>
+        </div>
+      )}
+
+      {/* BUILD-1: мягкая пометка об approved partial-блюдах при наличии реального профиля */}
+      {hasAnyRealMicronutrientProfile && hasPartialBookDishes && (
+        <div className="bg-amber-50/70 border border-amber-200/70 rounded-[28px] p-5 text-left">
+          <h2 className="text-[13px] font-black text-slate-850 tracking-tight mb-2 uppercase flex items-center gap-1.5 select-none font-sans">
+            <span className="text-amber-500">🔎</span> Микроэлементы
+          </h2>
+          <p className="text-[12.5px] text-slate-600 leading-relaxed font-sans">
+            Для части блюд сегодня пока доступна КБЖУ-оценка. Полный профиль витаминов и минералов уточняется.
+          </p>
+        </div>
+      )}
+
       {/* Vitamins grid with progress bars */}
-      <div className="bg-white rounded-[32px] border border-gray-100 shadow-[0_8px_24px_rgba(43,49,55,0.02)] p-5 text-left">
+      {hasAnyRealMicronutrientProfile && (
+        <>
+        <div className="bg-white rounded-[32px] border border-gray-100 shadow-[0_8px_24px_rgba(43,49,55,0.02)] p-5 text-left">
         <h2 className="text-[14px] font-black text-slate-850 tracking-tight mb-4 uppercase flex items-center gap-1.5 select-none font-sans">
           <span className="text-emerald-500">🧬</span> Витамины дня
         </h2>
@@ -70,7 +103,7 @@ export default function MicroTab({
             <div key={v.name} className="bg-slate-50/50 p-3 rounded-2xl border border-slate-100/80">
               <div className="flex justify-between items-center text-[11.5px] font-bold text-slate-650 mb-1.5 font-sans">
                 <span>{v.name}</span>
-                <span className="font-mono text-slate-750 font-black">{Math.round(v.value)}%</span>
+                <span className="font-mono text-slate-750 font-black">{v.value >= 250 ? "250%+" : `${Math.round(v.value)}%`}</span>
               </div>
               <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
                 <div className={`h-full ${v.color}`} style={{ width: `${Math.min(100, v.value)}%` }} />
@@ -99,7 +132,7 @@ export default function MicroTab({
             <div key={m.name} className="bg-slate-50/50 p-3 rounded-2xl border border-slate-100/80">
               <div className="flex justify-between items-center text-[11.5px] font-bold text-slate-650 mb-1.5 font-sans">
                 <span>{m.name}</span>
-                <span className="font-mono text-slate-750 font-black">{Math.round(m.value)}%</span>
+                <span className="font-mono text-slate-750 font-black">{m.value >= 250 ? "250%+" : `${Math.round(m.value)}%`}</span>
               </div>
               <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
                 <div className={`h-full ${m.color}`} style={{ width: `${Math.min(100, m.value)}%` }} />
@@ -108,6 +141,8 @@ export default function MicroTab({
           ))}
         </div>
       </div>
+        </>
+      )}
 
       {/* Micro conclusions */}
       <div className="bg-white rounded-[28px] border border-gray-150/60 p-5 text-left">
