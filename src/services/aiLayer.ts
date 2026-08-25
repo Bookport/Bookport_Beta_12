@@ -38,18 +38,20 @@ export interface AnnaVoiceResponse {
   transcript: string;
 }
 
+// Rich-контракт фото-распознавания: Qwen возвращает русские имена, вес в
+// граммах и визуальный WFPB-статус для немедленного рендера карточек.
+// Qwen НЕ поставляет FoodItem id/канонические имена/нутриенты/изображения БД;
+// identity и финальные значения назначает общий FoodItem-pipeline приложения.
 export interface RecognizedIngredient {
-  id: string;
   fullName: string;
-  shortName: string;
-  status: "green" | "error";
-  weight: number;
-  reason?: string;
+  shortName?: string;
+  estimatedWeightGrams: number;
+  status: "green" | "error" | "blue";
 }
 
 export interface RecognitionResponse {
-  dishName: string;
-  ingredients: RecognizedIngredient[];
+  noFoodDetected?: boolean;
+  ingredients?: RecognizedIngredient[];
 }
 
 export interface NutrientDetail {
@@ -155,46 +157,15 @@ export const AISystemConfig = {
  * Resilient image recognition local fallback (protects against rate limits)
  */
 export function simulateLocalVisionPlan(): RecognitionResponse {
-  // Let us yield a beautifully arranged, WFPB ready plant-based dish containing compliance items and 1 tiny error
+  // Локальный fallback: rich-кандидаты без identity/нутриентов из БД.
   return {
-    dishName: "Тёплый боул с киноа и запечёнными овощами",
+    noFoodDetected: false,
     ingredients: [
-      {
-        id: "quinoa",
-        fullName: "Красная и белая цельная киноа",
-        shortName: "Киноа",
-        status: "green",
-        weight: 120
-      },
-      {
-        id: "chickpeas",
-        fullName: "Отварной эко-нут без соли",
-        shortName: "Нут",
-        status: "green",
-        weight: 100
-      },
-      {
-        id: "spinach",
-        fullName: "Молодой свежий шпинат",
-        shortName: "Шпинат",
-        status: "green",
-        weight: 30
-      },
-      {
-        id: "olive_oil",
-        fullName: "Оливковое масло экстра-класс (рафинированное/добавленное)",
-        shortName: "Оливковое масло",
-        status: "error",
-        weight: 15,
-        reason: "Экстрагированные растительные масла запрещены WFPB-правилами. Лучше используйте цельное авокадо или кунжут!"
-      },
-      {
-        id: "sesame",
-        fullName: "Цельные чёрные кунжутные семена",
-        shortName: "Семена кунжута",
-        status: "green",
-        weight: 10
-      }
+      { fullName: "Киноа отварная", shortName: "киноа", estimatedWeightGrams: 120, status: "green" },
+      { fullName: "Нут отварной", shortName: "нут", estimatedWeightGrams: 100, status: "green" },
+      { fullName: "Шпинат свежий", shortName: "шпинат", estimatedWeightGrams: 30, status: "green" },
+      { fullName: "Оливковое масло", shortName: "оливковое масло", estimatedWeightGrams: 15, status: "error" },
+      { fullName: "Семена кунжута", shortName: "кунжут", estimatedWeightGrams: 10, status: "green" }
     ]
   };
 }
@@ -303,13 +274,19 @@ export const MealAnalysisProvider = {
     }
 
     let errMessage = `Analyze-dish responded with status: ${resp.status}`;
+    let unresolved: { input: string; weight?: number }[] | undefined;
     try {
       const errorData = await resp.json();
       if (errorData.error) errMessage = errorData.error;
+      if (Array.isArray(errorData.unresolved)) unresolved = errorData.unresolved;
     } catch {
       // ignore parse error, keep status message
     }
-    throw new Error(errMessage);
+    const err = new Error(errMessage) as Error & {
+      unresolved?: { input: string; weight?: number }[];
+    };
+    err.unresolved = unresolved;
+    throw err;
   }
 };
 

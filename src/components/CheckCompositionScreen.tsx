@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { 
   ChevronLeft, 
@@ -6,7 +6,6 @@ import {
   ChevronDown, 
   ChevronUp, 
   Plus, 
-  Minus, 
   Trash2, 
   Check, 
   Sparkles,
@@ -17,10 +16,18 @@ import { getTelegramInitData } from "../utils/telegramClient";
 import BottomBar from "./BottomBar";
 import CalendarButton from "./CalendarButton";
 import { resolveAvatar } from "../utils/annaAvatarResolver";
-import { getIngredientImage } from "../utils/ingredientMapper";
+import { getIngredientImage, imageMap } from "../utils/ingredientMapper";
+import { INGREDIENT_CATEGORY_MAP, isSpiceIngredient } from "../utils/ingredientCategoryMap";
 import { normalize, resolveAgainstIndex } from "../utils/ingredientMappingCore";
+import {
+  buildStrictIndex,
+  isNutritionComplete,
+  resolveIngredientStrict,
+  resolveIngredientWithFallback,
+} from "../utils/ingredientResolver";
 import ingrGreen from "../assets/ingredients/ingr_green.webp";
 import ingrRed from "../assets/ingredients/ingr_red.webp";
+import greylogo from "../assets/images/greylogo.webp";
 import categorySoup from "../assets/categories/category_soup.webp";
 import categorySalad from "../assets/categories/category_salad.webp";
 import categoryMain from "../assets/categories/category_main.webp";
@@ -30,9 +37,10 @@ import categorySnack from "../assets/categories/category_snack.webp";
 import categorySauce from "../assets/categories/category_sauce.webp";
 import categoryDessert from "../assets/categories/category_dessert.webp";
 import categoryBakery from "../assets/categories/category_bakery.webp";
+import logoSprout from "../assets/images/buttons/logo.webp";
 import { checkWFPB } from "../utils/wfpbRules";
 import { matchDBStatus } from "../utils/wfpbMatch";
-import { useAppStore } from "../store/useAppStore";
+import { useAppStore, type FoodCacheItem } from "../store/useAppStore";
 import { clientLogger } from "../utils/clientLogger";
 import type { MealSource } from "../services/aiLayer";
 
@@ -57,6 +65,17 @@ const DISH_CATEGORIES: DishCategoryOption[] = [
   { key: "Выпечка", image: categoryBakery, color: "#FFF6DB" },
 ];
 
+// Активная палитра табов справочника ингредиентов в панели «Заменить ингредиент».
+const CATEGORY_TAB_ACTIVE_STYLES: Record<string, { bg: string; text: string; shadow: string }> = {
+  "Бобовые":                       { bg: "#DDF4E4", text: "#176B3A", shadow: "#92CFA6" },
+  "Злаки и псевдозлаки":           { bg: "#FFF1CC", text: "#8A5A00", shadow: "#E6C16B" },
+  "Орехи и кокосовая стружка":     { bg: "#F4E3D0", text: "#87542E", shadow: "#D6A77E" },
+  "Семена":                        { bg: "#EEE2F6", text: "#68427D", shadow: "#C49AD7" },
+  "Специи и сухие ингредиенты":    { bg: "#FBE0D2", text: "#9A3D1F", shadow: "#E6A37E" },
+  "Свежие продукты":               { bg: "#DCEFF1", text: "#1D6870", shadow: "#8FC8CD" },
+};
+const CATEGORY_TAB_INACTIVE = { bg: "#F7F9FA", text: "#66717B", shadow: "#DCE3E7" };
+
 interface CheckCompositionScreenProps {
   onBack?: () => void;
   initialIngredients?: any[];
@@ -70,11 +89,14 @@ interface CheckCompositionScreenProps {
   onDishCategoryChange?: (category: string | null) => void;
 }
 
-// Full ingredient details with short name mappings for cards
-interface IngredientOption {
-  fullName: string;
-  shortName: string;
-  image: string;
+// Выбираемая опция — строится ИСКЛЮЧИТЕЛЬНО из реальной записи FoodCacheItem.
+// Никаких статических лейблов без foodItemId в UI выбора не существует.
+interface SelectableFoodOption {
+  foodItemId: string; // FoodCacheItem.id
+  label: string; // FoodCacheItem.nameRu (canonical)
+  searchHaystack: string; // normalized nameRu + nameEn
+  wfpbStatus: "green" | "forbidden";
+  imageSrc: string;
   subcategory?: string;
 }
 
@@ -83,183 +105,126 @@ interface IngredientCard {
   fullName: string;
   shortName: string;
   image: string;
-  weight?: number; // undefined means not yet confirmed with a specified weight
-  status: "green" | "error" | "blue"; // strictly green or red, blue is for non-food warning!
+  weight?: number;
+  // "unrecognized" — название не сопоставлено с FoodItem strict-resolver'ом.
+  // Логически НЕ равно "blue": blue зарезервирован за non-food/несъедобным сценарием.
+  status: "green" | "error" | "blue" | "unrecognized";
   manuallyAllowed?: boolean;
   dbKey?: string; // resolved normalized DB nameRu key (from ingredientMappingCore)
   fdcId?: number;
+  enteredName?: string; // исходное пользовательское название (технически, не показывается)
+  foodItemId?: string; // стабильная runtime identity — FoodItem.id
+  canonicalName?: string; // FoodItem.nameRu
+  resolutionStatus?: "resolved" | "unresolved";
+  // Карточка из фото-распознавания: рендерится сразу по rich-данным Qwen.
+  // Совпадение с FoodItem только обогащает display-safe поля; отсутствие
+  // совпадения НЕ переводит карточку в unrecognized и не создаёт записей.
+  scanRecognized?: boolean;
 }
 
 
 
-// Full WFPB non-salt database categories exactly matching user's content
-const INGREDIENTS_DATABASE: Record<string, IngredientOption[]> = {
-  "Бобовые": [
-    { fullName: "Чечевица коричневая", shortName: "Чечевица коричневая", image: "" },
-    { fullName: "Чечевица красная", shortName: "Чечевица красная", image: "" },
-    { fullName: "Нут", shortName: "Нут", image: "" },
-    { fullName: "Фасоль красная", shortName: "Фасоль красная", image: "" },
-    { fullName: "Фасоль белая", shortName: "Фасоль белая", image: "" },
-    { fullName: "Горох зелёный", shortName: "Горох зелёный", image: "" },
-    { fullName: "Маш", shortName: "Маш", image: "" },
-    { fullName: "Соевые бобы", shortName: "Соевые бобы", image: "" },
-    { fullName: "Темпе", shortName: "Темпе", image: "" },
-    { fullName: "Тофу натуральный", shortName: "Тофу", image: "" },
-    { fullName: "Фасоль адзуки", shortName: "Фасоль адзуки", image: "" },
-    { fullName: "Фасоль лима", shortName: "Фасоль лима", image: "" },
-    { fullName: "Фасоль пестрая", shortName: "Фасоль пестрая", image: "" },
-    { fullName: "Фасоль черная", shortName: "Фасоль черная", image: "" },
-    { fullName: "Чечевица зеленая", shortName: "Чечевица зеленая", image: "" },
-    { fullName: "Горошек", shortName: "Горошек", image: "" },
-    { fullName: "Фасоль", shortName: "Фасоль", image: "" }
-  ],
-  "Злаки и псевдозлаки": [
-    { fullName: "Овсяные хлопья", shortName: "Овсяные хлопья", image: "" },
-    { fullName: "Зелёная гречка", shortName: "Зелёная гречка", image: "" },
-    { fullName: "Киноа", shortName: "Киноа", image: "" },
-    { fullName: "Пшено", shortName: "Пшено", image: "" },
-    { fullName: "Амарант", shortName: "Амарант", image: "" },
-    { fullName: "Рис бурый", shortName: "Рис бурый", image: "" },
-    { fullName: "Рис чёрный", shortName: "Рис чёрный", image: "" },
-    { fullName: "Сорго", shortName: "Сорго", image: "" },
-    { fullName: "Кукуруза", shortName: "Кукуруза", image: "" },
-    { fullName: "Булгур", shortName: "Булгур", image: "" },
-    { fullName: "Перловка", shortName: "Перловка", image: "" },
-    { fullName: "Полба", shortName: "Полба", image: "" }
-  ],
-  "Орехи и кокосовая стружка": [
-    { fullName: "Кешью", shortName: "Кешью", image: "" },
-    { fullName: "Миндаль", shortName: "Миндаль", image: "" },
-    { fullName: "Грецкие орехи", shortName: "Грецкие орехи", image: "" },
-    { fullName: "Кокосовая стружка", shortName: "Кокосовая стружка", image: "" },
-    { fullName: "Бразильский орех", shortName: "Бразильский орех", image: "" },
-    { fullName: "Кедровые орехи", shortName: "Кедровые орехи", image: "" },
-    { fullName: "Макадамия", shortName: "Макадамия", image: "" },
-    { fullName: "Пекан", shortName: "Пекан", image: "" },
-    { fullName: "Фисташки", shortName: "Фисташки", image: "" },
-    { fullName: "Фундук", shortName: "Фундук", image: "" }
-  ],
-  "Семена": [
-    { fullName: "Лён", shortName: "Лён", image: "" },
-    { fullName: "Чиа", shortName: "Чиа", image: "" },
-    { fullName: "Подсолнечник", shortName: "Подсолнечник", image: "" },
-    { fullName: "Тыква", shortName: "Тыква", image: "" },
-    { fullName: "Кунжут", shortName: "Кунжут", image: "" },
-    { fullName: "Конопляные семена", shortName: "Конопляные семена", image: "" },
-    { fullName: "Мак", shortName: "Мак", image: "" },
-    { fullName: "Семена", shortName: "Семена", image: "" }
-  ],
-  "Специи и сухие ингредиенты": [
-    { fullName: "Агар-агар", shortName: "Агар-агар", image: "" },
-    { fullName: "Яблочный уксус", shortName: "Яблочный уксус", image: "" },
-    { fullName: "Какао-порошок", shortName: "Какао-порошок", image: "" },
-    { fullName: "Куркума", shortName: "Куркума", image: "" },
-    { fullName: "Чёрный перец", shortName: "Чёрный перец", image: "" },
-    { fullName: "Корица", shortName: "Корица", image: "" },
-    { fullName: "Имбирь", shortName: "Имбирь", image: "" },
-    { fullName: "Паприка", shortName: "Паприка", image: "" },
-    { fullName: "Кардамон", shortName: "Кардамон", image: "" },
-    { fullName: "Кориандр", shortName: "Кориандр", image: "" },
-    { fullName: "Кайенский перец", shortName: "Кайенский перец", image: "" },
-    { fullName: "Тмин", shortName: "Тмин", image: "" },
-    { fullName: "Псиллиум", shortName: "Псиллиум", image: "" },
-    { fullName: "Ваниль", shortName: "Ваниль", image: "" },
-    { fullName: "Тимьян", shortName: "Тимьян", image: "" },
-    { fullName: "Лавровый лист", shortName: "Лавровый лист", image: "" },
-    { fullName: "Сода", shortName: "Сода", image: "" },
-    { fullName: "Горчица", shortName: "Горчица", image: "" },
-    { fullName: "Зира", shortName: "Зира", image: "" },
-    { fullName: "Кленовый сироп", shortName: "Кленовый сироп", image: "" },
-    { fullName: "Кокосовый сахар", shortName: "Кокосовый сахар", image: "" },
-    { fullName: "Копченая паприка", shortName: "Копченая паприка", image: "" },
-    { fullName: "Льняная мука", shortName: "Льняная мука", image: "" },
-    { fullName: "Нутрицевтические дрожжи", shortName: "Нутрицевтические дрожжи", image: "" },
-    { fullName: "Орегано", shortName: "Орегано", image: "" },
-    { fullName: "Розмарин", shortName: "Розмарин", image: "" },
-    { fullName: "Соевый соус тамари", shortName: "Соевый соус тамари", image: "" },
-    { fullName: "Уксус бальзамический", shortName: "Уксус бальзамический", image: "" },
-    { fullName: "Какао", shortName: "Какао", image: "" },
-    { fullName: "Мука (тесто)", shortName: "Мука", image: "" },
-    { fullName: "Специи", shortName: "Специи", image: "" }
-  ],
-  "Свежие продукты": [
-    // Подкатегория: Овощи
-    { fullName: "Батат", shortName: "Батат", image: "", subcategory: "Овощи" },
-    { fullName: "Капуста белокочанная", shortName: "Капуста", image: "", subcategory: "Овощи" },
-    { fullName: "Морковь", shortName: "Морковь", image: "", subcategory: "Овощи" },
-    { fullName: "Свёкла", shortName: "Свёкла", image: "", subcategory: "Овощи" },
-    { fullName: "Лук репчатый", shortName: "Лук репчатый", image: "", subcategory: "Овощи" },
-    { fullName: "Чеснок", shortName: "Чеснок", image: "", subcategory: "Овощи" },
-    { fullName: "Помидоры", shortName: "Помидоры", image: "", subcategory: "Овощи" },
-    { fullName: "Огурцы", shortName: "Огурцы", image: "", subcategory: "Овощи" },
-    { fullName: "Болгарский перец", shortName: "Болгарский перец", image: "", subcategory: "Овощи" },
-    { fullName: "Острый перец", shortName: "Перец чили", image: "", subcategory: "Овощи" },
-    { fullName: "Цветная капуста", shortName: "Цветная капуста", image: "", subcategory: "Овощи" },
-    { fullName: "Кабачок", shortName: "Кабачок", image: "", subcategory: "Овощи" },
-    { fullName: "Баклажан", shortName: "Баклажан", image: "", subcategory: "Овощи" },
-    { fullName: "Сельдерей", shortName: "Сельдерей", image: "", subcategory: "Овощи" },
-    { fullName: "Тыква", shortName: "Тыква", image: "", subcategory: "Овощи" },
-    { fullName: "Авокадо", shortName: "Авокадо", image: "", subcategory: "Овощи" },
-    { fullName: "Артишоки", shortName: "Артишоки", image: "", subcategory: "Овощи" },
-    { fullName: "Брокколи", shortName: "Брокколи", image: "", subcategory: "Овощи" },
-    { fullName: "Дайкон", shortName: "Дайкон", image: "", subcategory: "Овощи" },
-    { fullName: "Кале", shortName: "Кале", image: "", subcategory: "Овощи" },
-    { fullName: "Капуста брюссельская", shortName: "Капуста брюссельская", image: "", subcategory: "Овощи" },
-    { fullName: "Капуста краснокочанная", shortName: "Капуста краснокочанная", image: "", subcategory: "Овощи" },
-    { fullName: "Капуста пекинская", shortName: "Капуста пекинская", image: "", subcategory: "Овощи" },
-    { fullName: "Капуста савойская", shortName: "Капуста савойская", image: "", subcategory: "Овощи" },
-    { fullName: "Картофель", shortName: "Картофель", image: "", subcategory: "Овощи" },
-    { fullName: "Квашеная капуста", shortName: "Квашеная капуста", image: "", subcategory: "Овощи" },
-    { fullName: "Кольраби", shortName: "Кольраби", image: "", subcategory: "Овощи" },
-    { fullName: "Корень куркумы", shortName: "Корень куркумы", image: "", subcategory: "Овощи" },
-    { fullName: "Корень сельдерея", shortName: "Корень сельдерея", image: "", subcategory: "Овощи" },
-    { fullName: "Лук красный", shortName: "Лук красный", image: "", subcategory: "Овощи" },
-    { fullName: "Лук-порей", shortName: "Лук-порей", image: "", subcategory: "Овощи" },
-    { fullName: "Мангольд", shortName: "Мангольд", image: "", subcategory: "Овощи" },
-    { fullName: "Редис", shortName: "Редис", image: "", subcategory: "Овощи" },
-    { fullName: "Редька зеленая", shortName: "Редька зеленая", image: "", subcategory: "Овощи" },
-    { fullName: "Репа", shortName: "Репа", image: "", subcategory: "Овощи" },
-    { fullName: "Цукини", shortName: "Цукини", image: "", subcategory: "Овощи" },
+// WFPB-табы нижней панели — ТОЛЬКО навигация. Опции строятся исключительно
+// из реальных FoodItem записей foodCache (см. greenFoodOptions ниже).
+const WFPB_TAB_CATEGORIES = [
+  "Бобовые",
+  "Злаки и псевдозлаки",
+  "Орехи и кокосовая стружка",
+  "Семена",
+  "Специи и сухие ингредиенты",
+  "Свежие продукты",
+] as const;
 
-    // Подкатегория: Фрукты и ягоды
-    { fullName: "Яблоки", shortName: "Яблоки", image: "", subcategory: "Фрукты и ягоды" },
-    { fullName: "Груши", shortName: "Груши", image: "", subcategory: "Фрукты и ягоды" },
-    { fullName: "Бананы", shortName: "Бананы", image: "", subcategory: "Фрукты и ягоды" },
-    { fullName: "Апельсины", shortName: "Апельсины", image: "", subcategory: "Фрукты и ягоды" },
-    { fullName: "Лимоны", shortName: "Лимоны", image: "", subcategory: "Фрукты и ягоды" },
-    { fullName: "Ягоды", shortName: "Ягоды", image: "", subcategory: "Фрукты и ягоды" },
-    { fullName: "Финики", shortName: "Финики", image: "", subcategory: "Фрукты и ягоды" },
-    { fullName: "Абрикосы", shortName: "Абрикосы", image: "", subcategory: "Фрукты и ягоды" },
-    { fullName: "Ананас", shortName: "Ананас", image: "", subcategory: "Фрукты и ягоды" },
-    { fullName: "Гранат", shortName: "Гранат", image: "", subcategory: "Фрукты и ягоды" },
-    { fullName: "Грейпфрут", shortName: "Грейпфрут", image: "", subcategory: "Фрукты и ягоды" },
-    { fullName: "Инжир", shortName: "Инжир", image: "", subcategory: "Фрукты и ягоды" },
-    { fullName: "Киви", shortName: "Киви", image: "", subcategory: "Фрукты и ягоды" },
-    { fullName: "Лайм", shortName: "Лайм", image: "", subcategory: "Фрукты и ягоды" },
-    { fullName: "Манго", shortName: "Манго", image: "", subcategory: "Фрукты и ягоды" },
-    { fullName: "Персики", shortName: "Персики", image: "", subcategory: "Фрукты и ягоды" },
-    { fullName: "Голубика", shortName: "Голубика", image: "", subcategory: "Фрукты и ягоды" },
-    { fullName: "Малина", shortName: "Малина", image: "", subcategory: "Фрукты и ягоды" },
+type WfpbTab = (typeof WFPB_TAB_CATEGORIES)[number];
 
-    // Подкатегория: Зелень и прочее
-    { fullName: "Петрушка", shortName: "Петрушка", image: "", subcategory: "Зелень и прочее" },
-    { fullName: "Укроп", shortName: "Укроп", image: "", subcategory: "Зелень и прочее" },
-    { fullName: "Руккола", shortName: "Руккола", image: "", subcategory: "Зелень и прочее" },
-    { fullName: "Шпинат", shortName: "Шпинат", image: "", subcategory: "Зелень и прочее" },
-    { fullName: "Зелёный лук", shortName: "Зелёный лук", image: "", subcategory: "Зелень и прочее" },
-    { fullName: "Базилик", shortName: "Базилик", image: "", subcategory: "Зелень и прочее" },
-    { fullName: "Нори", shortName: "Нори", image: "", subcategory: "Нори // Водоросли" },
-    { fullName: "Шампиньоны", shortName: "Шампиньоны", image: "", subcategory: "Грибы" },
-    { fullName: "Мисо-паста", shortName: "Мисо-паста", image: "", subcategory: "Соименитые" },
-    { fullName: "Кинза", shortName: "Кинза", image: "", subcategory: "Зелень и прочее" },
-    { fullName: "Микрозелень любая", shortName: "Микрозелень", image: "", subcategory: "Зелень и прочее" },
-    { fullName: "Мята", shortName: "Мята", image: "", subcategory: "Зелень и прочее" },
-    { fullName: "Сушеные грибы шиитаке", shortName: "Грибы шиитаке", image: "", subcategory: "Грибы" },
-    { fullName: "Тархун", shortName: "Тархун", image: "", subcategory: "Зелень и прочее" },
-    { fullName: "Вода", shortName: "Вода", image: "", subcategory: "Зелень и прочее" },
-    { fullName: "Соус", shortName: "Соус", image: "", subcategory: "Зелень и прочее" }
-  ]
- };
+// Нормализованные перестановки порядка слов (2–4 слова, ≤ 24 вариантов).
+// Зеркалирует серверный generateWordPermutations: «масло подсолнечное» ↔
+// «подсолнечное масло». Для 1 слова и длиннее 4 слов — пустой массив.
+function generateWordPermutations(name: string): string[] {
+  const words = normalize(name).split(/\s+/).filter(Boolean);
+  if (words.length < 2 || words.length > 4) return [];
+  const results: string[] = [];
+  const seen = new Set<string>();
+  const permute = (prefix: string[], rest: string[]) => {
+    if (rest.length === 0) {
+      const joined = prefix.join(" ");
+      if (!seen.has(joined)) {
+        seen.add(joined);
+        results.push(joined);
+      }
+      return;
+    }
+    for (let i = 0; i < rest.length; i++) {
+      permute([...prefix, rest[i]], [...rest.slice(0, i), ...rest.slice(i + 1)]);
+    }
+  };
+  permute([], words);
+  return results;
+}
+
+// Изображение для реальной FoodItem записи. Шаг 1 — существующий
+// getIngredientImage (exact/модификаторы/усечение/алиасы). Шаг 2 — fallback
+// для записей без точного образа: каждый словоформ ввода должен быть покрыт
+// каким-то словом ключа imageMap (точное совпадение, локальная таблица
+// эквивалентных словоформ или общий префикс ≥ 4). Ключи, не покрывающие ВСЕ
+// слова ввода, отбрасываются — это исключает нерелевантные миниатюры.
+const FOOD_WORD_IMAGE_HINTS: Record<string, string[]> = {
+  // «крупа гречневая» / «гречневая …» ↔ ассет «гречка.webp»
+  "гречневая": ["гречка"],
+  "гречневый": ["гречка"],
+};
+
+function resolveFoodItemImage(nameRu: string): string | null {
+  const direct = getIngredientImage(nameRu);
+  if (direct) return direct;
+  const inputWords = normalize(nameRu).split(/\s+/).filter(Boolean);
+  if (inputWords.length === 0) return null;
+
+  let bestKey: string | null = null;
+  let bestScore = 0;
+  for (const key of Object.keys(imageMap)) {
+    const keyWords = key.split(/\s+/);
+    let totalScore = 0;
+    let fullyCovered = true;
+    for (const iw of inputWords) {
+      const forms = [iw, ...(FOOD_WORD_IMAGE_HINTS[iw] || [])];
+      let wordScore = 0;
+      for (const form of forms) {
+        for (const kw of keyWords) {
+          if (form === kw) {
+            wordScore = Math.max(wordScore, 100 + form.length);
+          } else {
+            const minLen = Math.min(form.length, kw.length);
+            if (minLen < 4) continue;
+            let lcp = 0;
+            while (lcp < minLen && form[lcp] === kw[lcp]) lcp++;
+            if (lcp >= 4) wordScore = Math.max(wordScore, lcp);
+          }
+        }
+      }
+      // Слово ввода не покрыто ни одной формой — ключ нерелевантен.
+      if (wordScore === 0) {
+        fullyCovered = false;
+        break;
+      }
+      totalScore += wordScore;
+    }
+    if (fullyCovered && totalScore > bestScore) {
+      bestScore = totalScore;
+      bestKey = key;
+    }
+  }
+  if (bestKey) return imageMap[bestKey];
+
+  // Последняя ступень: доверенная таблица словоформ. Полное покрытие не
+  // сработало (напр., «крупа» не встречается в ключах), но словоформа
+  // однозначно указывает на семейство продуктов («гречневая» → «гречка»).
+  for (const iw of inputWords) {
+    const hinted = FOOD_WORD_IMAGE_HINTS[iw]?.find(h => imageMap[normalize(h)]);
+    if (hinted) return imageMap[normalize(hinted)];
+  }
+  return null;
+}
 
 // Initial state simulating highly intelligent real-time AI computer vision recognition
 const INITIAL_CARDS: IngredientCard[] = [
@@ -347,13 +312,67 @@ MOCK_NON_FOOD_CARDS.forEach(c => {
   }
 });
 
-Object.keys(INGREDIENTS_DATABASE).forEach(category => {
-  INGREDIENTS_DATABASE[category].forEach(item => {
-    if (!item.image) {
-      item.image = getIngredientImage(item.shortName || item.fullName) || '';
-    }
-  });
-});
+// Autocomplete-подсказки под инпутом имени/уточнения: ТОЛЬКО реальные
+// FoodItem записи foodCache (green и красные). Правдивые состояния:
+// загрузка / база недоступна / ничего не найдено. Пустой запрос — список скрыт.
+function FoodAutocompleteList({
+  loading,
+  loaded,
+  suggestions,
+  query,
+  onSelect,
+}: {
+  loading: boolean;
+  loaded: boolean;
+  suggestions: { item: FoodCacheItem; isRed: boolean }[];
+  query: string;
+  onSelect: (opt: { foodItemId: string; label: string; wfpbStatus: "green" | "forbidden" }) => void;
+}) {
+  if (!loading && !query.trim()) return null;
+  if (loading) {
+    return (
+      <div className="bg-white border border-[#EFF2F3] rounded-[14px] px-3 py-2 text-[12px] text-[#A1B0B8] font-semibold text-left">
+        Справочник продуктов загружается…
+      </div>
+    );
+  }
+  if (!loaded) {
+    return (
+      <div className="bg-white border border-[#EFF2F3] rounded-[14px] px-3 py-2 text-[12px] text-[#A1B0B8] font-semibold text-left">
+        База продуктов временно недоступна
+      </div>
+    );
+  }
+  if (suggestions.length === 0) {
+    return (
+      <div className="bg-white border border-[#EFF2F3] rounded-[14px] px-3 py-2 text-[12px] text-[#A1B0B8] font-semibold text-left">
+        Ничего не найдено в базе продуктов
+      </div>
+    );
+  }
+  return (
+    <div className="bg-white border border-[#EFF2F3] shadow-[0_12px_28px_rgba(43,49,55,0.12)] rounded-[16px] max-h-[200px] overflow-y-auto flex flex-col z-40">
+      {suggestions.map(({ item, isRed }) => (
+        <button
+          key={item.id}
+          type="button"
+          onClick={() => onSelect({
+            foodItemId: item.id,
+            label: item.nameRu,
+            wfpbStatus: isRed ? "forbidden" : "green",
+          })}
+          className="w-full hover:bg-[#F3F9F4] rounded-[10px] px-2.5 py-1.5 flex items-center gap-2 text-left transition-colors duration-150 cursor-pointer text-[13px] font-semibold text-[#2B3137]"
+        >
+          <span
+            aria-hidden="true"
+            className={`w-2 h-2 rounded-full shrink-0 ${isRed ? "bg-red-500" : "bg-emerald-500"}`}
+          />
+          <span className={`truncate ${isRed ? "text-red-600" : ""}`}>{item.nameRu}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
 
 // Checks if the typed or chosen name complies with strict WFPB salt-free, oil-free guidelines
 export default function CheckCompositionScreen({
@@ -369,7 +388,7 @@ export default function CheckCompositionScreen({
   onDishCategoryChange,
 }: CheckCompositionScreenProps) {
   const setScreen = useAppStore((s) => s.setScreen);
-  const onBack = propsOnBack || (() => setScreen("what-i-eat"));
+  const onBack = propsOnBack || (() => setScreen(mealSource === "from-what-is" ? "my-day" : "what-i-eat"));
   const dayNotes = propsDayNotes || {};
   const screen = propsScreen || useAppStore((s) => s.screen);
   const onOpenCalendar = propsOnOpenCalendar || (() => {});
@@ -396,39 +415,157 @@ export default function CheckCompositionScreen({
     if (dbStatus) return dbStatus !== "forbidden";
     return checkWFPB(name).compliant;
   };
+
+  // Strict-индексы полной FoodItem-базы (включая forbidden) для identity.
+  const strictIndex = React.useMemo(
+    () => buildStrictIndex(foodCache),
+    [foodCache]
+  );
+
+  // Индекс принадлежности продуктов табам: normalized label → {таб, подкатегория}.
+  // INGREDIENT_CATEGORY_MAP используется ТОЛЬКО как фильтр/группировка реальных
+  // FoodItem записей; сам по себе он не создаёт видимых опций.
+  const categoryTabIndex = React.useMemo(() => {
+    const m = new Map<string, { tab: WfpbTab; sub?: string }>();
+    for (const [cat, labels] of Object.entries(INGREDIENT_CATEGORY_MAP)) {
+      let tab = cat as WfpbTab;
+      let sub: string | undefined;
+      if (cat.startsWith("Свежие продукты - ")) {
+        tab = "Свежие продукты";
+        sub = cat.slice("Свежие продукты - ".length);
+      }
+      for (const label of labels) {
+        const key = normalize(label);
+        if (key && !m.has(key)) m.set(key, { tab, sub });
+      }
+    }
+    return m;
+  }, []);
+
+  // Выбираемые опции WFPB-табов: только реальные green + nutritionComplete
+  // FoodItem записи, отнесённые к табу через categoryTabIndex. Записи без
+  // категории в табах не изобретаются и не подменяются статикой.
+  const greenFoodOptionsByTab = React.useMemo(() => {
+    const byTab: Record<string, SelectableFoodOption[]> = {};
+    for (const tab of WFPB_TAB_CATEGORIES) byTab[tab] = [];
+    if (foodCache.length === 0) return byTab;
+    for (const item of foodCache) {
+      if (item.wfpbStatus !== "green" || !isNutritionComplete(item)) continue;
+      const grp = categoryTabIndex.get(normalize(item.nameRu));
+      if (!grp) continue;
+      (byTab[grp.tab] || (byTab[grp.tab] = [])).push({
+        foodItemId: item.id,
+        label: item.nameRu,
+        searchHaystack: `${normalize(item.nameRu)} ${normalize(item.nameEn || "")}`.trim(),
+        wfpbStatus: "green",
+        imageSrc: resolveFoodItemImage(item.nameRu) || ingrGreen,
+        subcategory: grp.sub,
+      });
+    }
+    for (const tab of Object.keys(byTab)) {
+      byTab[tab].sort((a, b) => a.label.localeCompare(b.label, "ru"));
+    }
+    return byTab;
+  }, [foodCache, categoryTabIndex]);
+
+  // Полный пул для autocomplete: ВСЕ реальные nutritionally complete FoodItem
+  // записи — и зелёные, и красные. Красный результат выбираем и оставляем
+  // красным с существующим ручным «Разрешить».
+  const completeFoodItems = React.useMemo(
+    () => foodCache.filter(item => isNutritionComplete(item)),
+    [foodCache]
+  );
+
+  // Однократная строгая идентификация карточек после загрузки foodCache:
+  // hit → resolved (foodItemId + canonicalName); miss → unrecognized.
+  // Статусы "blue"/non-food не трогаются.
+  const cardsIdentityAppliedRef = useRef(false);
+  useEffect(() => {
+    if (foodCache.length === 0 || cardsIdentityAppliedRef.current) return;
+    cardsIdentityAppliedRef.current = true;
+    setCards(prev => prev.map(c => {
+      if (c.status === "blue") return c; // non-food — вне nutrition domain
+      if (c.foodItemId && c.resolutionStatus === "resolved") return c;
+      const r =
+        resolveIngredientWithFallback(c.shortName || "", foodCache, strictIndex) ||
+        resolveIngredientWithFallback(c.fullName || "", foodCache, strictIndex);
+      if (r.ok && r.nutritionComplete) {
+        // Статус назначает ТОЛЬКО приложение по реальной FoodItem записи
+        // (read-only обогащение display-safe полей: каноническое имя, статус,
+        // изображение). Для scan-карточек морфологический маппер изображений
+        // приоритетнее generic-fallback распознавания.
+        const resolvedStatus: "green" | "error" = r.wfpbStatus === "forbidden" ? "error" : "green";
+        return {
+          ...c,
+          enteredName: c.enteredName ?? c.fullName ?? c.shortName,
+          status: resolvedStatus,
+          image: c.scanRecognized
+            ? (resolveFoodItemImage(r.canonicalName) || c.image)
+            : (c.image || resolveFoodItemImage(r.canonicalName) || (resolvedStatus === "error" ? ingrRed : ingrGreen)),
+          foodItemId: r.foodItemId,
+          canonicalName: r.canonicalName,
+          resolutionStatus: "resolved" as const,
+        };
+      }
+      // Промах resolver'а:
+      // — scan-карточка остаётся узнанной rich-карточкой распознавания
+      //   (никакой деградации в unrecognized, никакой записи в FoodItem);
+      // — ручной ввод из каталога/редактирования помечается unrecognized
+      //   и идёт через существующий refine-flow.
+      if (c.scanRecognized) {
+        return {
+          ...c,
+          enteredName: c.enteredName ?? c.shortName ?? c.fullName,
+        };
+      }
+      return {
+        ...c,
+        enteredName: c.enteredName ?? c.shortName ?? c.fullName,
+        status: "unrecognized" as const,
+        resolutionStatus: "unresolved" as const,
+        foodItemId: undefined,
+        canonicalName: undefined,
+      };
+    }));
+  }, [foodCache, strictIndex]);
+
+  // Refine-состояние для unrecognized-карточки («Уточните название ингредиента»).
+  const [refineName, setRefineName] = useState<string>("");
+  const [refineError, setRefineError] = useState<boolean>(false);
+  // Явно выбранный реальный FoodItem (autocomplete или WFPB-таб).
+  // Никогда не представлен одной строкой: только тройка id/canonical/status.
+  const [selectedFood, setSelectedFood] = useState<{
+    foodItemId: string;
+    canonicalName: string;
+    wfpbStatus: "green" | "forbidden";
+    image?: string;
+  } | null>(null);
+  // Текст autocomplete-запроса под инпутами имени/уточнения.
+  const [suggestQuery, setSuggestQuery] = useState<string>("");
   // Start with a premium AI computer vision loading state
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(true);
   
   const [cards, setCards] = useState<IngredientCard[]>(() => {
     if (initialIngredients && initialIngredients.length > 0) {
-      // Принудительно прогоняем сырые данные Qwen через локальный чекер WFPB,
-      // чтобы жестко снять ошибочные статусы "error" с чистых продуктов (напр., специй).
-      return initialIngredients.map(ing => {
-        let fullName = ing.fullName || "";
-        let shortName = ing.shortName || "";
-        const w = ing.weight || 100;
-
-        // Эвристика специй
-        if ((fullName.toLowerCase().includes("перец") || shortName.toLowerCase().includes("перец")) && w <= 10) {
-          fullName = "черный перец";
-          shortName = "черный перец";
-        }
-
-        const nameToTest = (fullName || shortName || "").trim();
-        const compliant = checkIsCompliant(nameToTest);
-        
-        return {
-          ...ing,
-          fullName,
-          shortName,
-          status: compliant && ing.status === "error" ? "green" : ing.status
-        };
-      });
+      // Нейтральные карточки-кандидаты: сырые названия + вес. Никаких
+      // эвристических переименований и никаких входящих статусов от
+      // распознавания — identity/status/image назначает строгий resolver ниже.
+      return initialIngredients.map(ing => ({
+        ...ing,
+        fullName: ing.fullName || "",
+        shortName: ing.shortName || ""
+      }));
     }
     return INITIAL_CARDS;
   });
   // Initially no card is selected, meaning edit panel is closed
-  const [selectedCardId, setSelectedCardId] = useState<string | null>(null); 
+  const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
+  // Draft выбора сбрасывается при смене редактируемой карточки,
+  // чтобы выбранный продукт не «перетёк» в другую карточку.
+  useEffect(() => {
+    setSelectedFood(null);
+    setSuggestQuery("");
+  }, [selectedCardId]);
   const [activeCategory, setActiveCategory] = useState<string>("Бобовые");
   
   // Custom subcategory for "Свежие продукты" tab
@@ -442,6 +579,43 @@ export default function CheckCompositionScreen({
   const [editedShortName, setEditedShortName] = useState<string>("");
   const [editedImage, setEditedImage] = useState<string>("");
   const [editedWeight, setEditedWeight] = useState<number>(100);
+  // Draft вручную разрешённого статуса: коммитится только по «Подтвердить».
+  const [draftManuallyAllowed, setDraftManuallyAllowed] = useState<boolean>(false);
+
+  // Ref для горизонтального scroll-контейнера категорий справочника.
+  const categoryTabsScrollRef = useRef<HTMLDivElement>(null);
+
+  // Desktop wheel → горизонтальная прокрутка ленты категорий.
+  // Нативный listener с passive:false (React onWheel пассивен) привязывается
+  // только к самой ленте. На границах ленты wheel не перехватывается —
+  // страница продолжает прокручиваться нативно. Touch swipe не затронут
+  // (touch-action: pan-x остаётся на элементе).
+  useEffect(() => {
+    const el = categoryTabsScrollRef.current;
+    if (!el) return;
+    const handleWheel = (e: WheelEvent) => {
+      if (el.scrollWidth <= el.clientWidth) return; // нет горизонтального overflow — нативный скролл страницы
+      const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+      if (!delta) return;
+      const atStart = el.scrollLeft <= 0;
+      const atEnd = el.scrollLeft + el.clientWidth >= el.scrollWidth - 1;
+      if ((delta < 0 && atStart) || (delta > 0 && atEnd)) return; // край в направлении жеста — не блокируем страницу
+      e.preventDefault();
+      const reduceMotion =
+        typeof window.matchMedia === "function" &&
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      const next = Math.max(0, Math.min(el.scrollWidth - el.clientWidth, el.scrollLeft + delta));
+      el.scrollTo({ left: next, behavior: reduceMotion ? "auto" : "smooth" });
+    };
+    el.addEventListener("wheel", handleWheel, { passive: false });
+    return () => el.removeEventListener("wheel", handleWheel);
+  }, []);
+
+  // Специи и сухие ингредиенты: дробная граммовка (шаг/минимум 0.5 г, старт 5 г).
+  const spiceMode = isSpiceIngredient(editedFullName) || isSpiceIngredient(editedShortName);
+  const WEIGHT_STEP = spiceMode ? 0.5 : 10;
+  const WEIGHT_FLOOR = spiceMode ? 0.5 : 10;
+  const round1 = (v: number) => Math.round(v * 10) / 10;
 
   // Trigger simulated AI scanning process
   const [isPulsing, setIsPulsing] = useState<boolean>(false);
@@ -550,7 +724,10 @@ export default function CheckCompositionScreen({
       setEditedShortName("");
       setEditedImage("https://images.unsplash.com/photo-1547058886-f6d8174f85e4?auto=format&fit=crop&q=80&w=150");
       setEditedWeight(100);
+      setDraftManuallyAllowed(false);
       setIsDropdownOpen(false);
+      setRefineName("");
+      setRefineError(false);
       return;
     }
 
@@ -560,24 +737,22 @@ export default function CheckCompositionScreen({
       setEditedShortName(card.shortName);
       setEditedImage(card.image);
       setEditedWeight(card.weight || 100);
+      setDraftManuallyAllowed(card.manuallyAllowed === true);
       setIsDropdownOpen(false);
+      // Поле уточнения — только для unrecognized-карточки.
+      setRefineName(card.status === "unrecognized" ? (card.enteredName || "") : "");
+      setRefineError(false);
 
-      // Find which category this ingredient might belong in, to preset active tab
-      let foundCategory = "Бобовые";
-      let foundSub = "Все";
-      for (const [category, items] of Object.entries(INGREDIENTS_DATABASE)) {
-        const matchingItem = items.find(i => i.fullName === card.fullName || i.shortName === card.shortName);
-        if (matchingItem) {
-          foundCategory = category;
-          if (matchingItem.subcategory) {
-            foundSub = matchingItem.subcategory as any;
-          }
-          break;
-        }
-      }
-      setActiveCategory(foundCategory);
-      if (foundCategory === "Свежие продукты") {
-        setActiveSubcategory(foundSub as any);
+      // Preset активного таба по принадлежности имени карточки категории
+      // (categoryTabIndex — фильтр реальных FoodItem, не источник опций).
+      const grp = categoryTabIndex.get(
+        normalize(card.canonicalName || card.fullName || card.shortName)
+      );
+      setActiveCategory(grp?.tab ?? "Бобовые");
+      if ((grp?.tab ?? "Бобовые") === "Свежие продукты") {
+        setActiveSubcategory((grp?.sub as typeof activeSubcategory) ?? "Все");
+      } else {
+        setActiveSubcategory("Все");
       }
     }
   }, [selectedCardId, cards]);
@@ -590,23 +765,102 @@ export default function CheckCompositionScreen({
   const handleSaveIngredient = () => {
     if (!selectedCardId) return;
 
+    const targetCard = cards.find(c => c.id === selectedCardId);
+
+    // Unrecognized-карточка: обычное «Подтвердить» сохраняет ТОЛЬКО вес.
+    // Имя, статус и identity меняет исключительно «Подтвердить ингредиент»
+    // (handleConfirmIngredient). Legacy-эвристики здесь запрещены.
+    if (selectedCardId !== "add-new" && targetCard?.status === "unrecognized") {
+      setCards(prev => prev.map(c =>
+        c.id === selectedCardId ? { ...c, weight: editedWeight } : c
+      ));
+      showToast(`Сохранено: вес ${editedWeight} г 🌱`);
+      setSelectedCardId(null);
+      return;
+    }
+
     const trimmedName = editedShortName.trim() || editedFullName.trim();
     if (!trimmedName || trimmedName === "Выберите ингредиент") {
       showToast("Пожалуйста, выберите или введите название ингредиента 🌱");
       return;
     }
 
-    const isCompliant = checkIsCompliant(trimmedName) && checkIsCompliant(editedFullName);
+    // Identity должна соответствовать актуальному имени карточки.
+    // Регрессия-фикс: имя считается изменённым ТОЛЬКО если оно отличается
+    // от ВСЕХ имён карточки (canonicalName, fullName, shortName).
+    // Описательные имена («Баранина мелко рубленая» → canonical «баранина»)
+    // и изменения веса/разрешения НЕ должны перезапускать resolver — иначе
+    // resolved красная карточка теряла foodItemId и становилась серой.
+    const sameAsAnyOwnName = targetCard != null &&
+      [targetCard.canonicalName, targetCard.fullName, targetCard.shortName]
+        .some(n => n != null && normalize(trimmedName) === normalize(n));
+    const nameChanged = selectedCardId === "add-new" ||
+      (targetCard != null && !sameAsAnyOwnName);
+    let identity: Pick<IngredientCard, "foodItemId" | "canonicalName" | "resolutionStatus" | "status"> | null = null;
+    if (selectedFood) {
+      // Явно выбран реальный FoodItem: применяем напрямую по foodItemId,
+      // без текстового resolver. Красный FoodItem остаётся красным.
+      const fi = foodCache.find(i => i.id === selectedFood.foodItemId);
+      if (fi && isNutritionComplete(fi)) {
+        identity = {
+          foodItemId: fi.id,
+          canonicalName: fi.nameRu,
+          resolutionStatus: "resolved",
+          status: fi.wfpbStatus === "forbidden" ? ("error" as const) : ("green" as const),
+        };
+      }
+    }
+    if (!identity && selectedCardId !== "add-new" && !nameChanged && targetCard && (targetCard.foodItemId || targetCard.scanRecognized)) {
+      // Уже узнанная карточка (FoodItem-совпадение или rich-распознавание):
+      // identity сохраняется как есть при неизменном имени,
+      // повторный resolver-прогон не выполняется.
+      identity = {
+        foodItemId: targetCard.foodItemId,
+        canonicalName: targetCard.canonicalName,
+        resolutionStatus: targetCard.resolutionStatus,
+        status: targetCard.status as "green" | "error",
+      };
+    } else {
+      const r =
+        resolveIngredientWithFallback(trimmedName, foodCache, strictIndex) ||
+        resolveIngredientWithFallback(editedFullName.trim(), foodCache, strictIndex);
+      identity = r.ok && r.nutritionComplete
+        ? {
+            foodItemId: r.foodItemId,
+            canonicalName: r.canonicalName,
+            resolutionStatus: "resolved" as const,
+            status: r.wfpbStatus === "forbidden" ? ("error" as const) : ("green" as const),
+          }
+        : {
+            foodItemId: undefined,
+            canonicalName: undefined,
+            resolutionStatus: "unresolved" as const,
+            status: "unrecognized" as const,
+          };
+    }
 
+    const isCompliant = checkIsCompliant(trimmedName) && checkIsCompliant(editedFullName);
+    // Draft «Разрешить» учитывается единственный раз — здесь, при Подтвердить.
+    // Разделение модели: status = объективный WFPB-статус продукта
+    // (только isCompliant); manuallyAllowed = отдельный флаг допуска
+    // к анализу и НИКОГДА не влияет на status/визуальный WFPB-статус.
     if (selectedCardId === "add-new") {
       // Adding a brand new card to the list
+      const isUnrecognized = identity.resolutionStatus === "unresolved";
       const newCard: IngredientCard = {
         id: `custom-${Date.now()}`,
         fullName: editedFullName,
         shortName: trimmedName,
-        image: editedImage || (isCompliant ? ingrGreen : ingrRed),
+        image: isUnrecognized
+          ? greylogo
+          : (editedImage || (isCompliant ? ingrGreen : ingrRed)),
         weight: editedWeight,
-        status: isCompliant ? "green" : "error"
+        status: isUnrecognized ? "unrecognized" : (identity.status as "green" | "error"),
+        manuallyAllowed: !isCompliant && draftManuallyAllowed ? true : undefined,
+        enteredName: trimmedName,
+        foodItemId: identity.foodItemId,
+        canonicalName: identity.canonicalName,
+        resolutionStatus: identity.resolutionStatus,
       };
 
       setCards(prev => [...prev, newCard]);
@@ -621,8 +875,12 @@ export default function CheckCompositionScreen({
             shortName: trimmedName,
             image: editedImage,
             weight: editedWeight,
-            status: isCompliant ? "green" : "error",
-            manuallyAllowed: isCompliant ? undefined : false
+            status: identity!.status as "green" | "error",
+            manuallyAllowed: !isCompliant && draftManuallyAllowed ? true : undefined,
+            foodItemId: identity!.foodItemId,
+            canonicalName: identity!.canonicalName,
+            resolutionStatus: identity!.resolutionStatus,
+            enteredName: c.enteredName ?? c.fullName,
           };
         }
         return c;
@@ -632,6 +890,101 @@ export default function CheckCompositionScreen({
 
     // Auto-close the panel after saving successfully
     setSelectedCardId(null);
+  };
+
+  // «Подтвердить ингредиент»: единственный путь unrecognized → resolved.
+  const handleConfirmIngredient = () => {
+    const card = cards.find(c => c.id === selectedCardId);
+    if (!card || card.status !== "unrecognized") return;
+
+    const text = refineName.trim();
+    if (!text) {
+      setRefineError(true);
+      return;
+    }
+
+    // A. Явно выбран реальный FoodItem (autocomplete / WFPB-таб): применяем
+    // его напрямую по foodItemId, без текстового resolver. Реальный красный
+    // FoodItem остаётся красным (error) и требует существующего «Разрешить».
+    if (selectedFood) {
+      const fi = foodCache.find(i => i.id === selectedFood.foodItemId);
+      if (fi && isNutritionComplete(fi)) {
+        const canonical = fi.nameRu;
+        const newStatus: "green" | "error" = fi.wfpbStatus === "forbidden" ? "error" : "green";
+        setCards(prev => prev.map(c =>
+          c.id === card.id
+            ? {
+                ...c,
+                fullName: canonical,
+                shortName: canonical,
+                // Изображение выбранной FoodItem-опции (imageSrc), fallback —
+                // морфологический resolveFoodItemImage, затем цветовой плейсхолдер.
+                image:
+                  selectedFood.image ||
+                  resolveFoodItemImage(canonical) ||
+                  (newStatus === "error" ? ingrRed : ingrGreen),
+                status: newStatus,
+                foodItemId: fi.id,
+                canonicalName: canonical,
+                resolutionStatus: "resolved" as const,
+                manuallyAllowed: undefined,
+              }
+            : c
+        ));
+        setRefineError(false);
+        setRefineName("");
+        setSuggestQuery("");
+        setSelectedFood(null);
+        setSelectedCardId(null);
+        showToast(`Ингредиент распознан: ${canonical} 🌿`);
+        return;
+      }
+      // Невалидный FoodItem — падаем в существующий текстовый путь ниже (B).
+    }
+
+    // B. Ручной ввод текста без явного выбора FoodItem:
+    // существующая цепочка exact → alias → keyword → miss.
+    const r = resolveIngredientWithFallback(text, foodCache, strictIndex);
+
+    // Miss (включая FoodItem с пустым nutrition profile): остаёмся в
+    // unrecognized, сохраняем введённый текст технически, показываем ошибку.
+    if (!r.ok || !r.nutritionComplete) {
+      setCards(prev => prev.map(c =>
+        c.id === card.id
+          ? {
+              ...c,
+              enteredName: text,
+              status: "unrecognized" as const,
+              resolutionStatus: "unresolved" as const,
+              foodItemId: undefined,
+              canonicalName: undefined,
+            }
+          : c
+      ));
+      setRefineError(true);
+      return;
+    }
+
+    const newStatus: "green" | "error" = r.wfpbStatus === "forbidden" ? "error" : "green";
+    setCards(prev => prev.map(c =>
+      c.id === card.id
+        ? {
+            ...c,
+            fullName: r.canonicalName,
+            shortName: r.canonicalName,
+            image: getIngredientImage(r.canonicalName) || (newStatus === "error" ? ingrRed : ingrGreen),
+            status: newStatus,
+            foodItemId: r.foodItemId,
+            canonicalName: r.canonicalName,
+            resolutionStatus: "resolved" as const,
+            manuallyAllowed: undefined,
+          }
+        : c
+    ));
+    setRefineError(false);
+    setRefineName("");
+    setSelectedCardId(null);
+    showToast(`Ингредиент распознан: ${r.canonicalName} 🌿`);
   };
 
   // Helper to remove any ingredient
@@ -652,16 +1005,117 @@ export default function CheckCompositionScreen({
   };
 
   // Weight counting
-  const incrementWeight = () => setEditedWeight(w => w + 10);
-  const decrementWeight = () => setEditedWeight(w => Math.max(10, w - 10));
+  const incrementWeight = () => setEditedWeight(w => round1(w + WEIGHT_STEP));
+  const decrementWeight = () => setEditedWeight(w => Math.max(WEIGHT_FLOOR, round1(w - WEIGHT_STEP)));
 
-  // Change active ingredient options from selected list
-  const handleSelectOption = (opt: IngredientOption) => {
-    setEditedFullName(opt.fullName);
-    setEditedShortName(opt.shortName);
-    setEditedImage(opt.image);
+  // Press-and-hold repeat: одиночный шаг на pointerdown, затем repeat
+  // через 350 мс и далее каждые 100 мс до pointerup/leave/cancel/blur/unmount.
+  const weightHoldRef = useRef<{
+    timeout: ReturnType<typeof setTimeout> | null;
+    interval: ReturnType<typeof setInterval> | null;
+  }>({ timeout: null, interval: null });
+  const clearWeightHold = () => {
+    if (weightHoldRef.current.timeout !== null) {
+      clearTimeout(weightHoldRef.current.timeout);
+      weightHoldRef.current.timeout = null;
+    }
+    if (weightHoldRef.current.interval !== null) {
+      clearInterval(weightHoldRef.current.interval);
+      weightHoldRef.current.interval = null;
+    }
+  };
+  const startWeightHold = (step: number) => {
+    clearWeightHold();
+    setEditedWeight(w => (step > 0 ? round1(w + step) : Math.max(WEIGHT_FLOOR, round1(w + step))));
+    weightHoldRef.current.timeout = setTimeout(() => {
+      weightHoldRef.current.interval = setInterval(() => {
+        setEditedWeight(w => (step > 0 ? round1(w + step) : Math.max(WEIGHT_FLOOR, round1(w + step))));
+      }, 100);
+    }, 350);
+  };
+  useEffect(() => {
+    const handleWindowBlur = () => clearWeightHold();
+    window.addEventListener("blur", handleWindowBlur);
+    return () => {
+      window.removeEventListener("blur", handleWindowBlur);
+      clearWeightHold();
+    };
+  }, []);
+
+  // Применение явно выбранного реального FoodItem: сразу фиксирует
+  // selected-food state (id + canonical + статус) и заполняет видимое поле
+  // имени canonical-именем. Никогда не представлен только текстом.
+  const applySelectedFood = (
+    opt: Pick<SelectableFoodOption, "foodItemId" | "label" | "wfpbStatus">
+  ) => {
+    // Изображение — через resolveFoodItemImage (getIngredientImage + морфологический
+    // fallback по imageMap), чтобы записи без точного образа получали релевантную
+    // миниатюру вместо generic-логотипа.
+    const image =
+      resolveFoodItemImage(opt.label) ||
+      (opt.wfpbStatus === "forbidden" ? ingrRed : ingrGreen);
+    setSelectedFood({
+      foodItemId: opt.foodItemId,
+      canonicalName: opt.label,
+      wfpbStatus: opt.wfpbStatus,
+      image,
+    });
+    setEditedFullName(opt.label);
+    setEditedShortName(opt.label);
+    setEditedImage(image);
+    // Для unrecognized-карточки выбор наполняет поле уточнения:
+    // статус изменит только «Подтвердить ингредиент».
+    if (activeCard?.status === "unrecognized") {
+      setRefineName(opt.label);
+      setRefineError(false);
+    }
+    // Стартовый вес специи при первом выборе — 5 г вместо дефолтных 100 г.
+    // Условие editedWeight === 100 не перезаписывает вручную введённую массу.
+    if (isSpiceIngredient(opt.label) && editedWeight === 100) {
+      setEditedWeight(5);
+    }
+    setSuggestQuery("");
     setIsDropdownOpen(false);
   };
+
+  // Выбор опции из WFPB-таба (все табовые опции — реальные green FoodItem).
+  const handleSelectOption = (opt: SelectableFoodOption) => {
+    applySelectedFood(opt);
+  };
+
+  // Autocomplete-подсказки: все nutritionally complete FoodItem записи,
+  // green и красные. Ранжирование: startsWith → contains → перестановки порядка
+  // слов → короче label → алфавит. Результаты по всем вариантам запроса
+  // мержатся с дедупликацией по foodItemId.
+  const suggestions = React.useMemo<{ item: FoodCacheItem; isRed: boolean }[]>(() => {
+    const q = normalize(suggestQuery);
+    if (!q || completeFoodItems.length === 0) return [];
+    // Прямой запрос + его word-order перестановки (2–4 слова).
+    const queries = [q, ...generateWordPermutations(q).filter(p => p !== q)];
+    type Hit = { item: FoodCacheItem; rank: number };
+    const hits = new Map<string, Hit>();
+    for (const item of completeFoodItems) {
+      const ru = normalize(item.nameRu);
+      const hay = `${ru} ${normalize(item.nameEn || "")}`;
+      let rank: number | null = null;
+      for (const query of queries) {
+        let r: number | null = null;
+        if (ru.startsWith(query) || hay.startsWith(query)) r = ru.startsWith(query) ? 0 : 1;
+        else if (ru.includes(query) || hay.includes(query)) r = query === q ? 2 : 3;
+        if (r !== null && (rank === null || r < rank)) rank = r;
+      }
+      if (rank !== null) hits.set(item.id, { item, rank });
+    }
+    const sorted = [...hits.values()].sort((a, b) =>
+      a.rank - b.rank ||
+      a.item.nameRu.length - b.item.nameRu.length ||
+      a.item.nameRu.localeCompare(b.item.nameRu, "ru")
+    );
+    return sorted.slice(0, 20).map(h => ({
+      item: h.item,
+      isRed: h.item.wfpbStatus === "forbidden",
+    }));
+  }, [suggestQuery, completeFoodItems]);
 
   // Selected dish category (plate grid) for the "Из того, что есть" module
   const [selectedDishCategory, setSelectedDishCategory] = useState<string | null>(dishCategory || null);
@@ -673,16 +1127,46 @@ export default function CheckCompositionScreen({
 
   // Main CTA: Finish checkup & analyze
   const handleRunAnalysis = () => {
-    // Audit ingredients before closing
-    const containsErrors = cards.some(c => c.status === "error" && !c.manuallyAllowed);
-    if (containsErrors) {
-      showToast("Пожалуйста, замените сомнительные ингредиенты (подсвеченные красным) для чистоты WFPB! ❌");
+    // Блокеры: unrecognized/unresolved всегда; распознанный forbidden/error —
+    // до ручного «Разрешить» (manuallyAllowed === true).
+    if (!canAnalyze) {
+      const unresolvedCards = cards.filter(
+        c => !c.scanRecognized && (!c.foodItemId || c.resolutionStatus !== "resolved")
+      );
+      const notAllowedRed = cards.filter(
+        c => c.status === "error" && c.manuallyAllowed !== true &&
+             Boolean(c.foodItemId) && c.resolutionStatus === "resolved"
+      );
+      if (unresolvedCards.length > 0) {
+        showToast(
+          `Нераспознанные ингредиенты: ${unresolvedCards
+            .map(b => b.enteredName || b.shortName || b.fullName)
+            .join(", ")}. Уточните названия.`
+        );
+        setSelectedCardId(unresolvedCards[0].id);
+      } else if (notAllowedRed.length > 0) {
+        showToast(
+          `Подтвердите ингредиенты, не соответствующие WFPB: ${notAllowedRed
+            .map(b => b.shortName || b.fullName)
+            .join(", ")}.`
+        );
+        setSelectedCardId(notAllowedRed[0].id);
+      }
       return;
     }
 
     showToast("Анализ состава успешно проверен! Переходим к разбору... 🌿");
     setTimeout(() => {
       const enriched = cards.map(c => {
+        // Новый путь: identity передаётся по FoodItem.id; dbKey = каноническое имя.
+        if (c.foodItemId && c.resolutionStatus === "resolved") {
+          return {
+            ...c,
+            dbKey: normalize(c.canonicalName || c.shortName || ""),
+            fdcId: undefined,
+          };
+        }
+        // Legacy fallback для старых payload без foodItemId.
         const dbKey = resolveAgainstIndex(c.shortName || "", dbKeyIndex) || resolveAgainstIndex(c.fullName || "", dbKeyIndex);
         const hit = dbKey ? foodCache.find(i => normalize(i.nameRu) === dbKey) : undefined;
         return {
@@ -700,15 +1184,15 @@ export default function CheckCompositionScreen({
     setActiveCategory(cat);
     setIsDropdownOpen(false);
     setActiveSubcategory("Все");
-    const firstOpt = INGREDIENTS_DATABASE[cat]?.[0];
+    const firstOpt = greenFoodOptionsByTab[cat]?.[0];
     if (firstOpt) {
       handleSelectOption(firstOpt);
     }
   };
 
-  // Return formatted array of ingredients with subcategory filters
-  const getFilteredOptions = () => {
-    const list = INGREDIENTS_DATABASE[activeCategory] || [];
+  // Опции активного WFPB-таба: реальные green FoodItem записи.
+  const getFilteredOptions = (): SelectableFoodOption[] => {
+    const list = greenFoodOptionsByTab[activeCategory] || [];
     if (activeCategory === "Свежие продукты" && activeSubcategory !== "Все") {
       return list.filter(item => item.subcategory === activeSubcategory);
     }
@@ -742,8 +1226,26 @@ export default function CheckCompositionScreen({
 
   const isControlPassed = !cards.some(c => c.status === "error");
 
-  // For the "Из того, что есть" module the CTA stays disabled until a category plate is chosen
-  const mainActionDisabled = mealSource === "from-what-is" && !selectedDishCategory;
+  // Единый action guard для «Сделать анализ»:
+  // - пустой состав блокирует;
+  // - категория обязательна (BUILD 1);
+  // - unrecognized/unresolved ингредиент блокирует всегда; ИСКЛЮЧЕНИЕ —
+  //   scan-карточка: она уже узнана распознаванием и пригодна к анализу
+  //   как в прежнем рабочем photo-flow (identity по возможности обогащается
+  //   read-only совпадением с FoodItem, но не требуется);
+  // - forbidden/error требует ручного «Разрешить» (manuallyAllowed === true).
+  const canAnalyze = cards.every(
+    card =>
+      card.scanRecognized
+        ? card.status !== "error" || card.manuallyAllowed === true
+        : Boolean(card.foodItemId) &&
+          card.resolutionStatus === "resolved" &&
+          (card.status !== "error" || card.manuallyAllowed === true)
+  );
+  const mainActionDisabled =
+    cards.length === 0 ||
+    !dishCategory ||
+    !canAnalyze;
 
   return (
     <div className="w-full flex flex-col justify-between min-h-[828px] bg-[#FAFBFB] relative" id="check-composition-screen">
@@ -792,14 +1294,24 @@ export default function CheckCompositionScreen({
           </div>
         ) : (
           <div className="bg-[#ECFDF5] border border-[#D1F7E2] rounded-[18px] p-3 mb-5 flex items-center gap-2.5 shadow-sm text-left">
-            <div className="w-7 h-7 rounded-full bg-[#16B551] flex items-center justify-center text-white shrink-0">
-              <Sparkles className="w-4 h-4 stroke-[2]" />
-            </div>
-            <p 
+            <img
+              src={logoSprout}
+              alt="Логотип приложения"
+              className="w-8 h-8 shrink-0 object-contain"
+            />
+            <p
               className="text-[13px] text-[#15803D] font-bold leading-normal"
               style={{ fontFamily: '"Calibri", sans-serif' }}
             >
-              Система распознала рецепт по фото и сопоставила ингредиенты с базой правил WFPB рациона 🌱
+              {mealSource === "from-what-is" ? (
+                <>
+                  Соберите блюдо из выбранных ингредиентов.
+                  <br />
+                  Проверьте название и вес каждого продукта перед расчётом.
+                </>
+              ) : (
+                <>Система распознала рецепт по фото и сопоставила ингредиенты с базой правил WFPB рациона</>
+              )}
             </p>
           </div>
         )}
@@ -845,14 +1357,14 @@ export default function CheckCompositionScreen({
         {/* COMPOSITION CARD GRID INCLUDING "+" BUTTON CARD */}
         <div className="grid grid-cols-3 gap-y-6 gap-x-4 mb-5">
           {cards.map((c) => {
-            const isSelected = c.id === selectedCardId;
+            // WFPB-статус — только классификация (status). manuallyAllowed
+            // является допуском к анализу и не участвует в визуальных флагах.
             const isRed = c.status === "error";
             const isBlue = c.status === "blue";
-            const hasGreenCheck = (c.weight || c.manuallyAllowed) && !isRed && !isBlue;
-
-            const selectionRing = isSelected 
-              ? "ring-2 ring-emerald-500 scale-[1.03]"
-              : "";
+            // Unrecognized: серый логотип + голубое свечение/бейдж.
+            // Логически отлично от blue (non-food) и от error.
+            const isUnrecognized = c.status === "unrecognized";
+            const hasGreenCheck = !isRed && !isBlue && !isUnrecognized && !!c.weight;
 
             const ingredientImageUrl = getIngredientImage(c.shortName || c.fullName);
 
@@ -860,10 +1372,14 @@ export default function CheckCompositionScreen({
               <div
                 key={c.id}
                 onClick={() => setSelectedCardId(c.id)}
-                className={`flex flex-col items-center justify-start gap-1 p-2 cursor-pointer transition-all duration-300 relative ${selectionRing}`}
+                className="flex flex-col items-center justify-start gap-1 p-2 cursor-pointer transition-all duration-300 relative"
               >
                 {/* Status badge at top right */}
-                {isRed ? (
+                {isUnrecognized ? (
+                  <div className="absolute -top-0.5 -right-0.5 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center z-10">
+                    <X className="w-3 h-3 text-white stroke-[3]" />
+                  </div>
+                ) : isRed ? (
                   <div className="absolute -top-0.5 -right-0.5 w-5 h-5 bg-red-600 rounded-full flex items-center justify-center z-10">
                     <X className="w-3 h-3 text-white stroke-[3]" />
                   </div>
@@ -879,7 +1395,9 @@ export default function CheckCompositionScreen({
 
                 {/* Image with status drop-shadow */}
                 <div className={`w-16 h-16 flex items-center justify-center shrink-0 ${
-                  isRed
+                  isUnrecognized
+                    ? 'drop-shadow-[0_4px_8px_rgba(59,130,246,0.35)]'
+                    : isRed
                     ? 'drop-shadow-[0_4px_8px_rgba(239,68,68,0.35)]'
                     : isBlue
                     ? 'drop-shadow-[0_4px_8px_rgba(59,130,246,0.3)]'
@@ -887,10 +1405,16 @@ export default function CheckCompositionScreen({
                     ? 'drop-shadow-[0_4px_8px_rgba(22,181,81,0.3)]'
                     : ''
                 }`}>
-                  {ingredientImageUrl ? (
-                    <img 
-                      src={ingredientImageUrl} 
-                      alt={c.shortName} 
+                  {isUnrecognized ? (
+                    <img
+                      src={greylogo}
+                      alt="Ингредиент не распознан"
+                      className="w-full h-full object-contain opacity-80"
+                    />
+                  ) : ingredientImageUrl ? (
+                    <img
+                      src={ingredientImageUrl}
+                      alt={c.shortName}
                       className="w-full h-full object-contain"
                       onError={(e) => {
                         const target = e.target as HTMLImageElement;
@@ -901,9 +1425,9 @@ export default function CheckCompositionScreen({
                       }}
                     />
                   ) : (
-                    <img 
-                      src={isRed ? ingrRed : ingrGreen} 
-                      alt={c.shortName} 
+                    <img
+                      src={isRed ? ingrRed : ingrGreen}
+                      alt={c.shortName}
                       className="w-full h-full object-contain"
                     />
                   )}
@@ -912,9 +1436,9 @@ export default function CheckCompositionScreen({
                 {/* Text Block */}
                 <div className="flex flex-col items-center justify-center w-full">
                   <span className={`text-xs md:text-sm font-medium text-center leading-tight ${
-                    isRed ? "text-red-600" : "text-gray-800"
+                    isRed ? "text-red-600" : isUnrecognized ? "text-blue-600" : "text-gray-800"
                   }`}>
-                    {c.shortName}
+                    {isUnrecognized ? "Ингредиент не распознан" : c.shortName}
                   </span>
                   
                   {/* Weight display */}
@@ -940,7 +1464,7 @@ export default function CheckCompositionScreen({
               onClick={() => setSelectedCardId("add-new")}
               className={`flex flex-col items-center justify-center gap-1 p-2 cursor-pointer min-h-[100px] rounded-[22px] border-2 border-dashed transition-all duration-300 hover:scale-[1.02] ${
                 selectedCardId === "add-new"
-                  ? "bg-[#ECFDF5] border-[#16B551] text-[#16B551] ring-2 ring-emerald-500"
+                  ? "bg-[#ECFDF5] border-[#16B551] text-[#16B551]"
                   : "border-[#C2D8C9] text-[#16B551] hover:border-[#16B551]"
               }`}
             >
@@ -950,8 +1474,8 @@ export default function CheckCompositionScreen({
           )}
         </div>
 
-        {/* DISH CATEGORY SELECTOR: 3x3 PASTEL PLATES (только для модуля «Из того, что есть») */}
-        {mealSource === "from-what-is" && (
+        {/* DISH CATEGORY SELECTOR: 3x3 PASTEL PLATES (единый ручной выбор категории для обоих источников состава) */}
+        {!isNonFoodMode && (
           <div className="mb-5" id="dish-category-selector">
             <div className="flex items-center justify-between mb-1 text-left">
               <h2
@@ -973,7 +1497,7 @@ export default function CheckCompositionScreen({
               className="text-[12px] text-[#737C86] font-medium leading-snug mb-2.5 text-left"
               style={{ fontFamily: '"Calibri", sans-serif' }}
             >
-              Выберите, к какому типу относится ваше блюдо, чтобы продолжить анализ 🌱
+              Выберите, к какому типу относится ваше блюдо, чтобы продолжить анализ
             </p>
 
             <div className="grid grid-cols-3 gap-2">
@@ -983,9 +1507,9 @@ export default function CheckCompositionScreen({
                   <div
                     key={cat.key}
                     onClick={() => handleDishCategorySelect(cat.key)}
-                    className={`relative flex items-center gap-1 rounded-[14px] px-1 py-1 overflow-hidden cursor-pointer select-none transition-all duration-200 active:scale-[0.97] ${
+                    className={`relative flex items-center gap-1 rounded-[14px] px-1 py-1 overflow-hidden cursor-pointer select-none border-none transition-[transform,box-shadow] duration-[120ms] ease-out shadow-[0_3px_0_rgba(0,0,0,0.12)] active:translate-y-[2px] active:shadow-[0_1px_0_rgba(0,0,0,0.12)] ${
                       isSelected
-                        ? "ring-2 ring-emerald-500 shadow-[0_4px_12px_rgba(22,181,81,0.18)]"
+                        ? "outline-2 outline-offset-0 outline-[rgba(22,181,81,0.34)]"
                         : "ring-0"
                     } ${selectedDishCategory && !isSelected ? "opacity-60" : "opacity-100"}`}
                     style={{ backgroundColor: cat.color }}
@@ -1028,11 +1552,11 @@ export default function CheckCompositionScreen({
               transition={{ duration: 0.3 }}
               className="overflow-hidden mb-5 shrink-0"
             >
-              <div 
-                className={`rounded-[26px] border p-4.5 flex flex-col gap-4 text-left relative ${
+              <div
+                className={`rounded-[26px] border-none p-4.5 flex flex-col gap-4 text-left relative ${
                   activeCard.status === "error" || (selectedCardId !== "add-new" && cards.find(x => x.id === selectedCardId)?.status === "error")
-                    ? "bg-[#FFF8F8] border-[#FCA5A5] shadow-[0_8px_24px_rgba(239,68,68,0.04)]" 
-                    : "bg-white border-[#EFF2F3] shadow-[0_8px_24px_rgba(43,49,55,0.04)]"
+                    ? "bg-[#FFF8F8] shadow-[0_8px_24px_rgba(239,68,68,0.04)]"
+                    : "bg-white shadow-[0_8px_24px_rgba(43,49,55,0.04)]"
                 }`}
               >
                 {/* Curved specular highlight highlight overlay */}
@@ -1064,8 +1588,9 @@ export default function CheckCompositionScreen({
                   </button>
                 </div>
 
-                {/* Dynamic alert warning if non-compliant ingredient is bound */}
-                {(!checkIsCompliant(editedShortName) || !checkIsCompliant(editedFullName)) && (
+                {/* Dynamic alert warning if non-compliant ingredient is bound.
+                    Для unrecognized не показываем WFPB-warning — статус ещё неизвестен. */}
+                {activeCard?.status !== "unrecognized" && (!checkIsCompliant(editedShortName) || !checkIsCompliant(editedFullName)) && (
                   <div className="bg-red-50 border border-red-200 rounded-[14px] p-2.5 flex items-start gap-2 text-[12.5px] text-red-800 leading-tight">
                     <AlertTriangle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
                     <div>
@@ -1075,7 +1600,62 @@ export default function CheckCompositionScreen({
                   </div>
                 )}
 
-                {/* INPUT FIELD FOR EDITING NAME DIRECTLY */}
+                {/* INPUT FIELD FOR EDITING NAME DIRECTLY.
+                    Для unrecognized — единственное поле «Уточните название ингредиента»
+                    с кнопкой «Подтвердить ингредиент» (strict resolver по полной базе). */}
+                {activeCard?.status === "unrecognized" ? (
+                  <div className="flex flex-col gap-1.5 text-left">
+                    <label
+                      className="text-[12px] text-[#737C86] font-bold"
+                      style={{ fontFamily: '"Calibri", sans-serif' }}
+                    >
+                      Уточните название ингредиента
+                    </label>
+                    <input
+                      type="text"
+                      value={refineName}
+                      placeholder="Например: Баранина"
+                      onChange={(e) => {
+                        setRefineName(e.target.value);
+                        // Ручной ввод текста отменяет явный выбор FoodItem:
+                        // применяется resolver по актуальному тексту.
+                        setSelectedFood(null);
+                        setSuggestQuery(e.target.value);
+                        if (refineError) setRefineError(false);
+                      }}
+                      className={`w-full bg-white rounded-[16px] px-4 py-2.5 text-[14.5px] font-bold text-[#2B3137] focus:outline-none border transition-colors duration-200 ${
+                        refineError
+                          ? "border-[#3B82F6] shadow-[0_0_0_3px_rgba(59,130,246,0.15)]"
+                          : "border-[#EFF2F3] focus:border-[#3B82F6] shadow-[inset_0_1px_2px_rgba(0,0,0,0.015)]"
+                      }`}
+                    />
+                    {/* AUTOCOMPLETE: реальные FoodItem записи, green и красные */}
+                    <FoodAutocompleteList
+                      loading={foodCacheLoading}
+                      loaded={foodCache.length > 0}
+                      suggestions={suggestions}
+                      query={suggestQuery}
+                      onSelect={(opt) => applySelectedFood({
+                        foodItemId: opt.foodItemId,
+                        label: opt.label,
+                        wfpbStatus: opt.wfpbStatus,
+                      })}
+                    />
+                    {refineError && (
+                      <p className="text-[12.5px] text-[#2563EB] font-semibold leading-snug">
+                        Ингредиент не найден в базе. Проверьте название и попробуйте снова.
+                      </p>
+                    )}
+                    <button
+                      type="button"
+                      onClick={handleConfirmIngredient}
+                      className="w-full h-12 mt-1 rounded-[14px] text-[14px] font-bold border-none bg-[#EEF2F5] text-[#4B5560] shadow-[0_3px_0_#B8C0C7] transition-[transform,box-shadow] duration-150 active:translate-y-[2px] active:shadow-[0_1px_0_#B8C0C7] cursor-pointer flex items-center justify-center gap-1.5"
+                    >
+                      <Check className="w-4 h-4 stroke-[2.5]" />
+                      <span>Подтвердить ингредиент</span>
+                    </button>
+                  </div>
+                ) : (
                 <div className="flex flex-col gap-1 text-left">
                   <label 
                     className="text-[12px] text-[#737C86] font-bold"
@@ -1090,10 +1670,26 @@ export default function CheckCompositionScreen({
                     onChange={(e) => {
                       setEditedShortName(e.target.value);
                       setEditedFullName(e.target.value);
+                      // Ручной ввод текста отменяет явный выбор FoodItem.
+                      setSelectedFood(null);
+                      setSuggestQuery(e.target.value);
                     }}
                     className="w-full bg-white border border-[#EFF2F3] rounded-[16px] px-4 py-2.5 text-[14.5px] font-bold text-[#2B3137] focus:outline-none focus:border-[#16B551] shadow-[inset_0_1px_2px_rgba(0,0,0,0.015)]"
                   />
+                  {/* AUTOCOMPLETE: реальные FoodItem записи, green и красные */}
+                  <FoodAutocompleteList
+                    loading={foodCacheLoading}
+                    loaded={foodCache.length > 0}
+                    suggestions={suggestions}
+                    query={suggestQuery}
+                    onSelect={(opt) => applySelectedFood({
+                      foodItemId: opt.foodItemId,
+                      label: opt.label,
+                      wfpbStatus: opt.wfpbStatus,
+                    })}
+                  />
                 </div>
+                )}
 
                 {/* SELECT FROM CATEGORY DIRECTORY */}
                 <div className="flex flex-col gap-1.5 relative text-left">
@@ -1157,19 +1753,19 @@ export default function CheckCompositionScreen({
                         </div>
                       )}
 
-                      {getFilteredOptions().map((opt, oIdx) => (
+                      {getFilteredOptions().map((opt) => (
                         <button
-                          key={oIdx}
+                          key={opt.foodItemId}
                           type="button"
                           onClick={() => handleSelectOption(opt)}
                           className="w-full hover:bg-[#F3F9F4] rounded-[12px] p-2 flex items-center gap-2.5 text-left transition-colors duration-150 cursor-pointer text-[#2B3137] text-[13.5px] font-semibold"
                         >
                           <div className="w-6 h-6 shrink-0 flex items-center justify-center">
-                            <img 
-                              src={getIngredientImage(opt.shortName || opt.fullName) || ingrGreen} 
-                              alt={opt.shortName} 
+                            <img
+                              src={opt.imageSrc}
+                              alt={opt.label}
                               referrerPolicy="no-referrer"
-                              className="w-full h-full object-contain" 
+                              className="w-full h-full object-contain"
                               onError={(e) => {
                                 const target = e.target as HTMLImageElement;
                                 if (!target.dataset.fallback) {
@@ -1180,16 +1776,18 @@ export default function CheckCompositionScreen({
                             />
                           </div>
                           <div className="truncate flex flex-col">
-                            <span className="font-extrabold text-[13.5px] leading-tight text-[#2B3137]">{opt.fullName}</span>
+                            <span className="font-extrabold text-[13.5px] leading-tight text-[#2B3137]">{opt.label}</span>
                             {opt.subcategory && (
                               <span className="text-[9.5px] text-[#A1B0B8] font-bold leading-none mt-0.5">{opt.subcategory}</span>
                             )}
                           </div>
                         </button>
                       ))}
-                      {getFilteredOptions().length === 0 && (
+                      {(foodCacheLoading ? (
+                        <span className="text-[12px] text-[#A1B0B8] py-4 text-center block font-semibold">Справочник загружается…</span>
+                      ) : getFilteredOptions().length === 0 && (
                         <span className="text-[12px] text-[#A1B0B8] py-4 text-center block font-semibold">Список пуст</span>
-                      )}
+                      ))}
                     </div>
                   )}
                 </div>
@@ -1199,20 +1797,25 @@ export default function CheckCompositionScreen({
                   <label className="text-[12px] text-[#737C86] font-bold" style={{ fontFamily: '"Calibri", sans-serif' }}>
                     Категория справочника
                   </label>
-                  <div className="w-full overflow-x-auto scrollbar-none flex gap-1.5 py-0.5 max-w-[340px] select-none shrink-0">
-                    {Object.keys(INGREDIENTS_DATABASE).map((categoryName) => {
+                  <div
+                    ref={categoryTabsScrollRef}
+                    className="w-full min-w-0 overflow-x-auto overflow-y-hidden scrollbar-none flex flex-nowrap gap-1.5 py-0.5 select-none [touch-action:pan-x]"
+                  >
+                    {WFPB_TAB_CATEGORIES.map((categoryName) => {
                       const isActive = activeCategory === categoryName;
+                      const tabStyle = CATEGORY_TAB_ACTIVE_STYLES[categoryName];
                       return (
                         <button
                           key={categoryName}
                           type="button"
                           onClick={() => handleCategoryChange(categoryName)}
-                          className={`px-3 py-1.5 rounded-full text-[12.5px] font-extrabold tracking-tight whitespace-nowrap transition-all duration-200 cursor-pointer ${
-                            isActive 
-                              ? "bg-[#ECFDF5] text-[#16B551] border border-[#16B551] shadow-sm" 
-                              : "bg-white hover:bg-[#FAFAFA] text-[#737C86] border border-[#EFF2F3]"
-                          }`}
-                          style={{ fontFamily: '"Calibri", sans-serif' }}
+                          className="shrink-0 flex-none px-3 py-1.5 rounded-full text-[12.5px] font-extrabold tracking-tight whitespace-nowrap border-none transition-[transform,box-shadow] duration-150 cursor-pointer active:translate-y-[1px]"
+                          style={{
+                            backgroundColor: isActive ? tabStyle.bg : CATEGORY_TAB_INACTIVE.bg,
+                            color: "#4B5560",
+                            boxShadow: "0 2px 0 #B8C0C7",
+                            fontFamily: '"Calibri", sans-serif',
+                          }}
                         >
                           {categoryName}
                         </button>
@@ -1230,64 +1833,93 @@ export default function CheckCompositionScreen({
                     Вес введённого ингредиента (г)
                   </label>
 
-                  <div className="flex items-center gap-3">
+                  <div className="grid grid-cols-[56px_minmax(0,1fr)_56px] gap-3 items-center">
+                    <button
+                      type="button"
+                      onPointerDown={() => startWeightHold(-WEIGHT_STEP)}
+                      onPointerUp={clearWeightHold}
+                      onPointerLeave={clearWeightHold}
+                      onPointerCancel={clearWeightHold}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          decrementWeight();
+                        }
+                      }}
+                      className="w-14 h-14 rounded-2xl text-[28px] font-medium bg-[#F7F9FA] text-[#16B551] border-none shadow-[0_3px_0_#B8C0C7] active:translate-y-[2px] active:shadow-[0_1px_0_#B8C0C7] transition-[transform,box-shadow] duration-150 cursor-pointer select-none leading-none touch-none"
+                      aria-label="Уменьшить вес"
+                    >
+                      −
+                    </button>
+
                     <input
                       type="number"
+                      min={spiceMode ? 0.5 : 1}
+                      step={spiceMode ? 0.5 : 1}
                       value={editedWeight}
-                      onChange={(e) => setEditedWeight(Math.max(1, parseInt(e.target.value, 10) || 0))}
-                      className="flex-1 bg-white border border-[#EFF2F3] rounded-[16px] px-4 py-2.5 text-center text-[16px] font-black text-[#2B3137] shadow-[inset_0_1px_2px_rgba(0,0,0,0.01)] focus:outline-none focus:border-[#16B551]"
+                      onChange={(e) => {
+                        if (spiceMode) {
+                          // Decimal-safe: запятая → точка, дроби от 0.5 г.
+                          const v = parseFloat(e.target.value.replace(",", "."));
+                          setEditedWeight(Number.isFinite(v) && v >= 0.5 ? round1(v) : 0.5);
+                        } else {
+                          setEditedWeight(Math.max(1, parseInt(e.target.value, 10) || 0));
+                        }
+                      }}
+                      className="w-full min-w-0 h-14 border-none rounded-2xl px-2 text-center text-[23px] font-bold text-[#3E4852] bg-[#F7F9FA] shadow-[inset_0_0_0_1px_#E3E8EB] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#16B551]"
                     />
 
                     <button
                       type="button"
-                      onClick={decrementWeight}
-                      className="w-11 h-11 bg-white hover:bg-red-50 border border-[#EFF2F3] shadow-sm rounded-[16px] flex items-center justify-center text-red-500 hover:text-red-700 active:scale-90 transition-transform cursor-pointer shrink-0"
+                      onPointerDown={() => startWeightHold(WEIGHT_STEP)}
+                      onPointerUp={clearWeightHold}
+                      onPointerLeave={clearWeightHold}
+                      onPointerCancel={clearWeightHold}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          incrementWeight();
+                        }
+                      }}
+                      className="w-14 h-14 rounded-2xl text-[28px] font-medium bg-[#F7F9FA] text-[#16B551] border-none shadow-[0_3px_0_#B8C0C7] active:translate-y-[2px] active:shadow-[0_1px_0_#B8C0C7] transition-[transform,box-shadow] duration-150 cursor-pointer select-none leading-none touch-none"
+                      aria-label="Увеличить вес"
                     >
-                      <Minus className="w-4 h-4 stroke-[2.5]" />
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={incrementWeight}
-                      className="w-11 h-11 bg-white hover:bg-emerald-50 border border-[#EFF2F3] shadow-sm rounded-[16px] flex items-center justify-center text-[#16B551] hover:text-[#0A8F3B] active:scale-90 transition-transform cursor-pointer shrink-0"
-                    >
-                      <Plus className="w-4 h-4 stroke-[2.5]" />
+                      +
                     </button>
                   </div>
+
+                  {spiceMode && (
+                    <p className="text-[11px] text-[#737C86] font-semibold" style={{ fontFamily: '"Calibri", sans-serif' }}>
+                      Для специй: 1 щепотка ≈ 0.5 г
+                    </p>
+                  )}
                 </div>
 
-                {/* ADDITIONAL ACTIONS FOR WFPB COMPLIANCE ACTIONS */}
-                {selectedCardId !== "add-new" && (cards.find(x => x.id === selectedCardId)?.status === "error" || cards.find(x => x.id === selectedCardId)?.manuallyAllowed) && (
-                  <div className="flex gap-2.5 mt-1 mb-1">
+                {/* ADDITIONAL ACTIONS FOR WFPB COMPLIANCE ACTIONS.
+                    Для unrecognized «Разрешить» не показывается: статус ещё не определён. */}
+                {selectedCardId !== "add-new" && cards.find(x => x.id === selectedCardId)?.status !== "unrecognized" && (cards.find(x => x.id === selectedCardId)?.status === "error" || draftManuallyAllowed || cards.find(x => x.id === selectedCardId)?.manuallyAllowed) && (
+                  <div className="mt-1 mb-1">
+                    {/* Draft-only: не коммитит карточку и не закрывает панель.
+                        Применение — только по «Подтвердить». */}
                     <button
                       type="button"
-                      onClick={() => {
-                        const targetId = selectedCardId;
-                        setCards(prev => prev.map(c => {
-                          if (c.id === targetId) {
-                            return {
-                              ...c,
-                              manuallyAllowed: !c.manuallyAllowed,
-                              weight: c.weight || 100
-                            };
-                          }
-                          return c;
-                        }));
-                        const targetCard = cards.find(c => c.id === targetId);
-                        const willBeAllowed = !targetCard?.manuallyAllowed;
-                        showToast(willBeAllowed ? "Ингредиент разрешён вручную 💚" : "Отменено ручное одобрение ⚠️");
-                        setSelectedCardId(null);
-                      }}
-                      className={`flex-1 py-2.5 rounded-[18px] text-[13.5px] font-black cursor-pointer border transition-all duration-200 flex items-center justify-center gap-1.5 active:scale-95 ${
-                        cards.find(x => x.id === selectedCardId)?.manuallyAllowed
-                          ? "bg-[#E8F8EE] border-[#10D150] text-[#16B551]"
-                          : "bg-white hover:bg-[#F2FCF6] border-[#EFF2F3] text-[#16B551] hover:border-[#10D150]"
+                      onClick={() => setDraftManuallyAllowed(true)}
+                      disabled={draftManuallyAllowed}
+                      className={`w-full h-12 rounded-[14px] text-[14px] font-bold border-none cursor-pointer flex items-center justify-center gap-1.5 transition-[transform,box-shadow] duration-150 ${
+                        draftManuallyAllowed
+                          ? "bg-[#BFE8CD] text-[#4B5560] shadow-[0_3px_0_#B8C0C7] cursor-default"
+                          : "bg-[#EEF2F5] text-[#4B5560] shadow-[0_3px_0_#B8C0C7] active:translate-y-[2px] active:shadow-[0_1px_0_#B8C0C7]"
                       }`}
                     >
-                      <Check className="w-4 h-4 stroke-[2.5]" />
-                      <span>{cards.find(x => x.id === selectedCardId)?.manuallyAllowed ? "Разрешено" : "Разрешить"}</span>
+                      {draftManuallyAllowed && <Check className="w-4 h-4 stroke-[2.5]" />}
+                      <span>{draftManuallyAllowed ? "Разрешено" : "Разрешить"}</span>
                     </button>
+                  </div>
+                )}
 
+                {/* CONFIRM / SAVE ACTIONS — edit-mode: Удалить / Отмена / Подтвердить; add-new: без Delete */}
+                <div className="flex gap-2.5 mt-1.5">
+                  {selectedCardId !== "add-new" && (
                     <button
                       type="button"
                       onClick={() => {
@@ -1296,29 +1928,25 @@ export default function CheckCompositionScreen({
                         setSelectedCardId(null);
                         showToast("Ингредиент удалён из состава 🍃");
                       }}
-                      className="flex-1 bg-[#FFF5F5] hover:bg-[#FFF1F1] border border-red-200 text-red-600 rounded-[18px] py-2.5 font-bold transition-all duration-200 active:scale-95 text-[13.5px] cursor-pointer flex items-center justify-center gap-1.5"
+                      className="flex-1 h-12 rounded-[14px] text-[14px] font-bold border-none bg-[#FCE7EA] text-[#4B5560] shadow-[0_3px_0_#B8C0C7] transition-[transform,box-shadow] duration-150 active:translate-y-[2px] active:shadow-[0_1px_0_#B8C0C7] cursor-pointer flex items-center justify-center gap-1.5"
                     >
                       <Trash2 className="w-4 h-4 shrink-0" />
                       <span>Удалить</span>
                     </button>
-                  </div>
-                )}
-
-                {/* CONFIRM / SAVE ACTIONS */}
-                <div className="flex gap-2.5 mt-1.5">
+                  )}
                   <button
                     type="button"
                     onClick={() => setSelectedCardId(null)}
-                    className="flex-1 bg-white hover:bg-[#FAFAFA] border border-[#EFF2F3] rounded-[18px] py-2.5 font-bold text-[#737C86] transition-all duration-200 active:scale-95 text-[14.5px] cursor-pointer"
+                    className="flex-1 h-12 rounded-[14px] text-[14px] font-bold border-none bg-[#EEF2F5] text-[#4B5560] shadow-[0_3px_0_#B8C0C7] transition-[transform,box-shadow] duration-150 active:translate-y-[2px] active:shadow-[0_1px_0_#B8C0C7] cursor-pointer"
                   >
                     Отмена
                   </button>
                   <button
                     type="button"
                     onClick={handleSaveIngredient}
-                    className="flex-1 bg-gradient-to-b from-[#10D150] via-[#16B551] to-[#0A8F3B] hover:brightness-[1.04] rounded-[18px] py-2.5 font-bold text-white shadow-md transition-all duration-200 active:scale-95 text-[14.5px] cursor-pointer flex items-center justify-center gap-1.5"
+                    className="flex-1 h-12 rounded-[14px] text-[14px] font-bold border-none bg-[#DDF4E4] text-[#4B5560] shadow-[0_3px_0_#B8C0C7] transition-[transform,box-shadow] duration-150 active:translate-y-[2px] active:shadow-[0_1px_0_#B8C0C7] cursor-pointer flex items-center justify-center gap-1.5"
                   >
-                    <Check className="w-4 h-4 text-white stroke-[2.5]" />
+                    <Check className="w-4 h-4 stroke-[2.5]" />
                     <span>Подтвердить</span>
                   </button>
                 </div>
@@ -1402,17 +2030,17 @@ export default function CheckCompositionScreen({
               type="button"
               onClick={handleRunAnalysis}
               disabled={mainActionDisabled}
-              className={`w-full rounded-[22px] py-4 px-6 font-bold flex items-center justify-center gap-2 relative overflow-hidden transition-all duration-300 text-[17px] select-none mb-2 ${
+              className={`border-none mx-auto h-[54px] px-4 font-bold flex items-center justify-center text-center transition-all duration-200 text-[15px] select-none mb-2 ${
                 mainActionDisabled
-                  ? "bg-gradient-to-b from-[#D8DDE2] via-[#C8CED4] to-[#B9C0C7] text-white/80 cursor-not-allowed shadow-none"
-                  : "bg-gradient-to-b from-[#10D150] via-[#16B551] to-[#0A8F3B] hover:brightness-[1.03] text-white shadow-[0_8px_20px_rgba(22,181,81,0.25),_inset_0_2.5px_4px_rgba(255,255,255,0.45),_0_-2.5px_0_rgba(8,91,36,0.45)_inset] hover:scale-[1.02] active:scale-[0.97] cursor-pointer"
+                  ? "bg-[#D8DDE2] text-white/80 shadow-none cursor-not-allowed"
+                  : "bg-[#BFE8CD] text-[#4B5560] shadow-[0_4px_0_#B8C0C7] active:translate-y-[3px] active:shadow-[0_1px_0_#B8C0C7] cursor-pointer"
               }`}
+              style={{
+                width: "min(320px, calc(100% - 48px))",
+                borderRadius: 16,
+                fontFamily: '"Calibri", sans-serif',
+              }}
             >
-              {!mainActionDisabled && (
-                <div className="absolute top-[1.8px] left-5 right-5 h-[28%] rounded-full bg-gradient-to-b from-white/35 to-transparent pointer-events-none" />
-              )}
-
-              <Sparkles className={`w-[18px] h-[18px] ${mainActionDisabled ? "" : "animate-pulse"}`} />
               <span style={{ fontFamily: '"Calibri", sans-serif' }}>Сделать анализ</span>
             </button>
           )}

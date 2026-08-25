@@ -95,3 +95,13 @@ export const INGREDIENT_CATEGORY_MAP: Record<string, string[]> = {
 };
 
 export const CATEGORY_NAMES = Object.keys(INGREDIENT_CATEGORY_MAP);
+
+// Единый источник истины для определения специй/сухих ингредиентов.
+// Case-insensitive, trim-safe. Используется в IngredientsScreen (первичный
+// picker веса) и CheckCompositionScreen (панель редактирования).
+export function isSpiceIngredient(name: string): boolean {
+  if (!name) return false;
+  const n = name.trim().toLowerCase();
+  if (!n) return false;
+  return (INGREDIENT_CATEGORY_MAP["Специи и сухие ингредиенты"] || []).includes(n);
+}

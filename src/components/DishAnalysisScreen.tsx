@@ -9,10 +9,14 @@ import {
   RefreshCw,
 } from "lucide-react";
 import BottomBar from "./BottomBar";
-import CalendarButton from "./CalendarButton";
-import BriefNoteBlock from "./BriefNoteBlock";
 import IngredientCollage from "./IngredientCollage";
 import NutrientCard from "./NutrientCard";
+import icone1 from "../assets/images/icone/1.webp";
+import icone2 from "../assets/images/icone/2.webp";
+import icone3 from "../assets/images/icone/3.webp";
+import icone4 from "../assets/images/icone/4.webp";
+import icone5 from "../assets/images/icone/5.webp";
+import icone6 from "../assets/images/icone/6.webp";
 import { MealAnalysisProvider, type MealSource } from "../services/aiLayer";
 import { resolveAvatarForCompliance, resolveAvatar } from "../utils/annaAvatarResolver";
 import { checkWFPB } from "../utils/wfpbRules";
@@ -48,7 +52,7 @@ interface DishAnalysisScreenProps {
   currentDayIndex: number;
   screen?: string;
   onOpenCalendar?: () => void;
-  onConfirm: (dishName: string, computedNutrients: any, annaComment: string, flatNutrients?: Record<string, number>) => void;
+  onConfirm: (dishName: string, computedNutrients: any, annaComment: string, flatNutrients?: Record<string, number>, dishCategory?: string | null) => void;
   onCancel?: () => void;
   mealSource?: MealSource | null;
   dishCategory?: string | null;
@@ -110,6 +114,16 @@ const TAB_KEYS: Record<TabId, string[]> = {
   ],
 };
 
+// Миниатюра и пастельный фон для шести верхних macro-карт.
+const MACRO_CARD_MEDIA: Record<string, { image: string; bg: string }> = {
+  calories:      { image: icone1, bg: "#FFF0D8" },
+  protein:       { image: icone2, bg: "#FBE4E8" },
+  fat:           { image: icone3, bg: "#DFF2FA" },
+  carbohydrates: { image: icone4, bg: "#F2F5D9" },
+  fiber:         { image: icone5, bg: "#E1F3E5" },
+  omegaRatio:    { image: icone6, bg: "#EEE9FA" },
+};
+
 const TABS: { id: TabId; label: string }[] = [
   { id: "minerals", label: "Минералы" },
   { id: "vitamins", label: "Витамины" },
@@ -117,25 +131,25 @@ const TABS: { id: TabId; label: string }[] = [
   { id: "fats", label: "Жиры и сахара" },
 ];
 
+// Собственный пастельный фон каждой nutrient-вкладки.
+const TAB_BG: Record<TabId, string> = {
+  minerals: "#DFF2FA",
+  vitamins: "#FFF0D8",
+  amino: "#EEE9FA",
+  fats: "#FBE4E8",
+};
+
 export default function DishAnalysisScreen({
   ingredients,
   onConfirm,
   currentDayIndex,
   onBack: propsOnBack,
-  dayNotes: propsDayNotes,
-  setDayNotes: propsSetDayNotes,
-  screen: propsScreen,
-  onOpenCalendar: propsOnOpenCalendar,
   onCancel: propsOnCancel,
   mealSource,
   dishCategory,
 }: DishAnalysisScreenProps) {
   const setScreen = useAppStore((s) => s.setScreen);
   const onBack = propsOnBack || (() => setScreen("check-composition"));
-  const dayNotes = propsDayNotes || {};
-  const setDayNotes = propsSetDayNotes || (() => {});
-  const screen = propsScreen || useAppStore((s) => s.screen);
-  const onOpenCalendar = propsOnOpenCalendar || (() => {});
   const onCancel = propsOnCancel || (() => setScreen("my-day"));
   const [loading, setLoading] = useState<boolean>(true);
   const [progress, setProgress] = useState<number>(0);
@@ -143,7 +157,6 @@ export default function DishAnalysisScreen({
   const [isEditingTitle, setIsEditingTitle] = useState<boolean>(false);
   const [customTitle, setCustomTitle] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
-  const [isConfirmed, setIsConfirmed] = useState<boolean>(false);
   const [aiComment, setAiComment] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabId>("minerals");
 
@@ -207,36 +220,10 @@ export default function DishAnalysisScreen({
     };
   }, [currentDayIndex, ingredients, loading, progress, result, customTitle]);
 
-  const handleSaveMealNote = (
-    noteText: string,
-    selectedTags: string[],
-    isVoice: boolean
-  ) => {
-    const now = new Date();
-    const timeStr = now.toLocaleTimeString("ru-RU", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-    const textToSave =
-      noteText.trim() ||
-      `Употреблено блюдо: ${customTitle || result?.dishName || "Цельное растительное блюдо"}`;
-
-    const newNote = {
-      text: textToSave,
-      time: timeStr,
-      source: "food" as const,
-      tags: selectedTags,
-      isVoice,
-    };
-
-    setDayNotes((prev) => {
-      const todayArr = prev[currentDayIndex] || [];
-      return {
-        ...prev,
-        [currentDayIndex]: [newNote, ...todayArr],
-      };
-    });
-
+  // Единственное финальное действие: строит payload и один раз вызывает
+  // onConfirm(...) → App сохраняет блюдо в «Мои блюда» (POST /api/saved-dishes)
+  // и ведёт на my-dishes. Без DiaryEntry/dayNotes/mood-данных.
+  const confirmDish = () => {
     const computedMacros = result
       ? {
           calories:
@@ -268,7 +255,8 @@ export default function DishAnalysisScreen({
       customTitle || result?.dishName || "Цельное растительное блюдо",
       computedMacros,
       aiComment || "",
-      flatNutrients
+      flatNutrients,
+      dishCategory ?? null
     );
   };
 
@@ -303,6 +291,7 @@ export default function DishAnalysisScreen({
             weight: ing.weight || 100,
             dbKey: ing.dbKey,
             fdcId: ing.fdcId,
+            foodItemId: ing.foodItemId,
           })),
           { mealSource, dishCategory }
         );
@@ -329,6 +318,17 @@ export default function DishAnalysisScreen({
       } catch (err) {
         console.warn("[DishAnalysis] Nutrition analysis failed, no local fallback:", err);
 
+        // 422 от сервера: есть нераспознанные/неполные ингредиенты.
+        // Частичный анализ не рисуем; показываем список и возвращаем
+        // пользователя к составу кнопкой «Повторить анализ» (onBack).
+        const unresolved = (err as { unresolved?: { input: string; weight?: number }[] })?.unresolved;
+        const baseMessage = (err as Error)?.message?.startsWith("Невозможно выполнить анализ")
+          ? (err as Error).message
+          : "Не удалось рассчитать нутриенты блюда по базе. Сохранить блюдо в дневник пока нельзя — повторите анализ.";
+        const message = unresolved?.length
+          ? `${baseMessage} Нераспознанные: ${unresolved.map(u => u.input).join(", ")}.`
+          : baseMessage;
+
         const elapsed = Date.now() - startTime;
         const delay = Math.max(0, 2000 - elapsed);
 
@@ -337,9 +337,7 @@ export default function DishAnalysisScreen({
           setProgress(100);
           setTimeout(() => {
             setResult(null);
-            setError(
-              "Не удалось рассчитать нутриенты блюда по базе. Сохранить блюдо в дневник пока нельзя — повторите анализ."
-            );
+            setError(message);
             setLoading(false);
           }, 400);
         }, delay);
@@ -433,6 +431,8 @@ export default function DishAnalysisScreen({
         dvPercent={dvPercent}
         isWarning={isWarning}
         circleColor={color}
+        image={MACRO_CARD_MEDIA[key]?.image}
+        cardBg={MACRO_CARD_MEDIA[key]?.bg}
       />
     );
   }
@@ -496,16 +496,16 @@ export default function DishAnalysisScreen({
       </AnimatePresence>
 
       <div className="flex-1 overflow-y-auto hidden-scrollbar flex flex-col px-5 pt-2 pb-6">
-        <div className="flex items-center justify-between mb-2 shrink-0">
+        <div className="relative flex items-center mb-2 shrink-0 z-10">
           <button
             type="button"
             onClick={onBack}
-            className="w-11 h-11 bg-white hover:bg-[#FAFAFA] border border-[#EFF2F3] shadow-[0_4px_10px_rgba(43,49,55,0.03)] rounded-[16px] flex items-center justify-center transition-all duration-200 cursor-pointer active:scale-95 select-none shrink-0"
+            className="relative z-10 w-11 h-11 bg-white hover:bg-[#FAFAFA] border border-[#EFF2F3] shadow-[0_4px_10px_rgba(43,49,55,0.03)] rounded-[16px] flex items-center justify-center transition-all duration-200 cursor-pointer active:scale-95 select-none shrink-0"
           >
             <ChevronLeft className="w-5 h-5 text-[#2B3137] stroke-[2.5]" />
           </button>
 
-          <div className="flex flex-col text-center">
+          <div className="absolute left-1/2 -translate-x-1/2 pointer-events-none whitespace-nowrap flex flex-col text-center">
             <h1 className="text-[21px] font-black text-[#2B3137] leading-none mb-1">
               Разбор блюда
             </h1>
@@ -513,14 +513,6 @@ export default function DishAnalysisScreen({
               Полный нутриентный анализ блюда
             </p>
           </div>
-
-          <CalendarButton
-            dayNotes={dayNotes}
-            currentDayIndex={currentDayIndex}
-            screen={screen}
-            onClick={onOpenCalendar}
-            className="w-11 h-11 rounded-[16px] shrink-0"
-          />
         </div>
 
         {/* B1: состояние ошибки анализа. Без валидного результата собственного
@@ -561,14 +553,14 @@ export default function DishAnalysisScreen({
         {result && (
           <div className="flex flex-col gap-4 mt-2">
             {ingredients.length > 0 && (
-              <div className="w-full h-36 rounded-[22px] overflow-hidden bg-gray-100 relative">
+              <div className="w-full h-36 overflow-hidden relative">
                 <IngredientCollage
+                  variant="freeform"
                   ingredients={ingredients.map((i) => ({
                     name: i.shortName || i.fullName,
                   }))}
                   containerHeight="h-36"
                 />
-                <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-black/30 to-transparent pointer-events-none" />
               </div>
             )}
 
@@ -620,14 +612,20 @@ export default function DishAnalysisScreen({
               {renderNutrientRow("fat")}
               {renderNutrientRow("carbohydrates")}
               {renderNutrientRow("fiber")}
-              <div className="bg-white rounded-[18px] p-3 flex flex-col shadow-[0_2px_8px_rgba(43,49,55,0.04)] relative overflow-hidden bg-gradient-to-b from-white to-[#F6FCF7]">
+              <div
+                className="rounded-[18px] p-3 flex flex-col shadow-[0_2px_8px_rgba(43,49,55,0.04)] relative overflow-hidden"
+                style={{ backgroundColor: MACRO_CARD_MEDIA.omegaRatio.bg }}
+              >
                 <div className="flex items-start justify-between mb-1">
                   <span className="text-[12px] text-[#737C86] font-bold">
                     Омега 6:3
                   </span>
-                  <div className="w-7 h-7 rounded-full bg-[#F5F7F8] flex items-center justify-center shrink-0 ml-1">
-                    <span className="text-[10px] font-black text-[#555E68] leading-none">⚖</span>
-                  </div>
+                  <img
+                    src={MACRO_CARD_MEDIA.omegaRatio.image}
+                    alt=""
+                    aria-hidden="true"
+                    className="w-14 h-14 object-contain shrink-0 -mt-1 -mr-1 -mb-6 pointer-events-none select-none"
+                  />
                 </div>
                 <div className="flex items-baseline gap-1 mt-1">
                   <span className="text-[26px] font-black leading-none text-[#16B551]">
@@ -644,24 +642,27 @@ export default function DishAnalysisScreen({
             </div>
 
             {/* TAB NAVIGATION */}
-            <div className="flex gap-2 overflow-x-auto no-scrollbar py-1">
-              {TABS.map((tab) => {
-                const isActive = activeTab === tab.id;
-                return (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    onClick={() => setActiveTab(tab.id)}
-                    className={`shrink-0 px-4 py-2 rounded-[20px] text-[14px] font-semibold transition-all duration-200 cursor-pointer active:scale-95 select-none ${
-                      isActive
-                        ? "bg-[#16B551] text-white shadow-[0_2px_8px_rgba(22,181,81,0.2)]"
-                        : "bg-[#F5F7F8] text-[#555E68] hover:bg-[#EEF2F4]"
-                    }`}
-                  >
-                    {tab.label}
-                  </button>
-                );
-              })}
+            <div className="overflow-x-auto no-scrollbar py-1">
+              <div className="flex gap-2 w-max min-w-full justify-center px-0.5">
+                {TABS.map((tab) => {
+                  const isActive = activeTab === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => setActiveTab(tab.id)}
+                      className={`shrink-0 border-none rounded-full px-4 py-2 text-[14px] font-bold text-[#4B5560] select-none cursor-pointer transition-[transform,box-shadow] duration-[120ms] ease-out active:translate-y-[1px] ${
+                        isActive
+                          ? "shadow-[0_3px_0_#B8C0C7]"
+                          : "shadow-[0_2px_0_#B8C0C7]"
+                      } active:shadow-[0_1px_0_#B8C0C7]`}
+                      style={{ backgroundColor: TAB_BG[tab.id] }}
+                    >
+                      {tab.label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             {/* TAB CONTENT */}
@@ -838,86 +839,16 @@ export default function DishAnalysisScreen({
               </div>
             </div>
 
-            {/* ACTIONS */}
-            <div className="flex flex-col gap-2 shrink-0">
-              {isConfirmed ? (
-                <div className="flex flex-col gap-1.5 pt-1.5">
-                  <div className="bg-emerald-50 border border-emerald-100 rounded-3xl p-4 flex items-center gap-3">
-                    <div className="text-[28px]">🎉</div>
-                    <div className="text-left">
-                      <h4 className="text-[14px] font-black text-emerald-800 leading-tight">
-                        Блюдо утверждено!
-                      </h4>
-                      <p className="text-[11.5px] text-emerald-700/80 font-bold leading-normal mt-0.5">
-                        Оно добавлено в рацион. Поделитесь ощущениями?
-                      </p>
-                    </div>
-                  </div>
-
-                  <BriefNoteBlock
-                    moduleKey="food"
-                    onSave={handleSaveMealNote}
-                    onSkip={() => {
-                      const computedMacros = result
-                        ? {
-                            calories:
-                              typeof result.nutrients.calories.value ===
-                              "number"
-                                ? result.nutrients.calories.value
-                                : parseInt(
-                                    String(result.nutrients.calories.value),
-                                    10
-                                  ),
-                            protein:
-                              typeof result.nutrients.protein.value === "number"
-                                ? `${result.nutrients.protein.value} г`
-                                : String(result.nutrients.protein.value),
-                            fiber:
-                              typeof result.nutrients.fiber.value === "number"
-                                ? `${result.nutrients.fiber.value} г`
-                                : String(result.nutrients.fiber.value),
-                            fat:
-                              typeof result.nutrients.fats.value === "number"
-                                ? `${result.nutrients.fats.value} г`
-                                : String(result.nutrients.fats.value),
-                          }
-                        : undefined;
-                      const flatNutrients: Record<string, number> | undefined = result?.nutrientsFlat
-                        ? Object.fromEntries(
-                            Object.entries(result.nutrientsFlat).map(([k, v]) => [k, v.value])
-                          )
-                        : undefined;
-                      onConfirm(
-                        customTitle ||
-                          result?.dishName ||
-                          "Цельное растительное блюдо",
-                        computedMacros,
-                        aiComment || "",
-                        flatNutrients
-                      );
-                    }}
-                  />
-                </div>
-              ) : (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => setIsConfirmed(true)}
-                    className="w-full bg-gradient-to-b from-[#10D150] via-[#16B551] to-[#0A8F3B] hover:brightness-[1.03] rounded-[22px] py-4 px-6 font-bold text-white shadow-[0_8px_20px_rgba(22,181,81,0.22),_inset_0_2.5px_4px_rgba(255,255,255,0.45),_0_-2.5px_0_rgba(8,91,36,0.45)_inset] flex items-center justify-center gap-2 relative overflow-hidden transition-all duration-300 hover:scale-[1.01] active:scale-[0.98] text-[16px] cursor-pointer"
-                  >
-                    <div className="absolute top-[1.8px] left-5 right-5 h-[28%] rounded-full bg-gradient-to-b from-white/35 to-transparent pointer-events-none" />
-                    <span>Подтверждаю</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={onCancel}
-                    className="w-full bg-[#FAFBFB] hover:bg-[#F3F6F8] border border-[#EFF2F3] shadow-[0_4px_12px_rgba(43,49,55,0.03)] hover:border-gray-200 rounded-[22px] py-3.5 px-6 font-extrabold text-[#737C86] transition-all duration-200 active:scale-[0.98] text-[15px] cursor-pointer"
-                  >
-                    Вернуться в Мой день
-                  </button>
-                </>
-              )}
+            {/* ACTIONS — «Подтверждаю» = единственное финальное подтверждение */}
+            <div className="flex flex-col shrink-0">
+              <button
+                type="button"
+                onClick={confirmDish}
+                className="w-[min(320px,calc(100%-48px))] mx-auto h-[54px] rounded-[16px] font-bold border-none bg-[#BFE8CD] text-[#4B5560] shadow-[0_4px_0_#B8C0C7] transition-[transform,box-shadow] duration-150 active:translate-y-[3px] active:shadow-[0_1px_0_#B8C0C7] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4B5560]/40 flex items-center justify-center text-center text-[15px] cursor-pointer select-none"
+                style={{ fontFamily: '"Calibri", sans-serif' }}
+              >
+                <span>Подтверждаю</span>
+              </button>
             </div>
           </div>
         )}

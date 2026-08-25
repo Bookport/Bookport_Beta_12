@@ -6,6 +6,10 @@ interface NutrientCardProps {
   dvPercent?: number | null;
   isWarning?: boolean;
   circleColor?: "blue" | "amber" | "green" | "purple";
+  /** Миниатюра (webp) вместо emoji/кружка — только для шести верхних macro-карт. */
+  image?: string;
+  /** Пастельный фон карты; по умолчанию белый (микро/витамины/аминокислоты). */
+  cardBg?: string;
 }
 
 const CIRCLE_COLORS: Record<string, string> = {
@@ -23,6 +27,8 @@ export default function NutrientCard({
   dvPercent,
   isWarning,
   circleColor,
+  image,
+  cardBg,
 }: NutrientCardProps) {
   const isIcon = ["🔥", "🥩", "💧", "🌾", "🌿", "⚖"].includes(symbol);
   const barColor = isWarning ? "bg-red-500" : "bg-green-500";
@@ -32,12 +38,22 @@ export default function NutrientCard({
     : "bg-[#F5F7F8] text-[#555E68]";
 
   return (
-    <div className="bg-white rounded-[18px] p-3 flex flex-col shadow-[0_2px_8px_rgba(43,49,55,0.04)] relative overflow-hidden">
+    <div
+      className={`rounded-[18px] p-3 flex flex-col shadow-[0_2px_8px_rgba(43,49,55,0.04)] relative overflow-hidden ${cardBg ? "" : "bg-white"}`}
+      style={cardBg ? { backgroundColor: cardBg } : undefined}
+    >
       <div className="flex items-start justify-between mb-1">
-        <span className="text-[12px] text-[#737C86] font-bold leading-tight">
+        <span className="text-[12px] text-[#737C86] font-bold leading-tight pr-1">
           {name}
         </span>
-        {isIcon ? (
+        {image ? (
+          <img
+            src={image}
+            alt=""
+            aria-hidden="true"
+            className="w-14 h-14 object-contain shrink-0 -mt-1 -mr-1 -mb-6 pointer-events-none select-none"
+          />
+        ) : isIcon ? (
           <span className="text-lg leading-none shrink-0 ml-1">{symbol}</span>
         ) : (
           <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ml-1 ${circleClasses}`}>

@@ -11,12 +11,12 @@ import {
   Sparkles,
   RotateCcw,
   Upload,
-  AlertTriangle,
-  ClipboardCheck
+  AlertTriangle
 } from "lucide-react";
 import BottomBar from "./BottomBar";
 import CalendarButton from "./CalendarButton";
 import { IngredientRecognitionProvider, AnnaTextProvider } from "../services/aiLayer";
+import { getIngredientImage } from "../utils/ingredientMapper";
 import { resolveAvatar } from "../utils/annaAvatarResolver";
 import { useAppStore } from "../store/useAppStore";
 import { clientLogger } from "../utils/clientLogger";
@@ -290,38 +290,63 @@ export default function WhatIEatScreen({
         }
 
         const results = await IngredientRecognitionProvider.extractIngredientsFromImage(capturedImage);
-        if (results && results.ingredients && results.ingredients.length > 0) {
+        if (results && (results.noFoodDetected || (results.ingredients && results.ingredients.length > 0))) {
           requestFinished = true;
           isCurrentlyScanningRef.current = false;
           if (scanIntervalRef.current) {
             clearInterval(scanIntervalRef.current);
             scanIntervalRef.current = null;
           }
-          
-          const rawIngredients = results.ingredients || [];
-          const hasFood = rawIngredients.some((item: any) => item.status === "green" || item.status === "error");
-          const hasNonFood = rawIngredients.some((item: any) => item.status === "blue");
-          
+
+          // Rich-контракт: карточки прибывают сразу заполненными (имя, вес,
+          // статус, изображение) и сразу пригодны к анализу. Identity/нутриенты
+          // по-прежнему назначает только FoodItem-pipeline; распознавание
+          // никогда не пишет в FoodItem.
+          const rawIngredients = results.noFoodDetected ? [] : (results.ingredients || []);
+          const hasFood = rawIngredients.some(item => item.status === "green" || item.status === "error");
+          const hasNonFood = rawIngredients.some(item => item.status === "blue");
+
           let filteredIngredients = rawIngredients;
-          let messageTitle = results.dishName || "Распознанное блюдо";
-          
           if (hasFood && hasNonFood) {
-            // Rule 2: If contains a mix of both edible (green/error) and non-edible (blue) objects,
-            // we select only the edible objects and analyze them!
-            filteredIngredients = rawIngredients.filter((item: any) => item.status === "green" || item.status === "error");
-            messageTitle = "Исключены непищевые предметы";
+            // Бывшее правило 2: при смеси еды и предметов анализируем только еду
+            filteredIngredients = rawIngredients.filter(item => item.status === "green" || item.status === "error");
           }
-          
-          showToast(`✓ Анализ завершён: «${messageTitle}»`);
-          
+
+          const finalIngredients = results.noFoodDetected || filteredIngredients.length === 0
+            ? [
+                {
+                  id: `photo-nonfood-${Date.now()}`,
+                  fullName: "непищевые предметы",
+                  shortName: "непищевые предметы",
+                  status: "blue" as const
+                }
+              ]
+            : filteredIngredients.map((item, index) => {
+                const displayName = item.shortName || item.fullName;
+                const w = typeof item.estimatedWeightGrams === "number" && Number.isFinite(item.estimatedWeightGrams) && item.estimatedWeightGrams > 0
+                  ? Math.round(item.estimatedWeightGrams)
+                  : 100;
+                return {
+                  id: `photo-${Date.now()}-${index}`,
+                  fullName: item.fullName || displayName,
+                  shortName: displayName,
+                  weight: w,
+                  status: item.status === "error" || item.status === "blue" ? item.status : ("green" as const),
+                  scanRecognized: true,
+                  image: getIngredientImage(displayName) ||
+                    getIngredientImage(item.fullName || "") ||
+                    "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&q=80&w=150"
+                };
+              });
+
+          showToast(results.noFoodDetected || filteredIngredients.length === 0
+            ? "✓ На фото не найдено еды"
+            : "✓ Анализ завершён: состав отправлен на проверку");
+
           setTimeout(() => {
             setIsAiScanning(false);
             setIsAnalysisAttempted(false);
             setShowAnna(false);
-            const finalIngredients = filteredIngredients.map((item: any) => ({
-              ...item,
-              image: item.image || "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&q=80&w=150"
-            }));
             onVerifyComposition(finalIngredients, capturedImage);
           }, 800);
           return; // Success! Return out of function
@@ -682,24 +707,15 @@ export default function WhatIEatScreen({
         {/* BOTTOM OPTION DIRECTORIES (DEDICATED CONTROLS) */}
         <div className="flex flex-col gap-3 mt-auto">
 
-          {/* Action Button 2: Проверить состав Системой (disabled/gray until file is added!) */}
+          {/* Action Button 2: Проверить состав (disabled/gray until file is added!) */}
           <button
             type="button"
             onClick={handleVerify}
             disabled={!photoAdded || isAiScanning}
-            className={`w-full border rounded-[22px] py-[14.5px] px-6 font-extrabold flex items-center justify-center gap-2.5 transition-all duration-300 text-[16px] select-none ${
-              photoAdded && !isAiScanning
-                ? "bg-gradient-to-b from-[#10D150] via-[#16B551] to-[#0A8F3B] hover:brightness-[1.04] text-white border-transparent shadow-[0_6px_18px_rgba(22,181,81,0.22),_inset_0_2px_4px_rgba(255,255,255,0.35)] animate-[pulse_2.2s_infinite] cursor-pointer"
-                : "bg-[#F4F9F6] border-[#D1E7DD] text-[#15803D]/45 opacity-60 cursor-not-allowed"
-            }`}
+            className="w-[min(320px,calc(100%-48px))] mx-auto h-[54px] rounded-[16px] font-bold border-none bg-[#BFE8CD] text-[#4B5560] shadow-[0_4px_0_#B8C0C7] transition-[transform,box-shadow,background-color,color,opacity] duration-150 active:translate-y-[3px] active:shadow-[0_1px_0_#B8C0C7] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4B5560]/40 flex items-center justify-center text-center text-[15px] cursor-pointer select-none disabled:opacity-45 disabled:bg-gray-300 disabled:text-[#737C86] disabled:cursor-not-allowed disabled:shadow-none disabled:transform-none"
           >
-            {photoAdded ? (
-              <CheckCircle2 className="w-5 h-5 text-white stroke-[2.5]" />
-            ) : (
-              <ClipboardCheck className="w-5 h-5 text-[#16B551]/40" />
-            )}
-            <span style={{ fontFamily: '"Calibri", sans-serif' }} className="uppercase tracking-wider">
-              {isAiScanning ? "Проверяем состав..." : "Проверить состав Системой"}
+            <span style={{ fontFamily: '"Calibri", sans-serif' }}>
+              {isAiScanning ? "Проверяем состав..." : "Проверить состав"}
             </span>
           </button>
         </div>

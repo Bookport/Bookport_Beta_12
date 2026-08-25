@@ -5,7 +5,8 @@ import crypto from "crypto";
 import { Type } from "@google/genai";
 import dotenv from "dotenv";
 import { findForbiddenInText } from "./src/data/wfpb_forbidden_ingredients";
-import { normalize, candidateKeys, resolveAgainstIndex } from "./src/utils/ingredientMappingCore";
+import { normalize, candidateKeys, resolveAgainstIndex, ALIASES } from "./src/utils/ingredientMappingCore";
+import { getIngredientAlias } from "./src/utils/ingredientAliasMapper";
 import { analyzeFoodImage, transcribeAudio, generateAnnaAudio } from "./src/services/dashscopeAdapter";
 import { ANNA_REACTION_MATRIX } from "./src/prompts/annaReactionMatrix";
 import { DISH_PHILOSOPHY } from "./src/data/dishPhilosophy";
@@ -46,9 +47,10 @@ const PORT = parseInt(process.env.PORT || "3001", 10);
 
 const USDA_API_KEY = "ywYviAkfdnK8u2Sn19fMG7Kvmje8y2Bd66Hi2hlN";
 
-// Robust wrapper with automatic model cascade fallback
-async function generateContentWithFallback(payload: any) {
-  const models = ["qwen-plus", "qwen-turbo"];
+// Robust wrapper with automatic model cascade fallback.
+// models можно переопределить точечным вызовом (напр., photo recognition),
+// дефолтный каскад других endpoint'ов не меняется.
+async function generateContentWithFallback(payload: any, models: string[] = ["qwen-plus", "qwen-turbo"]) {
   let lastError: any = null;
 
   for (const modelName of models) {
@@ -171,17 +173,44 @@ function isEmptyNutrientObj(obj: Record<string, number>): boolean {
   return NUTRIENT_FIELDS.every(f => !obj[f]);
 }
 
+// Все перестановки порядка слов в нормализованном виде. Применяются для
+// 2–4 слов («масло подсолнечное» ↔ «подсолнечное масло»); для 1 слова и
+// длиннее 4 слов перестановки не генерируются (≤ 24 вариантов).
+function generateWordPermutations(name: string): string[] {
+  const words = normalize(name).split(/\s+/).filter(Boolean);
+  if (words.length < 2 || words.length > 4) return [];
+  const results: string[] = [];
+  const seen = new Set<string>();
+  const permute = (prefix: string[], rest: string[]) => {
+    if (rest.length === 0) {
+      const joined = prefix.join(" ");
+      if (!seen.has(joined)) {
+        seen.add(joined);
+        results.push(joined);
+      }
+      return;
+    }
+    for (let i = 0; i < rest.length; i++) {
+      permute([...prefix, rest[i]], [...rest.slice(0, i), ...rest.slice(i + 1)]);
+    }
+  };
+  permute([], words);
+  return results;
+}
+
 async function computeNutrientsFromDB(
-  ingredients: { fullName?: string; shortName?: string; weight?: number; dbKey?: string; fdcId?: number }[]
-): Promise<Record<string, number>> {
+  ingredients: { fullName?: string; shortName?: string; weight?: number; dbKey?: string; fdcId?: number; foodItemId?: string }[]
+): Promise<{ totals: Record<string, number>; unresolved: { input: string; weight?: number }[] }> {
   const total: Record<string, number> = {};
   NUTRIENT_FIELDS.forEach(f => (total[f] = 0));
+  const unresolved: { input: string; weight?: number }[] = [];
 
   const payloadToLog = ingredients.map(i => ({
     fullName: i.fullName,
     shortName: i.shortName,
     weight: i.weight,
-    dbKey: i.dbKey
+    dbKey: i.dbKey,
+    foodItemId: i.foodItemId
   }));
   console.log("[DEBUG INPUT] Received from frontend:", payloadToLog);
   try {
@@ -192,13 +221,15 @@ async function computeNutrientsFromDB(
 
   const items = await prisma.foodItem.findMany();
 
+  const itemsById = new Map<string, (typeof items)[number]>();
   const canonicalByKey = new Map<string, (typeof items)[number]>();
   const fuzzyByKey = new Map<string, (typeof items)[number]>();
   const fuzzyKeys = new Set<string>();
   const fdcById = new Map<number, (typeof items)[number]>();
 
-  // 1) Канонические ключи (nameRu/nameEn) — приоритет точных имён.
+  // 1) Канонические ключи (nameRu/nameEn) и стабильный id — приоритет identity.
   for (const item of items) {
+    itemsById.set(item.id, item);
     const canonical = normalize(item.nameRu);
     if (canonical) {
       canonicalByKey.set(canonical, item);
@@ -230,19 +261,90 @@ async function computeNutrientsFromDB(
     }
   }
 
-  // Приоритет: точный dbKey/fdcId от фронтенда → нечёткий маппер по строке Qwen.
-  const resolveItem = (rawName: string, dbKey?: string, fdcId?: number) => {
+  const hasCompleteNutrition = (item: (typeof items)[number]) =>
+    item.calories > 0 || item.protein > 0 || item.fat > 0 || item.carbohydrates > 0;
+
+  // Приоритет: foodItemId → exact normalized name (nameRu/nameEn) → перестановки
+  // порядка слов → fdcId → legacy fuzzy. Совпадение с неполным nutrition не
+  // завершает поиск финально: запоминается как fallback, приоритет у полной записи.
+  const resolveItem = (rawName: string, dbKey?: string, fdcId?: number, foodItemId?: string) => {
+    let incompleteFallback: (typeof items)[number] | null = null;
+    // Возвращает true, если найдена полная запись (финальный ответ).
+    // Неполная запоминается однократно как fallback последней надежды.
+    const consider = (item: (typeof items)[number] | null | undefined) => {
+      if (!item) return false;
+      if (hasCompleteNutrition(item)) return true;
+      if (!incompleteFallback) incompleteFallback = item;
+      return false;
+    };
+    if (foodItemId) {
+      // Identity указана явно: найдена в базе → используем напрямую.
+      const byId = itemsById.get(foodItemId);
+      if (byId) return byId;
+      // Не найдена в базе (stale/chuzhoy id) → НЕ fail-closed: пробуем
+      // строгий exact-normalized lookup по имени, прежде чем сдаться.
+    }
+    // Exact normalized lookup по canonical ключам (nameRu и nameEn).
+    // Точное совпадение FoodItem всегда обходит legacy-эвристики.
     if (dbKey) {
       // Ищем СТРОГО в канонических ключах
       const exact = canonicalByKey.get(normalize(dbKey));
-      if (exact) return exact;
+      if (consider(exact)) return exact!;
+    }
+    const exactByName = canonicalByKey.get(normalize(rawName));
+    if (consider(exactByName)) return exactByName;
+    // Перестановки порядка слов («масло подсолнечное» ↔ «подсолнечное масло»):
+    // сначала exact по каноническим ключам, затем по индексу кандидатных форм
+    // (покрывает записи с модификаторами: «Подсолнечное масло пром.»).
+    // Только после их промаха — fdcId и legacy fuzzy.
+    const permutations = generateWordPermutations(rawName);
+    for (const perm of permutations) {
+      const byPerm = canonicalByKey.get(perm);
+      if (consider(byPerm)) return byPerm!;
+    }
+    for (const perm of permutations) {
+      const byFuzzyPerm = fuzzyByKey.get(perm);
+      if (consider(byFuzzyPerm)) return byFuzzyPerm!;
     }
     if (fdcId != null) {
       const byFdc = fdcById.get(fdcId);
       if (byFdc) return byFdc;
     }
+    // Legacy fuzzy fallback — только после промаха всех точных шагов.
     const key = resolveAgainstIndex(rawName, fuzzyKeys);
-    return key ? fuzzyByKey.get(key) || null : null;
+    if (!key) return null;
+    const cand = fuzzyByKey.get(key);
+    if (!cand) return null;
+
+    // Сильные совпадения: точный ключ, явный ALIASES-таргет или alias-mapper —
+    // принимаются как есть (это намеренные соответствия, не угадывание).
+    const n = normalize(rawName);
+    const strongMatch =
+      key === n ||
+      candidateKeys(n).some(c => {
+        const t = ALIASES[c];
+        return !!t && normalize(t) === key;
+      }) ||
+      (() => {
+        const ga = getIngredientAlias(rawName);
+        return !!ga && normalize(ga) === key;
+      })();
+    if (strongMatch) return cand;
+
+    // Слабые совпадения (усечение/базовые слова) для многословного ввода:
+    // принимаем только если ВСЕ слова ввода присутствуют в кандидате
+    // (nameRu|nameEn). Иначе это нерелевантный продукт → unresolved.
+    const inputWords = n.split(/\s+/).filter(Boolean);
+    if (inputWords.length >= 2) {
+      const candWords = `${normalize(cand.nameRu)} ${normalize(cand.nameEn || "")}`
+        .split(/\s+/).filter(Boolean);
+      if (!inputWords.every(w => candWords.includes(w))) {
+        // Нерелевантный fuzzy-кандидат: неполная exact-запись всё же лучше
+        // нерелевантной — отдаём её как fallback (loop отклонит по nutrition).
+        return incompleteFallback;
+      }
+    }
+    return consider(cand) ? cand : incompleteFallback;
   };
 
   for (const ing of ingredients) {
@@ -255,14 +357,16 @@ async function computeNutrientsFromDB(
     const factor = weight / 100;
 
     let foodItem = null;
-    if (rawShort) foodItem = resolveItem(rawShort, ing.dbKey, ing.fdcId);
-    if (!foodItem && rawFull) foodItem = resolveItem(rawFull, ing.dbKey, ing.fdcId);
+    if (rawShort) foodItem = resolveItem(rawShort, ing.dbKey, ing.fdcId, ing.foodItemId);
+    if (!foodItem && rawFull) foodItem = resolveItem(rawFull, ing.dbKey, ing.fdcId, ing.foodItemId);
 
-    if (!foodItem) {
-      console.log(`[PIPELINE TRACE 2.1] Nutrition lookup MISS for "${rawShort || rawFull}"${ing.dbKey ? ` (dbKey="${ing.dbKey}")` : ""}${ing.fdcId != null ? ` (fdcId=${ing.fdcId})` : ""}`);
+    // Никакого silent-continue: нераспознанные и неполные позиции собираются.
+    if (!foodItem || !hasCompleteNutrition(foodItem)) {
+      console.log(`[PIPELINE TRACE 2.1] Nutrition lookup UNRESOLVED "${rawShort || rawFull}"${ing.dbKey ? ` (dbKey="${ing.dbKey}")` : ""}${ing.foodItemId ? ` (foodItemId="${ing.foodItemId}")` : ""}${ing.fdcId != null ? ` (fdcId=${ing.fdcId})` : ""}`);
+      unresolved.push({ input: rawShort || rawFull, weight });
       continue;
     }
-    console.log(`[PIPELINE TRACE 2.1] Nutrition lookup HIT "${rawShort || rawFull}"${ing.dbKey ? ` (dbKey="${ing.dbKey}")` : ""}${ing.fdcId != null ? ` (fdcId=${ing.fdcId})` : ""} -> "${foodItem.nameRu}" (fdcId=${foodItem.fdcId}) weight=${weight}g`);
+    console.log(`[PIPELINE TRACE 2.1] Nutrition lookup HIT "${rawShort || rawFull}"${ing.dbKey ? ` (dbKey="${ing.dbKey}")` : ""}${ing.foodItemId ? ` (foodItemId="${ing.foodItemId}")` : ""}${ing.fdcId != null ? ` (fdcId=${ing.fdcId})` : ""} -> "${foodItem.nameRu}" (fdcId=${foodItem.fdcId}) weight=${weight}g`);
 
     for (const field of NUTRIENT_FIELDS) {
       const val = (foodItem as any)[field];
@@ -272,7 +376,7 @@ async function computeNutrientsFromDB(
     }
   }
 
-  return total;
+  return { totals: total, unresolved };
 }
 
 // ── USDA FoodData Central Integration ──
@@ -953,7 +1057,17 @@ async function startServer() {
       }
 
       // ── Step A: Compute nutrients from local FoodItem DB ──
-      const nutrientsFlat = await computeNutrientsFromDB(ingredients);
+      const { totals: nutrientsFlat, unresolved } = await computeNutrientsFromDB(ingredients);
+
+      // Барьер unresolved: нераспознанные/неполные ингредиенты запрещают анализ.
+      // forbidden/error распознан и анализу НЕ препятствует.
+      if (unresolved.length > 0) {
+        console.error("[analyze-dish] Unresolved ingredients:", JSON.stringify(unresolved));
+        return res.status(422).json({
+          error: "Невозможно выполнить анализ: есть нераспознанные или неполные ингредиенты.",
+          unresolved,
+        });
+      }
 
       // B1: если ни один ингредиент не сопоставлен с собственной БД — расчёт не дал
       // валидного результата. Не возвращаем пустые/нулевые КБЖУ как успешный ответ.
@@ -1133,22 +1247,25 @@ ${ingredientsDescription}
       };
 
       const textPart = {
-        text: `Analyze food photo. List EVERY visible ingredient — never skip, hide, or rename. Break dishes into raw components (e.g. 'салат' → 'помидор, огурец, лук'). Use singular lowercase Russian nouns.
+        text: `Analyze food photo. List EVERY visible edible ingredient — never skip, hide, or rename. Break dishes into raw components (e.g. 'салат' → 'помидор, огурец, лук'). Use singular lowercase Russian nouns. Russian names only — never English.
 
-WFPB status rules:
+WFPB status hints (visual estimation only; the app verifies every item against its own product database):
 - animal products (meat, fish, dairy, eggs, honey, gelatin) → "error"
 - added salt, soy sauce, bouillon → "error"
 - extracted oils → "error"
 - plant foods → "green"
-- non-food objects → "blue" (keys, phone, glasses, etc.)
+- truly non-food objects (keys, phone, glasses) → "blue"
 
 Scenarios:
-1. Food only → list all ingredients with green/error
-2. Mixed food + non-food → list food only, green/error
-3. Non-food only → list all as "blue"
+1. Food only → list all ingredients with status green/error
+2. Mixed food + non-food objects → list ONLY the food ingredients (green/error), ignore the objects
+3. No edible food at all → return only {"noFoodDetected": true}
 
-Return JSON: {"dishName":"string (Russian)","ingredients":[{"id":"snake_case_slug","fullName":"descriptive Russian","shortName":"short Russian","status":"green|error|blue","weight":number,"reason":"error reason or humorous comment or empty"}]}
+For EVERY food ingredient you MUST estimate ITS OWN visible portion weight from the photo and return it as "estimatedWeightGrams": a positive integer in grams. Judge each ingredient independently by its apparent size, volume and plate context (a spice pinch ≈ 2-5, a side salad ≈ 80-120, a main component ≈ 150-300). NEVER assign one default or identical value to multiple ingredients; identical weights across different items are an error.
 
+Return JSON: {"noFoodDetected": false, "ingredients":[{"fullName":"descriptive Russian","shortName":"short Russian noun","estimatedWeightGrams":150,"status":"green|error|blue"}]}
+
+STRICTLY FORBIDDEN in the response: database IDs, nutrition values, USDA/FDC references, barcodes, dish category, permission flags, or any request/instruction to retrieve, store, update or create data anywhere.
 Only valid JSON, no markdown.`,
       };
 
@@ -1158,10 +1275,11 @@ Only valid JSON, no markdown.`,
         textOutput = await analyzeFoodImage(base64Clean, textPart.text);
       } catch (dashErr) {
         console.warn("[analyze-image] DashScope failed, falling back:", (dashErr as any)?.message || dashErr);
+        // Photo-recognition каскад: qwen3-vl-plus → qwen-turbo
         const fallbackResponse = await generateContentWithFallback({
           contents: { parts: [imagePart, textPart] },
           config: { responseMimeType: "application/json" }
-        });
+        }, ["qwen3-vl-plus", "qwen-turbo"]);
         textOutput = fallbackResponse.text || "{}";
       }
 
@@ -1179,41 +1297,80 @@ Only valid JSON, no markdown.`,
         resultData = retryResult.data;
       }
 
-      // Post-validation: force "error" status for any ingredient matching forbidden patterns.
-      // Авторитетный статус из БД (точное совпадение по nameRu/nameEn) безусловно
-      // перебивает текстовые эвристики.
-      if (resultData?.ingredients && Array.isArray(resultData.ingredients)) {
-        for (const ing of resultData.ingredients) {
-          const nameToCheck = (ing.shortName || ing.fullName || "").toLowerCase().trim();
-
-          const dbItem = nameToCheck
-            ? await prisma.foodItem.findFirst({
-                where: {
-                  OR: [
-                    { nameRu: { equals: nameToCheck, mode: "insensitive" } },
-                    { nameEn: { equals: nameToCheck, mode: "insensitive" } },
-                  ],
-                },
-              })
-            : null;
-
-          if (dbItem) {
-            if (dbItem.wfpbStatus === "forbidden") {
-              ing.status = "error";
-              ing.reason = "Ингредиент не соответствует WFPB (по базе продуктов).";
-            }
-            continue;
-          }
-
-          const forbiddenMatches = findForbiddenInText(nameToCheck);
-          if (forbiddenMatches.length > 0) {
-            ing.status = "error";
-            ing.reason = forbiddenMatches.map(m => m.reason).join("; ");
-          }
-        }
+      // Нормализация к восстановленному rich-контракту распознавания:
+      // русские имена, вес в граммах, визуальный WFPB-статус. Qwen НЕ поставляет
+      // identity/нутриенты/изображения из БД. Эндпоинт read-only по отношению
+      // к FoodItem: финальные identity/status/image/нутриенты назначают общий
+      // FoodItem-pipeline на клиенте и /api/analyze-dish.
+      const noFood = resultData?.noFoodDetected === true;
+      if (noFood) {
+        return res.json({ result: { noFoodDetected: true } });
       }
-      
-      return res.json({ result: resultData });
+
+      const rawIngredients = Array.isArray(resultData?.ingredients) ? resultData.ingredients : [];
+
+      // Weight pipeline: сохраняем реальную оценку Qwen по каждому ингредиенту.
+      // Поддерживаемые поля: estimatedWeightGrams | weight | weightGrams,
+      // числом или строкой с числом ("260", "260 г"). Нормализация:
+      // parse → round до целых граммов → clamp к безопасному диапазону проекта
+      // (WEIGHT_MAX = 1000 г, см. IngredientsScreen.tsx). Fallback 100 —
+      // ТОЛЬКО индивидуально для позиции без валидного веса.
+      const WEIGHT_FALLBACK = 100;
+      const clampWeight = (v: number) => Math.min(1000, Math.max(1, v));
+      const parseWeightField = (raw: unknown): { value: number; reason?: string } => {
+        if (typeof raw === "number") {
+          if (!Number.isFinite(raw) || raw <= 0) return { value: WEIGHT_FALLBACK, reason: `non-positive/NaN number: ${raw}` };
+          return { value: clampWeight(Math.round(raw)) };
+        }
+        if (typeof raw === "string") {
+          const match = raw.replace(",", ".").match(/-?\d+(?:\.\d+)?/);
+          if (!match) return { value: WEIGHT_FALLBACK, reason: `string without number: "${raw}"` };
+          const n = Number(match[0]);
+          if (!Number.isFinite(n) || n <= 0) return { value: WEIGHT_FALLBACK, reason: `string number invalid: "${raw}"` };
+          return { value: clampWeight(Math.round(n)) };
+        }
+        return { value: WEIGHT_FALLBACK, reason: raw == null ? "field missing" : `unsupported type: ${typeof raw}` };
+      };
+
+      const weightFallbackLog: { name: string; rawFields: unknown; reason?: string }[] = [];
+      const candidates = rawIngredients
+        .map((ing: any) => {
+          const fullName = typeof ing?.fullName === "string" ? ing.fullName.trim() : "";
+          const shortName = typeof ing?.shortName === "string" && ing.shortName.trim()
+            ? ing.shortName.trim()
+            : fullName;
+          if (!fullName && !shortName) return null;
+          const status = ing?.status === "error" || ing?.status === "blue" ? ing.status : "green";
+          const rawWeight = ing?.estimatedWeightGrams ?? ing?.weight ?? ing?.weightGrams;
+          const parsed = parseWeightField(rawWeight);
+          if (parsed.reason) {
+            weightFallbackLog.push({ name: shortName || fullName, rawFields: { estimatedWeightGrams: ing?.estimatedWeightGrams, weight: ing?.weight, weightGrams: ing?.weightGrams }, reason: parsed.reason });
+          }
+          const candidate: {
+            fullName: string;
+            shortName: string;
+            estimatedWeightGrams: number;
+            status: string;
+          } = {
+            fullName: fullName || shortName,
+            shortName,
+            estimatedWeightGrams: parsed.value,
+            status,
+          };
+          return candidate;
+        })
+        .filter(Boolean);
+
+      // Dev-only диагностика: fallback 100 сработал для КАЖДОГО ингредиента —
+      // вероятная ошибка схемы/парсинга ответа Qwen. Только console, без UI.
+      if (candidates.length > 0 && weightFallbackLog.length === candidates.length) {
+        console.warn("[analyze-image] ALL ingredient weights fell back to", WEIGHT_FALLBACK, {
+          rawIngredientsCount: rawIngredients.length,
+          details: weightFallbackLog,
+        });
+      }
+
+      return res.json({ result: { noFoodDetected: false, ingredients: candidates } });
     } catch (error: any) {
       console.log("Real error returned to client to trigger Anna supporting behaviors:", error?.message || error);
       return res.status(503).json({ 
@@ -2053,7 +2210,10 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
               weight: i.grams!,
             }));
           if (profileInput.length > 0) {
-            const computed = await computeNutrientsFromDB(profileInput);
+            const { totals: computed, unresolved: bookUnresolved } = await computeNutrientsFromDB(profileInput);
+            if (bookUnresolved.length > 0) {
+              console.warn("[saved-dishes] Book recipe unresolved ingredients:", JSON.stringify(bookUnresolved));
+            }
             for (const key of NUTRIENT_FIELDS) {
               if (BOOK_MACRO_FIELDS.has(key)) continue;
               const val = computed[key];

@@ -1568,7 +1568,7 @@ export default function App() {
             >
               <DishAnalysisScreen 
                 ingredients={customMealIngredients || []}
-                onConfirm={(dishName, computedNutrients, annaComment, flatNutrients) => {
+                onConfirm={(dishName, computedNutrients, annaComment, flatNutrients, selectedDishCategory) => {
                   // B1: строгая проверка результата собственного анализатора.
                   // Никаких случайных/примерных/фейковых КБЖУ. Без валидного полного
                   // результата (calories/protein/fat/fiber — конечные числа) блюдо
@@ -1613,20 +1613,25 @@ export default function App() {
 
                   const generatedId = "custom-" + Date.now();
                   const lowerName = dishName.toLowerCase();
-                  let determinedCategory = "Салаты";
+                  // Приоритет — явно выбранная пользователем категория;
+                  // keyword-вывод из названия только как fallback.
+                  const chosenCategory = typeof selectedDishCategory === "string" ? selectedDishCategory.trim() : "";
+                  let determinedCategory = chosenCategory || "Салаты";
 
-                  if (lowerName.includes("суп") || lowerName.includes("борщ") || lowerName.includes("бульон")) {
-                    determinedCategory = "Супы";
-                  } else if (lowerName.includes("каш") || lowerName.includes("овсян") || lowerName.includes("завтрак") || lowerName.includes("гранол") || lowerName.includes("блин")) {
-                    determinedCategory = "Завтраки";
-                  } else if (lowerName.includes("напит") || lowerName.includes("сок") || lowerName.includes("чай") || lowerName.includes("смузи") || lowerName.includes("кофе") || lowerName.includes("компот")) {
-                    determinedCategory = "Напитки";
-                  } else if (lowerName.includes("десерт") || lowerName.includes("пудинг") || lowerName.includes("чиа") || lowerName.includes("сладк")) {
-                    determinedCategory = "Дессерты";
-                  } else if (lowerName.includes("кекс") || lowerName.includes("пирог") || lowerName.includes("булоч") || lowerName.includes("выпеч")) {
-                    determinedCategory = "выпечка";
-                  } else if (lowerName.includes("соус") || lowerName.includes("дрессинг")) {
-                    determinedCategory = "соусы";
+                  if (!chosenCategory) {
+                    if (lowerName.includes("суп") || lowerName.includes("борщ") || lowerName.includes("бульон")) {
+                      determinedCategory = "Супы";
+                    } else if (lowerName.includes("каш") || lowerName.includes("овсян") || lowerName.includes("завтрак") || lowerName.includes("гранол") || lowerName.includes("блин")) {
+                      determinedCategory = "Завтраки";
+                    } else if (lowerName.includes("напит") || lowerName.includes("сок") || lowerName.includes("чай") || lowerName.includes("смузи") || lowerName.includes("кофе") || lowerName.includes("компот")) {
+                      determinedCategory = "Напитки";
+                    } else if (lowerName.includes("десерт") || lowerName.includes("пудинг") || lowerName.includes("чиа") || lowerName.includes("сладк")) {
+                      determinedCategory = "Дессерты";
+                    } else if (lowerName.includes("кекс") || lowerName.includes("пирог") || lowerName.includes("булоч") || lowerName.includes("выпеч")) {
+                      determinedCategory = "выпечка";
+                    } else if (lowerName.includes("соус") || lowerName.includes("дрессинг")) {
+                      determinedCategory = "соусы";
+                    }
                   }
 
                   // Format verified scanned ingredients smoothly

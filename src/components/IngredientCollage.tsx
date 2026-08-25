@@ -6,6 +6,8 @@ interface IngredientCollageProps {
   ingredients?: { name: string; weight?: string; status?: string }[];
   className?: string;
   containerHeight?: string;
+  /** 'default' — прежний режим (ячейки с обрезкой); 'freeform' — прозрачная композиция без клипа ячеек */
+  variant?: "default" | "freeform";
 }
 
 function getImages(ingredients: { name: string }[]): string[] {
@@ -18,6 +20,7 @@ export default function IngredientCollage({
   ingredients,
   className = "",
   containerHeight = "h-full",
+  variant = "default",
 }: IngredientCollageProps) {
   if (!ingredients || ingredients.length === 0) {
     return (
@@ -42,12 +45,14 @@ export default function IngredientCollage({
   const itemWidth = ((100 + baseOverlap * (N - 1)) / N).toFixed(1);
   const step = parseFloat(itemWidth) - baseOverlap;
 
+  const freeform = variant === "freeform";
+
   return (
     <div className={`w-full ${containerHeight} overflow-hidden relative ${className}`}>
       {urls.map((url, i) => (
         <div
           key={i}
-          className="absolute top-0 h-full overflow-hidden"
+          className={`absolute top-0 h-full ${freeform ? "" : "overflow-hidden"}`}
           style={{
             width: `${itemWidth}%`,
             left: `${i * step}%`,
@@ -57,7 +62,7 @@ export default function IngredientCollage({
           <img
             src={url}
             alt=""
-            className="w-full h-full object-cover"
+            className={`w-full h-full ${freeform ? "object-contain" : "object-cover"}`}
           />
         </div>
       ))}
