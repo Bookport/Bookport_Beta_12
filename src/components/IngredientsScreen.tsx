@@ -7,7 +7,6 @@ import {
   Minus, 
   Trash2, 
   Check, 
-  Sparkles, 
   AlertTriangle, 
   ChevronDown, 
   ChevronUp,
@@ -20,7 +19,7 @@ import {
 import { getIngredientImage, normalize, imageMap } from "../utils/ingredientMapper";
 import { checkWFPB } from "../utils/wfpbRules";
 import { matchDBStatus } from "../utils/wfpbMatch";
-import { INGREDIENT_CATEGORY_MAP } from "../utils/ingredientCategoryMap";
+import { INGREDIENT_CATEGORY_MAP, isSpiceIngredient } from "../utils/ingredientCategoryMap";
 import { useAppStore, type FoodCacheItem } from "../store/useAppStore";
 import ingrGreen from "../assets/ingredients/ingr_green.webp";
 import ingrRed from "../assets/ingredients/ingr_red.webp";
@@ -33,6 +32,7 @@ export interface IngredientsScreenProps {
 }
 
 interface DBItem {
+  id: string;
   fullName: string;
   shortName: string;
   wfpbStatus: string;
@@ -51,6 +51,10 @@ export interface SelectedIngredient {
   image: string;
   status: "green" | "error" | "blue";
   isCustom?: boolean;
+  // Identity реального FoodItem — заполняется только при выборе из каталога
+  foodItemId?: string;
+  canonicalName?: string;
+  resolutionStatus?: "resolved" | "unresolved";
 }
 
 export function checkIngredientDisallowed(name: string, foodCache: { nameRu: string; wfpbStatus: string }[] = []): { disallowed: boolean; reason: string } {
@@ -102,7 +106,7 @@ export default function IngredientsScreen({
       for (const name of names) {
         const real = lowerToItem[name.toLowerCase().replace(/ё/g, 'е')];
         if (real) {
-          items.push({ fullName: real.nameRu, shortName: real.nameRu, wfpbStatus: real.wfpbStatus });
+          items.push({ id: real.id, fullName: real.nameRu, shortName: real.nameRu, wfpbStatus: real.wfpbStatus });
         }
       }
       result[cat] = items.sort((a, b) => a.fullName.localeCompare(b.fullName, "ru"));
@@ -130,7 +134,7 @@ export default function IngredientsScreen({
   const [customNameInput, setCustomNameInput] = useState<string>("");
 
   // Weight modal controls
-  const [weightModalItem, setWeightModalItem] = useState<{ fullName: string; shortName: string; isCustom?: boolean } | null>(null);
+  const [weightModalItem, setWeightModalItem] = useState<{ id?: string; fullName: string; shortName: string; isCustom?: boolean } | null>(null);
   const [weightValue, setWeightValue] = useState<number>(100);
 
   // Press-and-hold auto-repeat for the weight stepper buttons (mouse + touch)
@@ -184,6 +188,16 @@ export default function IngredientsScreen({
     if (!weightModalItem) clearWeightHold();
   }, [weightModalItem]);
 
+  // Специи и сухие ингредиенты: дробная граммовка (старт 5 г, шаг/floor 0.5 г).
+  const isSpice = !!weightModalItem &&
+    (isSpiceIngredient(weightModalItem.fullName) || isSpiceIngredient(weightModalItem.shortName));
+  const WEIGHT_STEP = isSpice ? 0.5 : 10;
+  const WEIGHT_FLOOR = isSpice ? 0.5 : 10;
+  const WEIGHT_MAX = 1000;
+  const bump1 = (v: number) => Math.round(v * 10) / 10;
+  const weightPresets = isSpice ? [1, 3, 5] : [50, 100, 200];
+  const formatWeight = (v: number) => (Number.isInteger(v) ? String(v) : v.toFixed(1));
+
   // Warning modal controls for forbidden custom ingredients
   const [pendingWarningItem, setPendingWarningItem] = useState<{ item: SelectedIngredient } | null>(null);
 
@@ -199,8 +213,8 @@ export default function IngredientsScreen({
 
   // Trigger select standard ingredient
   const handleSelectPredefined = (item: DBItem, catName: string) => {
-    setWeightValue(100);
-    setWeightModalItem({ fullName: item.fullName, shortName: item.shortName });
+    setWeightValue(isSpiceIngredient(item.fullName) || isSpiceIngredient(item.shortName) ? 5 : 100);
+    setWeightModalItem({ id: item.id, fullName: item.fullName, shortName: item.shortName });
     setActiveCategory(null); // close selection window
     if (typeof window !== 'undefined' && typeof CustomEvent !== 'undefined') {
       window.dispatchEvent(new CustomEvent('ingredient-card-viewed', { detail: { name: item.fullName } }))
@@ -217,7 +231,7 @@ export default function IngredientsScreen({
   // Confirm custom name & bridge to weight modal
   const handleConfirmCustomName = () => {
     if (!customNameInput.trim()) return;
-    setWeightValue(100);
+    setWeightValue(isSpiceIngredient(customNameInput.trim()) ? 5 : 100);
     setWeightModalItem({ 
       fullName: customNameInput.trim(), 
       shortName: customNameInput.trim(),
@@ -231,6 +245,7 @@ export default function IngredientsScreen({
     if (!weightModalItem) return;
 
     const disallowedCheck = checkIngredientDisallowed(weightModalItem.fullName, foodCache);
+    const fromCatalog = !weightModalItem.isCustom && !!weightModalItem.id;
     const newIngredient: SelectedIngredient = {
       id: `${weightModalItem.fullName}-${Date.now()}`,
       fullName: weightModalItem.fullName,
@@ -238,7 +253,13 @@ export default function IngredientsScreen({
       weight: weightValue,
       image: getIngredientImage(weightModalItem.shortName) || getIngredientImage(weightModalItem.fullName) || (disallowedCheck.disallowed ? ingrRed : ingrGreen),
       status: disallowedCheck.disallowed ? "error" : "green",
-      isCustom: weightModalItem.isCustom
+      isCustom: weightModalItem.isCustom,
+      // Каталог уже знает реальный FoodItem — передаём identity без повторного угадывания по имени
+      ...(fromCatalog ? {
+        foodItemId: weightModalItem.id,
+        canonicalName: weightModalItem.fullName,
+        resolutionStatus: "resolved" as const,
+      } : {})
     };
 
     setWeightModalItem(null);
@@ -275,7 +296,10 @@ export default function IngredientsScreen({
       image: item.image,
       weight: item.weight,
       status: item.status,
-      isCustom: item.isCustom
+      isCustom: item.isCustom,
+      foodItemId: item.foodItemId,
+      canonicalName: item.canonicalName,
+      resolutionStatus: item.resolutionStatus
     }));
 
     // Trigger parent routine passing our built composition of food
@@ -289,26 +313,22 @@ export default function IngredientsScreen({
       <div className="flex-1 px-5 pt-3 pb-8 overflow-y-auto max-h-[725px]" id="ingredients-scroll-container">
         
         {/* HEADER BAR */}
-        <div className="flex justify-between items-center mb-5 relative z-10" id="ingredients-header">
+        <div className="relative flex items-center mb-5 z-10" id="ingredients-header">
           <button 
             type="button" 
             onClick={onBack}
-            className="w-10 h-10 rounded-full bg-white border border-gray-100 shadow-sm flex items-center justify-center text-text-sec hover:text-brand-green-pure active:scale-95 transition-all cursor-pointer animate-fade-in"
+            className="relative z-10 w-10 h-10 rounded-full bg-white border border-gray-100 shadow-sm flex items-center justify-center text-text-sec hover:text-brand-green-pure active:scale-95 transition-all cursor-pointer animate-fade-in"
             id="ingredients-back-btn"
           >
             <ChevronLeft className="w-6 h-6 shrink-0" />
           </button>
           
           <h2 
-            className="text-[17px] font-black text-text-dark tracking-tight"
+            className="absolute left-1/2 -translate-x-1/2 pointer-events-none whitespace-nowrap text-[17px] font-black text-text-dark tracking-tight"
             style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}
           >
             Новое блюдо
           </h2>
-
-          <div className="w-10 h-10 flex items-center justify-center text-brand-green-pure">
-            <Sparkles className="w-5 h-5" />
-          </div>
         </div>
 
         {/* TITLE & DETAILS */}
@@ -549,24 +569,17 @@ export default function IngredientsScreen({
         </div>
 
         {/* ZONE D: CONFIRMATION GRAND CALC ACTION BUTTON */}
-        <motion.button
+        <button
           type="button"
           onClick={handleConfirmAll}
           disabled={selectedIngredients.length === 0}
-          whileHover={selectedIngredients.length > 0 ? { scale: 1.01 } : {}}
-          whileTap={selectedIngredients.length > 0 ? { scale: 0.98 } : {}}
-          className={`w-full volumetric-btn py-4 rounded-[22px] font-extrabold text-[16px] text-white flex items-center justify-center gap-2 select-none uppercase tracking-wider border-t border-white/20 transition-all ${
-            selectedIngredients.length > 0 
-              ? "opacity-100 brightness-100 hover:brightness-105 active:brightness-95 cursor-pointer shadow-[0_8px_18px_rgba(22,181,81,0.22)]" 
-              : "opacity-45 bg-gray-300 border-gray-200 cursor-not-allowed shadow-none"
-          }`}
+          className="w-[min(320px,calc(100%-48px))] mx-auto h-[54px] rounded-[16px] bg-[#BFE8CD] text-[#4B5560] border-none shadow-[0_4px_0_#B8C0C7] active:translate-y-[3px] active:shadow-[0_1px_0_#B8C0C7] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4B5560]/40 disabled:opacity-45 disabled:bg-gray-300 disabled:text-[#737C86] disabled:cursor-not-allowed disabled:shadow-none disabled:transform-none font-extrabold text-[16px] flex items-center justify-center text-center select-none transition-all mb-6"
           id="ingredients-cta-calculate-btn"
         >
-          <Check className="w-5 h-5 shrink-0" />
           <span style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}>
             Подтвердить
           </span>
-        </motion.button>
+        </button>
 
       </div>
 
@@ -672,13 +685,13 @@ export default function IngredientsScreen({
                <div className="flex items-center justify-center gap-5 mb-7 select-none animate-scale-up">
                   <button
                     type="button"
-                    onClick={() => handleWeightClick(prev => Math.max(10, prev - 10))}
-                    onMouseDown={() => handleWeightPress(prev => Math.max(10, prev - 10))}
+                    onClick={() => handleWeightClick(prev => Math.max(WEIGHT_FLOOR, bump1(prev - WEIGHT_STEP)))}
+                    onMouseDown={() => handleWeightPress(prev => Math.max(WEIGHT_FLOOR, bump1(prev - WEIGHT_STEP)))}
                     onMouseUp={handleWeightRelease}
                     onMouseLeave={handleWeightRelease}
                     onTouchStart={(e) => {
                       e.preventDefault();
-                      handleWeightPress(prev => Math.max(10, prev - 10));
+                      handleWeightPress(prev => Math.max(WEIGHT_FLOOR, bump1(prev - WEIGHT_STEP)));
                     }}
                     onTouchEnd={handleWeightRelease}
                     onTouchCancel={handleWeightRelease}
@@ -691,7 +704,7 @@ export default function IngredientsScreen({
                  <div className="flex flex-col items-center">
                    <div className="flex items-baseline gap-1">
                      <span className="text-[44px] font-black text-text-dark leading-none tracking-tight font-sans">
-                       {weightValue}
+                       {formatWeight(weightValue)}
                      </span>
                      <span className="text-[16px] font-extrabold text-text-sec uppercase leading-none font-sans">
                        г
@@ -704,13 +717,13 @@ export default function IngredientsScreen({
 
                   <button
                     type="button"
-                    onClick={() => handleWeightClick(prev => Math.min(1000, prev + 10))}
-                    onMouseDown={() => handleWeightPress(prev => Math.min(1000, prev + 10))}
+                    onClick={() => handleWeightClick(prev => Math.min(WEIGHT_MAX, bump1(prev + WEIGHT_STEP)))}
+                    onMouseDown={() => handleWeightPress(prev => Math.min(WEIGHT_MAX, bump1(prev + WEIGHT_STEP)))}
                     onMouseUp={handleWeightRelease}
                     onMouseLeave={handleWeightRelease}
                     onTouchStart={(e) => {
                       e.preventDefault();
-                      handleWeightPress(prev => Math.min(1000, prev + 10));
+                      handleWeightPress(prev => Math.min(WEIGHT_MAX, bump1(prev + WEIGHT_STEP)));
                     }}
                     onTouchEnd={handleWeightRelease}
                     onTouchCancel={handleWeightRelease}
@@ -722,7 +735,7 @@ export default function IngredientsScreen({
                </div>
 
                <div className="grid grid-cols-3 gap-2 mb-6">
-                 {[50, 100, 200].map(val => (
+                 {weightPresets.map(val => (
                    <button
                      type="button"
                      key={val}
@@ -738,6 +751,12 @@ export default function IngredientsScreen({
                    </button>
                  ))}
                </div>
+
+               {isSpice && (
+                 <p className="text-[11px] font-semibold text-text-sec -mt-3 mb-4" style={{ fontFamily: '"Calibri", sans-serif' }}>
+                   Для специй: 1 щепотка ≈ 0.5 г
+                 </p>
+               )}
 
                <button
                  type="button"

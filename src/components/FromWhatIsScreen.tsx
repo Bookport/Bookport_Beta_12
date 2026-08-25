@@ -1,18 +1,14 @@
 import React, { useState } from "react";
-import { motion, AnimatePresence } from "motion/react";
+import { motion } from "motion/react";
 import { 
   ChevronLeft, 
   Sparkles, 
-  PlusCircle, 
   CheckCircle2, 
-  FileText,
   MessageSquare
 } from "lucide-react";
 import BottomBar from "./BottomBar";
-import CalendarButton from "./CalendarButton";
-import BriefNoteBlock from "./BriefNoteBlock";
 import IngredientsScreen from "./IngredientsScreen";
-import wfpbRawIngredients from "../assets/images/wfpb_raw_ingredients_1780313792914.png";
+import fromWhatIsHeroImage from "../assets/images/icone/7.webp";
 import { resolveAvatar } from "../utils/annaAvatarResolver";
 import { useAppStore } from "../store/useAppStore";
 import { api } from "../utils/api";
@@ -37,26 +33,15 @@ export default function FromWhatIsScreen({
   currentDayIndex,
   onConfirmRecipe,
   onBack: propsOnBack,
-  dayNotes: propsDayNotes,
-  setDayNotes: propsSetDayNotes,
-  screen: propsScreen,
-  onOpenCalendar: propsOnOpenCalendar,
   onNavigateHome: propsOnNavigateHome,
   onNavigateDiary: propsOnNavigateDiary,
   onNavigateProgress: propsOnNavigateProgress,
 }: FromWhatIsScreenProps) {
   const setScreen = useAppStore((s) => s.setScreen);
   const onBack = propsOnBack || (() => setScreen("my-day"));
-  const dayNotes = propsDayNotes || {};
-  const setDayNotes = propsSetDayNotes || (() => {});
-  const screen = propsScreen || useAppStore((s) => s.screen);
-  const onOpenCalendar = propsOnOpenCalendar || (() => {});
   const onNavigateHome = propsOnNavigateHome || (() => setScreen("my-day"));
   const onNavigateDiary = propsOnNavigateDiary || (() => setScreen("what-i-eat"));
   const onNavigateProgress = propsOnNavigateProgress || (() => setScreen("habits-twenty"));
-  const [showNoteBlock, setShowNoteBlock] = useState(false);
-  const [noteSavedOrSkipped, setNoteSavedOrSkipped] = useState(false);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isSuccessBuilder, setIsSuccessBuilder] = useState(false);
   const [showIngredients, setShowIngredients] = useState(false);
 
@@ -82,36 +67,6 @@ export default function FromWhatIsScreen({
     };
   }, [currentDayIndex, isSuccessBuilder, showIngredients]);
 
-  const handleSaveRecipeNote = (noteText: string, selectedTags: string[], isVoice: boolean) => {
-    if (!noteText.trim() && selectedTags.length === 0) return;
-    
-    const now = new Date();
-    const timeStr = now.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
-    
-    const newNote = {
-      text: noteText.trim() || "Планирую блюдо из того, что есть в холодильнике 🍏",
-      time: timeStr,
-      source: "recipes",
-      tags: selectedTags,
-      isVoice
-    };
-
-    setDayNotes(prev => {
-      const todayArr = prev[currentDayIndex] || [];
-      return {
-        ...prev,
-        [currentDayIndex]: [newNote, ...todayArr]
-      };
-    });
-    setNoteSavedOrSkipped(true);
-    triggerToast("Заметка успешно сохранена в календарь дня! ✨");
-  };
-
-  const triggerToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3000);
-  };
-
   const handleAddIngredientsClick = () => {
     setShowIngredients(true);
   };
@@ -136,29 +91,22 @@ export default function FromWhatIsScreen({
       <div className="flex-1 px-5 pt-3 pb-8 overflow-y-auto max-h-[720px]" id="from-what-is-scroll-container">
         
         {/* HEADER BAR */}
-        <div className="flex justify-between items-center mb-6 relative z-10" id="from-what-is-header">
+        <div className="relative flex items-center mb-6 z-10" id="from-what-is-header">
           <button 
             type="button" 
             onClick={onBack}
-            className="w-10 h-10 rounded-full bg-white border border-gray-100 shadow-sm flex items-center justify-center text-text-sec hover:text-brand-green-pure active:scale-95 transition-all cursor-pointer"
+            className="relative z-10 w-10 h-10 rounded-full bg-white border border-gray-100 shadow-sm flex items-center justify-center text-text-sec hover:text-brand-green-pure active:scale-95 transition-all cursor-pointer"
             id="from-what-is-back-btn"
           >
             <ChevronLeft className="w-6 h-6 shrink-0" />
           </button>
           
           <h2 
-            className="text-[17px] font-black text-text-dark tracking-tight"
+            className="absolute left-1/2 -translate-x-1/2 pointer-events-none whitespace-nowrap text-[17px] font-black text-text-dark tracking-tight"
             style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}
           >
             Рецепты дня
           </h2>
-
-          <CalendarButton 
-            onClick={onOpenCalendar} 
-            currentDayIndex={currentDayIndex} 
-            dayNotes={dayNotes}
-            screen={screen}
-          />
         </div>
 
         {/* HERO TITLE & DETAILS */}
@@ -182,21 +130,18 @@ export default function FromWhatIsScreen({
           </motion.p>
         </div>
 
-        {/* MAIN VISUAL CARD - Raw premium whole ingredients photography */}
+        {/* MAIN VISUAL - Raw premium whole ingredients photography */}
         <motion.div 
           initial={{ opacity: 0, scale: 0.98 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.15, duration: 0.5 }}
-          className="bg-white rounded-[28px] border border-gray-150/40 p-4.5 shadow-[0_10px_25px_-8px_rgba(43,49,55,0.04),_0_4px_12px_-4px_rgba(0,0,0,0.01)] mb-5 text-center flex flex-col items-center justify-center relative overflow-hidden"
+          className="mb-5 text-center flex flex-col items-center justify-center"
           id="from-what-is-main-photo-card"
         >
-          {/* Subtle soft gradient highlight background glow */}
-          <div className="absolute inset-0 bg-radial-gradient(circle at center, rgba(22,181,81,0.02) 0%, transparent 70%) pointer-events-none" />
-
           {/* Premium realistic photo */}
-          <div className="w-full h-[180px] rounded-24 overflow-hidden mb-4 bg-gray-50 flex items-center justify-center border border-gray-100">
+          <div className="w-full h-[180px] overflow-hidden mb-4">
             <img 
-              src={wfpbRawIngredients} 
+              src={fromWhatIsHeroImage}
               alt="Ингредиенты WFPB" 
               referrerPolicy="no-referrer"
               className="w-full h-full object-cover select-none"
@@ -265,68 +210,19 @@ export default function FromWhatIsScreen({
           </div>
         </motion.div>
 
-        {/* MAIN CTA BUTTON - Green, volumetric */}
-        <motion.button
+        {/* MAIN CTA BUTTON - Flat pastel */}
+        <button
           type="button"
           onClick={handleAddIngredientsClick}
-          whileHover={{ scale: 1.01 }}
-          whileTap={{ scale: 0.98 }}
-          className="w-full volumetric-btn py-4 rounded-[22px] font-extrabold text-[16px] text-white flex items-center justify-center gap-2 select-none uppercase tracking-wider mb-5 border-t border-white/20 hover:brightness-105 active:brightness-95 cursor-pointer"
+          className="w-[min(320px,calc(100%-48px))] mx-auto h-[54px] rounded-[16px] bg-[#BFE8CD] text-[#4B5560] border-none shadow-[0_4px_0_#B8C0C7] active:translate-y-[3px] active:shadow-[0_1px_0_#B8C0C7] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4B5560]/40 font-extrabold text-[16px] flex items-center justify-center select-none transition-all cursor-pointer mb-5"
           id="from-what-is-cta-button"
         >
-          <PlusCircle className="w-5 h-5 shrink-0" />
           <span style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}>
             Добавить ингредиенты
           </span>
-        </motion.button>
-
-        {/* 4. NOTE TRIGGER SECTION */}
-        <div className="mt-2 text-center" id="from-what-is-note-controller">
-          {!showNoteBlock && (
-            <button
-              type="button"
-              onClick={() => setShowNoteBlock(true)}
-              className="inline-flex items-center gap-1.5 py-2 px-4 rounded-xl border border-dashed border-gray-250 text-[13px] font-bold text-text-sec hover:text-brand-green-pure hover:border-brand-green-pure/45 transition-colors cursor-pointer"
-              id="from-what-is-add-note-btn"
-            >
-              <FileText className="w-4 h-4 shrink-0" />
-              <span>Добавить заметку к рецепту</span>
-            </button>
-          )}
-
-          {/* Collapsible/unfolded brief note block under request */}
-          <AnimatePresence>
-            {showNoteBlock && !noteSavedOrSkipped && (
-              <div className="mt-1" id="from-what-is-brief-note-block-container">
-                <BriefNoteBlock
-                  moduleKey="recipes"
-                  onSave={handleSaveRecipeNote}
-                  onSkip={() => {
-                    setNoteSavedOrSkipped(true);
-                    triggerToast("Заметка пропущена");
-                  }}
-                />
-              </div>
-            )}
-          </AnimatePresence>
-        </div>
+        </button>
 
       </div>
-
-      {/* TOAST POPUP NOTIFICATION */}
-      <AnimatePresence>
-        {toastMessage && (
-          <motion.div 
-            initial={{ opacity: 0, y: 15 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 15 }}
-            className="absolute bottom-[92px] left-6 right-6 bg-slate-900/90 backdrop-blur-md px-4 py-3 rounded-[18px] text-white text-[13.5px] font-bold text-center border border-white/10 shadow-lg z-50 leading-snug"
-            id="from-what-is-toast-overlay"
-          >
-            <span style={{ fontFamily: '"Calibri", sans-serif' }}>{toastMessage}</span>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* STICKY BOTTOM TAB NAVIGATION BAR */}
       <div className="w-full shrink-0" id="from-what-is-bottom-bar-nav">

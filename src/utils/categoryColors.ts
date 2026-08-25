@@ -8,6 +8,12 @@ const CATEGORY_COLORS: Record<string, { shadow: string; badge: string; label: st
   "Соусы":          { shadow: "rgba(14,165,233,0.35)",  badge: "#0EA5E9", label: "sky" },
   "Напитки":        { shadow: "rgba(244,63,94,0.35)",   badge: "#F43F5E", label: "rose" },
   "Книга":          { shadow: "rgba(139,92,246,0.35)",  badge: "#8B5CF6", label: "violet" },
+  // Taxonomy ручного конструктора («Из того, что есть») — тона выведены
+  // из цветов карточек выбора категории в CheckCompositionScreen.
+  "Первые блюда":   { shadow: "rgba(240,138,75,0.35)",  badge: "#F08A4B", label: "peach" },   // карточка #FFF0E5 (персиковый)
+  "Вторые блюда":   { shadow: "rgba(212,160,23,0.35)",  badge: "#D4A017", label: "gold" },    // карточка #FDF5E6 (золотистый)
+  "Смузи":          { shadow: "rgba(76,159,135,0.35)",  badge: "#4C9F87", label: "teal" },    // карточка #E2F0E9 (мятный)
+  "Закуски":        { shadow: "rgba(149,117,205,0.35)", badge: "#9575CD", label: "lilac" },  // карточка #F5EEF8 (сиреневый)
 };
 
 const PALETTE = ["amber", "emerald", "green", "blue", "violet", "orange", "sky", "rose"];
@@ -26,6 +32,10 @@ export const DEFAULT_CATEGORIES = [
   "Супы",
   "Салаты",
   "Основные блюда",
+  "Первые блюда",
+  "Вторые блюда",
+  "Смузи",
+  "Закуски",
   "Десерты",
   "Выпечка",
   "Соусы",
