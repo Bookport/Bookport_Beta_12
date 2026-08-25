@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import BottomBar from "./BottomBar";
 import { 
@@ -33,6 +33,10 @@ import {
   sleepDurationMinutes,
   isValidHHMM,
 } from "../shared/sleep";
+import { useAppStore } from "../store/useAppStore";
+import { buildDailySummary } from "../utils/crossModuleSummary";
+import { getMovementMinutes } from "../utils/movementUtils";
+import { SleepContext, getRandomSleepPhrase, type SleepPhraseCategory } from "../utils/annaSleepDictionary";
 
 const annaAvatarSrc = resolveAvatar({ toneGroup: 'neutral_thoughtful', intent: 'thoughtful' }).src;
 import BriefNoteBlock from "./BriefNoteBlock";
@@ -199,6 +203,35 @@ export default function SleepDetailsScreen({
   const graphDayPercent = Math.min(100, Math.round((graphDayDuration / sleepGoalToday) * 100));
   const dayJournalEntries = (sleepJournal || []).filter(e => e.dayIndex === selectedGraphDay && e.status !== "draft");
 
+  // Per-day primitives feeding the Anna SleepContext (selected graph day).
+  const summaryDay = selectedGraphDay ?? currentDayIndex;
+  const hasEntryForDay = graphDayEntry !== null;
+  const qualityForDay = graphDayEntry?.quality ?? null;
+  const bedtimeForDay = graphDayEntry?.sleepTime || graphDayEntry?.bedtime || null;
+  const wakeTimeForDay = graphDayEntry?.wakeTime || null;
+  const activeMinForDay = useAppStore(
+    (s) => getMovementMinutes(s.movementEntries.filter(m => Number(m.dayIndex) === summaryDay)),
+  );
+  const pulseForDay = useAppStore((s) => {
+    const dayMeasurements = s.measurementEntries
+      .filter(m => Number(m.dayIndex) === summaryDay)
+      .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+    const pulses = dayMeasurements.filter(m => m.pulse).map(m => m.pulse as number);
+    const latest = pulses.length > 0 ? pulses[0] : null;
+    const avg = pulses.length > 0 ? Math.round(pulses.reduce((a, b) => a + b, 0) / pulses.length) : null;
+    return latest ?? avg;
+  });
+  const weightDeltaForDay = useAppStore((s) => {
+    const dayMeasurements = s.measurementEntries
+      .filter(m => Number(m.dayIndex) === summaryDay)
+      .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+    const weights = dayMeasurements.filter(m => m.weight).map(m => m.weight as number);
+    const weightAvg = weights.length > 0 ? Number((weights.reduce((a, b) => a + b, 0) / weights.length).toFixed(1)) : null;
+    return weightAvg !== null
+      ? Number((weightAvg - (s.userProfile?.initialWeight || weightAvg)).toFixed(1))
+      : null;
+  });
+
   // Global calculations for the entire course period
   const getGlobalMetrics = () => {
     const entries = Object.values(sleepLogs).filter(e => e.duration > 0 && e.dayIndex <= currentDayIndex);
@@ -300,49 +333,99 @@ export default function SleepDetailsScreen({
 
   const metrics = getGlobalMetrics();
 
-  // Dynamic coaching commentary by Anna based on user habits
-  const getAnnaSleepCoaching = () => {
-    // Current day statistics
-    const todayLog = sleepLogs[currentDayIndex];
-    const dMin = todayLog ? todayLog.duration : (sleep || 0);
-    const dQuality = todayLog ? todayLog.quality : null;
+  // Anna coaching: built from the real sleep journal of the SELECTED day via
+  // the shared sleep dictionary. Memoized over the primitives that feed the
+  // SleepContext, so the phrase only changes when that data actually changes.
+  const annaCoaching = useMemo(() => {
+    const summary = buildDailySummary(summaryDay, useAppStore.getState(), currentDayIndex);
+    const bedtimeRegularity: SleepContext["bedtimeRegularity"] =
+      metrics.bedtimeStability === "Стабильный (22:00–23:15)" ? "stable"
+        : metrics.bedtimeStability === "Умеренный ритм" ? "moderate"
+          : "unstable";
+    const wakeRegularity: SleepContext["wakeRegularity"] =
+      metrics.waketimeStability === "Высокая (06:00–08:00)" ? "stable"
+        : "unstable";
+    const isCurrentDay = selectedGraphDay === currentDayIndex;
+    const context: SleepContext = {
+      userName,
+      userGender,
+      summary,
+      courseDay: selectedGraphDay,
+      hasEntry: hasEntryForDay,
+      isCurrentDay,
+      sleepMinutes: graphDayDuration,
+      sleepGoalMinutes: sleepGoalToday,
+      quality: qualityForDay,
+      bedtime: bedtimeForDay,
+      wakeTime: wakeTimeForDay,
+      bedtimeRegularity,
+      wakeRegularity,
+      streak: metrics.streak,
+      activeMinutes: summary.movement.activeMin,
+      activeStreak: null,
+      pulse: summary.measurements.latestPulse ?? summary.measurements.pulseAvg,
+      weightDelta: summary.measurements.weightDelta,
+    };
 
-    if (dMin === 0) {
-      return {
-        text: `Привет, ${userName}! Запись сна за сегодня ещё не добавлена. Когда завершится ночь, зафиксируй сон кнопкой быстрой записи в карточке «Сон» — и я помогу разобраться, как прошло восстановление. 🌙`,
-        mood: "neutral" as const,
-        label: "Ожидание записи сна"
-      };
-    }
+    // Deterministic category mirroring the former mood thresholds.
+    let category: SleepPhraseCategory;
+    let mood: "good" | "neutral" | "warning";
+    let label: string;
 
-    if (dMin >= 450 && dQuality === "good") {
-      return {
-        text: `Великолепный сон, ${userName}! Твоя нервная система успела пройти все фазы глубокого очищения — глимпатическая система вывела метаболиты, а растительные антиоксиданты из ужина защитили сосуды мозга. Без соли и лишней задержки жидкости твоё давление в идеальном балансе. Настоящий эталон восстановления! 🧠✨`,
-        mood: "good" as const,
-        label: "Идеальный биоритм"
-      };
-    } else if (dMin >= 420) {
-      return {
-        text: `Хороший отдых, ${userName}! Твои ${Math.floor(dMin / 60)} ч ${dMin % 60} мин сна — идеальная база на день. Печень завершила ночную детоксикацию, а почки отдохнули от натриевой нагрузки (ведь мы полностью исключили соль!). Попробуй сегодня лечь на 15 минут раньше, чтобы стать ещё активнее! 🔋`,
-        mood: "good" as const,
-        label: "Хороший отдых"
-      };
-    } else if (dMin >= 360) {
-      return {
-        text: `${userName}, сон в пределах ${Math.floor(dMin / 60)} часов допустим, но является пограничным. Твоему организму на чистом WFPB рационе требуется полноценная регенерация митохондрий. Постарайся вечером отказаться от ярких экранов за час до сна и дать глазам отдохнуть в сумерках. Позаботимся о клетках? 😉`,
-        mood: "neutral" as const,
-        label: "Ограниченное время"
-      };
+    if (!hasEntryForDay) {
+      if (isCurrentDay) {
+        // Improved empty state (restored from the lost iteration).
+        return {
+          text: `Привет, ${userName}! Полноценный сон — это фундамент WFPB стиля жизни! Во время глубокого сна клетки очищаются от клеточного мусора, снижается тяга к сладкому и солёному. Для твоего организма норма — 8 часов. Давай зафиксируем сон сегодня кнопками быстрой записи! 🔋`,
+          mood: "neutral" as const,
+          label: "Готовность к сну"
+        };
+      }
+      category = "sleep_NoEntry_History";
+      mood = "neutral";
+      label = "Нет записи";
+    } else if (graphDayDuration >= 450 && qualityForDay === "good") {
+      category = isCurrentDay ? "sleep_GoalReached" : "sleep_History_GoalReached";
+      mood = "good";
+      label = "Идеальный биоритм";
+    } else if (graphDayDuration >= 420) {
+      category = isCurrentDay ? "sleep_AboveGoal" : "sleep_History_AboveGoal";
+      mood = "good";
+      label = "Хороший отдых";
+    } else if (graphDayDuration >= 360) {
+      category = "sleep_Deficit_NearGoal";
+      mood = "neutral";
+      label = "Ограниченное время";
+    } else if (graphDayDuration >= 300) {
+      category = "sleep_Deficit_Moderate";
+      mood = "warning";
+      label = "Кислородное голодание";
     } else {
-      return {
-        text: `Ой-ой, ${userName}, сегодня у тебя явный дефицит сна — всего ${Math.floor(dMin / 60)} ч ${dMin % 60} мин. Твой сосудистый тонус и чувствительность к инсулину напрямую страдают от недосыпа. Растительный рацион спасёт от ложного голода, но телу срочно нужен полноценный отдых. Спланируем ранний отбой в тишине? 🛌💤`,
-        mood: "warning" as const,
-        label: "Кислородное голодание"
-      };
+      category = "sleep_Deficit_Critical";
+      mood = "warning";
+      label = "Кислородное голодание";
     }
-  };
 
-  const annaCoaching = getAnnaSleepCoaching();
+    return { text: getRandomSleepPhrase(category, context), mood, label };
+  }, [
+    summaryDay,
+    currentDayIndex,
+    userName,
+    userGender,
+    graphDayEntry,
+    graphDayDuration,
+    sleepGoalToday,
+    hasEntryForDay,
+    qualityForDay,
+    bedtimeForDay,
+    wakeTimeForDay,
+    metrics.bedtimeStability,
+    metrics.waketimeStability,
+    metrics.streak,
+    activeMinForDay,
+    pulseForDay,
+    weightDeltaForDay,
+  ]);
 
   // Color mappings based on sleep duration/quality
   let glowBorderClass = "border-violet-100 shadow-[0_8px_30px_rgb(139,92,246,0.04)]";
