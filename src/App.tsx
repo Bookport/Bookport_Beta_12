@@ -1057,7 +1057,23 @@ export default function App() {
   // («Мои блюда → Миксер») через единый список savedDishes.
   useEffect(() => {
     setOnMixerSaved((dish) => {
-      setSavedDishes(prev => [dish, ...prev]);
+      setSavedDishes(prev => [
+        {
+          ...dish,
+          sourceType: "mixer",
+          category: "Миксер",
+          createdAt: dish.time,
+          image: dish.image || "",
+          ingredients: dish.ingredients.map((i) => ({
+            ...i,
+            weight: "75 г",
+          })),
+          protein: String(dish.protein),
+          fiber: String(dish.fiber),
+          fat: String(dish.fat),
+        },
+        ...prev,
+      ]);
     });
     return () => setOnMixerSaved(null);
   }, []);
@@ -1726,8 +1742,6 @@ export default function App() {
                 savedDishes={savedDishes}
                 onToggleFavorite={handleToggleFavorite}
                 onSaveDishCategory={handleSaveDishCategory}
-                onDeleteDish={handleDeleteDish}
-                deletingDishId={deletingDishId}
               />
             </motion.div>
           ) : screen === "from-what-is" ? (
