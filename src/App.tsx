@@ -1756,6 +1756,8 @@ export default function App() {
                 savedDishes={savedDishes}
                 onToggleFavorite={handleToggleFavorite}
                 onSaveDishCategory={handleSaveDishCategory}
+                onDeleteDish={handleDeleteDish}
+                deletingDishId={deletingDishId}
               />
             </motion.div>
           ) : screen === "from-what-is" ? (

@@ -50,6 +50,8 @@ interface RecipesScreenProps {
   savedDishes?: SavedDish[];
   onToggleFavorite?: (id: string) => void;
   onSaveDishCategory?: (id: string, category: string) => void;
+  onDeleteDish?: (id: string) => void;
+  deletingDishId?: string | null;
   onNavigateHome?: () => void;
   onNavigateDiary?: () => void;
   onNavigateProgress?: () => void;
@@ -60,6 +62,8 @@ export default function RecipesScreen({
   savedDishes: propsSavedDishes,
   onToggleFavorite: propsOnToggleFavorite,
   onSaveDishCategory: propsOnSaveDishCategory,
+  onDeleteDish: propsOnDeleteDish,
+  deletingDishId: propsDeletingDishId,
   onNavigateHome: propsOnNavigateHome,
   onNavigateDiary: propsOnNavigateDiary,
   onNavigateProgress: propsOnNavigateProgress,
@@ -68,6 +72,8 @@ export default function RecipesScreen({
   const onBack = propsOnBack || (() => setScreen("my-day"));
   const onToggleFavorite = propsOnToggleFavorite || (() => {});
   const onSaveDishCategory = propsOnSaveDishCategory || (() => {});
+  const onDeleteDish = propsOnDeleteDish || (() => {});
+  const deletingDishId = propsDeletingDishId ?? null;
   const onNavigateHome = propsOnNavigateHome || (() => setScreen("my-day"));
   const onNavigateDiary = propsOnNavigateDiary || (() => setScreen("what-i-eat"));
   const onNavigateProgress = propsOnNavigateProgress || (() => setScreen("habits-twenty"));
@@ -343,7 +349,7 @@ export default function RecipesScreen({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
             onClick={() => setSelectedDishId(null)}
           >
             <motion.div
@@ -352,7 +358,7 @@ export default function RecipesScreen({
               exit={{ y: "100%", opacity: 0 }}
               transition={{ type: "spring", damping: 28, stiffness: 300 }}
               onClick={(e) => e.stopPropagation()}
-              className="bg-white rounded-[28px] w-full max-w-lg mx-4 max-h-[80dvh] overflow-y-auto overscroll-contain shadow-xl"
+              className="bg-white rounded-[28px] w-full max-w-lg mx-4 max-h-[80dvh] overflow-y-auto overscroll-contain scrollbar-none shadow-xl"
             >
               {/* Modal Image */}
               <div className="relative w-full h-48 rounded-t-[28px] overflow-hidden bg-gray-100">
@@ -494,16 +500,25 @@ export default function RecipesScreen({
                   </span>
                 </div>
 
-                {/* Not new — Edit category button */}
-                {!selectedDish.isNew && (
-                  <button
-                    onClick={() => handleOpenEdit(selectedDish)}
-                    className="w-full py-2.5 rounded-2xl bg-gray-100 text-gray-600 font-bold text-sm hover:bg-gray-200 transition-colors cursor-pointer"
-                  >
-                    Изменить категорию
-                  </button>
-                )}
                 </>)}
+
+                <div className={`grid gap-2.5 ${!selectedDish.isBookRecipe && !selectedDish.isNew ? "grid-cols-2" : "grid-cols-1"}`}>
+                  {!selectedDish.isBookRecipe && !selectedDish.isNew && (
+                    <button
+                      onClick={() => handleOpenEdit(selectedDish)}
+                      className="w-full py-2.5 rounded-2xl bg-gray-100 text-gray-600 font-bold text-sm hover:bg-gray-200 transition-colors cursor-pointer"
+                    >
+                      Изменить категорию
+                    </button>
+                  )}
+                  <button
+                    onClick={() => onDeleteDish(selectedDish.id)}
+                    disabled={deletingDishId === selectedDish.id}
+                    className="w-full py-2.5 rounded-xl bg-rose-50 border border-rose-100 text-rose-500 font-bold text-sm transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    {deletingDishId === selectedDish.id ? "Удаление…" : "Удалить"}
+                  </button>
+                </div>
 
               </div>
             </motion.div>
