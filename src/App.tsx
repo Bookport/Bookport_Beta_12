@@ -1294,17 +1294,31 @@ export default function App() {
     })
       .then((response: any) => {
         if (response?.ok && response?.dish) {
+          // Сервер возвращает ingredients как JSON-строку; нормализуем в массив,
+          // иначе агрегаторы сырья не видят ингредиенты до первого reload.
           setSavedDishes(prev =>
-            prev.map(item =>
-              item.id === generatedId
-                ? {
-                    ...item,
-                    ...response.dish,
-                    id: response.dish.id,
-                    bookRecipeRef: item.bookRecipeRef,
-                  }
-                : item
-            )
+            prev.map(item => {
+              if (item.id !== generatedId) return item;
+              let parsedIngredients: typeof item.ingredients = item.ingredients;
+              const rawIngredients = response.dish.ingredients;
+              if (Array.isArray(rawIngredients)) {
+                parsedIngredients = rawIngredients;
+              } else if (typeof rawIngredients === "string" && rawIngredients.length > 0) {
+                try {
+                  const parsed = JSON.parse(rawIngredients);
+                  if (Array.isArray(parsed)) parsedIngredients = parsed;
+                } catch {
+                  // parse failure — сохраняем optimistic ingredients
+                }
+              }
+              return {
+                ...item,
+                ...response.dish,
+                id: response.dish.id,
+                ingredients: parsedIngredients,
+                bookRecipeRef: item.bookRecipeRef,
+              };
+            })
           );
         }
       })
