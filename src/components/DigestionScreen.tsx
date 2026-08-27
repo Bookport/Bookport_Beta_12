@@ -421,10 +421,12 @@ export default function DigestionScreen({
   const waterNormMet = periodWaterAvgPct >= 100;
 
   // Плашка 2: суммарная клетчатка за последний выбранный день (или сегодня)
+  // Mixer-блюда — не еда: исключаем по обоим признакам (sourceType/category).
+  const isMixerDish = (d: any): boolean => d?.sourceType === "mixer" || d?.category === "Миксер";
   const dayFiber = React.useMemo(() => {
     const targetDay = selectedGraphDay ?? currentDayIndex;
     const dishes = (savedDishesStore || []).filter(
-      (d) => d.dayIndex !== undefined && Number(d.dayIndex) === Number(targetDay)
+      (d) => d.dayIndex !== undefined && Number(d.dayIndex) === Number(targetDay) && !isMixerDish(d)
     );
     let sum = 0;
     for (const dish of dishes) {

@@ -76,8 +76,10 @@ const extractYesterdayFood = (dayIndex: number): { yesterdayIngredients: string[
   const savedDishes = useAppStore.getState().savedDishes || [];
   const yesterdayIndex = Number(dayIndex) - 1;
 
+  // Mixer-блюда — не еда: исключаем из «пищевого детектива» по обоим признакам.
+  const isMixerDish = (d: any): boolean => d?.sourceType === "mixer" || d?.category === "Миксер";
   const yesterdayDishes = savedDishes.filter(
-    dish => dish.dayIndex !== undefined && Number(dish.dayIndex) === yesterdayIndex
+    dish => dish.dayIndex !== undefined && Number(dish.dayIndex) === yesterdayIndex && !isMixerDish(dish)
   );
 
   if (yesterdayDishes.length === 0) {

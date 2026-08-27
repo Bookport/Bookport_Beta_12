@@ -395,6 +395,8 @@ export default function StateNowScreen({
   const todayCustomDishes = (effSavedDishes || [])
     .filter(dish => {
       if (dish.isBookRecipe) return false;
+      if (dish.sourceType === "mixer") return false;
+      if (dish.category === "Миксер") return false;
       return true;
     })
     .map(dish => {

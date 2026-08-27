@@ -144,10 +144,12 @@ export const buildDailySummary = (dayIndex: number, store: AppState, currentDayI
   }
 
   // 1b. FOOD — вчерашняя клетчатка (для кросс-связки «вода + клетчатка»)
+  // Mixer-блюда — не еда: исключаем по обоим признакам (sourceType/category).
+  const isMixerDish = (d: any): boolean => d?.sourceType === "mixer" || d?.category === "Миксер";
   const yesterdayIndex = dayIndexNum - 1;
   let yesterdayFiber: number | null = null;
   const yesterdayDishes = store.savedDishes.filter(
-    d => d.dayIndex !== undefined && Number(d.dayIndex) === yesterdayIndex
+    d => d.dayIndex !== undefined && Number(d.dayIndex) === yesterdayIndex && !isMixerDish(d)
   );
   if (yesterdayDishes.length > 0) {
     let fiberSum = 0;
