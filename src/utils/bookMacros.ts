@@ -22,17 +22,14 @@ export const getBookMacros = (type: string, id: number): { calories: number; pro
   // (не фабрикуем 0, чтобы строгий агрегатор корректно исключил неполную запись).
   let carbohydrates: number | null = null;
   for (const line of entry.kbju) {
-    const clean = line.replace(/[;.]/g, "").replace(",", ".");
-    const kcalMatch = clean.match(/калорийность:\s*([\d.]+)/i);
-    if (kcalMatch) calories = Math.round(parseFloat(kcalMatch[1]));
-    const protMatch = clean.match(/белок:\s*([\d.]+)/i);
-    if (protMatch) protein = `${protMatch[1]} г`;
-    const fatMatch = clean.match(/жиры?:\s*([\d.]+)/i);
-    if (fatMatch) fat = `${fatMatch[1]} г`;
-    const fiberMatch = clean.match(/клетчатк[ау]:\s*([\d.]+)/i);
-    if (fiberMatch) fiber = `${fiberMatch[1]} г`;
-    // Углеводы парсим из ИСХОДНОЙ строки (без общего clean, который срезает точку),
-    // корректно сохраняя десятичные и с запятой ("94,1"), и с точкой ("97.2").
+    const kcalMatch = line.match(/калорийность:\s*(\d+)/i);
+    if (kcalMatch) calories = Math.round(parseInt(kcalMatch[1], 10));
+    const protMatch = line.match(/белок:\s*(\d+(?:[.,]\d+)?)/i);
+    if (protMatch) protein = `${protMatch[1].replace(",", ".")} г`;
+    const fatMatch = line.match(/жиры?:\s*(\d+(?:[.,]\d+)?)/i);
+    if (fatMatch) fat = `${fatMatch[1].replace(",", ".")} г`;
+    const fiberMatch = line.match(/клетчатк[ау]:\s*(\d+(?:[.,]\d+)?)/i);
+    if (fiberMatch) fiber = `${fiberMatch[1].replace(",", ".")} г`;
     const carbNumMatch = line.match(/углеводы:\s*(\d+(?:[.,]\d+)?)/i);
     if (carbNumMatch) {
       const parsed = parseFloat(carbNumMatch[1].replace(",", "."));
