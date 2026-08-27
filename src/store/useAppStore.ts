@@ -147,6 +147,7 @@ export interface AppState {
   fetchFoodCache: () => Promise<void>;
   setScreen: (screen: Screen) => void;
   setUserProfile: (profile: UserProfile) => void;
+  updateUserProfile: (patch: Partial<UserProfile>) => void;
   setTelegramUser: (user: TelegramUser | null) => void;
   setClickCount: (count: number) => void;
   setGlobalProgress: (count: number) => void;
@@ -199,6 +200,9 @@ export const useAppStore = create<AppState>((set) => ({
 
   setScreen: (screen) => set({ screen }),
   setUserProfile: (profile) => set({ userProfile: profile }),
+  // Partial update: мержит только переданные поля, остальные не трогает
+  // (registration baseline initial* защищён от перезаписи).
+  updateUserProfile: (patch) => set((s) => ({ userProfile: { ...s.userProfile, ...patch } })),
   setTelegramUser: (user) => set({ telegramUser: user }),
   setClickCount: (count) => { set({ clickCount: count }); localStorage.setItem('wfpb_click_count', String(count)); },
   setGlobalProgress: (count) => set({ globalProgress: count }),

@@ -365,11 +365,10 @@ export default function MyDayScreen({
             console.error("Failed to parse waterEntries:", e);
           }
         }
-        setWaterLogs(prev => {
-          const merged = { ...prev, [currentDayIndex]: dbWaterEntries };
-          useAppStore.getState().setWaterEntries(waterLogsToStoreEntries(merged));
-          return merged;
-        });
+        setWaterLogs(prev => ({
+          ...prev,
+          [currentDayIndex]: dbWaterEntries,
+        }));
         // Sync localStorage cache with DB data
         try {
           const raw = localStorage.getItem('wfpb_daily_water_entries_v3');
@@ -398,11 +397,10 @@ export default function MyDayScreen({
             const parsed = typeof d.dailyMetric.measurements === 'string'
               ? JSON.parse(d.dailyMetric.measurements)
               : d.dailyMetric.measurements;
-            setMeasurementLogs(prev => {
-              const merged = { ...prev, [currentDayIndex]: parsed };
-              useAppStore.getState().setMeasurementEntries(measurementLogsToStoreEntries(merged));
-              return merged;
-            });
+            setMeasurementLogs(prev => ({
+              ...prev,
+              [currentDayIndex]: parsed,
+            }));
           } catch (e) {
             console.error("Failed to parse measurements:", e);
           }
@@ -497,6 +495,12 @@ export default function MyDayScreen({
 
   const [waterLogs, setWaterLogs] = useState<Record<number, WaterLogEntry[]>>({});
 
+  // Effect-мост: локальный waterLogs — единственный источник состояния воды;
+  // Zustand синхронизируется строго после commit (без render-phase updates).
+  useEffect(() => {
+    useAppStore.getState().setWaterEntries(waterLogsToStoreEntries(waterLogs));
+  }, [waterLogs]);
+
   // Load ALL available course days' water entries from localStorage cache on mount,
   // so the 28-day hydration chart and record day reflect full course history.
   useEffect(() => {
@@ -505,11 +509,7 @@ export default function MyDayScreen({
       if (raw) {
         const allLogs = JSON.parse(raw);
         if (allLogs && typeof allLogs === 'object') {
-          setWaterLogs(prev => {
-            const merged = { ...prev, ...(allLogs as Record<number, WaterLogEntry[]>) };
-            useAppStore.getState().setWaterEntries(waterLogsToStoreEntries(merged));
-            return merged;
-          });
+          setWaterLogs(prev => ({ ...prev, ...(allLogs as Record<number, WaterLogEntry[]>) }));
         }
       }
     } catch (e) {
@@ -672,6 +672,12 @@ export default function MyDayScreen({
 
   // --- MEASUREMENTS MODULE STATE ---
   const [measurementLogs, setMeasurementLogs] = useState<Record<number, MeasurementLogEntry[]>>({});
+
+  // Effect-мост: локальный measurementLogs — единственный источник замеров;
+  // Zustand синхронизируется строго после commit.
+  useEffect(() => {
+    useAppStore.getState().setMeasurementEntries(measurementLogsToStoreEntries(measurementLogs));
+  }, [measurementLogs]);
 
   const [showMeasurementsDetails, setShowMeasurementsDetails] = useState(false);
   const [showFastMeasurements, setShowFastMeasurements] = useState(false);
@@ -1355,7 +1361,6 @@ export default function MyDayScreen({
     updatedLogs[currentDayIndex].push(newLogEntry);
 
     setMeasurementLogs(updatedLogs);
-    useAppStore.getState().setMeasurementEntries(measurementLogsToStoreEntries(updatedLogs));
     setSelectedGraphDay(currentDayIndex);
 
     // Persist measurement log to DB (fire-and-forget)
@@ -1377,6 +1382,19 @@ export default function MyDayScreen({
     }
     if (newLogEntry.diastolic !== null && setDiastolic) {
       setDiastolic(newLogEntry.diastolic);
+    }
+    // Синхронизация последнего замера в userProfile для cross-module
+    // consumer-слоёв (crossModuleSummary, DigestionScreen, useNotificationEngine):
+    // water goal = 30 мл × последний weight из Measurements. Обновляются только
+    // фактически сохранённые значения; initial* (registration baseline) не трогаются.
+    {
+      const profilePatch: { weight?: number; systolic?: number; diastolic?: number } = {};
+      if (newLogEntry.weight !== null && newLogEntry.weight !== undefined) profilePatch.weight = newLogEntry.weight;
+      if (newLogEntry.systolic !== null && newLogEntry.systolic !== undefined) profilePatch.systolic = newLogEntry.systolic;
+      if (newLogEntry.diastolic !== null && newLogEntry.diastolic !== undefined) profilePatch.diastolic = newLogEntry.diastolic;
+      if (Object.keys(profilePatch).length > 0) {
+        useAppStore.getState().updateUserProfile(profilePatch);
+      }
     }
     if (newLogEntry.energy) {
       const valMap: Record<string, number> = {
@@ -1735,7 +1753,6 @@ export default function MyDayScreen({
     updatedLogs[currentDayIndex].push(newEntry);
     
     setWaterLogs(updatedLogs);
-    useAppStore.getState().setWaterEntries(waterLogsToStoreEntries(updatedLogs));
     localStorage.setItem('wfpb_daily_water_entries_v3', JSON.stringify(updatedLogs));
     
     const sum = updatedLogs[currentDayIndex].reduce((acc, e) => acc + e.amount, 0);
