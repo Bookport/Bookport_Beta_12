@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { 
-  ChevronLeft, 
+import {
+  ChevronLeft,
   CheckCircle,
   Mic,
   X,
@@ -14,7 +14,6 @@ import {
 } from "lucide-react";
 import BottomBar from "./BottomBar";
 import CalendarButton from "./CalendarButton";
-import BriefNoteBlock from "./BriefNoteBlock";
 import { getRecipeImagePath } from "../utils/recipeImageMapper";
 import { useAppStore, type Screen } from "../store/useAppStore";
 import { api } from "../utils/api";
@@ -27,6 +26,13 @@ import { recipeDayBackData } from "../data/recipe_day_back";
 import { mustHaveBackData } from "../data/must_have_back";
 import ponderSound from "../assets/sound/zvuktolp.mp3";
 import cookSound from "../assets/sound/ova.mp3";
+import bookBreakfastImg from "../assets/images/book/1.webp";
+import bookLunchImg from "../assets/images/book/2.webp";
+import bookDinnerImg from "../assets/images/book/3.webp";
+import bookRecipeOfDayImg from "../assets/images/book/4.webp";
+import bookComplimentsImg from "../assets/images/book/5.webp";
+import bookMustHaveImg from "../assets/images/book/6.webp";
+import bookDrinksImg from "../assets/images/book/7.webp";
 
 export interface BookRecipesScreenProps {
   onBack?: () => void;
@@ -47,6 +53,7 @@ interface TabConfig {
   sectionTitle: string;
   sectionSubtitle: string;
   icon: string;
+  image: string;
   activeBg: string; // Background and volumetric shadows for active tab
   activeBorder: string;
   activeText: string;
@@ -1490,7 +1497,7 @@ export default function BookRecipesScreen({
   onNavigateProgress: propsOnNavigateProgress,
   onSaveBookRecipe
 }: BookRecipesScreenProps) {
-  
+
   const setScreen = useAppStore((s) => s.setScreen);
   const onBack = propsOnBack || (() => setScreen("my-day" as Screen));
   const storeScreen = useAppStore((s) => s.screen);
@@ -1580,7 +1587,6 @@ export default function BookRecipesScreen({
     selectedRecipeType === "must_have" &&
     !!selectedRecipe &&
     MUST_HAVE_RECIPES.find((r) => r.id === selectedRecipe.id)?.kind === "technical";
-  const [recipeActionType, setRecipeActionType] = useState<"ponder" | "cooked" | null>(null);
   const [recipeFlipped, setRecipeFlipped] = useState(false);
   const [modalNote, setModalNote] = useState<string>("");
   const [modalTags, setModalTags] = useState<string[]>([]);
@@ -1611,7 +1617,7 @@ export default function BookRecipesScreen({
     // Get reciprocal recipe status for selectedRecipe
     let currentStatus = "base";
     if (selectedRecipe && selectedRecipeType) {
-      const stateObj = 
+      const stateObj =
         selectedRecipeType === "must_have" ? mustHaveState[selectedRecipe.id] :
         selectedRecipeType === "breakfast" ? breakfastState[selectedRecipe.id] :
         selectedRecipeType === "lunch" ? lunchState[selectedRecipe.id] :
@@ -1633,10 +1639,10 @@ export default function BookRecipesScreen({
     else if (activeTab === "drinks") currentTabRecipes = DRINKS_RECIPES;
 
     const visibleCards = currentTabRecipes.map((r: any) => ({
-      id: r.id, 
-      technicalName: r.technicalName, 
-      emotionalName: r.emotionalName || "", 
-      page: r.page, 
+      id: r.id,
+      technicalName: r.technicalName,
+      emotionalName: r.emotionalName || "",
+      page: r.page,
       ingredients: r.ingredients,
       day: r.day || null,
       timeOfDay: r.timeOfDay || null
@@ -1707,6 +1713,7 @@ export default function BookRecipesScreen({
       sectionTitle: "Утренние рецепты",
       sectionSubtitle: "Растительные завтраки на каждый день",
       icon: "☀️",
+      image: bookBreakfastImg,
       activeBg: "bg-gradient-to-b from-[#FEF3C7] to-[#FDE68A] shadow-[0_0_15px_rgba(245,158,11,0.28),_inset_0_2px_4px_rgba(255,255,255,0.8)]",
       activeBorder: "border-[#F59E0B]/40",
       activeText: "text-[#B45309]",
@@ -1723,8 +1730,9 @@ export default function BookRecipesScreen({
       id: "lunch",
       label: "Обед",
       sectionTitle: "Обеды по системе WFPB",
-      sectionSubtitle: "Рецепты сытных обедов цельного растительного рациона на 28 дней полностью без добавления соли и продуктов животного происхождения",
+      sectionSubtitle: "Рецепты сытных обедов цельного растительного рациона",
       icon: "🥦",
+      image: bookLunchImg,
       activeBg: "bg-gradient-to-b from-[#D1FAE5] to-[#A7F3D0] shadow-[0_0_15px_rgba(16,185,129,0.32),_inset_0_2px_4px_rgba(255,255,255,0.8)]",
       activeBorder: "border-[#10B981]/40",
       activeText: "text-[#065F46]",
@@ -1737,8 +1745,9 @@ export default function BookRecipesScreen({
       id: "dinner",
       label: "Ужин",
       sectionTitle: "Ужины по системе WFPB",
-      sectionSubtitle: "Рецепты легких и сбалансированных ужинов на 28 дней без добавления соли, масла и ингредиентов животного происхождения",
+      sectionSubtitle: "Рецепты легких и сбалансированных ужинов на 28 дней",
       icon: "🌙",
+      image: bookDinnerImg,
       activeBg: "bg-gradient-to-b from-[#FFEBEF] to-[#FFD1DA] shadow-[0_4px_16px_rgba(244,63,94,0.22),_inset_0_2px_4px_rgba(255,255,255,0.8)]",
       activeBorder: "border-[#F43F5E]/30",
       activeText: "text-[#9F1239]",
@@ -1753,6 +1762,7 @@ export default function BookRecipesScreen({
       sectionTitle: "Шедевры дня",
       sectionSubtitle: "Особенные блюда для вашего вдохновения",
       icon: "✨",
+      image: bookRecipeOfDayImg,
       activeBg: "bg-gradient-to-b from-[#EDE9FE] to-[#DDD6FE] shadow-[0_0_15px_rgba(139,92,246,0.28),_inset_0_2px_4px_rgba(255,255,255,0.8)]",
       activeBorder: "border-[#8B5CF6]/40",
       activeText: "text-[#5B21B6]",
@@ -1769,8 +1779,9 @@ export default function BookRecipesScreen({
       id: "compliments",
       label: "Комплименты",
       sectionTitle: "Комплименты",
-      sectionSubtitle: "Рецепты легких закусок, соусов и смесей специй цельного растительного рациона по неделям",
+      sectionSubtitle: "Рецепты легких закусок, соусов, смесей и специй по неделям",
       icon: "🎀",
+      image: bookComplimentsImg,
       activeBg: "bg-gradient-to-b from-[#F5F2FD] via-[#EDE9FE] to-[#E0D7FC] shadow-[0_0_15px_rgba(139,92,246,0.22),_inset_0_2.5px_4px_rgba(255,255,255,0.9)] text-[#5B21B6] border-[#DDD6FE]",
       activeBorder: "border-[#8B5CF6]/40",
       activeText: "text-[#5B21B6]",
@@ -1783,8 +1794,9 @@ export default function BookRecipesScreen({
       id: "must_have",
       label: "Must Have",
       sectionTitle: "База здоровья • Must Have",
-      sectionSubtitle: "Обязательные заготовки пробиотических йогуртов, полезной ферментации, проростков и питательных смесей по неделям",
+      sectionSubtitle: "Обязательные заготовки",
       icon: "🌱",
+      image: bookMustHaveImg,
       activeBg: "bg-gradient-to-b from-[#ECFDF5] via-[#D1FAE5] to-[#A7F3D0] shadow-[0_0_15px_rgba(16,185,129,0.24),_inset_0_2.5px_4px_rgba(255,255,255,0.95)] text-[#065F46] border-[#A7F3D0]",
       activeBorder: "border-[#10B981]/40",
       activeText: "text-[#065F46]",
@@ -1799,6 +1811,7 @@ export default function BookRecipesScreen({
       sectionTitle: "Живая влага",
       sectionSubtitle: "Освежающие и согревающие идеи в бокале",
       icon: "🐳",
+      image: bookDrinksImg,
       activeBg: "bg-gradient-to-b from-[#E0F2FE] to-[#BAE6FD] shadow-[0_0_15px_rgba(14,165,233,0.3),_inset_0_2px_4px_rgba(255,255,255,0.8)]",
       activeBorder: "border-[#0EA5E9]/40",
       activeText: "text-[#075985]",
@@ -1917,7 +1930,7 @@ export default function BookRecipesScreen({
   const handleSimulateVoice = () => {
     if (isRecording) return;
     setIsRecording(true);
-    
+
     // Simulate speech-to-text with nice micro delays
     setTimeout(() => {
       const sampleText = SPEECH_SAMPLES[voiceSampleIdx];
@@ -1932,9 +1945,8 @@ export default function BookRecipesScreen({
     setSelectedRecipe(recipe);
     setSelectedRecipeType(type);
     setRecipeFlipped(false);
-    setRecipeActionType(null);
-    const existing = type === "must_have" 
-      ? mustHaveState[recipe.id] 
+    const existing = type === "must_have"
+      ? mustHaveState[recipe.id]
       : type === "breakfast"
       ? breakfastState[recipe.id]
       : type === "lunch"
@@ -2076,21 +2088,21 @@ export default function BookRecipesScreen({
     const isDinner = selectedRecipeType === "dinner";
     const isRecipeOfDay = selectedRecipeType === "recipe_of_day";
     const isDrinks = selectedRecipeType === "drinks";
-    const collectionName = isBreakfast 
-      ? "завтрак дня" 
-      : isLunch 
-      ? "обед дня" 
-      : isDinner 
-      ? "ужин дня" 
+    const collectionName = isBreakfast
+      ? "завтрак дня"
+      : isLunch
+      ? "обед дня"
+      : isDinner
+      ? "ужин дня"
       : isRecipeOfDay
       ? "рецепт дня"
       : isDrinks
       ? `напиток дня (${selectedRecipe.timeOfDay})`
-      : isMustHave 
-      ? "заготовка Must Have" 
+      : isMustHave
+      ? "заготовка Must Have"
       : "рецепт";
-    const statusEmoji = statusType === "cooked" 
-      ? (isBreakfast ? "🍓🍳" : isLunch ? "🥦🍳" : isDinner ? "🌙🍳" : isRecipeOfDay ? "✨🍳" : isDrinks ? "🐳☕" : isMustHave ? "🌱" : "🍳") 
+    const statusEmoji = statusType === "cooked"
+      ? (isBreakfast ? "🍓🍳" : isLunch ? "🥦🍳" : isDinner ? "🌙🍳" : isRecipeOfDay ? "✨🍳" : isDrinks ? "🐳☕" : isMustHave ? "🌱" : "🍳")
       : "🧡";
     const statusAction = statusType === "cooked" ? "Приготовлен" : "Выбран";
     const statusPonder = statusType === "cooked" ? "" : ": Подумаю";
@@ -2194,243 +2206,205 @@ export default function BookRecipesScreen({
   };
 
   return (
-    <div className="flex-1 flex flex-col justify-between bg-[#FAFAFA] min-h-[844px] relative" id="book-recipes-screen-root">
-      
-      {/* CSS For custom PC Scrollbar slider ("ползунок") */}
-      <style dangerouslySetInnerHTML={{__html: `
-        #book-recipes-tab-belt::-webkit-scrollbar {
-          height: 7px;
-        }
-        #book-recipes-tab-belt::-webkit-scrollbar-track {
-          background: rgba(0, 0, 0, 0.02);
-          border-radius: 9999px;
-        }
-        #book-recipes-tab-belt::-webkit-scrollbar-thumb {
-          background: rgba(139, 92, 246, 0.28);
-          border-radius: 9999px;
-        }
-        #book-recipes-tab-belt::-webkit-scrollbar-thumb:hover {
-          background: rgba(139, 92, 246, 0.45);
-        }
-      `}} />
+    <div className="flex-1 flex flex-col justify-between bg-[#FAFAFA] min-h-[100dvh] relative overflow-hidden" id="book-recipes-screen-root">
 
       {/* 1. SCROLLABLE SCREEN CONTENT CONTAINER */}
-      <div className="flex-1 px-5 pt-3 pb-8 overflow-y-auto max-h-[720px] scrollbar-thin" id="book-recipes-scroll-container">
-        
+      <div className="flex-1 px-5 pt-4 pb-8 overflow-y-auto max-h-[calc(100dvh-120px)] scrollbar-thin relative z-10" id="book-recipes-scroll-container">
+
         {/* HEADER BAR */}
-        <div className="flex justify-between items-center mb-5 relative z-10" id="book-recipes-header">
-          <button 
-            type="button" 
+        <div className="flex items-center mb-4 relative z-20" id="book-recipes-header">
+          <button
+            type="button"
             onClick={onBack}
-            className="w-10 h-10 rounded-full bg-white border border-gray-150/80 shadow-[inset_0_1.5px_3px_rgba(255,255,255,0.95),_0_4px_10px_rgba(0,0,0,0.03)] flex items-center justify-center text-text-sec hover:text-brand-green-pure active:scale-95 transition-all cursor-pointer"
+            className="w-10 h-10 rounded-full bg-white shadow-[0_2px_8px_rgba(0,0,0,0.05)] flex items-center justify-center text-text-sec hover:text-brand-green-pure active:scale-95 transition-all cursor-pointer shrink-0"
             id="book-recipes-back-btn"
           >
             <ChevronLeft className="w-6 h-6 shrink-0" />
           </button>
-          
-          <h2 
-            className="text-[17px] font-black text-emerald-800 tracking-tight block bg-emerald-50/50 border border-emerald-100/30 px-3 py-1 rounded-full shadow-[inset_0_1px_2px_rgba(255,255,255,0.9)]"
-            style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}
-          >
-            Всё дело в еде!
-          </h2>
 
-          <CalendarButton 
-            onClick={onOpenCalendar} 
-            dayNotes={dayNotes}
-            currentDayIndex={currentDayIndex} 
-            screen={navScreen}
-            className="w-10 h-10 rounded-full border border-gray-150 shadow-[inset_0_1.5px_3px_rgba(255,255,255,0.95),_0_4px_10px_rgba(0,0,0,0.03)]"
-          />
+          <div className="flex-1 text-center">
+            <h2
+              className="text-[18px] font-bold text-emerald-700 leading-none whitespace-nowrap inline-block"
+              style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}
+            >
+              Всё дело в еде!
+            </h2>
+          </div>
+
+          <div className="hidden w-10 shrink-0">
+            <CalendarButton
+              onClick={onOpenCalendar}
+              dayNotes={dayNotes}
+              currentDayIndex={currentDayIndex}
+              screen={navScreen}
+            />
+          </div>
         </div>
 
         {/* HERO TITLE & DETAILS */}
-        <div className="text-left mb-6" id="book-recipes-hero">
-          <motion.h1 
+        <div className="mb-5 relative z-20" id="book-recipes-hero">
+          <motion.h1
             initial={{ opacity: 0, y: -5 }}
             animate={{ opacity: 1, y: 0 }}
-            className="text-[30px] font-black text-text-dark leading-none tracking-tight mb-2 font-sans"
+            className="text-[28px] font-bold text-text-dark leading-tight tracking-tight mb-1 whitespace-nowrap font-sans"
             style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}
           >
             Рецепты книги
           </motion.h1>
-          <motion.p 
+          <motion.p
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.1 }}
-            className="text-[14px] font-medium leading-snug text-text-sec font-sans"
+            className="text-[18px] font-medium leading-snug text-gray-500 whitespace-nowrap font-sans"
             style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}
           >
-            Пространство для лучших рецептов цельного растительного рациона на день и неделю.
+            Рецепты из книги на каждый день недели.
           </motion.p>
         </div>
 
-        {/* COMPREHENSIVE VOLUMETRIC PROGRESS CARD BLOCK */}
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.98 }}
-          animate={{ opacity: 1, scale: 1 }}
+        {/* COMPACT PROGRESS CARD BLOCK */}
+        <motion.div
+          initial={{ opacity: 0, y: 5 }}
+          animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.15 }}
-          className="bg-white rounded-2xl shadow-xl shadow-gray-200/50 p-5 mb-5 flex items-center gap-5 relative overflow-hidden"
+          className="bg-white rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.06)] px-4 pb-4 pt-4 mb-[5px] relative overflow-visible"
           id="book-recipes-progress-card"
         >
-          {/* Subtle elegant background decoration lights */}
-          <div className="absolute top-0 right-0 w-32 h-32 bg-purple-100/10 rounded-full blur-3xl pointer-events-none" />
-
-          {/* Central element: Beautiful Glass Liquid Circle exactly like the main progress circle on MyDayScreen */}
-          <div className="relative w-[120px] h-[120px] shrink-0 select-none flex items-center justify-center" id="book-recipes-glass-circle-wrapper">
-            
-            {/* Outer heavy immersive drop realistic casting shadow */}
-            <div className="absolute inset-[-1px] rounded-full bg-slate-900/15 pointer-events-none filter blur-[9px] translate-y-3.5" />
-            <div className="absolute inset-0 rounded-full bg-[#1F2328]/6 pointer-events-none filter blur-[12px] translate-y-4" />
-            
-            {/* Outer light glow drop reflection */}
-            <div className="absolute inset-[-8px] rounded-full bg-gradient-to-tr from-purple-400/20 to-transparent pointer-events-none filter blur-[16px]" />
-            
-            {/* Main heavy glass casing ring with incredible double physical shadows */}
-            <div className="absolute inset-0 rounded-full bg-white/60 border border-white/90 shadow-[inset_0_6px_12px_rgba(255,255,255,0.98),_inset_0_-6px_12px_rgba(31,35,40,0.04),_0_14px_28px_-5px_rgba(31,35,40,0.18),_0_6px_12px_-5px_rgba(31,35,40,0.14)] backdrop-blur-xl" />
-            
-            {/* Symmetrical progressive glowing channel ring track with deeper depth shadow */}
-            <div className="absolute inset-[7px] rounded-full bg-[#EAEEF0] shadow-[inset_0_3px_5px_rgba(0,0,0,0.15),_inset_0_1px_1.5px_rgba(0,0,0,0.08)] overflow-hidden">
-              
-              {/* Visual Glass Inner Liquid fill - height updates based on real actual progressPercent */}
-              <motion.div 
-                initial={{ height: "0%" }}
-                animate={{ height: `${Math.max(5, progressPercent)}%` }}
+          {/* Progress ring — absolute right/bottom, overflow-visible */}
+          <div
+            className="absolute right-[5px] bottom-[5px] w-[152px] h-[152px] shrink-0 select-none pointer-events-none"
+            id="book-recipes-glass-circle-wrapper"
+          >
+            <svg width="152" height="152" viewBox="0 0 152 152" className="transform -rotate-90">
+              <circle cx="76" cy="76" r="68" stroke="#F3F4F6" strokeWidth="10" fill="white" />
+              <motion.circle
+                cx="76"
+                cy="76"
+                r="68"
+                stroke={currentMeta.liquidVia}
+                strokeWidth="10"
+                fill="none"
+                strokeLinecap="round"
+                strokeDasharray={2 * Math.PI * 68}
+                initial={{ strokeDashoffset: 2 * Math.PI * 68 }}
+                animate={{ strokeDashoffset: 2 * Math.PI * 68 * (1 - progressPercent / 100) }}
                 transition={{ type: "spring", stiffness: 45, damping: 15 }}
-                style={{
-                  background: `linear-gradient(to top, ${currentMeta.liquidFrom}, ${currentMeta.liquidVia}, ${currentMeta.liquidTo})`
-                }}
-                className="absolute bottom-0 left-0 right-0 flex flex-col justify-end overflow-hidden"
-              >
-                {/* Fluid liquid bubble wave generator */}
-                <div 
-                  className="absolute inset-x-0 -top-1.5 h-2 rounded-full scale-y-[0.45] opacity-85 blur-[0.2px] animate-pulse"
-                  style={{ backgroundColor: currentMeta.liquidTo }}
-                />
-              </motion.div>
-            </div>
-
-            {/* Inner floating center cap providing separation of volumetric fluid from text */}
-            <div className="absolute inset-[16px] rounded-full bg-white/95 border border-white/60 shadow-[0_6px_14px_rgba(31,35,40,0.08),_0_1.5px_3px_rgba(0,0,0,0.04),_inset_0_1.5px_3px_rgba(255,255,255,0.95)] flex flex-col items-center justify-center p-1.5 z-10 overflow-hidden">
-              {/* Linear soft highlight gradient sweeping across the center cap inside */}
-              <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-white/40 pointer-events-none" />
-              {/* Glossy top crescent cut across the inner text cap */}
-              <div className="absolute top-0 left-1 right-1 h-1/3 bg-white/60 rounded-[50%_/_0_0_100%_100%] pointer-events-none filter blur-[0.5px]" />
-              
-              {/* Glare and high intensity glimmers */}
-              <div className="absolute top-[6%] left-[15%] w-[2px] h-[2px] bg-white rounded-full shadow-[0_0_1px_white]" />
-              
-              {/* Big bold % text with physical depth text-shadow */}
-              <span 
-                className="text-[25px] font-bold text-text-dark leading-none tracking-tight inline-flex items-baseline drop-shadow-[0_1px_1px_rgba(255,255,255,0.95)] relative z-10 font-sans"
-                style={{ fontFamily: '"Calibri", sans-serif' }}
-              >
+              />
+            </svg>
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <span className={`text-[42px] font-bold leading-none ${currentMeta.numColor}`}>
                 {progressPercent}
-                <span className="text-[13px] font-bold text-text-muted ml-0.5">%</span>
+                <span className="text-[16px] ml-1">%</span>
               </span>
-              
-              {/* Little sprout leaf visual */}
-              <div className="flex flex-col items-center mt-0.5 relative z-10">
-                <span 
-                  className="text-[8px] font-bold text-text-muted/95 uppercase tracking-[0.5px] leading-none text-center font-sans"
-                  style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}
-                >
-                  готово
-                </span>
-                <span className="text-[9px] leading-none mt-0.5 font-medium">🌱</span>
-              </div>
+              <span className="text-[15px] font-semibold text-gray-600 uppercase tracking-wide mt-0.5">готово</span>
             </div>
-
-            {/* Top outer lens glossy shimmer border reflect */}
-            <div className="absolute top-1 left-3.5 right-3.5 h-[12%] bg-gradient-to-b from-white/80 via-white/30 to-transparent rounded-full pointer-events-none filter blur-[0.3px]" />
           </div>
 
-          <div className="text-left flex-1" id="book-recipes-progress-details">
-            <span 
-              className="text-[15.5px] font-black text-text-dark leading-none tracking-tight block mb-1 font-sans"
-              style={{ fontFamily: '"Calibri", sans-serif' }}
-            >
+          <div className="text-left flex-1 min-w-0 pr-[160px]">
+            <span className="text-[20px] font-bold text-gray-400 uppercase tracking-wide block mb-1 whitespace-nowrap">
+              ВАШ ПРОГРЕСС
+            </span>
+            <span className="text-[19px] font-bold text-text-dark leading-tight block mb-1 whitespace-nowrap">
               {currentMeta.title}
             </span>
-            <div className="flex items-baseline gap-1 mb-1">
-              <span className={`text-[20px] font-black leading-none font-sans ${currentMeta.numColor}`}>
+            <div className="flex items-baseline gap-2 whitespace-nowrap">
+              <span className={`text-[27px] font-bold leading-none ${currentMeta.numColor}`}>
                 {cookedCount}
               </span>
-              <span className="text-[12px] font-bold text-text-sec uppercase leading-none font-sans">
+              <span className="text-[13px] font-semibold text-text-sec uppercase">
                 из {totalCount}
               </span>
             </div>
-            <p 
-              className={`text-[11.5px] font-extrabold uppercase tracking-wider border px-2.5 py-0.5 rounded-full inline-block leading-none shadow-[inset_0_1px_1px_white] font-sans ${currentMeta.tagBgClass}`}
-              style={{ fontFamily: '"Calibri", sans-serif' }}
-            >
-              Приготовлено: {cookedCount} из {totalCount}
-            </p>
           </div>
         </motion.div>
-
-        {/* HORIZONTALLY SCROLLING PILL TABS WITH VISIBLE SCROLLBAR & COMPREHENSIVE VOLUMETRIC STYLING */}
-        <div 
-          className="mb-5 overflow-x-auto flex gap-2.5 px-0.5 py-1.5 cursor-grab active:cursor-grabbing pb-2" 
+        {/* CATEGORY TABS — 7 tabs in grid, no scroll */}
+        <div
+          className="mb-5 grid grid-cols-7 gap-[3px] px-0"
           id="book-recipes-tab-belt"
         >
           {TABS.map((tab) => {
             const isActive = activeTab === tab.id;
+            const tabColors: Record<string, { activeBg: string; activeText: string }> = {
+              breakfast: { activeBg: "#FFF0B8", activeText: "#9A6900" },
+              lunch: { activeBg: "#DDF3DE", activeText: "#317647" },
+              dinner: { activeBg: "#E9E2F8", activeText: "#65509A" },
+              recipe_of_day: { activeBg: "#FFE0CF", activeText: "#AE5731" },
+              compliments: { activeBg: "#F8DDEA", activeText: "#A4446E" },
+              must_have: { activeBg: "#D8F1E5", activeText: "#21745A" },
+              drinks: { activeBg: "#D8EFF9", activeText: "#286E89" }
+            };
+            const colors = tabColors[tab.id] || { activeBg: "#E5E7EB", activeText: "#374151" };
             return (
               <button
                 type="button"
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`py-2 px-4 rounded-full border text-[13.5px] font-bold whitespace-nowrap transition-all duration-300 cursor-pointer flex items-center gap-1.5 select-none font-sans ${
-                  isActive 
-                    ? `${tab.activeBg} ${tab.activeBorder} ${tab.activeText} scale-[1.02] active:scale-[1.00]` 
-                    : `${tab.inactiveBg} ${tab.inactiveBorder} ${tab.inactiveText} opacity-95 border-gray-200/50 hover:brightness-[1.02] hover:scale-[1.01] active:scale-[0.98]`
-                }`}
+                className="flex flex-col items-center gap-1 cursor-pointer select-none font-sans"
                 style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}
               >
-                <span className="text-[14px] leading-none shrink-0">{tab.icon}</span>
-                <span>{tab.label}</span>
+                <div
+                  className="w-full aspect-square rounded-xl flex items-center justify-center overflow-hidden shadow-[0_2px_8px_rgba(0,0,0,0.06)] transition-all"
+                  style={{ backgroundColor: isActive ? colors.activeBg : "#FFFFFF" }}
+                >
+                  <img src={tab.image} alt={tab.label} className="w-[85%] h-[85%] object-contain shrink-0" />
+                </div>
+                <span
+                  className="text-[10px] font-bold text-center leading-tight whitespace-nowrap transition-colors"
+                  style={{ color: isActive ? colors.activeText : "#6B7280" }}
+                >
+                  {tab.label}
+                </span>
               </button>
             );
           })}
         </div>
 
         {/* CONTAINER CONTENT AREA */}
-        <div className="bg-gradient-to-b from-white via-white to-[#FAFAFA] rounded-[28px] border border-gray-150 shadow-[inset_0_2px_3px_rgba(255,255,255,0.95),_0_14px_30px_-6px_rgba(31,35,40,0.05)] p-5 min-h-[300px] text-left flex flex-col justify-between" id="book-recipes-content-panel">
-          
+        <div className="min-h-[300px] text-left flex flex-col justify-between" id="book-recipes-content-panel">
+
           <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <h3 
-                className="text-[18px] font-black text-text-dark tracking-tight font-sans"
+            <div className="flex items-center justify-between mb-2">
+              <h3
+                className="text-[27px] font-bold text-text-dark tracking-tight font-sans whitespace-nowrap"
                 style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}
               >
                 {activeTabObj.sectionTitle}
               </h3>
-              <span className={`text-[10px] font-black border rounded-full px-2.5 py-0.5 select-none font-sans shadow-3xs ${
-                activeTab === "compliments" 
-                  ? "text-[#7C3AED] bg-purple-50 border-purple-150/45" 
+              <span className={`text-[14px] font-bold rounded-full px-3 py-1 select-none font-sans whitespace-nowrap ${
+                activeTab === "compliments"
+                  ? "text-[#A4446E] bg-[#F8DDEA]"
                   : activeTab === "must_have"
-                  ? "text-[#047857] bg-[#E8FDF0] border-emerald-150/45"
+                  ? "text-[#21745A] bg-[#D8F1E5]"
                   : activeTab === "breakfast"
-                  ? "text-[#B45309] bg-[#FEF3C7] border-[#F59E0B]/30"
+                  ? "text-[#9A6900] bg-[#FFF0B8]"
                   : activeTab === "lunch"
-                  ? "text-[#065F46] bg-[#E8FDF0] border-emerald-250/30"
-                  : "text-gray-500 bg-gray-50 border-gray-200"
+                  ? "text-[#317647] bg-[#DDF3DE]"
+                  : activeTab === "dinner"
+                  ? "text-[#65509A] bg-[#E9E2F8]"
+                  : activeTab === "recipe_of_day"
+                  ? "text-[#AE5731] bg-[#FFE0CF]"
+                  : "text-[#286E89] bg-[#D8EFF9]"
               }`}>
-                {activeTab === "compliments" 
-                  ? "21 рецепт" 
-                  : activeTab === "must_have" 
-                  ? "8 заготовок" 
+                {activeTab === "compliments"
+                  ? "21 рецепт"
+                  : activeTab === "must_have"
+                  ? "8 заготовок"
                   : activeTab === "breakfast"
                   ? "28 завтраков"
                   : activeTab === "lunch"
                   ? "28 обедов"
+                  : activeTab === "dinner"
+                  ? "28 ужинов"
+                  : activeTab === "recipe_of_day"
+                  ? "41 рецепт"
+                  : activeTab === "drinks"
+                  ? "84 напитка"
                   : `${activeTabObj.placeholderDescriptions.length} заготовки`}
               </span>
             </div>
-            
-            <p 
-              className="text-[13px] font-bold text-text-sec mb-4.5 font-sans leading-normal"
+
+            <p
+              className="text-[16px] font-medium text-text-sec mb-4 font-sans leading-normal whitespace-nowrap"
               style={{ fontFamily: '"Calibri", sans-serif' }}
             >
               {activeTabObj.sectionSubtitle}
@@ -2438,100 +2412,79 @@ export default function BookRecipesScreen({
 
             {/* CONDITIONAL RENDERING OF TABS. ONLY OVERRIDING COMPLIMENTS AND MUST HAVE TABS AND RETAINING ALL OTHERS PERFECTLY */}
             {activeTab === "compliments" ? (
-              
-              /* RENDER HIGH FIDELITY SEGMENTED LIST BY WEEK */
-              <div className="space-y-6" id="book-recipes-compliments-list">
+
+              /* RENDER GRID CARDS BY WEEK */
+              <div className="space-y-5" id="book-recipes-compliments-list">
                 {WEEKS_LABELS.map((weekLabel) => {
                   const recipesInWeek = COMPLIMENTS_RECIPES.filter(r => r.week === weekLabel);
-                  
+
                   return (
-                    <div key={weekLabel} className="space-y-2.5">
-                      
-                      {/* Week Section Label Chip */}
-                      <div className="flex items-center gap-1.5">
-                        <span className="inline-block px-3 py-1 text-[11.5px] font-black tracking-wide text-purple-800 bg-purple-50 border border-purple-200/50 rounded-full shadow-3xs uppercase font-sans">
+                    <div key={weekLabel}>
+                      <div className="flex items-center gap-1.5 mb-2.5">
+                        <span className="inline-block px-3 py-1 text-[14px] font-bold tracking-wide text-gray-500 bg-purple-50 rounded-full uppercase font-sans whitespace-nowrap">
                           {weekLabel}
                         </span>
-                        <div className="flex-1 h-[1.5px] bg-gradient-to-r from-purple-100/70 to-transparent" />
+                        <div className="flex-1 h-[1px] bg-gradient-to-r from-purple-100/60 to-transparent" />
                       </div>
 
-                      {/* Recipe Cards List inside week */}
-                      <div className="grid grid-cols-1 gap-3">
+                      <div className="grid grid-cols-2 gap-3">
                         {recipesInWeek.map((recipe) => {
                           const cardState = complimentsState[recipe.id]?.status || "base";
-                           
-                           // Resolve volumetric styles depending on actual card dynamic state
-                           let statusBgClass = "bg-white shadow-violet-500/15";
-                           let numBgClass = "bg-gray-100 text-slate-800 border-gray-200/60";
-                          let pageTagClass = "bg-gray-50 text-text-sec border-gray-200/40";
-                          let borderAccent = "";
 
-                          if (cardState === "ponder") {
-                            statusBgClass = "bg-gradient-to-b from-amber-50 to-[#FFFBEB] shadow-amber-500/25";
-                            numBgClass = "bg-amber-100/90 text-amber-900 border-amber-200";
-                            pageTagClass = "bg-amber-50/90 text-amber-800 border-amber-200/40";
-                            borderAccent = "border-l-[3.5px] border-l-amber-500 rounded-l-[18px]";
-                          } else if (cardState === "cooked") {
-                            statusBgClass = "bg-gradient-to-b from-[#ECFDF5] to-[#F0FDF4]/60 shadow-emerald-500/25";
-                            numBgClass = "bg-emerald-100 text-emerald-950 border-emerald-250/50";
-                            pageTagClass = "bg-emerald-50 text-emerald-800 border-emerald-200/40";
-                            borderAccent = "border-l-[3.5px] border-l-emerald-550 rounded-l-[18px]";
+                          let statusBgClass = "bg-white";
+                          if (cardState === "cooked") {
+                            statusBgClass = "bg-[#FDF0F6]";
                           }
-                          
+
                           const recipeImage = getRecipeImagePath(recipe.emotionalName, recipe.technicalName);
                           return (
                             <motion.div
-                              whileHover={{ scale: 1.008 }}
-                              whileTap={{ scale: 0.985 }}
+                              whileHover={{ scale: 1.02 }}
+                              whileTap={{ scale: 0.98 }}
                               key={recipe.id}
                               onClick={() => handleOpenRecipeModal(recipe, "compliment")}
-                              className={`rounded-[22px] p-3.5 flex items-center justify-between gap-3.5 transition-all duration-300 cursor-pointer relative bg-white shadow-lg ${statusBgClass} ${borderAccent}`}
+                              className={`rounded-2xl overflow-hidden shadow-[0_2px_8px_rgba(0,0,0,0.06)] transition-all duration-300 cursor-pointer ${statusBgClass}`}
                             >
-                              <div className="flex items-center gap-3.5 flex-1 min-w-0">
-                                
-                                {/* Recipe thumbnail with overlaid day number */}
-                                {recipeImage ? (
-                                  <div className="relative w-14 h-14 shrink-0">
-                                    <img 
-                                      src={recipeImage} 
-                                      alt={recipe.technicalName}
-                                      className="w-14 h-14 rounded-xl object-cover bg-white"
-                                      loading="lazy"
-                                    />
-                                    <div className="absolute -bottom-0.5 -right-0.5 w-5.5 h-5.5 rounded-full bg-black/60 flex items-center justify-center text-white text-[10px] font-black shadow">
-                                      {recipe.id}
-                                    </div>
-                                  </div>
-                                ) : (
-                                  <div className={`w-8.5 h-8.5 rounded-full border flex items-center justify-center text-[13.5px] font-black shrink-0 shadow-2xs font-sans ${numBgClass}`}>
+                              {recipeImage ? (
+                                <div className="relative w-full aspect-square overflow-hidden">
+                                  <img
+                                    src={recipeImage}
+                                    alt={recipe.technicalName}
+                                    className="w-full h-full object-cover"
+                                    loading="lazy"
+                                  />
+                                  <div className="absolute top-2 left-2 w-8 h-8 rounded-full bg-black/60 flex items-center justify-center text-white text-[21px] font-bold">
                                     {recipe.id}
                                   </div>
-                                )}
-                                
-                                <div className="text-left flex-1 min-w-0">
-                                  {/* Technical title without quotes */}
-                                  <h4 
-                                    className="text-[13.5px] font-black text-text-dark leading-snug truncate font-sans"
-                                    style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}
-                                  >
-                                    {recipe.technicalName}
-                                  </h4>
-                                  
-                                  {/* Emotional recipe name capped in quote marks */}
-                                  <p 
-                                    className="text-[11.5px] font-bold text-[#8A5CF6] leading-none mt-1 truncate font-sans uppercase tracking-[0.5px]"
+                                </div>
+                              ) : (
+                                <div className="w-full aspect-square bg-gradient-to-br from-purple-50 to-purple-100/50 flex items-center justify-center">
+                                  <span className="text-[18px] font-bold text-purple-300">{recipe.id}</span>
+                                </div>
+                              )}
+                              <div className="p-3 flex flex-col justify-between min-h-[80px]">
+                                <div>
+                                  {recipe.emotionalName && (
+                                    <h4
+                                      className="text-[14px] font-bold text-text-dark leading-tight line-clamp-1 font-sans mb-0.5"
+                                      style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}
+                                    >
+                                      «{recipe.emotionalName}»
+                                    </h4>
+                                  )}
+                                  <p
+                                    className="text-[12px] text-gray-500 leading-snug line-clamp-2 font-sans"
                                     style={{ fontFamily: '"Calibri", sans-serif' }}
                                   >
-                                    «{recipe.emotionalName}»
+                                    {recipe.technicalName}
                                   </p>
                                 </div>
+                                <div className="flex justify-end mt-2">
+                                  <span className={`text-[12px] font-bold rounded-full px-2.5 py-0.5 ${cardState === "cooked" ? "bg-emerald-100 text-emerald-700" : cardState === "ponder" ? "bg-amber-50 text-amber-700" : "bg-gray-50 text-text-sec"}`}>
+                                    стр. {recipe.page}
+                                  </span>
+                                </div>
                               </div>
-
-                              {/* Book Page Number string widget badge aligned to the center */}
-                              <div className={`text-[10px] font-black border rounded-full px-2.5 py-0.5 shrink-0 shadow-3xs font-sans whitespace-nowrap ${pageTagClass}`}>
-                                стр. {recipe.page}
-                              </div>
-
                             </motion.div>
                           );
                         })}
@@ -2543,102 +2496,79 @@ export default function BookRecipesScreen({
 
             ) : activeTab === "must_have" ? (
 
-              /* RENDER HIGH FIDELITY SEGMENTED MUST HAVE LIST BY WEEK */
-              <div className="space-y-6" id="book-recipes-musthave-list">
+              /* RENDER GRID CARDS MUST HAVE BY WEEK */
+              <div className="space-y-5" id="book-recipes-musthave-list">
                 {["Неделя 1", "Неделя 2", "Неделя 3", "Неделя 4"].map((weekLabel) => {
                   const recipesInWeek = MUST_HAVE_RECIPES.filter(r => r.week === weekLabel);
-                  
+
                   return (
-                    <div key={weekLabel} className="space-y-2.5">
-                      
-                      {/* Week Section Label Chip Custom WFPB Styled */}
-                      <div className="flex items-center gap-1.5">
-                        <span className="inline-block px-3 py-1 text-[11.5px] font-black tracking-wide text-emerald-800 bg-emerald-50 border border-emerald-200/50 rounded-full shadow-3xs uppercase font-sans">
+                    <div key={weekLabel}>
+                      <div className="flex items-center gap-1.5 mb-2.5">
+                        <span className="inline-block px-3 py-1 text-[14px] font-bold tracking-wide text-gray-500 bg-emerald-50 rounded-full uppercase font-sans whitespace-nowrap">
                           {weekLabel}
                         </span>
-                        <div className="flex-1 h-[1.5px] bg-gradient-to-r from-emerald-100/70 to-transparent" />
+                        <div className="flex-1 h-[1px] bg-gradient-to-r from-emerald-100/60 to-transparent" />
                       </div>
 
-                      {/* Recipe Cards List inside week */}
-                      <div className="grid grid-cols-1 gap-3">
+                      <div className="grid grid-cols-2 gap-3">
                         {recipesInWeek.map((recipe) => {
                           const cardState = mustHaveState[recipe.id]?.status || "base";
-                           
-                           // Resolve volumetric styles depending on actual card dynamic state
-                           let statusBgClass = "bg-white shadow-emerald-500/15";
-                           let numBgClass = "bg-gray-100 text-slate-800 border-gray-200/60";
-                          let pageTagClass = "bg-gray-50 text-text-sec border-gray-200/40";
-                          let borderAccent = "";
 
-                          if (cardState === "ponder") {
-                            statusBgClass = "bg-gradient-to-b from-amber-50 to-[#FFFBEB] shadow-amber-500/25";
-                            numBgClass = "bg-amber-100/90 text-amber-900 border-amber-200";
-                            pageTagClass = "bg-amber-50/90 text-amber-800 border-amber-200/40";
-                            borderAccent = "border-l-[3.5px] border-l-amber-500 rounded-l-[18px]";
-                          } else if (cardState === "cooked") {
-                            statusBgClass = "bg-gradient-to-b from-[#ECFDF5] to-[#F0FDF4]/60 shadow-emerald-500/25";
-                            numBgClass = "bg-emerald-100 text-emerald-950 border-emerald-250/50";
-                            pageTagClass = "bg-emerald-50 text-emerald-800 border-emerald-200/40";
-                            borderAccent = "border-l-[3.5px] border-l-emerald-550 rounded-l-[18px]";
+                          let statusBgClass = "bg-white";
+                          if (cardState === "cooked") {
+                            statusBgClass = "bg-[#EEF9F4]";
                           }
 
                           const recipeImage = getRecipeImagePath(recipe.emotionalName, recipe.technicalName);
 
                           return (
                             <motion.div
-                              whileHover={{ scale: 1.008 }}
-                              whileTap={{ scale: 0.985 }}
+                              whileHover={{ scale: 1.02 }}
+                              whileTap={{ scale: 0.98 }}
                               key={recipe.id}
                               onClick={() => handleOpenRecipeModal(recipe, "must_have")}
-                              className={`rounded-[22px] p-3.5 flex items-center justify-between gap-3.5 transition-all duration-300 cursor-pointer relative bg-white shadow-lg ${statusBgClass} ${borderAccent}`}
+                              className={`rounded-2xl overflow-hidden shadow-[0_2px_8px_rgba(0,0,0,0.06)] transition-all duration-300 cursor-pointer ${statusBgClass}`}
                             >
-                              <div className="flex items-center gap-3.5 flex-1 min-w-0">
-                                
-                                {/* Recipe thumbnail with overlaid day number */}
-                                {recipeImage ? (
-                                  <div className="relative w-14 h-14 shrink-0">
-                                    <img 
-                                      src={recipeImage} 
-                                      alt={recipe.technicalName}
-                                      className="w-14 h-14 rounded-xl object-cover bg-white"
-                                      loading="lazy"
-                                    />
-                                    <div className="absolute -bottom-0.5 -right-0.5 w-5.5 h-5.5 rounded-full bg-black/60 flex items-center justify-center text-white text-[10px] font-black shadow">
-                                      {recipe.id}
-                                    </div>
-                                  </div>
-                                ) : (
-                                  <div className={`w-8.5 h-8.5 rounded-full border flex items-center justify-center text-[13.5px] font-black shrink-0 shadow-2xs font-sans ${numBgClass}`}>
+                              {recipeImage ? (
+                                <div className="relative w-full aspect-square overflow-hidden">
+                                  <img
+                                    src={recipeImage}
+                                    alt={recipe.technicalName}
+                                    className="w-full h-full object-cover"
+                                    loading="lazy"
+                                  />
+                                  <div className="absolute top-2 left-2 w-8 h-8 rounded-full bg-black/60 flex items-center justify-center text-white text-[21px] font-bold">
                                     {recipe.id}
                                   </div>
-                                )}
-                                
-                                <div className="text-left flex-1 min-w-0">
-                                  {/* Technical title without quotes */}
-                                  <h4 
-                                    className="text-[13.5px] font-black text-text-dark leading-snug truncate font-sans"
-                                    style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}
-                                  >
-                                    {recipe.technicalName}
-                                  </h4>
-                                  
-                                  {/* Emotional recipe name capped in quote marks (if it exists) */}
+                                </div>
+                              ) : (
+                                <div className="w-full aspect-square bg-gradient-to-br from-emerald-50 to-emerald-100/50 flex items-center justify-center">
+                                  <span className="text-[18px] font-bold text-emerald-300">{recipe.id}</span>
+                                </div>
+                              )}
+                              <div className="p-3 flex flex-col justify-between min-h-[80px]">
+                                <div>
                                   {recipe.emotionalName && (
-                                    <p 
-                                      className="text-[11.5px] font-bold text-emerald-705 leading-none mt-1 truncate font-sans uppercase tracking-[0.5px]"
-                                      style={{ fontFamily: '"Calibri", sans-serif' }}
+                                    <h4
+                                      className="text-[14px] font-bold text-text-dark leading-tight line-clamp-1 font-sans mb-0.5"
+                                      style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}
                                     >
                                       «{recipe.emotionalName}»
-                                    </p>
+                                    </h4>
                                   )}
+                                  <p
+                                    className="text-[12px] text-gray-500 leading-snug line-clamp-2 font-sans"
+                                    style={{ fontFamily: '"Calibri", sans-serif' }}
+                                  >
+                                    {recipe.technicalName}
+                                  </p>
+                                </div>
+                                <div className="flex justify-end mt-2">
+                                  <span className={`text-[12px] font-bold rounded-full px-2.5 py-0.5 ${cardState === "cooked" ? "bg-emerald-100 text-emerald-700" : cardState === "ponder" ? "bg-amber-50 text-amber-700" : "bg-gray-50 text-text-sec"}`}>
+                                    стр. {recipe.page}
+                                  </span>
                                 </div>
                               </div>
-
-                              {/* Book Page Number string widget badge aligned to the center */}
-                              <div className={`text-[10px] font-black border rounded-full px-2.5 py-0.5 shrink-0 shadow-3xs font-sans whitespace-nowrap ${pageTagClass}`}>
-                                стр. {recipe.page}
-                              </div>
-
                             </motion.div>
                           );
                         })}
@@ -2650,95 +2580,76 @@ export default function BookRecipesScreen({
 
             ) : activeTab === "breakfast" ? (
 
-              /* RENDER HIGH FIDELITY BREAKFAST LIST SECUENTIALLY 1 TO 28 DAYS */
-              <div className="space-y-6" id="book-recipes-breakfast-list">
-                <div className="flex items-center justify-between px-0.5 pb-1">
-                  <span className="text-[12px] font-bold text-text-sec uppercase tracking-wider block font-sans" style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}>
+              /* RENDER GRID BREAKFAST CARDS 1 TO 28 */
+              <div id="book-recipes-breakfast-list">
+                <div className="flex items-center justify-between px-0.5 pb-2 mb-2">
+                  <span className="text-[16px] font-bold text-gray-400 uppercase tracking-wider block font-sans whitespace-nowrap" style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}>
                     Завтраки 1–28 дня
                   </span>
                   <div className="flex-1 h-[1px] bg-gradient-to-r from-amber-200 to-transparent ml-3" />
                 </div>
 
-                <div className="grid grid-cols-1 gap-3">
+                <div className="grid grid-cols-2 gap-3">
                   {BREAKFAST_RECIPES.map((recipe) => {
                     const cardState = breakfastState[recipe.id]?.status || "base";
-                    
-                    // Resolve volumetric styles depending on actual card dynamic state for breakfast
-                    let statusBgClass = "bg-white shadow-amber-500/15";
-                    let numBgClass = "bg-[#FFFDF5] text-[#9B5A18] border-[#FBEAC4]/80 shadow-[inset_0_1px_1.5px_white]";
-                    let pageTagClass = "bg-gray-50 text-text-sec border-gray-200/40";
-                    let borderAccent = "";
 
-                    if (cardState === "ponder") {
-                      statusBgClass = "bg-gradient-to-b from-amber-50 to-[#FFFBEB] shadow-amber-500/25";
-                      numBgClass = "bg-amber-100/90 text-amber-900 border-amber-200";
-                      pageTagClass = "bg-amber-50/90 text-amber-800 border-amber-200/40";
-                      borderAccent = "border-l-[3.5px] border-l-amber-500 rounded-l-[18px]";
-                    } else if (cardState === "cooked") {
-                      statusBgClass = "bg-gradient-to-b from-[#ECFDF5] to-[#F0FDF4]/60 shadow-emerald-500/25";
-                      numBgClass = "bg-emerald-100 text-emerald-950 border-emerald-250/50";
-                      pageTagClass = "bg-emerald-50 text-emerald-800 border-emerald-200/40";
-                      borderAccent = "border-l-[3.5px] border-l-emerald-550 rounded-l-[18px]";
+                    let statusBgClass = "bg-white";
+                    if (cardState === "cooked") {
+                      statusBgClass = "bg-[#FFF8DE]";
                     }
 
-                    // Extract first two ingredients as a clean basis text
-                    const firstTwoIngredients = recipe.ingredients.split(",").slice(0, 2).map(i => i.trim()).join(" и ");
                     const recipeImage = getRecipeImagePath(recipe.emotionalName, recipe.technicalName);
 
                     return (
                       <motion.div
-                        whileHover={{ scale: 1.008 }}
-                        whileTap={{ scale: 0.985 }}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
                         key={recipe.id}
                         onClick={() => handleOpenRecipeModal(recipe, "breakfast")}
-                        className={`rounded-[22px] p-3.5 flex items-center justify-between gap-3.5 transition-all duration-300 cursor-pointer relative bg-white shadow-lg ${statusBgClass} ${borderAccent}`}
+                        className={`rounded-2xl overflow-hidden shadow-[0_2px_8px_rgba(0,0,0,0.06)] transition-all duration-300 cursor-pointer ${statusBgClass}`}
                       >
-                        <div className="flex items-center gap-3.5 flex-1 min-w-0">
-                          
-                          {/* Recipe thumbnail with overlaid day number */}
-                          {recipeImage ? (
-                            <div className="relative w-14 h-14 shrink-0">
-                              <img 
-                                src={recipeImage} 
-                                alt={recipe.technicalName}
-                                className="w-14 h-14 rounded-xl object-cover bg-white"
-                                loading="lazy"
-                              />
-                              <div className="absolute -bottom-0.5 -right-0.5 w-5.5 h-5.5 rounded-full bg-black/60 flex items-center justify-center text-white text-[10px] font-black shadow">
-                                {recipe.id}
-                              </div>
-                            </div>
-                          ) : (
-                            <div className={`w-10 h-10 rounded-full border flex items-center justify-center text-[15px] font-black shadow-2xs font-sans shrink-0 ${numBgClass}`}>
+                        {recipeImage ? (
+                          <div className="relative w-full aspect-square overflow-hidden">
+                            <img
+                              src={recipeImage}
+                              alt={recipe.technicalName}
+                              className="w-full h-full object-cover"
+                              loading="lazy"
+                            />
+                            <div className="absolute top-2 left-2 w-8 h-8 rounded-full bg-black/60 flex items-center justify-center text-white text-[21px] font-bold">
                               {recipe.id}
                             </div>
-                          )}
-                          
-                          <div className="text-left flex-1 min-w-0">
-                            {/* Technical title */}
-                            <h4 
-                              className="text-[13.5px] font-black text-text-dark leading-snug font-sans truncate"
-                              style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}
+                          </div>
+                        ) : (
+                          <div className="w-full aspect-square bg-gradient-to-br from-amber-50 to-amber-100/50 flex items-center justify-center">
+                            <span className="text-[18px] font-bold text-amber-300">{recipe.id}</span>
+                          </div>
+                        )}
+                        <div className="p-3 flex flex-col justify-between min-h-[80px]">
+                          <div>
+                            {recipe.emotionalName && (
+                              <h4
+                                className="text-[14px] font-bold text-text-dark leading-tight line-clamp-1 font-sans mb-0.5"
+                                style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}
+                                title={recipe.emotionalName}
+                              >
+                                «{recipe.emotionalName}»
+                              </h4>
+                            )}
+                            <p
+                              className="text-[12px] text-gray-500 leading-snug line-clamp-2 font-sans"
+                              style={{ fontFamily: '"Calibri", sans-serif' }}
                               title={recipe.technicalName}
                             >
                               {recipe.technicalName}
-                            </h4>
-                            
-                            {/* Emotional name */}
-                            <p 
-                              className="text-[11.5px] font-bold text-[#D97706] leading-none mt-1 truncate font-sans uppercase tracking-[0.5px]"
-                              style={{ fontFamily: '"Calibri", sans-serif' }}
-                            >
-                              «{recipe.emotionalName}»
                             </p>
                           </div>
+                          <div className="flex justify-end mt-2">
+                            <span className={`text-[12px] font-bold rounded-full px-2.5 py-0.5 ${cardState === "cooked" ? "bg-emerald-100 text-emerald-700" : cardState === "ponder" ? "bg-amber-50 text-amber-700" : "bg-gray-50 text-text-sec"}`}>
+                              стр. {recipe.page}
+                            </span>
+                          </div>
                         </div>
-
-                        {/* Page indicator aligned vertically */}
-                        <div className={`text-[10px] font-black border rounded-full px-2.5 py-0.5 shrink-0 shadow-3xs font-sans whitespace-nowrap align-middle self-center ${pageTagClass}`}>
-                          стр. {recipe.page}
-                        </div>
-
                       </motion.div>
                     );
                   })}
@@ -2747,96 +2658,77 @@ export default function BookRecipesScreen({
 
             ) : activeTab === "lunch" ? (
 
-              /* RENDER HIGH FIDELITY LUNCH LIST SEQUENTIALLY 1 TO 28 DAYS */
-              <div className="space-y-6" id="book-recipes-lunch-list">
-                <div className="flex items-center justify-between px-0.5 pb-1">
-                  <span className="text-[12px] font-bold text-text-sec uppercase tracking-wider block font-sans" style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}>
+              /* RENDER GRID LUNCH CARDS 1 TO 28 */
+              <div id="book-recipes-lunch-list">
+                <div className="flex items-center justify-between px-0.5 pb-2 mb-2">
+                  <span className="text-[16px] font-bold text-gray-400 uppercase tracking-wider block font-sans whitespace-nowrap" style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}>
                     Обеды 1–28 дня
                   </span>
                   <div className="flex-1 h-[1px] bg-gradient-to-r from-emerald-200 to-transparent ml-3" />
                 </div>
 
-                <div className="grid grid-cols-1 gap-3">
+                <div className="grid grid-cols-2 gap-3">
                   {LUNCH_RECIPES.map((recipe) => {
                     const cardState = lunchState[recipe.id]?.status || "base";
-                    
-                    // Resolve volumetric styles depending on actual card dynamic state for lunch
-                    let statusBgClass = "bg-white shadow-green-500/15";
-                    let numBgClass = "bg-[#F4FDF9] text-[#065F46] border-[#A7F3D0]/80 shadow-[inset_0_1px_1.5px_white]";
-                    let pageTagClass = "bg-gray-50 text-text-sec border-gray-200/40";
-                    let borderAccent = "";
 
-                    if (cardState === "ponder") {
-                      statusBgClass = "bg-gradient-to-b from-amber-50 to-[#FFFBEB] shadow-amber-500/25";
-                      numBgClass = "bg-amber-100/90 text-amber-900 border-amber-200";
-                      pageTagClass = "bg-amber-50/90 text-amber-800 border-amber-200/40";
-                      borderAccent = "border-l-[3.5px] border-l-amber-500 rounded-l-[18px]";
-                    } else if (cardState === "cooked") {
-                      statusBgClass = "bg-gradient-to-b from-[#ECFDF5] to-[#F0FDF4]/60 shadow-emerald-500/25";
-                      numBgClass = "bg-emerald-100 text-emerald-950 border-emerald-250/50";
-                      pageTagClass = "bg-emerald-50 text-emerald-800 border-emerald-200/40";
-                      borderAccent = "border-l-[3.5px] border-l-emerald-550 rounded-l-[18px]";
-                          }
-                          
-                          // Extract first two ingredients as a clean basis text
-                          const firstTwoIngredients = recipe.ingredients.split(",").slice(0, 2).map(i => i.trim()).join(" и ");
-                          const recipeImage = getRecipeImagePath(recipe.emotionalName, recipe.technicalName);
+                    let statusBgClass = "bg-white";
+                    if (cardState === "cooked") {
+                      statusBgClass = "bg-[#F0FAF0]";
+                    }
 
-                          return (
-                            <motion.div
-                              whileHover={{ scale: 1.008 }}
-                              whileTap={{ scale: 0.985 }}
-                              key={recipe.id}
-                              onClick={() => handleOpenRecipeModal(recipe, "lunch")}
-                              className={`rounded-[22px] p-3.5 flex items-center justify-between gap-3.5 transition-all duration-300 cursor-pointer relative bg-white shadow-lg ${statusBgClass} ${borderAccent}`}
+                    const recipeImage = getRecipeImagePath(recipe.emotionalName, recipe.technicalName);
+
+                    return (
+                      <motion.div
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        key={recipe.id}
+                        onClick={() => handleOpenRecipeModal(recipe, "lunch")}
+                        className={`rounded-2xl overflow-hidden shadow-[0_2px_8px_rgba(0,0,0,0.06)] transition-all duration-300 cursor-pointer ${statusBgClass}`}
+                      >
+                        {recipeImage ? (
+                          <div className="relative w-full aspect-square overflow-hidden">
+                            <img
+                              src={recipeImage}
+                              alt={recipe.technicalName}
+                              className="w-full h-full object-cover"
+                              loading="lazy"
+                            />
+                            <div className="absolute top-2 left-2 w-8 h-8 rounded-full bg-black/60 flex items-center justify-center text-white text-[21px] font-bold">
+                              {recipe.id}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="w-full aspect-square bg-gradient-to-br from-emerald-50 to-emerald-100/50 flex items-center justify-center">
+                            <span className="text-[18px] font-bold text-emerald-300">{recipe.id}</span>
+                          </div>
+                        )}
+                        <div className="p-3 flex flex-col justify-between min-h-[80px]">
+                          <div>
+                            {recipe.emotionalName && (
+                              <h4
+                                className="text-[14px] font-bold text-text-dark leading-tight line-clamp-1 font-sans mb-0.5"
+                                style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}
+                                title={recipe.emotionalName}
+                              >
+                                «{recipe.emotionalName}»
+                              </h4>
+                            )}
+                            <p
+                              className="text-[12px] text-gray-500 leading-snug line-clamp-2 font-sans"
+                              style={{ fontFamily: '"Calibri", sans-serif' }}
+                              title={recipe.technicalName}
                             >
-                              <div className="flex items-center gap-3.5 flex-1 min-w-0">
-                                
-                                {/* Recipe thumbnail with overlaid day number */}
-                                {recipeImage ? (
-                                  <div className="relative w-14 h-14 shrink-0">
-                                    <img 
-                                      src={recipeImage} 
-                                      alt={recipe.technicalName}
-                                      className="w-14 h-14 rounded-xl object-cover bg-white"
-                                      loading="lazy"
-                                    />
-                                    <div className="absolute -bottom-0.5 -right-0.5 w-5.5 h-5.5 rounded-full bg-black/60 flex items-center justify-center text-white text-[10px] font-black shadow">
-                                      {recipe.id}
-                                    </div>
-                                  </div>
-                                ) : (
-                                  <div className={`w-10 h-10 rounded-full border flex items-center justify-center text-[15px] font-black shadow-2xs font-sans shrink-0 ${numBgClass}`}>
-                                    {recipe.id}
-                                  </div>
-                                )}
-                                
-                                <div className="text-left flex-1 min-w-0">
-                                  {/* Technical title */}
-                                  <h4 
-                                    className="text-[13.5px] font-black text-text-dark leading-snug font-sans truncate"
-                                    style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}
-                                    title={recipe.technicalName}
-                                  >
-                                    {recipe.technicalName}
-                                  </h4>
-                                  
-                                  {/* Emotional name */}
-                                  <p 
-                                    className="text-[11.5px] font-bold text-[#10B981] leading-none mt-1 truncate font-sans uppercase tracking-[0.5px]"
-                                    style={{ fontFamily: '"Calibri", sans-serif' }}
-                                  >
-                                    «{recipe.emotionalName}»
-                                  </p>
-                                </div>
-                              </div>
-
-                              {/* Page indicator aligned vertically */}
-                              <div className={`text-[10px] font-black border rounded-full px-2.5 py-0.5 shrink-0 shadow-3xs font-sans whitespace-nowrap align-middle self-center ${pageTagClass}`}>
-                                стр. {recipe.page}
-                              </div>
-
-                            </motion.div>
+                              {recipe.technicalName}
+                            </p>
+                          </div>
+                          <div className="flex justify-end mt-2">
+                            <span className={`text-[12px] font-bold rounded-full px-2.5 py-0.5 ${cardState === "cooked" ? "bg-emerald-100 text-emerald-700" : cardState === "ponder" ? "bg-amber-50 text-amber-700" : "bg-gray-50 text-text-sec"}`}>
+                              стр. {recipe.page}
+                            </span>
+                          </div>
+                        </div>
+                      </motion.div>
                     );
                   })}
                 </div>
@@ -2844,94 +2736,76 @@ export default function BookRecipesScreen({
 
             ) : activeTab === "dinner" ? (
 
-              /* RENDER HIGH FIDELITY DINNER LIST SEQUENTIALLY 1 TO 28 DAYS */
-              <div className="space-y-6" id="book-recipes-dinner-list">
-                <div className="flex items-center justify-between px-0.5 pb-1">
-                  <span className="text-[12px] font-bold text-text-sec uppercase tracking-wider block font-sans" style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}>
+              /* RENDER GRID DINNER CARDS 1 TO 28 */
+              <div id="book-recipes-dinner-list">
+                <div className="flex items-center justify-between px-0.5 pb-2 mb-2">
+                  <span className="text-[16px] font-bold text-gray-400 uppercase tracking-wider block font-sans whitespace-nowrap" style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}>
                     Ужины 1–28 дня
                   </span>
                   <div className="flex-1 h-[1px] bg-gradient-to-r from-rose-200 to-transparent ml-3" />
                 </div>
 
-                <div className="grid grid-cols-1 gap-3">
+                <div className="grid grid-cols-2 gap-3">
                   {DINNER_RECIPES.map((recipe) => {
                     const cardState = dinnerState[recipe.id]?.status || "base";
-                    
-                    // Resolve volumetric styles depending on actual card dynamic state for dinner
-                    let statusBgClass = "bg-white shadow-rose-500/15";
-                    let numBgClass = "bg-[#FFF1F2] text-[#9F1239] border-[#FECDD3]/80 shadow-[inset_0_1px_1.5px_white]";
-                    let pageTagClass = "bg-gray-50 text-text-sec border-gray-200/40";
-                    let borderAccent = "";
 
-                    if (cardState === "ponder") {
-                      statusBgClass = "bg-gradient-to-b from-amber-50 to-[#FFFBEB] shadow-amber-500/25";
-                      numBgClass = "bg-amber-100/90 text-amber-900 border-amber-200";
-                      pageTagClass = "bg-amber-50/90 text-amber-800 border-amber-200/40";
-                      borderAccent = "border-l-[3.5px] border-l-amber-500 rounded-l-[18px]";
-                    } else if (cardState === "cooked") {
-                      statusBgClass = "bg-gradient-to-b from-[#ECFDF5] to-[#F0FDF4]/60 shadow-emerald-500/25";
-                      numBgClass = "bg-emerald-100 text-emerald-950 border-emerald-250/50";
-                      pageTagClass = "bg-emerald-50 text-emerald-800 border-emerald-200/40";
-                      borderAccent = "border-l-[3.5px] border-l-emerald-550 rounded-l-[18px]";
+                    let statusBgClass = "bg-white";
+                    if (cardState === "cooked") {
+                      statusBgClass = "bg-[#F5F1FC]";
                     }
 
-                    // Extract first two ingredients as a clean basis text
-                    const firstTwoIngredients = recipe.ingredients.split(",").slice(0, 2).map(i => i.trim()).join(" и ");
                     const recipeImage = getRecipeImagePath(recipe.emotionalName, recipe.technicalName);
 
                     return (
                       <motion.div
-                        whileHover={{ scale: 1.008 }}
-                        whileTap={{ scale: 0.985 }}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
                         key={recipe.id}
                         onClick={() => handleOpenRecipeModal(recipe, "dinner")}
-                        className={`rounded-[22px] p-3.5 flex items-center justify-between gap-3.5 transition-all duration-300 cursor-pointer relative bg-white shadow-lg ${statusBgClass} ${borderAccent}`}
+                        className={`rounded-2xl overflow-hidden shadow-[0_2px_8px_rgba(0,0,0,0.06)] transition-all duration-300 cursor-pointer ${statusBgClass}`}
                       >
-                        <div className="flex items-center gap-3.5 flex-1 min-w-0">
-                          
-                          {/* Recipe thumbnail with overlaid day number */}
-                          {recipeImage ? (
-                            <div className="relative w-14 h-14 shrink-0">
-                              <img 
-                                src={recipeImage} 
-                                alt={recipe.technicalName}
-                                className="w-14 h-14 rounded-xl object-cover bg-white"
-                                loading="lazy"
-                              />
-                              <div className="absolute -bottom-0.5 -right-0.5 w-5.5 h-5.5 rounded-full bg-black/60 flex items-center justify-center text-white text-[10px] font-black shadow">
-                                {recipe.id}
-                              </div>
-                            </div>
-                          ) : (
-                            <div className={`w-10 h-10 rounded-full border flex items-center justify-center text-[15px] font-black shadow-2xs font-sans shrink-0 ${numBgClass}`}>
+                        {recipeImage ? (
+                          <div className="relative w-full aspect-square overflow-hidden">
+                            <img
+                              src={recipeImage}
+                              alt={recipe.technicalName}
+                              className="w-full h-full object-cover"
+                              loading="lazy"
+                            />
+                            <div className="absolute top-2 left-2 w-8 h-8 rounded-full bg-black/60 flex items-center justify-center text-white text-[21px] font-bold">
                               {recipe.id}
                             </div>
-                          )}
-                          
-                          <div className="text-left flex-1 min-w-0">
-                            <h4 
-                              className="text-[13.5px] font-black text-text-dark leading-snug font-sans truncate"
-                              style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}
+                          </div>
+                        ) : (
+                          <div className="w-full aspect-square bg-gradient-to-br from-rose-50 to-rose-100/50 flex items-center justify-center">
+                            <span className="text-[18px] font-bold text-rose-300">{recipe.id}</span>
+                          </div>
+                        )}
+                        <div className="p-3 flex flex-col justify-between min-h-[80px]">
+                          <div>
+                            {recipe.emotionalName && (
+                              <h4
+                                className="text-[14px] font-bold text-text-dark leading-tight line-clamp-1 font-sans mb-0.5"
+                                style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}
+                                title={recipe.emotionalName}
+                              >
+                                «{recipe.emotionalName}»
+                              </h4>
+                            )}
+                            <p
+                              className="text-[12px] text-gray-500 leading-snug line-clamp-2 font-sans"
+                              style={{ fontFamily: '"Calibri", sans-serif' }}
                               title={recipe.technicalName}
                             >
                               {recipe.technicalName}
-                            </h4>
-                            
-                            {/* Emotional name */}
-                            <p 
-                              className="text-[11.5px] font-bold text-[#F43F5E] leading-none mt-1 truncate font-sans uppercase tracking-[0.5px]"
-                              style={{ fontFamily: '"Calibri", sans-serif' }}
-                            >
-                              «{recipe.emotionalName}»
                             </p>
                           </div>
+                          <div className="flex justify-end mt-2">
+                            <span className={`text-[12px] font-bold rounded-full px-2.5 py-0.5 ${cardState === "cooked" ? "bg-emerald-100 text-emerald-700" : cardState === "ponder" ? "bg-amber-50 text-amber-700" : "bg-gray-50 text-text-sec"}`}>
+                              стр. {recipe.page}
+                            </span>
+                          </div>
                         </div>
-
-                        {/* Page indicator aligned vertically */}
-                        <div className={`text-[10px] font-black border rounded-full px-2.5 py-0.5 shrink-0 shadow-3xs font-sans whitespace-nowrap align-middle self-center ${pageTagClass}`}>
-                          стр. {recipe.page}
-                        </div>
-
                       </motion.div>
                     );
                   })}
@@ -2940,106 +2814,88 @@ export default function BookRecipesScreen({
 
             ) : activeTab === "recipe_of_day" ? (
 
-              /* RENDER HIGH FIDELITY RECIPE OF DAY LIST SEQUENTIALLY 1 TO 28 DAYS */
-              <div className="space-y-6" id="book-recipes-recipe-of-day-list">
-                <div className="flex items-center justify-between px-0.5 pb-1">
-                  <span className="text-[12px] font-bold text-text-sec uppercase tracking-wider block font-sans" style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}>
+              /* RENDER GRID RECIPE OF DAY CARDS */
+              <div id="book-recipes-recipe-of-day-list">
+                <div className="flex items-center justify-between px-0.5 pb-2 mb-2">
+                  <span className="text-[16px] font-bold text-gray-400 uppercase tracking-wider block font-sans whitespace-nowrap" style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}>
                     Рецепты дня 1–28
                   </span>
                   <div className="flex-1 h-[1px] bg-gradient-to-r from-violet-200 to-transparent ml-3" />
                 </div>
 
-                <div className="grid grid-cols-1 gap-3">
+                <div className="grid grid-cols-2 gap-3">
                   {RECIPE_OF_DAY_RECIPES.map((recipe, index) => {
+                    const isFirstOfDay = RECIPE_OF_DAY_RECIPES.findIndex((r) => r.day === recipe.day) === index;
+                    const dayRecipeCount = RECIPE_OF_DAY_RECIPES.filter((r) => r.day === recipe.day).length;
                     const cardState = recipeOfDayState[recipe.id]?.status || "base";
 
-                    // Calculate index offset for multiple recipes in the same day
-                    const recipesSameDay = RECIPE_OF_DAY_RECIPES.filter(r => r.day === recipe.day);
-                    let daySubIndicator = "";
-                    if (recipesSameDay.length > 1) {
-                      const posInDay = recipesSameDay.findIndex(r => r.id === recipe.id) + 1;
-                      daySubIndicator = `${posInDay} из ${recipesSameDay.length}`;
-                    }
-                    
-                    // Resolve volumetric styles depending on actual card dynamic state for recipe of day
-                    let statusBgClass = "bg-white shadow-purple-500/15";
-                    let numBgClass = "bg-[#F5F3FF] text-[#5B21B6] border-[#DDD6FE]/80 shadow-[inset_0_1px_1.5px_white]";
-                    let pageTagClass = "bg-gray-50 text-text-sec border-gray-200/40";
-                    let borderAccent = "";
-
-                    if (cardState === "ponder") {
-                      statusBgClass = "bg-gradient-to-b from-amber-50 to-[#FFFBEB] shadow-amber-500/25";
-                      numBgClass = "bg-amber-100/90 text-amber-900 border-amber-200";
-                      pageTagClass = "bg-amber-50/90 text-amber-800 border-amber-200/40";
-                      borderAccent = "border-l-[3.5px] border-l-amber-500 rounded-l-[18px]";
-                    } else if (cardState === "cooked") {
-                      statusBgClass = "bg-gradient-to-b from-[#ECFDF5] to-[#F0FDF4]/60 shadow-emerald-500/25";
-                      numBgClass = "bg-emerald-100 text-emerald-950 border-emerald-250/50";
-                      pageTagClass = "bg-emerald-50 text-emerald-800 border-emerald-200/40";
-                      borderAccent = "border-l-[3.5px] border-l-emerald-550 rounded-l-[18px]";
+                    let statusBgClass = "bg-white";
+                    if (cardState === "cooked") {
+                      statusBgClass = "bg-[#FFF2EB]";
                     }
 
-                    // Extract first two ingredients as a clean basis text
-                    const firstTwoIngredients = recipe.ingredients.split(",").slice(0, 2).map(i => i.trim()).join(" и ");
                     const recipeImage = getRecipeImagePath(recipe.emotionalName, recipe.technicalName);
 
                     return (
+                      <React.Fragment key={recipe.id}>
+                        {isFirstOfDay && dayRecipeCount > 1 ? (
+                          <div className="col-span-2 flex items-center gap-2">
+                            <span className="inline-flex items-center gap-1.5 bg-violet-50 text-violet-700 text-[13px] uppercase font-bold px-3 py-1 rounded-full font-sans tracking-wide whitespace-nowrap">
+                              ДЕНЬ {recipe.day}
+                            </span>
+                            <div className="flex-1 h-[1px] bg-violet-100/40" />
+                          </div>
+                        ) : null}
                       <motion.div
-                        whileHover={{ scale: 1.008 }}
-                        whileTap={{ scale: 0.985 }}
-                        key={recipe.id}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
                         onClick={() => handleOpenRecipeModal(recipe, "recipe_of_day")}
-                        className={`rounded-[22px] p-3.5 flex items-center justify-between gap-3.5 transition-all duration-300 cursor-pointer relative bg-white shadow-lg ${statusBgClass} ${borderAccent}`}
+                        className={`rounded-2xl overflow-hidden shadow-[0_2px_8px_rgba(0,0,0,0.06)] transition-all duration-300 cursor-pointer ${statusBgClass}`}
                       >
-                        <div className="flex items-center gap-3.5 flex-1 min-w-0">
-                          
-                          {/* Recipe thumbnail with overlaid day number */}
-                          {recipeImage ? (
-                            <div className="relative w-14 h-14 shrink-0">
-                              <img 
-                                src={recipeImage} 
-                                alt={recipe.technicalName}
-                                className="w-14 h-14 rounded-xl object-cover bg-white"
-                                loading="lazy"
-                              />
-                              <div className="absolute -bottom-0.5 -right-0.5 w-5.5 h-5.5 rounded-full bg-black/60 flex items-center justify-center text-white text-[10px] font-black shadow">
-                                {recipe.day}
-                              </div>
+                        {recipeImage ? (
+                          <div className="relative w-full aspect-square overflow-hidden">
+                            <img
+                              src={recipeImage}
+                              alt={recipe.technicalName}
+                              className="w-full h-full object-cover"
+                              loading="lazy"
+                            />
+                            <div className="absolute top-2 left-2 w-8 h-8 rounded-full bg-black/60 flex items-center justify-center text-white text-[21px] font-bold">
+                              {recipe.day || recipe.id}
                             </div>
-                          ) : (
-                            <div className={`w-10 h-10 rounded-full border flex items-center justify-center text-[15px] font-black shadow-2xs font-sans shrink-0 ${numBgClass}`}>
-                              {recipe.day}
-                            </div>
-                          )}
-                          
-                          <div className="text-left flex-1 min-w-0">
-                            {/* Technical title */}
-                            <h4 
-                              className="text-[13.5px] font-black text-text-dark leading-snug font-sans truncate"
-                              style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}
+                          </div>
+                        ) : (
+                          <div className="w-full aspect-square bg-gradient-to-br from-violet-50 to-violet-100/50 flex items-center justify-center">
+                            <span className="text-[18px] font-bold text-violet-300">{recipe.day || recipe.id}</span>
+                          </div>
+                        )}
+                        <div className="p-3 flex flex-col justify-between min-h-[80px]">
+                          <div>
+                            {recipe.emotionalName && recipe.emotionalName !== "—" && (
+                              <h4
+                                className="text-[14px] font-bold text-text-dark leading-tight line-clamp-1 font-sans mb-0.5"
+                                style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}
+                                title={recipe.emotionalName}
+                              >
+                                «{recipe.emotionalName}»
+                              </h4>
+                            )}
+                            <p
+                              className="text-[12px] text-gray-500 leading-snug line-clamp-2 font-sans"
+                              style={{ fontFamily: '"Calibri", sans-serif' }}
                               title={recipe.technicalName}
                             >
                               {recipe.technicalName}
-                            </h4>
-                            
-                            {/* Emotional name */}
-                            {recipe.emotionalName && recipe.emotionalName !== "—" && (
-                              <p 
-                                className="text-[11.5px] font-bold text-[#8B5CF6] leading-none mt-1 truncate font-sans uppercase tracking-[0.5px]"
-                                style={{ fontFamily: '"Calibri", sans-serif' }}
-                              >
-                                «{recipe.emotionalName}»
-                              </p>
-                            )}
+                            </p>
+                          </div>
+                          <div className="flex justify-end mt-2">
+                            <span className={`text-[12px] font-bold rounded-full px-2.5 py-0.5 ${cardState === "cooked" ? "bg-emerald-100 text-emerald-700" : cardState === "ponder" ? "bg-amber-50 text-amber-700" : "bg-gray-50 text-text-sec"}`}>
+                              стр. {recipe.page}
+                            </span>
                           </div>
                         </div>
-
-                        {/* Page indicator aligned vertically */}
-                        <div className={`text-[10px] font-black border rounded-full px-2.5 py-0.5 shrink-0 shadow-3xs font-sans whitespace-nowrap align-middle self-center ${pageTagClass}`}>
-                          стр. {recipe.page}
-                        </div>
-
                       </motion.div>
+                      </React.Fragment>
                     );
                   })}
                 </div>
@@ -3047,103 +2903,90 @@ export default function BookRecipesScreen({
 
             ) : activeTab === "drinks" ? (
 
-              /* RENDER HIGH FIDELITY DRINKS LIST SEQUENTIALLY 1 TO 28 DAYS */
-              <div className="space-y-6 animate-fade-in" id="book-recipes-drinks-list">
-                <div className="flex items-center justify-between px-0.5 pb-1">
-                  <span className="text-[12px] font-bold text-text-sec uppercase tracking-wider block font-sans" style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}>
+              /* RENDER GRID DRINKS CARDS BY DAY */
+              <div className="space-y-5 animate-fade-in" id="book-recipes-drinks-list">
+                <div className="flex items-center justify-between px-0.5 pb-2">
+                  <span className="text-[16px] font-bold text-gray-400 uppercase tracking-wider block font-sans whitespace-nowrap" style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}>
                     Напитки дня 1–28
                   </span>
                   <div className="flex-1 h-[1px] bg-gradient-to-r from-sky-200 to-transparent ml-3" />
                 </div>
 
-                <div className="space-y-6">
+                <div className="space-y-5">
                   {Array.from({ length: 28 }, (_, i) => i + 1).map((dayNum) => {
                     const dayDrinks = DRINKS_RECIPES.filter(r => r.day === dayNum);
                     if (dayDrinks.length === 0) return null;
 
                     return (
-                      <div key={dayNum} className="bg-sky-50/20 backdrop-blur-3xs rounded-[24px] border border-sky-100/30 p-3.5 space-y-3 shadow-[0_4px_16px_rgba(186,230,253,0.06),_inset_0_2px_4px_white]">
-                        {/* Day indicator header */}
-                        <div className="flex items-center gap-2">
-                          <span className="bg-gradient-to-r from-sky-100 to-sky-50 border border-sky-100 text-sky-800 text-[10px] uppercase font-black px-2.5 py-0.5 rounded-full font-sans tracking-wide">
+                      <div key={dayNum}>
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="bg-sky-50 text-sky-700 text-[13px] uppercase font-bold px-3 py-1 rounded-full font-sans tracking-wide whitespace-nowrap">
                             День {dayNum}
                           </span>
-                          <div className="flex-1 h-[1px] bg-sky-100/45" />
+                          <div className="flex-1 h-[1px] bg-sky-100/40" />
                         </div>
 
-                        {/* Drinks in this day */}
-                        <div className="grid grid-cols-1 gap-2.5">
+                        <div className="grid grid-cols-2 gap-3">
                           {dayDrinks.map((recipe) => {
                             const cardState = drinksState[recipe.id]?.status || "base";
 
-                             // Resolve volumetric styles depending on actual card dynamic state
-                             let statusBgClass = "bg-white shadow-cyan-500/15";
-                             let pageTagClass = "bg-gray-50 text-text-sec border-gray-200/40";
-                            let borderAccent = "";
-
-                            if (cardState === "ponder") {
-                              statusBgClass = "bg-gradient-to-b from-amber-50 to-[#FFFBEB] shadow-amber-500/25";
-                              pageTagClass = "bg-amber-50/90 text-amber-800 border-amber-200/40";
-                              borderAccent = "border-l-[3.5px] border-l-amber-500 rounded-l-[18px]";
-                            } else if (cardState === "cooked") {
-                              statusBgClass = "bg-gradient-to-b from-[#ECFDF5] to-[#F0FDF4]/60 shadow-emerald-500/25";
-                              pageTagClass = "bg-emerald-50 text-emerald-800 border-emerald-200/40";
-                              borderAccent = "border-l-[3.5px] border-l-emerald-550 rounded-l-[18px]";
+                            let statusBgClass = "bg-white";
+                            if (cardState === "cooked") {
+                              statusBgClass = "bg-[#EEF9FD]";
                             }
 
-                            // Define soft color variants for timeOfDay label (Утро / День / Вечер)
-                            let timeChipClass = "bg-[#FFFBBB] text-[#B45309] border-[#fde68a]/50"; // warmer for morning
+                            let timeChipClass = "bg-amber-50 text-amber-700";
                             if (recipe.timeOfDay === "День") {
-                              timeChipClass = "bg-sky-50 text-[#0369a1] border-sky-100"; // blue for noon
+                              timeChipClass = "bg-sky-50 text-sky-700";
                             } else if (recipe.timeOfDay === "Вечер") {
-                              timeChipClass = "bg-indigo-50 text-indigo-700 border-indigo-100"; // спокойный для вечера
+                              timeChipClass = "bg-indigo-50 text-indigo-600";
                             }
 
                             const recipeImage = getRecipeImagePath(recipe.emotionalName, recipe.technicalName);
 
                             return (
                               <motion.div
-                                whileHover={{ scale: 1.006 }}
-                                whileTap={{ scale: 0.985 }}
+                                whileHover={{ scale: 1.02 }}
+                                whileTap={{ scale: 0.98 }}
                                 key={recipe.id}
                                 onClick={() => handleOpenRecipeModal(recipe, "drinks")}
-                                className={`rounded-[18px] p-3 flex items-center justify-between gap-3.5 transition-all duration-300 cursor-pointer relative bg-white shadow-lg ${statusBgClass} ${borderAccent}`}
+                                className={`rounded-2xl overflow-hidden shadow-[0_2px_8px_rgba(0,0,0,0.06)] transition-all duration-300 cursor-pointer ${statusBgClass}`}
                               >
-                                <div className="flex items-center gap-3 flex-1 min-w-0">
-                                  {/* Recipe thumbnail with overlaid day number */}
-                                  {recipeImage ? (
-                                    <div className="relative w-14 h-14 shrink-0">
-                                      <img 
-                                        src={recipeImage} 
-                                        alt={recipe.technicalName}
-                                        className="w-14 h-14 rounded-xl object-cover bg-white"
-                                        loading="lazy"
-                                      />
-                                      <div className="absolute -bottom-0.5 -right-0.5 w-5.5 h-5.5 rounded-full bg-black/60 flex items-center justify-center text-white text-[10px] font-black shadow">
-                                        {recipe.day}
-                                      </div>
+                                {recipeImage ? (
+                                  <div className="relative w-full aspect-square overflow-hidden">
+                                    <img
+                                      src={recipeImage}
+                                      alt={recipe.technicalName}
+                                      className="w-full h-full object-cover"
+                                      loading="lazy"
+                                    />
+                                    <div className="absolute top-2 left-2 w-8 h-8 rounded-full bg-black/60 flex items-center justify-center text-white text-[21px] font-bold">
+                                      {recipe.day}
                                     </div>
-                                  ) : null}
-                                  <div className="flex flex-col items-start gap-1 min-w-0 flex-1 text-left">
-                                  {/* Top row: Morning / Noon / Evening chip */}
-                                  <span className={`text-[9.5px] font-bold border uppercase tracking-wider rounded-md px-1.5 py-0.2 select-none ${timeChipClass}`}>
-                                    {recipe.timeOfDay}
-                                  </span>
-
-                                  {/* Technical title */}
-                                  <h4 
-                                    className="text-[13.5px] font-black text-text-dark leading-snug font-sans truncate w-full mt-1"
-                                    style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}
-                                    title={recipe.technicalName}
-                                  >
-                                    {recipe.technicalName}
-                                  </h4>
-                                </div>
-                              </div>
-
-                                {/* Page indicator aligned vertically */}
-                                <div className={`text-[10px] font-black border rounded-full px-2.5 py-0.5 shrink-0 shadow-3xs font-sans whitespace-nowrap align-middle self-center ${pageTagClass}`}>
-                                  стр. {recipe.page}
+                                  </div>
+                                ) : (
+                                  <div className="w-full aspect-square bg-gradient-to-br from-sky-50 to-sky-100/50 flex items-center justify-center">
+                                    <span className="text-[18px] font-bold text-sky-300">{recipe.day}</span>
+                                  </div>
+                                )}
+                                <div className="p-3 flex flex-col justify-between min-h-[80px]">
+                                  <div>
+                                    <span className={`inline-block text-[10px] font-bold uppercase tracking-wider rounded-md px-1.5 py-0.2 mb-1 ${timeChipClass}`}>
+                                      {recipe.timeOfDay}
+                                    </span>
+                                    <p
+                                      className="text-[12px] text-gray-500 leading-snug line-clamp-2 font-sans"
+                                      style={{ fontFamily: '"Calibri", sans-serif' }}
+                                      title={recipe.technicalName}
+                                    >
+                                      {recipe.technicalName}
+                                    </p>
+                                  </div>
+                                  <div className="flex justify-end mt-2">
+                                    <span className={`text-[12px] font-bold rounded-full px-2.5 py-0.5 ${cardState === "cooked" ? "bg-emerald-100 text-emerald-700" : cardState === "ponder" ? "bg-amber-50 text-amber-700" : "bg-gray-50 text-text-sec"}`}>
+                                      стр. {recipe.page}
+                                    </span>
+                                  </div>
                                 </div>
                               </motion.div>
                             );
@@ -3156,22 +2999,22 @@ export default function BookRecipesScreen({
               </div>
 
             ) : (
-              
+
               /* RETAIN ORIGINAL UNCHANGED VIEW LOGIC FOR DEFAULT CHICK TABS PLACEHOLDERS */
               <div className="grid grid-cols-1 gap-3.5 mb-6" id="book-recipes-placeholders">
                 {activeTabObj.placeholderDescriptions.map((desc, idx) => (
-                  <div 
+                  <div
                     key={idx}
-                    className="bg-gradient-to-b from-white to-[#FDFDFD] border border-gray-150 shadow-[inset_0_1.5px_3px_rgba(255,255,255,0.98),_0_4px_12px_rgba(31,35,40,0.02)] rounded-[22px] p-4 flex items-center justify-between gap-4 transition-all duration-300 hover:scale-[1.005] hover:shadow-[0_6px_14px_rgba(0,0,0,0.03)]"
+                    className="bg-white rounded-2xl p-4 flex items-center justify-between gap-4 transition-all duration-300 hover:shadow-[0_2px_12px_rgba(0,0,0,0.06)] shadow-[0_1px_6px_rgba(0,0,0,0.04)]"
                   >
                     <div className="flex items-center gap-3.5">
                       {/* Small simplistic placeholder circular indicator */}
-                      <div className="w-10 h-10 rounded-full bg-white border border-gray-150 flex items-center justify-center text-text-placeholder text-[13px] font-bold select-none shrink-0 shadow-[inset_0_1px_2px_rgba(0,0,0,0.01),_0_1.5px_3.5px_rgba(0,0,0,0.02)]">
+                      <div className="w-10 h-10 rounded-full bg-gray-50 border border-gray-100 flex items-center justify-center text-text-placeholder text-[13px] font-bold select-none shrink-0">
                         #{idx + 1}
                       </div>
-                      
+
                       <div className="text-left">
-                        <p 
+                        <p
                           className="text-[13.5px] font-extrabold text-text-dark leading-tight font-sans"
                           style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}
                         >
@@ -3194,24 +3037,24 @@ export default function BookRecipesScreen({
           </div>
 
           {/* Subtitle explaining state */}
-          <div className="border-t border-dashed border-gray-150 pt-4 mt-4 text-center" id="book-recipes-footer-note">
-            <span 
+          <div className="pt-4 mt-4 text-center" id="book-recipes-footer-note">
+            <span
               className="text-[11px] font-bold text-text-placeholder uppercase tracking-wider block font-sans"
               style={{ fontFamily: '"Calibri", sans-serif' }}
             >
-              {activeTab === "compliments" 
-                ? "Нажмите на комплимент выше, чтобы настроить заметку, теги и статус!" 
+              {activeTab === "compliments"
+                ? "Приятного аппетита!"
                 : activeTab === "must_have"
-                ? "Нажмите на элемент базы здоровья выше, чтобы настроить заметку, теги и статус заготовки!"
+                ? "Приятного аппетита!"
                 : activeTab === "breakfast"
-                ? "Нажмите на завтрак выше, чтобы настроить статус, теги и заметки дня!"
+                ? "Приятного аппетита!"
                 : activeTab === "lunch"
-                ? "Нажмите на обед выше, чтобы настроить статус, теги и заметки дня!"
+                ? "Приятного аппетита!"
                 : activeTab === "dinner"
-                ? "Нажмите на ужин выше, чтобы настроить статус, теги и заметки дня!"
+                ? "Приятного аппетита!"
                 : activeTab === "recipe_of_day"
-                ? "Нажмите на рецепт дня выше, чтобы настроить статус, теги и заметки дня!"
-                : "Наполнение остальных табов рецептов книги появится в ближайших обновлениях."
+                ? "Приятного аппетита!"
+                : "Приятного аппетита!"
               }
             </span>
           </div>
@@ -3224,9 +3067,9 @@ export default function BookRecipesScreen({
       <AnimatePresence>
         {selectedRecipe && (
           <div className="absolute inset-0 z-50 flex items-center justify-center" id="book-recipe-modal-overlay">
-            
+
             {/* Background glass screen blur overlay */}
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -3234,253 +3077,135 @@ export default function BookRecipesScreen({
               className="absolute inset-0 bg-black/40 backdrop-blur-xs"
             />
 
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, scale: 0.94, y: 15 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.94, y: 15 }}
               transition={{ type: "spring", stiffness: 350, damping: 26 }}
               className={`relative w-[380px] z-10 rounded-[34px] border border-gray-150/80 shadow-[0_24px_50px_-8px_rgba(0,0,0,0.18),_0_8px_16px_rgba(0,0,0,0.06)] ${
                 useLegacyLayout
-                  ? "bg-white p-5.5 overflow-y-auto max-h-[85dvh] scrollbar-none overscroll-contain flex flex-col justify-between text-left"
+                  ? "bg-transparent p-5.5 overflow-y-auto max-h-[85dvh] scrollbar-none overscroll-contain flex flex-col justify-between text-left"
                   : "bg-black p-0 overflow-y-auto h-[85dvh] overscroll-contain"
               }`}
               id="book-recipe-modal-panel"
             >
               {useLegacyLayout ? (
-                <div>
-                
-                {/* Header title close button */}
-                <div className="flex justify-between items-start mb-4">
-                  <span className={`inline-block px-3 py-0.5 text-[10px] font-black tracking-wider border rounded-full shadow-3xs uppercase font-sans ${
-                    selectedRecipeType === "must_have"
-                      ? "bg-[#E8FDF0] text-[#047857] border-[#A7F3D0]/60"
-                      : selectedRecipeType === "breakfast"
-                      ? "bg-amber-50 text-amber-800 border-amber-200/40"
-                      : selectedRecipeType === "lunch"
-                      ? "bg-emerald-50 text-emerald-800 border-emerald-200/40"
-                      : selectedRecipeType === "dinner"
-                      ? "bg-rose-50 text-rose-800 border-rose-200/40"
-                      : selectedRecipeType === "recipe_of_day"
-                      ? "bg-violet-50 text-violet-800 border-violet-200/40"
-                      : selectedRecipeType === "drinks"
-                      ? "bg-sky-50 text-sky-800 border-sky-200/40"
-                      : "bg-purple-50 text-purple-800 border-purple-200/40"
-                  }`}>
-                    {selectedRecipeType === "must_have"
-                      ? "база здоровья • "
-                      : selectedRecipeType === "breakfast"
-                      ? "завтрак • "
-                      : selectedRecipeType === "lunch"
-                      ? "обед • "
-                      : selectedRecipeType === "dinner"
-                      ? "ужин • "
-                      : selectedRecipeType === "recipe_of_day"
-                      ? `рецепт дня • день ${(selectedRecipe as any).day} • `
-                      : selectedRecipeType === "drinks"
-                      ? `напиток дня (${(selectedRecipe as any).timeOfDay}) • день ${(selectedRecipe as any).day} • `
-                      : "комплимент • "}{selectedRecipe.week}
-                  </span>
-                  <button 
-                    type="button" 
-                    onClick={() => setSelectedRecipe(null)}
-                    className="w-7 h-7 rounded-full bg-gray-50 border border-gray-150 hover:bg-gray-100 flex items-center justify-center text-text-sec cursor-pointer transition-colors"
-                  >
-                    <X className="w-4 h-4 shrink-0" />
-                  </button>
-                </div>
+                <div className="flex flex-col">
 
-                {/* 1. HERO IMAGE WITH OVERLAY TEXT */}
-                {selectedRecipeImage ? (
-                  <div className="w-full h-[40vh] rounded-[24px] border overflow-hidden mb-3 relative bg-gray-50">
+                  {/* HERO IMAGE WITH OVERLAY TEXT */}
+                  {selectedRecipeImage ? (
+                  <div className="w-full h-[55vh] rounded-[24px] overflow-hidden relative shrink-0">
                     <img
                       src={selectedRecipeImage}
                       alt={selectedRecipe.technicalName}
                       className="w-full h-full object-cover"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
-                    <div className="absolute bottom-0 left-0 right-0 p-4 text-left">
-                      <h3 
-                        className="text-[18px] font-black text-white leading-tight tracking-tight font-sans"
+                    {/* Top gradient for badge/title */}
+                    <div className="absolute top-0 left-0 right-0 h-[50%] bg-gradient-to-b from-black/80 via-black/20 to-transparent pointer-events-none" />
+                    {/* Bottom gradient for ingredients */}
+                    <div className="absolute bottom-0 left-0 right-0 h-[45%] bg-gradient-to-t from-black/85 via-black/40 to-transparent pointer-events-none" />
+
+                    {/* Close button */}
+                    <button
+                      type="button"
+                      onClick={() => setSelectedRecipe(null)}
+                      className="absolute top-4 right-4 z-30 w-9 h-9 rounded-full bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center text-white cursor-pointer hover:bg-white/30 transition-colors"
+                    >
+                      <X className="w-5 h-5 shrink-0" />
+                    </button>
+
+                    {/* Category/day badge - top left */}
+                    <div className="absolute top-4 left-4 z-30">
+                      <span className="inline-block px-3 py-1 text-[11px] font-bold tracking-wide border rounded-full uppercase font-sans text-white/95 border-white/30 bg-white/15 backdrop-blur-sm whitespace-nowrap">
+                        Напиток дня ({(selectedRecipe as any).timeOfDay}) • день {(selectedRecipe as any).day}
+                      </span>
+                    </div>
+
+                    {/* Page pill - bottom right corner of the image */}
+                    <div className="absolute bottom-4 right-4 z-30">
+                      <span className="inline-block px-4 py-1.5 text-base font-bold border rounded-full font-sans text-white/95 border-white/30 bg-white/15 backdrop-blur-sm">
+                        стр. {selectedRecipe.page}
+                      </span>
+                    </div>
+
+                    {/* Title - top left, below category badge */}
+                    <div className="absolute top-[54px] left-4 right-14 z-20 text-left">
+                      {selectedRecipe.emotionalName && (
+                        <h2
+                          className="text-3xl font-black text-white leading-tight tracking-tight mb-2 drop-shadow-lg"
+                          style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}
+                        >
+                          «{selectedRecipe.emotionalName}»
+                        </h2>
+                      )}
+                      <h3
+                        className={`text-xl font-bold text-white/95 leading-snug drop-shadow-md ${selectedRecipe.emotionalName ? '' : 'mt-4'}`}
                         style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}
                       >
                         {selectedRecipe.technicalName}
                       </h3>
-                      {selectedRecipe.emotionalName && (
-                        <p 
-                          className="text-[14px] font-bold text-white/90 mt-1 leading-none font-sans"
-                          style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}
-                        >
-                          «{selectedRecipe.emotionalName}»
-                        </p>
-                      )}
-                      <span className="inline-block mt-2 font-black text-[11px] bg-black/40 text-white border border-white/20 rounded-full px-3 py-0.5 shadow-3xs font-sans">
-                        книга рецептов, стр. {selectedRecipe.page}
+                    </div>
+
+                    {/* Ingredients - bottom area, lowered, cleared from page pill on the right */}
+                    <div className="absolute bottom-4 left-4 right-[124px] z-20 text-left">
+                      <span className="text-lg font-bold text-white/95 block mb-1.5 drop-shadow-md" style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}>
+                        Состав ингредиентов:
                       </span>
+                      <p className="text-[15px] font-medium text-white/90 leading-relaxed drop-shadow-md" style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}>
+                        {selectedRecipe.ingredients}
+                      </p>
                     </div>
                   </div>
                 ) : (
-                  <div className={`w-full h-28 rounded-[24px] border relative flex flex-col items-center justify-center overflow-hidden shadow-[inset_0_2px_4px_rgba(0,0,0,0.015)] mb-3 ${
-                    selectedRecipeType === "must_have" || selectedRecipeType === "lunch"
-                      ? "bg-gradient-to-tr from-[#ECFDF5]/60 via-[#E8FDF0]/45 to-white border-emerald-150/30"
-                      : selectedRecipeType === "breakfast"
-                      ? "bg-gradient-to-tr from-[#FEF3C7]/40 via-[#FDE68A]/20 to-white border-amber-150/35"
-                      : selectedRecipeType === "dinner"
-                      ? "bg-gradient-to-tr from-[#FFEBEF]/50 via-[#FFD1DA]/30 to-white border-rose-150/35"
-                      : selectedRecipeType === "recipe_of_day"
-                      ? "bg-gradient-to-tr from-[#EDE9FE]/50 via-[#DDD6FE]/30 to-white border-purple-150/35"
-                      : selectedRecipeType === "drinks"
-                      ? "bg-gradient-to-tr from-[#E0F2FE]/50 via-[#BAE6FD]/30 to-white border-sky-150/35"
-                      : "bg-gradient-to-tr from-purple-100/40 via-purple-55/20 to-emerald-50/30 border-purple-100/20"
+                  <div className={`w-full h-40 rounded-[24px] relative flex flex-col items-center justify-center overflow-hidden mb-3 ${
+                    selectedRecipeType === "drinks"
+                      ? "bg-gradient-to-tr from-[#E0F2FE]/70 via-[#BAE6FD]/40 to-white"
+                      : "bg-gradient-to-tr from-purple-100/40 via-purple-50/20 to-emerald-50/30"
                   }`}>
-                    <div className="absolute inset-0 opacity-[0.06] bg-[radial-gradient(#10b981_1px,transparent_1px)] [background-size:16px_16px]" />
-                    <div className={`absolute bottom-[-10px] right-[-10px] w-20 h-20 rounded-full blur-xl ${
-                      selectedRecipeType === "must_have" || selectedRecipeType === "lunch"
-                        ? "bg-emerald-200/20"
-                        : selectedRecipeType === "breakfast"
-                        ? "bg-amber-200/20"
-                        : selectedRecipeType === "dinner"
-                        ? "bg-rose-250/20"
-                        : selectedRecipeType === "recipe_of_day"
-                        ? "bg-violet-200/20"
-                        : selectedRecipeType === "drinks"
-                        ? "bg-sky-200/20"
-                        : "bg-purple-200/20"
-                    }`} />
-                    <div className="text-[34px] leading-none drop-shadow-sm select-none">
-                      {selectedRecipeType === "must_have" 
-                        ? (selectedRecipe.id === 1 ? "🥛🥣" : selectedRecipe.id === 2 ? "🥬🥕" : selectedRecipe.id === 3 ? "🥦🥗" : selectedRecipe.id === 4 ? "🥛🌱" : selectedRecipe.id === 5 ? "🌱🌻" : selectedRecipe.id === 6 ? "🧉🫙" : selectedRecipe.id === 7 ? "🥜🥤" : "🌾🥯")
-                        : selectedRecipeType === "lunch"
-                        ? (selectedRecipe.id % 4 === 0 ? "🥦🥣" : (selectedRecipe.id % 3 === 0 ? "🍲🥗" : (selectedRecipe.id % 2 === 0 ? "🍛🥬" : "🥣🥑")))
-                        : selectedRecipeType === "dinner"
-                        ? (selectedRecipe.id % 4 === 0 ? "🌙🥗" : (selectedRecipe.id % 3 === 0 ? "🍠🍲" : (selectedRecipe.id % 2 === 0 ? "🥑🥬" : "🍛🥣")))
-                        : selectedRecipeType === "recipe_of_day"
-                        ? (selectedRecipe.id % 4 === 0 ? "🥞🍓" : (selectedRecipe.id % 3 === 0 ? "🧇🍯" : (selectedRecipe.id % 2 === 0 ? "🍰🍒" : "🥯🍇")))
-                        : selectedRecipeType === "drinks"
-                        ? (selectedRecipe.id % 4 === 0 ? "🍹🍵" : (selectedRecipe.id % 3 === 0 ? "🧉🥛" : (selectedRecipe.id % 2 === 0 ? "🥤☕" : "🫖🍯")))
-                        : (selectedRecipe.id % 3 === 0 ? "🥑🥗" : (selectedRecipe.id % 2 === 0 ? "🥯🍯" : "🥫🥄"))
+                    <div className="absolute inset-0 opacity-[0.06] bg-[radial-gradient(#0ea5e9_1px,transparent_1px)] [background-size:16px_16px]" />
+                    <div className="text-[48px] leading-none drop-shadow-md select-none">
+                      {selectedRecipeType === "drinks"
+                        ? ((selectedRecipe as any).id % 4 === 0 ? "🍹🍵" : ((selectedRecipe as any).id % 3 === 0 ? "🧉🥛" : ((selectedRecipe as any).id % 2 === 0 ? "🥤☕" : "🫖🍯")))
+                        : "🍽️"
                       }
                     </div>
-                    <span className={`text-[10px] font-extrabold tracking-wider uppercase block mt-1.5 font-sans ${
-                      selectedRecipeType === "must_have" || selectedRecipeType === "lunch"
-                        ? "text-emerald-950/50"
-                        : selectedRecipeType === "breakfast"
-                        ? "text-amber-950/50"
-                        : selectedRecipeType === "dinner"
-                        ? "text-rose-950/55"
-                        : selectedRecipeType === "recipe_of_day"
-                        ? "text-violet-950/55"
-                        : selectedRecipeType === "drinks"
-                        ? "text-sky-950/55"
-                        : "text-purple-900/40"
-                    }`}>
-                      ФОТО И ВИДЕО Готовятся к публикации
+                    <span className="text-[11px] font-extrabold tracking-wider uppercase block mt-2 font-sans text-sky-900/60">
+                      Фото готовится к публикации
                     </span>
                   </div>
                 )}
 
-                {/* 3. INGREDIENTS BLOCK STRICKLY COMMAS SEPARATED */}
-                <div className="mb-4 text-left" id="modal-ingredients-block">
-                  <span className="text-[11px] font-black text-text-dark uppercase tracking-wider block mb-1.5 font-sans">
-                    Состав ingredients (WFPB):
-                  </span>
-                  
-                  <div className={`bg-gradient-to-br border shadow-[inset_0_1.5px_2.5px_rgba(255,255,255,0.98),_0_2.5px_6px_rgba(0,0,0,0.015)] rounded-[20px] p-3.5 ${
-                    selectedRecipeType === "must_have" || selectedRecipeType === "lunch"
-                      ? "from-white to-[#F0FDF4] border-gray-150"
-                      : selectedRecipeType === "breakfast"
-                      ? "from-white to-[#FFFDF5] border-gray-150"
-                      : selectedRecipeType === "dinner"
-                      ? "from-white to-[#FFF1F2] border-gray-150"
-                      : selectedRecipeType === "recipe_of_day"
-                      ? "from-white to-[#F5F3FF] border-gray-150"
-                      : selectedRecipeType === "drinks"
-                      ? "from-white to-[#F0F9FF] border-sky-150/30"
-                      : "from-white to-[#FAF6FE] border-gray-150"
-                  }`}>
-                    <p className="text-[13px] font-medium leading-relaxed text-text-dark font-sans">
-                      {selectedRecipe.ingredients}
-                    </p>
-                    
-                    {/* WFPB strict validation label */}
-                    <div className={`flex items-center gap-1 mt-2.5 pt-2 border-t border-dashed ${
-                      selectedRecipeType === "must_have" || selectedRecipeType === "lunch"
-                        ? "border-emerald-100/50"
-                        : selectedRecipeType === "breakfast"
-                        ? "border-amber-100/55"
-                        : selectedRecipeType === "dinner"
-                        ? "border-rose-100/50"
-                        : selectedRecipeType === "recipe_of_day"
-                        ? "border-violet-100/50"
-                        : selectedRecipeType === "drinks"
-                        ? "border-sky-100/55"
-                        : "border-[#C084FC]/45"
-                    }`}>
-                      <span className="text-[9.5px] font-black text-emerald-800 uppercase tracking-widest block bg-emerald-50 rounded-full px-2 py-0.5 leading-none font-sans">
-                        100% WFPB • БЕЗ СОЛИ • БЕЗ МАСЛА 🌱
-                      </span>
-                    </div>
-                  </div>
+                {/* Action buttons - immediately below photo, transparent container */}
+                <div className="flex gap-3 mt-3">
+                  {/* Подумаю - pastel yellow bg, dark yellow-brown text */}
+                  <button
+                    type="button"
+                    onClick={() => handleSaveRecipeAction("ponder")}
+                    className="flex-1 bg-[#FEF3C7] text-[#92400E] rounded-[16px] py-3.5 px-4 font-bold text-[14px] shadow-md hover:brightness-95 active:scale-97 transition-all cursor-pointer font-sans"
+                    style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}
+                  >
+                    Подумаю
+                  </button>
+
+                  {/* Приготовил - pastel green bg, dark green text, no SVG */}
+                  {!selectedRecipeIsTechnical && (
+                  <button
+                    type="button"
+                    onClick={() => { playSound(cookSound); handleSaveRecipeAction("cooked"); setScreen("my-dishes" as Screen); }}
+                    className="flex-1 bg-[#D1FAE5] text-[#065F46] rounded-[16px] py-3.5 px-4 font-bold text-[14px] shadow-md hover:brightness-95 active:scale-97 transition-all cursor-pointer font-sans"
+                    style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}
+                  >
+                    Приготовил
+                  </button>
+                  )}
                 </div>
 
-                {/* 4. NOTE WRAPPER AND ACTIONS FLOW */}
-                {/* BUILD-2: технические рецепты — справочный материал */}
+                {/* Technical recipe note */}
                 {selectedRecipeIsTechnical && (
-                  <div className="bg-slate-50/70 border border-gray-150/70 rounded-[20px] p-3.5 mt-4 text-left">
+                  <div className="bg-slate-50/70 border border-gray-150/70 rounded-[20px] p-3.5 mt-3 text-left">
                     <p className="text-[12.5px] text-slate-600 leading-relaxed font-sans">
                       Справочный материал — не отдельное блюдо.
                     </p>
-                  </div>
-                )}
-                {recipeActionType === null ? (
-                  <div className="flex gap-2.5 pt-3.5 border-t border-dashed border-gray-150 mt-4" id="modal-actions-wrapper">
-                    
-                    {/* Left option action button 'Подумаю' in soft warm amber layout */}
-                    <button
-                      type="button"
-                      onClick={() => setRecipeActionType("ponder")}
-                      className="flex-1 bg-gradient-to-b from-[#FEF3C7] to-[#FDE68A] text-[#B45309] border border-amber-200 shadow-[inset_0_1.5px_2px_rgba(255,255,255,0.7),_0_4px_10px_rgba(245,158,11,0.08)] rounded-[20px] py-3 px-1 font-black text-[13.5px] hover:brightness-102 active:scale-97 transition-all flex items-center justify-center gap-1.5 cursor-pointer font-sans"
-                      style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}
-                    >
-                      <Award className="w-4 h-4 text-[#C2410C] shrink-0" />
-                      <span>Подумаю</span>
-                    </button>
-
-                    {/* BUILD-2: для technical recipes кнопка «Приготовил» скрыта */}
-                    {!selectedRecipeIsTechnical && (
-                    <button
-                      type="button"
-                      onClick={() => setRecipeActionType("cooked")}
-                      className="flex-1 bg-gradient-to-b from-[#D1FAE5] to-[#A7F3D0] text-[#065F46] border border-emerald-200/90 shadow-[inset_0_1.5px_2px_rgba(255,255,255,0.7),_0_4px_10px_rgba(16,185,129,0.08)] rounded-[20px] py-3 px-1 font-black text-[13.5px] hover:brightness-102 active:scale-97 transition-all flex items-center justify-center gap-1.5 cursor-pointer font-sans"
-                      style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}
-                    >
-                      <Check className="w-4 h-4 text-emerald-700 shrink-0" />
-                      <span>Приготовил</span>
-                    </button>
-                    )}
-
-                  </div>
-                ) : (
-                  <div className="mt-4 pt-4 border-t border-dashed border-gray-150">
-                    <div className="bg-emerald-50 border border-emerald-100 rounded-3xl p-4 flex items-center gap-3 mb-4">
-                      <div className="text-[28px]">🎉</div>
-                      <div className="text-left font-sans">
-                        <h4 className="text-[14px] font-black text-emerald-800 leading-tight">Действие зафиксировано!</h4>
-                        <p className="text-[11.5px] text-emerald-700/80 font-bold leading-normal mt-0.5">
-                          Рецепт сохранён в рацион. Поделитесь вашими ощущениями для Дневника?
-                        </p>
-                      </div>
-                    </div>
-                    <BriefNoteBlock
-                      moduleKey="recipes"
-                      onSave={(text, tags, isVoice) => {
-                        handleSaveRecipeAction(recipeActionType, text, tags, isVoice);
-                        setRecipeActionType(null);
-                      }}
-                      onSkip={() => {
-                        handleSaveRecipeAction(recipeActionType, "", []);
-                        setRecipeActionType(null);
-                      }}
-                    />
                   </div>
                 )}
 
@@ -3513,13 +3238,13 @@ export default function BookRecipesScreen({
 
                         {/* Top gradient overlay */}
                         <div className="absolute top-0 left-0 right-0 h-[60%] bg-gradient-to-b from-black/85 via-black/35 to-transparent pointer-events-none" />
-                        
+
                         {/* Bottom gradient overlay */}
                         <div className="absolute bottom-0 left-0 right-0 h-28 bg-gradient-to-t from-black/50 to-transparent pointer-events-none" />
 
                         {/* Close button */}
-                        <button 
-                          type="button" 
+                        <button
+                          type="button"
                           onClick={() => setSelectedRecipe(null)}
                           className="absolute top-4 right-4 z-20 w-8 h-8 rounded-full bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center text-white cursor-pointer hover:bg-white/30 transition-colors"
                         >
@@ -3540,14 +3265,14 @@ export default function BookRecipesScreen({
                             стр. {selectedRecipe.page}
                           </span>
                           {selectedRecipe.emotionalName && (
-                            <h2 
+                            <h2
                               className="text-[28px] font-black text-white leading-tight tracking-tight mt-3"
                               style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}
                             >
                               {selectedRecipe.emotionalName}
                             </h2>
                           )}
-                          <h3 
+                          <h3
                             className={`text-[16px] font-semibold text-white/90 leading-snug ${selectedRecipe.emotionalName ? '' : 'mt-4'}`}
                             style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}
                           >
@@ -3560,63 +3285,39 @@ export default function BookRecipesScreen({
 
                         {/* Bottom buttons */}
                         <div className="absolute bottom-0 left-0 right-0 p-4 z-10">
-                          {recipeActionType === null ? (
-                            <div className="flex gap-2.5">
-                              <button
-                                type="button"
-                                onClick={() => { playSound(ponderSound); setRecipeActionType("ponder"); }}
-                                className="flex-1 bg-white/20 backdrop-blur-md text-white border border-white/30 rounded-[20px] py-3 px-1 font-black text-[13.5px] hover:bg-white/30 active:scale-97 transition-all flex items-center justify-center gap-1.5 cursor-pointer font-sans"
-                                style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}
-                              >
-                                <Award className="w-4 h-4 shrink-0" />
-                                <span>Подумаю</span>
-                              </button>
-                              {!selectedRecipeIsTechnical && (
-                              <button
-                                type="button"
-                                onClick={() => { playSound(cookSound); setRecipeActionType("cooked"); }}
-                                className="flex-1 bg-white/20 backdrop-blur-md text-white border border-white/30 rounded-[20px] py-3 px-1 font-black text-[13.5px] hover:bg-white/30 active:scale-97 transition-all flex items-center justify-center gap-1.5 cursor-pointer font-sans"
-                                style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}
-                              >
-                                <Check className="w-4 h-4 shrink-0" />
-                                <span>Приготовил</span>
-                              </button>
-                              )}
-                            </div>
-                          ) : (
-                            <div className="bg-black/40 backdrop-blur-md rounded-[24px] p-4 border border-white/20">
-                              <div className="text-white mb-3">
-                                <h4 className="text-[14px] font-black leading-tight">Действие зафиксировано!</h4>
-                                <p className="text-[11.5px] text-white/70 font-bold leading-normal mt-0.5">
-                                  Рецепт сохранён в рацион. Поделитесь вашими ощущениями для Дневника?
-                                </p>
-                              </div>
-                              <BriefNoteBlock
-                                moduleKey="recipes"
-                                onSave={(text, tags, isVoice) => {
-                                  handleSaveRecipeAction(recipeActionType!, text, tags, isVoice);
-                                  setSelectedRecipe(null);
-                                }}
-                                onSkip={() => {
-                                  handleSaveRecipeAction(recipeActionType!, "", []);
-                                  setRecipeActionType(null);
-                                }}
-                              />
-                            </div>
-                          )}
+                          <div className="flex gap-2.5">
+                            <button
+                              type="button"
+                              onClick={() => { playSound(ponderSound); handleSaveRecipeAction("ponder"); }}
+                              className="flex-1 bg-white/20 backdrop-blur-md text-white border border-white/30 rounded-[20px] py-3 px-1 font-black text-[13.5px] hover:bg-white/30 active:scale-97 transition-all flex items-center justify-center gap-1.5 cursor-pointer font-sans"
+                              style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}
+                            >
+                              <Award className="w-4 h-4 shrink-0" />
+                              <span>Подумаю</span>
+                            </button>
+                            {!selectedRecipeIsTechnical && (
+                            <button
+                              type="button"
+                              onClick={() => { playSound(cookSound); handleSaveRecipeAction("cooked"); setScreen("my-dishes" as Screen); }}
+                              className="flex-1 bg-white/20 backdrop-blur-md text-white border border-white/30 rounded-[20px] py-3 px-1 font-black text-[13.5px] hover:bg-white/30 active:scale-97 transition-all flex items-center justify-center gap-1.5 cursor-pointer font-sans"
+                              style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}
+                            >
+                              <Check className="w-4 h-4 shrink-0" />
+                              <span>Приготовил</span>
+                            </button>
+                            )}
+                          </div>
                         </div>
 
-                        {/* Flip button — hidden when save diary modal is open */}
-                        {recipeActionType === null && (
-                        <button 
-                          type="button" 
+                        {/* Flip button */}
+                        <button
+                          type="button"
                           onClick={(e) => { e.stopPropagation(); setRecipeFlipped(true); }}
                           className="absolute left-1/2 -translate-x-1/2 z-30 w-10 h-10 rounded-full bg-white/25 backdrop-blur-md border border-white/40 flex items-center justify-center text-white shadow-lg cursor-pointer hover:bg-white/40 transition-colors"
                           style={{ bottom: "66px" }}
                         >
                           <RefreshCw className="w-5 h-5" />
                         </button>
-                        )}
                       </div>
 
                       {/* ── BACK ── */}
@@ -3665,7 +3366,7 @@ export default function BookRecipesScreen({
                   </div>
                 ) : (
                 <div className="relative w-full h-full">
-                  
+
                   {/* Full-bleed background image */}
                   {selectedRecipeImage ? (
                     <img
@@ -3685,13 +3386,13 @@ export default function BookRecipesScreen({
 
                   {/* Top gradient overlay */}
                   <div className="absolute top-0 left-0 right-0 h-[60%] bg-gradient-to-b from-black/85 via-black/35 to-transparent z-10" />
-                  
+
                   {/* Bottom gradient overlay for buttons */}
                   <div className="absolute bottom-0 left-0 right-0 h-28 bg-gradient-to-t from-black/50 to-transparent z-10" />
 
                   {/* Close button */}
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     onClick={() => setSelectedRecipe(null)}
                     className="absolute top-4 right-4 z-20 w-8 h-8 rounded-full bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center text-white cursor-pointer hover:bg-white/30 transition-colors"
                   >
@@ -3717,16 +3418,16 @@ export default function BookRecipesScreen({
 
                     {/* Emotional name */}
                     {selectedRecipe.emotionalName && (
-                      <h2 
+                      <h2
                         className="text-[28px] font-black text-white leading-tight tracking-tight font-sans mb-1"
                         style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}
                       >
                         {selectedRecipe.emotionalName}
                       </h2>
                     )}
-                    
+
                     {/* Technical name */}
-                    <h3 
+                    <h3
                       className={`text-[16px] font-semibold text-white/90 leading-snug font-sans ${selectedRecipe.emotionalName ? '' : 'mt-4'}`}
                       style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}
                     >
@@ -3741,50 +3442,28 @@ export default function BookRecipesScreen({
 
                   {/* Bottom buttons */}
                   <div className="absolute bottom-0 left-0 right-0 p-4 z-20">
-                    {recipeActionType === null ? (
-                      <div className="flex gap-2.5">
-                        <button
-                          type="button"
-                          onClick={() => setRecipeActionType("ponder")}
-                          className="flex-1 bg-white/20 backdrop-blur-md text-white border border-white/30 rounded-[20px] py-3 px-1 font-black text-[13.5px] hover:bg-white/30 active:scale-97 transition-all flex items-center justify-center gap-1.5 cursor-pointer font-sans"
-                          style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}
-                        >
-                          <Award className="w-4 h-4 shrink-0" />
-                          <span>Подумаю</span>
-                        </button>
-                        {!selectedRecipeIsTechnical && (
-                        <button
-                          type="button"
-                          onClick={() => setRecipeActionType("cooked")}
-                          className="flex-1 bg-white/20 backdrop-blur-md text-white border border-white/30 rounded-[20px] py-3 px-1 font-black text-[13.5px] hover:bg-white/30 active:scale-97 transition-all flex items-center justify-center gap-1.5 cursor-pointer font-sans"
-                          style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}
-                        >
-                          <Check className="w-4 h-4 shrink-0" />
-                          <span>Приготовил</span>
-                        </button>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="bg-black/40 backdrop-blur-md rounded-[24px] p-4 border border-white/20">
-                        <div className="text-white mb-3">
-                          <h4 className="text-[14px] font-black leading-tight">Действие зафиксировано!</h4>
-                          <p className="text-[11.5px] text-white/70 font-bold leading-normal mt-0.5">
-                            Рецепт сохранён в рацион. Поделитесь вашими ощущениями для Дневника?
-                          </p>
-                        </div>
-                        <BriefNoteBlock
-                          moduleKey="recipes"
-                          onSave={(text, tags, isVoice) => {
-                            handleSaveRecipeAction(recipeActionType!, text, tags, isVoice);
-                            setRecipeActionType(null);
-                          }}
-                          onSkip={() => {
-                            handleSaveRecipeAction(recipeActionType!, "", []);
-                            setRecipeActionType(null);
-                          }}
-                        />
-                      </div>
-                    )}
+                    <div className="flex gap-2.5">
+                      <button
+                        type="button"
+                        onClick={() => handleSaveRecipeAction("ponder")}
+                        className="flex-1 bg-white/20 backdrop-blur-md text-white border border-white/30 rounded-[20px] py-3 px-1 font-black text-[13.5px] hover:bg-white/30 active:scale-97 transition-all flex items-center justify-center gap-1.5 cursor-pointer font-sans"
+                        style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}
+                      >
+                        <Award className="w-4 h-4 shrink-0" />
+                        <span>Подумаю</span>
+                      </button>
+                      {!selectedRecipeIsTechnical && (
+                      <button
+                        type="button"
+                        onClick={() => { playSound(cookSound); handleSaveRecipeAction("cooked"); setScreen("my-dishes" as Screen); }}
+                        className="flex-1 bg-white/20 backdrop-blur-md text-white border border-white/30 rounded-[20px] py-3 px-1 font-black text-[13.5px] hover:bg-white/30 active:scale-97 transition-all flex items-center justify-center gap-1.5 cursor-pointer font-sans"
+                        style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}
+                      >
+                        <Check className="w-4 h-4 shrink-0" />
+                        <span>Приготовил</span>
+                      </button>
+                      )}
+                    </div>
                   </div>
                 </div>
                 )
@@ -3798,7 +3477,7 @@ export default function BookRecipesScreen({
 
       {/* STICKY BOTTOM TAB NAVIGATION BAR REPLICATED PROMPT DETAILS */}
       <div className="w-full shrink-0" id="book-recipes-bottom-bar-nav">
-        <BottomBar 
+        <BottomBar
           onHomeClick={onNavigateHome}
           onDiaryClick={onNavigateDiary}
           onAnalyticsClick={onNavigateProgress}
