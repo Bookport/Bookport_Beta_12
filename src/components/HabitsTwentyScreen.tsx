@@ -7,6 +7,9 @@ import { MOTIVATION_PHRASES } from "../constants/motivationPhrases";
 import BottomBar from "./BottomBar";
 import { useAppStore } from "../store/useAppStore";
 import legumesImg from "../assets/images/keysustem/14.webp";
+import wholeGrainsImg from "../assets/images/keysustem/15.webp";
+import vegetablesImg from "../assets/images/keysustem/16.webp";
+import leafyGreensImg from "../assets/images/keysustem/17.webp";
 
 interface HabitsTwentyScreenProps {
   dayNotes: Record<number, { text: string; time: string }[]>;
@@ -355,6 +358,27 @@ const PRODUCT_KEYS_LIST = [
   "ground_flax", "spices", "fruits", "berries", "sprouts", "must_have", "healthy_drinks"
 ];
 
+const THEMED_KEYS = ["whole_grains", "vegetables", "leafy_greens"];
+
+const hexToRgba = (hex: string, alpha: number) => {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+};
+
+const MANUAL_ENTRY_THEMES: Record<string, {
+  img: string;
+  surface: string;
+  accent: string;
+  accentHover: string;
+}> = {
+  legumes: { img: legumesImg, surface: "#D4F0E6", accent: "#16B551", accentHover: "#14a048" },
+  whole_grains: { img: wholeGrainsImg, surface: "#FDF3E3", accent: "#D97706", accentHover: "#B45309" },
+  vegetables: { img: vegetablesImg, surface: "#F4F8DB", accent: "#65A30D", accentHover: "#4D7C0F" },
+  leafy_greens: { img: leafyGreensImg, surface: "#E3F2EA", accent: "#065F46", accentHover: "#064E3B" }
+};
+
 const BUBBLES_TEMPLATE = [
   { id: 1, size: 4, left: "15%", duration: 4.5, delay: 0 },
   { id: 2, size: 6, left: "45%", duration: 5.8, delay: 1.2 },
@@ -436,7 +460,7 @@ export default function HabitsTwentyScreen({
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === "Escape" && manualEntryKey) {
-        closeLegumesManualEntry();
+        closeManualEntry();
       }
     };
     if (manualEntryKey) {
@@ -528,6 +552,11 @@ export default function HabitsTwentyScreen({
     return SYSTEM_KEYS.find(sk => sk.id === selectedKey.id) || null;
   }, [selectedKey]);
 
+  const manualEntryDef = manualEntryKey ? SYSTEM_KEYS.find(sk => sk.id === manualEntryKey.id) : null;
+  const manualTheme = manualEntryKey ? MANUAL_ENTRY_THEMES[manualEntryKey.id] || null : null;
+  const infoSheetHeaderTheme = richKeyInfo ? MANUAL_ENTRY_THEMES[richKeyInfo.id] || null : null;
+  const infoSheetCloseTheme = richKeyInfo && THEMED_KEYS.includes(richKeyInfo.id) ? MANUAL_ENTRY_THEMES[richKeyInfo.id] : null;
+
   // Adjust manual grams directly via text input or custom quick-paddings
   const handleGramsFieldChange = (newGrams: number) => {
     if (!selectedKey) return;
@@ -557,24 +586,24 @@ export default function HabitsTwentyScreen({
     });
   };
 
-  // Open legumes manual entry draft modal
-  const openLegumesManualEntry = (key: SystemKeyProgress) => {
+  // Open manual entry draft modal
+  const openManualEntry = (key: SystemKeyProgress) => {
     setManualEntryKey(key);
   };
 
-  // Close legumes manual entry draft modal (cancel/discard changes)
-  const closeLegumesManualEntry = () => {
+  // Close manual entry draft modal (cancel/discard changes)
+  const closeManualEntry = () => {
     setManualEntryKey(null);
     setDraftManualGrams(0);
   };
 
-  // Confirm legumes manual entry draft (apply changes)
-  const confirmLegumesManualEntry = () => {
+  // Confirm manual entry draft (apply changes)
+  const confirmManualEntry = () => {
     if (!manualEntryKey) return;
     const finalVal = Math.max(0, draftManualGrams);
     // Use existing handler to apply changes
     handleGramsInputChangeDirectly(manualEntryKey.id, finalVal);
-    closeLegumesManualEntry();
+    closeManualEntry();
   };
 
   // Trigger global save when clicking main CTA or on return
@@ -885,7 +914,7 @@ export default function HabitsTwentyScreen({
                           <button
                             id="manual-entry-legumes"
                             type="button"
-                            onClick={() => openLegumesManualEntry(k)}
+                            onClick={() => openManualEntry(k)}
                             className="w-10 h-10 rounded-full flex items-center justify-center bg-[#16B551] text-white font-black text-[20px] shadow-sm hover:bg-[#14a048] active:scale-95 transition-all cursor-pointer"
                             title="Ручной учёт"
                             aria-label="Открыть ручной учёт для Бобовых"
@@ -893,6 +922,132 @@ export default function HabitsTwentyScreen({
                             +
                           </button>
                         </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            }
+
+            // Themed design for core product cards with manual entry draft modal
+            if (THEMED_KEYS.includes(k.id)) {
+              const theme = MANUAL_ENTRY_THEMES[k.id];
+              return (
+                <div
+                  key={k.id}
+                  className="w-full rounded-[22px] p-4 flex flex-col gap-3 transition-all"
+                  style={{
+                    backgroundColor: theme.surface,
+                    boxShadow: `0 6px 20px ${hexToRgba(theme.accent, 0.12)}`
+                  }}
+                >
+                  <div className="flex gap-3 justify-between items-start">
+                    <div className="flex gap-2.5 items-center">
+                      <span className="text-[26px] leading-none shrink-0" role="img" aria-label={k.name}>
+                        {k.emoji}
+                      </span>
+                      <div className="flex flex-col">
+                        <h4 className="text-[15px] sm:text-[15.5px] font-extrabold text-slate-800 leading-tight">
+                          {k.num}. {k.name}
+                        </h4>
+                        <p className="text-[11.5px] sm:text-[12px] text-slate-500 font-medium leading-normal mt-1 max-w-[220px]">
+                          {SYSTEM_KEYS.find(sk => sk.id === k.id)?.subtext || ""}
+                        </p>
+                      </div>
+                    </div>
+
+                    <button
+                      id={`info-key-${k.id}`}
+                      type="button"
+                      onClick={() => setSelectedKey(k)}
+                      className="p-1.5 rounded-full hover:bg-slate-50 text-slate-450 hover:text-emerald-500 transition-colors focus:outline-none cursor-pointer"
+                    >
+                      <Info className="w-4.5 h-4.5 stroke-[2]" />
+                    </button>
+                  </div>
+
+                  <div className="w-full flex flex-col gap-2.5 pt-1.5 border-t border-white/70">
+                    <span className={`text-[12px] font-bold ${
+                      isCompleted
+                        ? "text-emerald-600 font-black"
+                        : currentVal > 0
+                        ? "text-slate-500"
+                        : "text-slate-350"
+                    }`}>
+                      {isCompleted
+                        ? (k.superLevelDone ? "★ Сияющий суперуровень!" : "Выполнено!")
+                        : `Порций: ${currentVal} из ${k.optimum}`
+                      }
+                    </span>
+
+                    <div className="flex flex-col gap-2.5">
+                      <div className="flex gap-1.5 items-center">
+                        {Array.from({ length: PRODUCT_KEYS_LIST.includes(k.id) ? k.optimum : k.maxCircles }).map((_, idx) => {
+                          const circleVal = idx + 1;
+                          const checked = currentVal >= circleVal;
+                          const isSuper = k.hasSuperlevel && circleVal > k.optimum;
+
+                          return (
+                            <button
+                              id={`portion-${k.id}-${circleVal}`}
+                              key={idx}
+                              type="button"
+                              onClick={() => handleProductPortionClick(k.id, idx, currentVal, k.portionSizeInGrams, k.autoGrams)}
+                              className={`h-8 rounded-full border flex items-center justify-center font-black transition-all duration-200 cursor-pointer w-8 text-[13px] ${
+                                checked
+                                  ? isSuper
+                                    ? "bg-amber-500 border-amber-600 text-white shadow-sm shadow-amber-500/20"
+                                    : "bg-emerald-500 border-emerald-600 text-white shadow-sm shadow-emerald-500/25"
+                                  : isSuper
+                                  ? "border-amber-200 text-amber-500 bg-amber-50/20 hover:bg-amber-500/10"
+                                  : "border-slate-200 text-slate-500 hover:bg-emerald-500/5 hover:border-emerald-500/20 bg-slate-50/30"
+                              }`}
+                            >
+                              {isSuper ? "★" : circleVal}
+                            </button>
+                          );
+                        })}
+
+                        {k.hasSuperlevel && (
+                          <button
+                            id={`superlevel-btn-${k.id}`}
+                            type="button"
+                            onClick={() => {
+                              if (k.superLevelDone) {
+                                handleGramsInputChangeDirectly(k.id, 0);
+                              } else {
+                                const neededGrams = (k.optimum + 1) * k.portionSizeInGrams;
+                                const manualRequired = Math.max(0, neededGrams - k.autoGrams);
+                                handleGramsInputChangeDirectly(k.id, manualRequired);
+                              }
+                            }}
+                            className={`w-8 h-8 rounded-full border flex items-center justify-center text-[15px] font-black transition-all duration-200 cursor-pointer ${
+                              k.superLevelDone
+                                ? "bg-amber-500 border-amber-600 text-white shadow-sm shadow-amber-500/20"
+                                : "border-amber-200 text-amber-500 bg-amber-50/20 hover:bg-amber-500/10"
+                            }`}
+                            title="Суперуровень"
+                          >
+                            ★
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2 justify-end">
+                        <div className="px-3 py-1.5 rounded-xl bg-white/70 text-[13px] font-black text-slate-700 min-w-[60px] text-center">
+                          {k.manualGrams || 0} г
+                        </div>
+                        <button
+                          id={`manual-entry-${k.id}`}
+                          type="button"
+                          onClick={() => openManualEntry(k)}
+                          className="w-10 h-10 rounded-full flex items-center justify-center text-white font-black text-[20px] shadow-sm hover:brightness-95 active:scale-95 transition-all cursor-pointer"
+                          style={{ backgroundColor: theme.accent }}
+                          title="Ручной учёт"
+                          aria-label={`Открыть ручной учёт для ${k.name}`}
+                        >
+                          +
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -1112,11 +1267,11 @@ export default function HabitsTwentyScreen({
               {/* Header section (Rigidly static & safe inside container top) */}
               <div className="p-5 pb-3.5 border-b border-slate-100/80 flex items-center justify-between text-left shrink-0 gap-3">
                 <div className="flex gap-3 items-center flex-1 min-w-0">
-                  {richKeyInfo.id === "legumes" ? (
+                  {infoSheetHeaderTheme ? (
                     <div className="w-[40px] h-[40px] relative shrink-0 overflow-hidden rounded-lg">
                       <img
-                        src={legumesImg}
-                        alt="Бобовые"
+                        src={infoSheetHeaderTheme.img}
+                        alt={richKeyInfo.name}
                         className="w-full h-full object-cover"
                       />
                     </div>
@@ -1130,8 +1285,10 @@ export default function HabitsTwentyScreen({
                       {richKeyInfo.name}
                     </h3>
                     <span className={`text-[10px] font-extrabold uppercase tracking-widest leading-none mt-1 truncate ${
-                      richKeyInfo.id === "legumes" ? "text-[#16B551]" : "text-[#10B981]"
-                    }`}>
+                      infoSheetHeaderTheme ? "" : "text-[#10B981]"
+                    }`}
+                      style={infoSheetHeaderTheme ? { color: infoSheetHeaderTheme.accent } : undefined}
+                    >
                       Ключ системы №{richKeyInfo.num}
                     </span>
                   </div>
@@ -1150,7 +1307,7 @@ export default function HabitsTwentyScreen({
               <div className="flex-1 overflow-y-auto p-5 space-y-4 text-left font-normal select-text scroll-smooth overscroll-contain" style={{ scrollbarWidth: "thin" }}>
 
                 {/* DYNAMIC MANUAL ENTRY ADJUSTMENT BAR (for products only, except legumes) */}
-                {richKeyInfo.category === "product" && PRODUCT_KEYS_LIST.includes(richKeyInfo.id) && richKeyInfo.id !== "legumes" && (
+                {richKeyInfo.category === "product" && PRODUCT_KEYS_LIST.includes(richKeyInfo.id) && richKeyInfo.id !== "legumes" && !THEMED_KEYS.includes(richKeyInfo.id) && (
                   <div className="p-4 rounded-2xl bg-indigo-50/40 border border-indigo-100 flex flex-col gap-2.5 shrink-0">
                     <h5 className="text-[11px] font-black uppercase text-indigo-500 tracking-wider">
                       📝 Ручной учёт (вне меню)
@@ -1491,7 +1648,10 @@ export default function HabitsTwentyScreen({
                   id="btn-info-sheet-close"
                   type="button"
                   onClick={() => setSelectedKey(null)}
-                  className="w-full py-3 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white font-black text-[14px] sm:text-[15px] transition-all cursor-pointer shadow-sm tracking-wide text-center"
+                  className={`w-full py-3 rounded-2xl text-white font-black text-[14px] sm:text-[15px] transition-all cursor-pointer shadow-sm tracking-wide text-center ${
+                    infoSheetCloseTheme ? "hover:brightness-95" : "bg-emerald-500 hover:bg-emerald-600"
+                  }`}
+                  style={infoSheetCloseTheme ? { backgroundColor: infoSheetCloseTheme.accent } : undefined}
                 >
                   Понятно
                 </button>
@@ -1500,15 +1660,15 @@ export default function HabitsTwentyScreen({
           </div>
         )}
 
-        {/* LEGUMES DRAFT MANUAL ENTRY MODAL */}
-        {manualEntryKey && manualEntryKey.id === "legumes" && (
+        {/* DRAFT MANUAL ENTRY MODAL */}
+        {manualEntryKey && manualEntryDef && manualTheme && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 box-border" id="legumes-manual-entry-portal">
             {/* Backdrop overlay */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={closeLegumesManualEntry}
+              onClick={closeManualEntry}
               className="absolute inset-0 bg-[#0c1613]/55 backdrop-blur-md"
               id="legumes-manual-entry-overlay"
               aria-label="Закрыть и отменить изменения"
@@ -1520,8 +1680,16 @@ export default function HabitsTwentyScreen({
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.93, opacity: 0, y: 15 }}
               transition={{ type: "spring", damping: 30, stiffness: 320 }}
-              className="bg-white rounded-[28px] relative z-10 w-[calc(100vw-32px)] max-w-[390px] shadow-[0_24px_60px_rgba(0,0,0,0.22)] flex flex-col border border-slate-100/80 overflow-hidden"
-              style={{ maxHeight: "calc(100dvh - 32px)" }}
+              className="bg-white rounded-[28px] relative z-10 w-[calc(100vw-32px)] max-w-[390px] shadow-[0_24px_60px_rgba(0,0,0,0.22)] flex flex-col border border-white/60 overflow-hidden"
+              style={{
+                maxHeight: "calc(100dvh - 32px)",
+                "--manual-accent": manualTheme.accent,
+                "--manual-accent-hover": manualTheme.accentHover,
+                "--manual-soft2": hexToRgba(manualTheme.accent, 0.2),
+                "--manual-soft15": hexToRgba(manualTheme.accent, 0.15),
+                "--manual-surface5": hexToRgba(manualTheme.surface, 0.5),
+                "--manual-surface4": hexToRgba(manualTheme.surface, 0.4)
+              } as React.CSSProperties}
               id="legumes-manual-entry-container"
             >
               {/* Header */}
@@ -1529,23 +1697,23 @@ export default function HabitsTwentyScreen({
                 <div className="flex gap-3 items-center flex-1 min-w-0">
                   <div className="w-[40px] h-[40px] relative shrink-0 overflow-hidden rounded-lg">
                     <img
-                      src={legumesImg}
-                      alt="Бобовые"
+                      src={manualTheme.img}
+                      alt={manualEntryDef.name}
                       className="w-full h-full object-cover"
                     />
                   </div>
                   <div className="flex flex-col min-w-0">
                     <h3 className="text-[17px] sm:text-[19px] font-black text-slate-800 leading-tight break-words">
-                      Бобовые
+                      {manualEntryDef.name}
                     </h3>
-                    <span className="text-[10px] font-extrabold uppercase tracking-widest text-[#16B551] leading-none mt-1 truncate">
-                      Ключ системы №1
+                    <span className="text-[10px] font-extrabold uppercase tracking-widest text-[var(--manual-accent)] leading-none mt-1 truncate">
+                      Ключ системы №{manualEntryDef.num}
                     </span>
                   </div>
                 </div>
                 <button
                   type="button"
-                  onClick={closeLegumesManualEntry}
+                  onClick={closeManualEntry}
                   className="w-8 h-8 rounded-full flex items-center justify-center bg-slate-50 border border-slate-150 text-slate-450 hover:text-slate-600 hover:bg-slate-100 active:scale-90 transition-all cursor-pointer shrink-0"
                   aria-label="Закрыть и отменить изменения"
                 >
@@ -1556,25 +1724,25 @@ export default function HabitsTwentyScreen({
               {/* Scrollable content */}
               <div className="flex-1 overflow-y-auto p-5 space-y-4 text-left font-normal select-text scroll-smooth overscroll-contain" style={{ scrollbarWidth: "thin" }}>
                 {/* Manual entry block */}
-                <div className="p-4 rounded-2xl bg-[#D4F0E6]/50 border border-[#16B551]/20 flex flex-col gap-2.5 shrink-0">
-                  <h5 className="text-[11px] font-black uppercase text-[#16B551] tracking-wider">
+                <div className="p-4 rounded-2xl bg-[var(--manual-surface5)] border border-[var(--manual-soft2)] flex flex-col gap-2.5 shrink-0">
+                  <h5 className="text-[11px] font-black uppercase text-[var(--manual-accent)] tracking-wider">
                     РУЧНОЙ УЧЁТ
                   </h5>
 
-                  <div className="flex items-center justify-between gap-3 bg-white px-3 py-2 rounded-xl border border-[#16B551]/15">
+                  <div className="flex items-center justify-between gap-3 bg-white px-3 py-2 rounded-xl border border-[var(--manual-soft15)]">
                     <div className="flex flex-col gap-0.5">
                       <span className="text-[11px] text-slate-450 font-bold">Собрано из меню</span>
                       <span className="text-[13px] font-black text-slate-700">{Math.round(manualEntryKey.autoGrams)} г</span>
                     </div>
                     <div className="flex flex-col gap-0.5 text-right">
                       <span className="text-[11px] text-slate-450 font-bold">Введено вручную</span>
-                      <span className="text-[13px] font-black text-[#16B551]">{Math.round(draftManualGrams)} г</span>
+                      <span className="text-[13px] font-black text-[var(--manual-accent)]">{Math.round(draftManualGrams)} г</span>
                     </div>
                   </div>
 
                   <div className="flex items-center gap-3 mt-1 justify-between">
                     <span className="text-[12.5px] font-black text-slate-700 font-sans">Итоговый вес:</span>
-                    <div className="px-4 py-2 rounded-xl bg-white border border-[#16B551]/20 text-[16px] font-black text-[#16B551] min-w-[80px] text-center">
+                    <div className="px-4 py-2 rounded-xl bg-white border border-[var(--manual-soft2)] text-[16px] font-black text-[var(--manual-accent)] min-w-[80px] text-center">
                       {draftManualGrams} г
                     </div>
                   </div>
@@ -1589,7 +1757,7 @@ export default function HabitsTwentyScreen({
                         setDraftManualGrams(Math.max(0, val));
                       }}
                       placeholder="0"
-                      className="flex-1 px-3 py-2 rounded-xl border border-slate-200 text-center text-slate-800 font-black text-[14px] focus:outline-none focus:border-[#16B551] focus:ring-1 focus:ring-[#16B551]/20 bg-white"
+                      className="flex-1 px-3 py-2 rounded-xl border border-slate-200 text-center text-slate-800 font-black text-[14px] focus:outline-none focus:border-[var(--manual-accent)] focus:ring-1 focus:ring-[var(--manual-soft2)] bg-white"
                     />
                     <span className="text-[12px] font-bold text-slate-450 select-none">грамм</span>
                   </div>
@@ -1599,7 +1767,7 @@ export default function HabitsTwentyScreen({
                     <button
                       type="button"
                       onClick={() => setDraftManualGrams(Math.max(0, draftManualGrams + manualEntryKey.portionSizeInGrams))}
-                      className="flex-1 py-2 rounded-xl bg-[#16B551] text-white font-black text-[12px] hover:bg-[#14a048] transition-colors shadow-sm cursor-pointer"
+                      className="flex-1 py-2 rounded-xl bg-[var(--manual-accent)] text-white font-black text-[12px] hover:brightness-95 transition-colors shadow-sm cursor-pointer"
                     >
                       + {manualEntryKey.portionSizeInGrams} г
                     </button>
@@ -1624,21 +1792,21 @@ export default function HabitsTwentyScreen({
                     <button
                       type="button"
                       onClick={() => setDraftManualGrams(Math.max(0, draftManualGrams + 10))}
-                      className="flex-1 py-1.5 rounded-xl bg-white text-[#16B551] border border-[#16B551]/20 font-black text-[11px] hover:bg-[#D4F0E6]/40 transition-colors cursor-pointer"
+                      className="flex-1 py-1.5 rounded-xl bg-white text-[var(--manual-accent)] border border-[var(--manual-soft2)] font-black text-[11px] hover:bg-[var(--manual-surface4)] transition-colors cursor-pointer"
                     >
                       +10 г
                     </button>
                     <button
                       type="button"
                       onClick={() => setDraftManualGrams(Math.max(0, draftManualGrams + 50))}
-                      className="flex-1 py-1.5 rounded-xl bg-white text-[#16B551] border border-[#16B551]/20 font-black text-[11px] hover:bg-[#D4F0E6]/40 transition-colors cursor-pointer"
+                      className="flex-1 py-1.5 rounded-xl bg-white text-[var(--manual-accent)] border border-[var(--manual-soft2)] font-black text-[11px] hover:bg-[var(--manual-surface4)] transition-colors cursor-pointer"
                     >
                       +50 г
                     </button>
                     <button
                       type="button"
                       onClick={() => setDraftManualGrams(Math.max(0, draftManualGrams + 100))}
-                      className="flex-1 py-1.5 rounded-xl bg-white text-[#16B551] border border-[#16B551]/20 font-black text-[11px] hover:bg-[#D4F0E6]/40 transition-colors cursor-pointer"
+                      className="flex-1 py-1.5 rounded-xl bg-white text-[var(--manual-accent)] border border-[var(--manual-soft2)] font-black text-[11px] hover:bg-[var(--manual-surface4)] transition-colors cursor-pointer"
                     >
                       +100 г
                     </button>
@@ -1651,8 +1819,8 @@ export default function HabitsTwentyScreen({
                 <button
                   id="btn-legumes-manual-confirm"
                   type="button"
-                  onClick={confirmLegumesManualEntry}
-                  className="w-full py-3.5 rounded-2xl bg-[#16B551] hover:bg-[#14a048] text-white font-black text-[15px] transition-all cursor-pointer shadow-sm tracking-wide text-center"
+                  onClick={confirmManualEntry}
+                  className="w-full py-3.5 rounded-2xl bg-[var(--manual-accent)] hover:brightness-95 text-white font-black text-[15px] transition-all cursor-pointer shadow-sm tracking-wide text-center"
                 >
                   Подтвердить
                 </button>
