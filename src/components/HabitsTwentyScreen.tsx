@@ -572,42 +572,122 @@ export default function HabitsTwentyScreen({
       {/* CONTENT SCROLLABLE GRID */}
       <div className="flex-1 overflow-y-auto px-4 sm:px-5 pt-4 pb-28 flex flex-col gap-4 max-w-lg mx-auto w-full scrollbar-none">
 
-        {/* PROGRESS BLOCK - CAPSULE FLASK + TEXT */}
+        {/* PROGRESS BLOCK - GLASS FLASK + TEXT */}
         <div className="flex flex-row items-center gap-6 p-4 mb-4">
-          {/* Left: Capsule Flask */}
-          <div className="relative w-28 h-40 rounded-[2.5rem] overflow-hidden bg-white shadow-[inset_0_-2px_10px_rgba(0,0,0,0.05)] shrink-0">
-            {/* Liquid - height from closedCount */}
-            <div
-              className="absolute bottom-0 w-full overflow-hidden bg-gradient-to-t from-orange-400 to-green-500 transition-all duration-700 ease-out"
-              style={{ height: `${Math.max((closedCount / 20) * 100, 10)}%` }}
-            >
-              {/* Wave 1 - negative space rotating disc */}
+          {/* Left: Glass Flask with floating bubbles */}
+          <div className="relative w-28 h-48 shrink-0">
+            {/* Glass vessel (transparent, no border) */}
+            <div className="absolute inset-0 rounded-b-full overflow-hidden">
+              {/* Liquid - 25% base height + fills to 100% based on progress */}
               <div
-                className="absolute -top-[150%] -left-[50%] w-[200%] h-[200%] bg-[#FFFBF7] rounded-[40%] animate-[spin_6s_linear_infinite]"
-              />
-              {/* Wave 2 - second rotating disc with offset */}
-              <div
-                className="absolute -top-[150%] -left-[50%] w-[200%] h-[200%] bg-[#FFFBF7] opacity-50 rounded-[45%] animate-[spin_9s_linear_infinite]"
-              />
-              {/* Bubbles - 4 small white circles rising */}
-              <div className="absolute inset-0">
-                <div className="absolute w-2 h-2 bg-white/40 rounded-full bottom-2 left-3 animate-[bounce_3s_infinite]" />
-                <div className="absolute w-1.5 h-1.5 bg-white/40 rounded-full bottom-4 left-6 animate-[bounce_4s_infinite]" style={{ animationDelay: '0.5s' }} />
-                <div className="absolute w-2.5 h-2.5 bg-white/40 rounded-full bottom-1 left-10 animate-[bounce_3.5s_infinite]" style={{ animationDelay: '1s' }} />
-                <div className="absolute w-1 h-1 bg-white/40 rounded-full bottom-3 left-14 animate-[bounce_4.5s_infinite]" style={{ animationDelay: '0.3s' }} />
+                className="absolute bottom-0 w-full bg-gradient-to-t from-emerald-500 to-cyan-400 transition-all duration-700 ease-out"
+                style={{ height: `calc(25% + (${closedCount} / 20) * 75%)` }}
+              >
+                {/* Wave 1 - negative space rotating disc */}
+                <div
+                  className="absolute -top-[150%] -left-[50%] w-[200%] h-[200%] bg-[#FFFBF7] rounded-[40%] animate-[spin_6s_linear_infinite]"
+                />
+                {/* Wave 2 - second rotating disc */}
+                <div
+                  className="absolute -top-[150%] -left-[50%] w-[200%] h-[200%] bg-[#FFFBF7] opacity-50 rounded-[45%] animate-[spin_9s_linear_infinite]"
+                />
               </div>
             </div>
+
+            {/* Floating bubbles - OUTSIDE the overflow-hidden flask */}
+            <style>{`
+              @keyframes bubbleFloat {
+                0% {
+                  transform: translateY(0) scale(0.5);
+                  opacity: 1;
+                }
+                100% {
+                  transform: translateY(-150px) scale(1.5);
+                  opacity: 0;
+                }
+              }
+            `}</style>
+            {/* Bubble 1 - large white */}
+            <div
+              className="absolute w-6 h-6 rounded-full bg-white/50"
+              style={{
+                left: '20%',
+                bottom: '30%',
+                animation: 'bubbleFloat 3s infinite ease-in',
+                animationDelay: '0s'
+              }}
+            />
+            {/* Bubble 2 - medium cyan */}
+            <div
+              className="absolute w-4 h-4 rounded-full bg-cyan-300/40"
+              style={{
+                left: '45%',
+                bottom: '25%',
+                animation: 'bubbleFloat 3s infinite ease-in',
+                animationDelay: '0.5s'
+              }}
+            />
+            {/* Bubble 3 - small emerald */}
+            <div
+              className="absolute w-3 h-3 rounded-full bg-emerald-300/40"
+              style={{
+                left: '65%',
+                bottom: '35%',
+                animation: 'bubbleFloat 3s infinite ease-in',
+                animationDelay: '1s'
+              }}
+            />
+            {/* Bubble 4 - medium white */}
+            <div
+              className="absolute w-5 h-5 rounded-full bg-white/50"
+              style={{
+                left: '35%',
+                bottom: '20%',
+                animation: 'bubbleFloat 3s infinite ease-in',
+                animationDelay: '1.5s'
+              }}
+            />
+            {/* Bubble 5 - small cyan */}
+            <div
+              className="absolute w-3 h-3 rounded-full bg-cyan-300/40"
+              style={{
+                left: '75%',
+                bottom: '28%',
+                animation: 'bubbleFloat 3s infinite ease-in',
+                animationDelay: '0.8s'
+              }}
+            />
+            {/* Bubble 6 - large emerald */}
+            <div
+              className="absolute w-5 h-5 rounded-full bg-emerald-300/40"
+              style={{
+                left: '55%',
+                bottom: '32%',
+                animation: 'bubbleFloat 3s infinite ease-in',
+                animationDelay: '2s'
+              }}
+            />
+            {/* Bubble 7 - small white */}
+            <div
+              className="absolute w-3 h-3 rounded-full bg-white/50"
+              style={{
+                left: '15%',
+                bottom: '22%',
+                animation: 'bubbleFloat 3s infinite ease-in',
+                animationDelay: '1.2s'
+              }}
+            />
           </div>
 
-          {/* Right: Text Block - no background/frame */}
+          {/* Right: Text Block */}
           <div className="flex flex-col flex-1 gap-1">
-            <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">
+            <span className="text-sm font-bold text-gray-400 uppercase tracking-widest">
               ПРОГРЕСС ДНЯ
             </span>
-            <span className="text-4xl font-extrabold text-gray-800 leading-none">
-              {closedCount} <span className="text-xl font-semibold text-gray-500">из 20</span>
+            <span className="text-6xl font-extrabold text-gray-800 leading-none">
+              {closedCount} <span className="text-2xl font-semibold text-gray-500">из 20</span>
             </span>
-            <p className="text-sm text-gray-500 leading-tight mt-1">
+            <p className="text-base text-gray-600 font-medium mt-2">
               {MOTIVATION_PHRASES[closedCount] || MOTIVATION_PHRASES[0]}
             </p>
           </div>
