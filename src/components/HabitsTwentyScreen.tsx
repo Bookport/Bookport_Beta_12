@@ -572,81 +572,147 @@ export default function HabitsTwentyScreen({
       {/* CONTENT SCROLLABLE GRID */}
       <div className="flex-1 overflow-y-auto px-4 sm:px-5 pt-4 pb-28 flex flex-col gap-4 max-w-lg mx-auto w-full scrollbar-none">
 
-        {/* GLASS PROGRESS VESSEL */}
-        <div className="w-full relative overflow-hidden rounded-3xl bg-white/10 backdrop-blur-md border border-white/20 shadow-[0_8px_32px_rgba(255,180,140,0.15)] shrink-0">
-          {/* Glass vessel container */}
-          <div className="relative h-[180px] sm:h-[200px] w-full">
-            {/* Liquid fill - height driven by closedCount */}
-            <div
-              className="absolute bottom-0 left-0 right-0 transition-all duration-700 ease-out overflow-hidden"
-              style={{ height: `${Math.max(8, (closedCount / 20) * 100)}%` }}
-            >
-              {/* Gradient: amber/orange → lime → emerald */}
-              <div className="absolute inset-0 bg-gradient-to-t from-[#F59E0B] via-[#84CC16] to-[#10B981]" />
+        {/* LIQUID PROGRESS VESSEL */}
+        <div className="w-full relative h-[165px] overflow-hidden rounded-[30px] bg-white/30 backdrop-blur-md shadow-[0_12px_35px_rgba(16,185,129,0.16)] shrink-0">
+          {/* Glass overlay gradient */}
+          <div className="pointer-events-none absolute inset-0 rounded-[30px] bg-gradient-to-br from-white/70 via-white/20 to-emerald-100/30" />
 
-              {/* Wave layer 1 - slow sway */}
-              <div className="absolute top-0 left-0 right-0 h-8 overflow-hidden">
-                <div className="absolute w-[200%] h-full animate-wave-slow">
-                  <svg viewBox="0 0 1200 120" preserveAspectRatio="none" className="absolute inset-0 w-full h-full">
-                    <ellipse cx="600" cy="60" rx="600" ry="40" fill="rgba(255,255,255,0.25)" />
-                  </svg>
-                </div>
-              </div>
+          {/* Liquid layer - height from closedCount with 18% visual minimum */}
+          <div
+            className="absolute inset-x-0 bottom-0 overflow-hidden bg-gradient-to-t from-orange-400 via-lime-400 to-emerald-500 transition-all duration-700 ease-out"
+            style={{ height: `${Math.max((closedCount / 20) * 100, 18)}%` }}
+          >
+            {/* Wave A */}
+            <div className="liquid-wave liquid-wave-a" />
 
-              {/* Wave layer 2 - medium reverse sway */}
-              <div className="absolute top-2 left-0 right-0 h-6 overflow-hidden">
-                <div className="absolute w-[200%] h-full animate-wave-medium">
-                  <svg viewBox="0 0 1200 120" preserveAspectRatio="none" className="absolute inset-0 w-full h-full">
-                    <ellipse cx="600" cy="60" rx="600" ry="30" fill="rgba(255,255,255,0.18)" />
-                  </svg>
-                </div>
-              </div>
+            {/* Wave B */}
+            <div className="liquid-wave liquid-wave-b" />
 
-              {/* Bubbles - 8 varied particles */}
-              <div className="absolute inset-0 overflow-hidden">
-                {/* Bubble 1 - white, small */}
-                <div className="absolute w-2 h-2 rounded-full bg-white/60 animate-bubble-slow" style={{ left: '15%', bottom: '-10px', animationDelay: '0s' }} />
-                {/* Bubble 2 - lime, medium */}
-                <div className="absolute w-3 h-3 rounded-full bg-[#BEF264]/70 animate-bubble-medium" style={{ left: '28%', bottom: '-10px', animationDelay: '1.2s' }} />
-                {/* Bubble 3 - white, large */}
-                <div className="absolute w-4 h-4 rounded-full bg-white/50 animate-bubble-slow" style={{ left: '45%', bottom: '-10px', animationDelay: '0.5s' }} />
-                {/* Bubble 4 - yellow, small */}
-                <div className="absolute w-2.5 h-2.5 rounded-full bg-[#FEF08A]/65 animate-bubble-fast" style={{ left: '62%', bottom: '-10px', animationDelay: '2s' }} />
-                {/* Bubble 5 - lime, medium */}
-                <div className="absolute w-3 h-3 rounded-full bg-[#A3E635]/60 animate-bubble-medium" style={{ left: '78%', bottom: '-10px', animationDelay: '0.8s' }} />
-                {/* Bubble 6 - white, large */}
-                <div className="absolute w-4.5 h-4.5 rounded-full bg-white/45 animate-bubble-slow" style={{ left: '38%', bottom: '-10px', animationDelay: '1.8s' }} />
-                {/* Bubble 7 - yellow, small */}
-                <div className="absolute w-2 h-2 rounded-full bg-[#FDE047]/70 animate-bubble-fast" style={{ left: '85%', bottom: '-10px', animationDelay: '2.5s' }} />
-                {/* Bubble 8 - lime, medium */}
-                <div className="absolute w-3.5 h-3.5 rounded-full bg-[#BEF264]/55 animate-bubble-medium" style={{ left: '55%', bottom: '-10px', animationDelay: '1.5s' }} />
-              </div>
+            {/* Bright liquid surface highlight */}
+            <div className="absolute left-0 right-0 top-0 h-[10px] bg-[rgba(236,253,245,0.62)] blur-[5px] rounded-[9999px]" />
+
+            {/* Bubbles - 7 varied particles */}
+            <div className="liquid-bubbles absolute inset-0" aria-hidden="true">
+              {/* Bubble 1 - large */}
+              <div
+                className="system-keys-bubble absolute rounded-full"
+                style={{
+                  width: '14px',
+                  height: '14px',
+                  left: '12%',
+                  bottom: '8px',
+                  background: 'rgba(255,255,255,0.68)',
+                  boxShadow: '0 0 10px rgba(255,255,255,0.38)',
+                  '--bubble-duration': '5.2s',
+                  '--bubble-delay': '0.3s'
+                } as React.CSSProperties}
+              />
+              {/* Bubble 2 - medium */}
+              <div
+                className="system-keys-bubble absolute rounded-full"
+                style={{
+                  width: '10px',
+                  height: '10px',
+                  left: '25%',
+                  bottom: '12px',
+                  background: 'rgba(255,255,255,0.68)',
+                  boxShadow: '0 0 10px rgba(255,255,255,0.38)',
+                  '--bubble-duration': '4.5s',
+                  '--bubble-delay': '1.1s'
+                } as React.CSSProperties}
+              />
+              {/* Bubble 3 - small */}
+              <div
+                className="system-keys-bubble absolute rounded-full"
+                style={{
+                  width: '6px',
+                  height: '6px',
+                  left: '38%',
+                  bottom: '6px',
+                  background: 'rgba(255,255,255,0.68)',
+                  boxShadow: '0 0 10px rgba(255,255,255,0.38)',
+                  '--bubble-duration': '3.8s',
+                  '--bubble-delay': '0.7s'
+                } as React.CSSProperties}
+              />
+              {/* Bubble 4 - large */}
+              <div
+                className="system-keys-bubble absolute rounded-full"
+                style={{
+                  width: '12px',
+                  height: '12px',
+                  left: '52%',
+                  bottom: '10px',
+                  background: 'rgba(255,255,255,0.68)',
+                  boxShadow: '0 0 10px rgba(255,255,255,0.38)',
+                  '--bubble-duration': '6.1s',
+                  '--bubble-delay': '1.8s'
+                } as React.CSSProperties}
+              />
+              {/* Bubble 5 - medium */}
+              <div
+                className="system-keys-bubble absolute rounded-full"
+                style={{
+                  width: '8px',
+                  height: '8px',
+                  left: '65%',
+                  bottom: '14px',
+                  background: 'rgba(255,255,255,0.68)',
+                  boxShadow: '0 0 10px rgba(255,255,255,0.38)',
+                  '--bubble-duration': '4.2s',
+                  '--bubble-delay': '2.3s'
+                } as React.CSSProperties}
+              />
+              {/* Bubble 6 - small */}
+              <div
+                className="system-keys-bubble absolute rounded-full"
+                style={{
+                  width: '5px',
+                  height: '5px',
+                  left: '78%',
+                  bottom: '7px',
+                  background: 'rgba(255,255,255,0.68)',
+                  boxShadow: '0 0 10px rgba(255,255,255,0.38)',
+                  '--bubble-duration': '3.5s',
+                  '--bubble-delay': '0.5s'
+                } as React.CSSProperties}
+              />
+              {/* Bubble 7 - medium */}
+              <div
+                className="system-keys-bubble absolute rounded-full"
+                style={{
+                  width: '9px',
+                  height: '9px',
+                  left: '88%',
+                  bottom: '11px',
+                  background: 'rgba(255,255,255,0.68)',
+                  boxShadow: '0 0 10px rgba(255,255,255,0.38)',
+                  '--bubble-duration': '5.5s',
+                  '--bubble-delay': '1.4s'
+                } as React.CSSProperties}
+              />
             </div>
-
-            {/* Glass surface highlights */}
-            <div className="absolute top-3 left-4 right-4 h-16 bg-gradient-to-b from-white/25 to-transparent rounded-full pointer-events-none" />
-            <div className="absolute top-2 left-6 w-20 h-8 bg-white/15 rounded-full blur-sm pointer-events-none" />
-
-            {/* 100% completion glow */}
-            {closedCount >= 20 && (
-              <div className="absolute inset-0 bg-[#FDE047]/20 animate-pulse pointer-events-none" />
-            )}
           </div>
 
-          {/* Text overlay with glass backing */}
-          <div className="absolute inset-x-4 bottom-4 sm:bottom-6">
-            <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 border border-white/15">
-              <span className="text-[11px] font-extrabold text-white/90 uppercase tracking-widest leading-none block">
+          {/* Text overlay - centered over all layers */}
+          <div className="pointer-events-none absolute inset-0 z-20 flex flex-col items-center justify-center px-4 text-center text-white drop-shadow-[0_2px_7px_rgba(0,0,0,0.38)]">
+            <div className="bg-emerald-900/10 backdrop-blur-[2px] rounded-2xl px-4 py-3 max-w-full">
+              <span className="text-[12px] font-extrabold text-white uppercase tracking-widest leading-none block">
                 ПРОГРЕСС ДНЯ
               </span>
-              <span className="text-[34px] sm:text-[38px] font-black text-white leading-none mt-2 block select-none drop-shadow-[0_2px_4px_rgba(0,0,0,0.15)]">
+              <span className="text-[34px] sm:text-[38px] font-bold text-white leading-none mt-1.5 block select-none">
                 {closedCount} <span className="text-[20px] font-semibold text-white/85">из 20</span>
               </span>
-              <p className="text-[12px] sm:text-[12.5px] text-white/90 leading-snug mt-2 font-semibold">
+              <p className="text-[13px] text-white/90 leading-snug mt-2 font-medium max-w-[280px] mx-auto">
                 {MOTIVATION_PHRASES[closedCount] || MOTIVATION_PHRASES[0]}
               </p>
             </div>
           </div>
+
+          {/* 100% completion glow */}
+          {closedCount >= 20 && (
+            <div className="pointer-events-none absolute inset-0 bg-[#FDE047]/25 animate-pulse z-10" />
+          )}
         </div>
 
         {/* CUSTOM TAB SELECTOR */}
