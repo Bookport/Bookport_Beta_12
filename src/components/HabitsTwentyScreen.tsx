@@ -587,95 +587,95 @@ export default function HabitsTwentyScreen({
                 <div
                   className="absolute -top-[150%] -left-[50%] w-[200%] h-[200%] bg-[#FFFBF7] rounded-[40%] animate-[spin_6s_linear_infinite]"
                 />
-                {/* Wave 2 - second rotating disc */}
+                {/* Wave 2 - second rotating disc (semi-transparent for layered effect) */}
                 <div
-                  className="absolute -top-[150%] -left-[50%] w-[200%] h-[200%] bg-[#FFFBF7] opacity-50 rounded-[45%] animate-[spin_9s_linear_infinite]"
+                  className="absolute -top-[150%] -left-[50%] w-[200%] h-[200%] bg-[#FFFBF7] opacity-60 rounded-[45%] animate-[spin_9s_linear_infinite]"
                 />
               </div>
+              {/* Glass shine overlay - adds volume effect */}
+              <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-transparent to-white/30 rounded-b-full pointer-events-none" />
             </div>
 
             {/* Floating bubbles - OUTSIDE the overflow-hidden flask */}
             <style>{`
-              @keyframes bubbleFloat {
-                0% {
-                  transform: translateY(0) scale(0.5);
-                  opacity: 1;
-                }
-                100% {
-                  transform: translateY(-150px) scale(1.5);
-                  opacity: 0;
-                }
+              @keyframes floatWind {
+                0% { transform: translate(0, 0) scale(0.8); opacity: 0; }
+                10% { opacity: 0.8; }
+                100% { transform: translate(60px, -250px) scale(1.2); opacity: 0; }
+              }
+              @keyframes popMid {
+                0% { transform: translate(0, 0) scale(1); opacity: 0; }
+                20% { opacity: 0.7; }
+                70% { transform: translate(-30px, -120px) scale(1.5); opacity: 0.8; }
+                75% { transform: translate(-32px, -125px) scale(1.8); opacity: 0; }
+                100% { opacity: 0; }
+              }
+              @keyframes floatFast {
+                0% { transform: translate(0, 0) scale(0.4); opacity: 0; }
+                20% { opacity: 0.5; }
+                100% { transform: translate(-50px, -300px) scale(0.5); opacity: 0; }
               }
             `}</style>
-            {/* Bubble 1 - large white */}
+
+            {/* Bubble 1 - floatWind, large white */}
             <div
-              className="absolute w-6 h-6 rounded-full bg-white/50"
-              style={{
-                left: '20%',
-                bottom: '30%',
-                animation: 'bubbleFloat 3s infinite ease-in',
-                animationDelay: '0s'
-              }}
+              className="absolute w-6 h-6 rounded-full bg-white/60"
+              style={{ left: '18%', bottom: '25%', animation: 'floatWind 4s infinite ease-in', animationDelay: '0s' }}
             />
-            {/* Bubble 2 - medium cyan */}
+            {/* Bubble 2 - popMid, medium cyan */}
             <div
-              className="absolute w-4 h-4 rounded-full bg-cyan-300/40"
-              style={{
-                left: '45%',
-                bottom: '25%',
-                animation: 'bubbleFloat 3s infinite ease-in',
-                animationDelay: '0.5s'
-              }}
+              className="absolute w-4 h-4 rounded-full bg-cyan-200/50"
+              style={{ left: '42%', bottom: '30%', animation: 'popMid 3s infinite ease-in', animationDelay: '0.8s' }}
             />
-            {/* Bubble 3 - small emerald */}
+            {/* Bubble 3 - floatFast, small emerald */}
             <div
-              className="absolute w-3 h-3 rounded-full bg-emerald-300/40"
-              style={{
-                left: '65%',
-                bottom: '35%',
-                animation: 'bubbleFloat 3s infinite ease-in',
-                animationDelay: '1s'
-              }}
+              className="absolute w-3 h-3 rounded-full bg-emerald-200/50"
+              style={{ left: '68%', bottom: '20%', animation: 'floatFast 2.5s infinite ease-in', animationDelay: '1.5s' }}
             />
-            {/* Bubble 4 - medium white */}
+            {/* Bubble 4 - floatWind, medium white */}
             <div
-              className="absolute w-5 h-5 rounded-full bg-white/50"
-              style={{
-                left: '35%',
-                bottom: '20%',
-                animation: 'bubbleFloat 3s infinite ease-in',
-                animationDelay: '1.5s'
-              }}
+              className="absolute w-5 h-5 rounded-full bg-white/60"
+              style={{ left: '32%', bottom: '35%', animation: 'floatWind 5s infinite ease-in', animationDelay: '2s' }}
             />
-            {/* Bubble 5 - small cyan */}
+            {/* Bubble 5 - popMid, small cyan */}
             <div
-              className="absolute w-3 h-3 rounded-full bg-cyan-300/40"
-              style={{
-                left: '75%',
-                bottom: '28%',
-                animation: 'bubbleFloat 3s infinite ease-in',
-                animationDelay: '0.8s'
-              }}
+              className="absolute w-3.5 h-3.5 rounded-full bg-cyan-200/50"
+              style={{ left: '75%', bottom: '28%', animation: 'popMid 3.5s infinite ease-in', animationDelay: '0.3s' }}
             />
-            {/* Bubble 6 - large emerald */}
+            {/* Bubble 6 - floatFast, large emerald */}
             <div
-              className="absolute w-5 h-5 rounded-full bg-emerald-300/40"
-              style={{
-                left: '55%',
-                bottom: '32%',
-                animation: 'bubbleFloat 3s infinite ease-in',
-                animationDelay: '2s'
-              }}
+              className="absolute w-5 h-5 rounded-full bg-emerald-200/50"
+              style={{ left: '52%', bottom: '22%', animation: 'floatFast 2s infinite ease-in', animationDelay: '1.2s' }}
             />
-            {/* Bubble 7 - small white */}
+            {/* Bubble 7 - floatWind, small white */}
             <div
-              className="absolute w-3 h-3 rounded-full bg-white/50"
-              style={{
-                left: '15%',
-                bottom: '22%',
-                animation: 'bubbleFloat 3s infinite ease-in',
-                animationDelay: '1.2s'
-              }}
+              className="absolute w-3 h-3 rounded-full bg-white/60"
+              style={{ left: '12%', bottom: '18%', animation: 'floatWind 4.5s infinite ease-in', animationDelay: '3s' }}
+            />
+            {/* Bubble 8 - popMid, medium emerald */}
+            <div
+              className="absolute w-4 h-4 rounded-full bg-emerald-200/50"
+              style={{ left: '58%', bottom: '32%', animation: 'popMid 4s infinite ease-in', animationDelay: '2.5s' }}
+            />
+            {/* Bubble 9 - floatFast, tiny cyan */}
+            <div
+              className="absolute w-2.5 h-2.5 rounded-full bg-cyan-200/50"
+              style={{ left: '82%', bottom: '15%', animation: 'floatFast 3s infinite ease-in', animationDelay: '0.5s' }}
+            />
+            {/* Bubble 10 - floatWind, large white */}
+            <div
+              className="absolute w-5.5 h-5.5 rounded-full bg-white/60"
+              style={{ left: '25%', bottom: '28%', animation: 'floatWind 6s infinite ease-in', animationDelay: '1.8s' }}
+            />
+            {/* Bubble 11 - popMid, small white */}
+            <div
+              className="absolute w-3.5 h-3.5 rounded-full bg-white/60"
+              style={{ left: '45%', bottom: '38%', animation: 'popMid 3.2s infinite ease-in', animationDelay: '4s' }}
+            />
+            {/* Bubble 12 - floatFast, medium emerald */}
+            <div
+              className="absolute w-4 h-4 rounded-full bg-emerald-200/50"
+              style={{ left: '65%', bottom: '24%', animation: 'floatFast 2.8s infinite ease-in', animationDelay: '3.5s' }}
             />
           </div>
 
