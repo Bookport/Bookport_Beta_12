@@ -394,7 +394,7 @@ export default function HabitsTwentyScreen({
   const water = propsWater || 0;
   const setWater = propsSetWater || (() => {});
   const [activeTab, setActiveTab] = useState<"products" | "actions">("products");
-  
+
   // Bridge recipe states from useAppStore into SystemKeysStore
   const recipeStates = useAppStore((s) => s.recipeStates);
   SystemKeysStore.syncRecipeStates(recipeStates);
@@ -433,8 +433,8 @@ export default function HabitsTwentyScreen({
 
   // Safe portion changes: maps chosen circle limit into a precise manual offset weight
   const handleProductPortionClick = (
-    keyId: string, 
-    circleIdx: number, 
+    keyId: string,
+    circleIdx: number,
     currentPortionsFilled: number,
     portionGrams: number,
     autoGrams: number
@@ -507,13 +507,13 @@ export default function HabitsTwentyScreen({
   const handleGramsFieldChange = (newGrams: number) => {
     if (!selectedKey) return;
     const finalVal = Math.max(0, newGrams);
-    
+
     if (selectedKey.id === "healthy_drinks") {
       setWater(finalVal);
     } else {
       SystemKeysStore.updateManualKey(currentDayIndex, selectedKey.id, true, { manualGrams: finalVal });
     }
-    
+
     setTempManualGrams(finalVal);
     setUpdateTrigger(prev => prev + 1);
 
@@ -542,14 +542,14 @@ export default function HabitsTwentyScreen({
   };
 
   return (
-    <div 
+    <div
       className="absolute inset-0 bg-[#FFFBF7] flex flex-col text-slate-800 overflow-hidden"
-      id="system-keys-screen" 
+      id="system-keys-screen"
       style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}
     >
       {/* HEADER SECTION */}
       <div className="shrink-0 w-full bg-[#FFFBF7]/95 backdrop-blur-md sticky top-0 z-30 px-4 py-3 flex items-center justify-between">
-        <button 
+        <button
           id="keys-header-back"
           type="button"
           onClick={() => {
@@ -571,128 +571,87 @@ export default function HabitsTwentyScreen({
 
       {/* CONTENT SCROLLABLE GRID */}
       <div className="flex-1 overflow-y-auto px-4 sm:px-5 pt-4 pb-28 flex flex-col gap-4 max-w-lg mx-auto w-full scrollbar-none">
-        
-        {/* PREMIUM VESSEL SUMMARY CARD */}
-        <div className="w-full bg-gradient-to-br from-[#10B981] via-[#059669] to-[#0D9488] text-white rounded-3xl p-5 relative overflow-hidden shadow-[0_12px_28px_rgba(16,185,129,0.22)] flex gap-4 items-center border border-white/10 shrink-0">
-          {/* Accent decoration glow filters */}
-          <div className="absolute top-[-20px] right-[-20px] w-28 h-28 bg-white/10 rounded-full blur-2xl pointer-events-none" />
-          <div className="absolute bottom-[-10px] left-10 w-20 h-20 bg-teal-300/20 rounded-full blur-xl pointer-events-none" />
 
-          {/* ACTIVE ORGANIC FLOAT-AND-BURST BUBBLES IN BACKGROUND */}
-          <div className="absolute inset-0 overflow-hidden pointer-events-none">
-            {[
-              { id: "kb-01", size: 6, left: "12%", delay: 0 },
-              { id: "kb-02", size: 10, left: "28%", delay: 1.5 },
-              { id: "kb-03", size: 5, left: "45%", delay: 0.8 },
-              { id: "kb-04", size: 9, left: "62%", delay: 2.2 },
-              { id: "kb-05", size: 7, left: "78%", delay: 1.2 },
-              { id: "kb-06", size: 11, left: "90%", delay: 3.1 },
-              { id: "kb-07", size: 6, left: "38%", delay: 2.7 },
-              { id: "kb-08", size: 8, left: "72%", delay: 0.5 }
-            ].map(b => (
-              <motion.div
-                key={b.id}
-                className="absolute rounded-full bg-white/15 border border-white/20"
-                style={{
-                  width: b.size,
-                  height: b.size,
-                  left: b.left,
-                  bottom: "-15px"
-                }}
-                animate={{
-                  y: ["0px", "-260px"],
-                  x: ["0px", b.size % 2 === 0 ? "12px" : "-12px", b.size % 3 === 0 ? "-8px" : "8px", "0px"],
-                  scale: [1, 1.1, 1.2, 1.5, 0], // Scale burst explosion and pop to zero!
-                  opacity: [0, 0.8, 0.8, 0.9, 0]
-                }}
-                transition={{
-                  duration: 4.8 + (b.size % 3),
-                  repeat: Infinity,
-                  ease: "easeInOut",
-                  delay: b.delay,
-                  times: [0, 0.15, 0.82, 0.92, 1.0]
-                }}
-              />
-            ))}
-          </div>
-
-          {/* Micro Glass dynamic vessel render */}
-          <div className="w-14 h-24 border border-white/30 rounded-full relative overflow-hidden bg-white/10 backdrop-blur-md shadow-[inset_0_4px_12px_rgba(255,255,255,0.2)] shrink-0 flex flex-col justify-end">
-            <div className="absolute top-1.5 left-2 right-2 h-1/5 bg-white/15 rounded-full pointer-events-none" />
-            
-            {/* Liquid level fluid */}
-            <div 
-              className="w-full bg-gradient-to-t from-emerald-500 via-[#34D399] to-[#6EE7B7] transition-all duration-[800ms] relative overflow-hidden"
-              style={{ height: `${Math.max(6, (closedCount / 20) * 100)}%` }}
+        {/* GLASS PROGRESS VESSEL */}
+        <div className="w-full relative overflow-hidden rounded-3xl bg-white/10 backdrop-blur-md border border-white/20 shadow-[0_8px_32px_rgba(255,180,140,0.15)] shrink-0">
+          {/* Glass vessel container */}
+          <div className="relative h-[180px] sm:h-[200px] w-full">
+            {/* Liquid fill - height driven by closedCount */}
+            <div
+              className="absolute bottom-0 left-0 right-0 transition-all duration-700 ease-out overflow-hidden"
+              style={{ height: `${Math.max(8, (closedCount / 20) * 100)}%` }}
             >
-              {/* Animated wave lines */}
-              {closedCount > 0 && closedCount < 20 && (
-                <div className="absolute top-0 left-[-150%] w-[400%] h-6 -mt-4.5 pointer-events-none z-10">
-                  <motion.svg
-                    viewBox="0 0 1200 120"
-                    preserveAspectRatio="none"
-                    className="absolute inset-0 w-full h-full fill-emerald-400/40 opacity-80"
-                    animate={{ x: [0, -600] }}
-                    transition={{ repeat: Infinity, ease: "linear", duration: 2.8 }}
-                  >
-                    <path d="M0,60 C150,115 350,5 500,60 C650,115 850,5 1000,60 C1150,115 1300,5 1500,60 L1500,120 L0,120 Z" />
-                  </motion.svg>
-                </div>
-              )}
+              {/* Gradient: amber/orange → lime → emerald */}
+              <div className="absolute inset-0 bg-gradient-to-t from-[#F59E0B] via-[#84CC16] to-[#10B981]" />
 
-              {/* Rising bubbles micro particles inside fluid */}
-              {BUBBLES_TEMPLATE.slice(0, 5).map(b => (
-                <motion.div
-                  key={`vessel-inner-${b.id}`}
-                  className="absolute rounded-full bg-white/30"
-                  style={{
-                    width: b.size - 2 || 2,
-                    height: b.size - 2 || 2,
-                    left: b.left,
-                    bottom: "-5px"
-                  }}
-                  animate={{
-                    y: ["0%", "-115%"],
-                    x: ["0px", b.id % 2 === 0 ? "3px" : "-3px", "0px"],
-                    opacity: [0, 0.8, 0.8, 0]
-                  }}
-                  transition={{
-                    duration: b.duration * 0.7,
-                    repeat: Infinity,
-                    ease: "easeInOut",
-                    delay: b.delay
-                  }}
-                />
-              ))}
+              {/* Wave layer 1 - slow sway */}
+              <div className="absolute top-0 left-0 right-0 h-8 overflow-hidden">
+                <div className="absolute w-[200%] h-full animate-wave-slow">
+                  <svg viewBox="0 0 1200 120" preserveAspectRatio="none" className="absolute inset-0 w-full h-full">
+                    <ellipse cx="600" cy="60" rx="600" ry="40" fill="rgba(255,255,255,0.25)" />
+                  </svg>
+                </div>
+              </div>
+
+              {/* Wave layer 2 - medium reverse sway */}
+              <div className="absolute top-2 left-0 right-0 h-6 overflow-hidden">
+                <div className="absolute w-[200%] h-full animate-wave-medium">
+                  <svg viewBox="0 0 1200 120" preserveAspectRatio="none" className="absolute inset-0 w-full h-full">
+                    <ellipse cx="600" cy="60" rx="600" ry="30" fill="rgba(255,255,255,0.18)" />
+                  </svg>
+                </div>
+              </div>
+
+              {/* Bubbles - 8 varied particles */}
+              <div className="absolute inset-0 overflow-hidden">
+                {/* Bubble 1 - white, small */}
+                <div className="absolute w-2 h-2 rounded-full bg-white/60 animate-bubble-slow" style={{ left: '15%', bottom: '-10px', animationDelay: '0s' }} />
+                {/* Bubble 2 - lime, medium */}
+                <div className="absolute w-3 h-3 rounded-full bg-[#BEF264]/70 animate-bubble-medium" style={{ left: '28%', bottom: '-10px', animationDelay: '1.2s' }} />
+                {/* Bubble 3 - white, large */}
+                <div className="absolute w-4 h-4 rounded-full bg-white/50 animate-bubble-slow" style={{ left: '45%', bottom: '-10px', animationDelay: '0.5s' }} />
+                {/* Bubble 4 - yellow, small */}
+                <div className="absolute w-2.5 h-2.5 rounded-full bg-[#FEF08A]/65 animate-bubble-fast" style={{ left: '62%', bottom: '-10px', animationDelay: '2s' }} />
+                {/* Bubble 5 - lime, medium */}
+                <div className="absolute w-3 h-3 rounded-full bg-[#A3E635]/60 animate-bubble-medium" style={{ left: '78%', bottom: '-10px', animationDelay: '0.8s' }} />
+                {/* Bubble 6 - white, large */}
+                <div className="absolute w-4.5 h-4.5 rounded-full bg-white/45 animate-bubble-slow" style={{ left: '38%', bottom: '-10px', animationDelay: '1.8s' }} />
+                {/* Bubble 7 - yellow, small */}
+                <div className="absolute w-2 h-2 rounded-full bg-[#FDE047]/70 animate-bubble-fast" style={{ left: '85%', bottom: '-10px', animationDelay: '2.5s' }} />
+                {/* Bubble 8 - lime, medium */}
+                <div className="absolute w-3.5 h-3.5 rounded-full bg-[#BEF264]/55 animate-bubble-medium" style={{ left: '55%', bottom: '-10px', animationDelay: '1.5s' }} />
+              </div>
             </div>
 
-            {/* Glowing climax at 100% completion */}
+            {/* Glass surface highlights */}
+            <div className="absolute top-3 left-4 right-4 h-16 bg-gradient-to-b from-white/25 to-transparent rounded-full pointer-events-none" />
+            <div className="absolute top-2 left-6 w-20 h-8 bg-white/15 rounded-full blur-sm pointer-events-none" />
+
+            {/* 100% completion glow */}
             {closedCount >= 20 && (
-              <motion.div 
-                className="absolute inset-0 bg-yellow-300/25 rounded-full z-20 pointer-events-none"
-                animate={{ opacity: [0.15, 0.45, 0.15] }}
-                transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
-              />
+              <div className="absolute inset-0 bg-[#FDE047]/20 animate-pulse pointer-events-none" />
             )}
           </div>
 
-          {/* Texts info & stats */}
-          <div className="flex-1 flex flex-col select-none">
-            <span className="text-[11px] font-extrabold text-[#E0F2FE] uppercase tracking-widest leading-none">
-              Прогресс дня
-            </span>
-            <span className="text-[32px] sm:text-[36px] font-black text-white leading-none mt-1.5 select-none">
-              {closedCount} <span className="text-[#D1FAE5] text-[18px] font-semibold">из 20</span>
-            </span>
-            <p className="text-[11.5px] sm:text-[12px] text-white/90 leading-snug mt-2 font-semibold">
+          {/* Text overlay with glass backing */}
+          <div className="absolute inset-x-4 bottom-4 sm:bottom-6">
+            <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 border border-white/15">
+              <span className="text-[11px] font-extrabold text-white/90 uppercase tracking-widest leading-none block">
+                ПРОГРЕСС ДНЯ
+              </span>
+              <span className="text-[34px] sm:text-[38px] font-black text-white leading-none mt-2 block select-none drop-shadow-[0_2px_4px_rgba(0,0,0,0.15)]">
+                {closedCount} <span className="text-[20px] font-semibold text-white/85">из 20</span>
+              </span>
+              <p className="text-[12px] sm:text-[12.5px] text-white/90 leading-snug mt-2 font-semibold">
                 {MOTIVATION_PHRASES[closedCount] || MOTIVATION_PHRASES[0]}
               </p>
+            </div>
           </div>
         </div>
 
         {/* CUSTOM TAB SELECTOR */}
         <div className="w-full bg-[#F5F2EF] rounded-2xl p-1.5 flex gap-1 justify-between select-none shrink-0">
-          <button 
+          <button
             id="tab-products"
             type="button"
             onClick={() => setActiveTab("products")}
@@ -704,7 +663,7 @@ export default function HabitsTwentyScreen({
           >
             🍎 Продукты (13)
           </button>
-          <button 
+          <button
             id="tab-actions"
             type="button"
             onClick={() => setActiveTab("actions")}
@@ -725,11 +684,11 @@ export default function HabitsTwentyScreen({
             const isCompleted = k.optimalDone;
 
             return (
-              <div 
+              <div
                 key={k.id}
                 className={`w-full rounded-[22px] bg-white border p-4 flex flex-col gap-3 transition-all ${
-                  isCompleted 
-                    ? "border-emerald-200 bg-emerald-50/10 shadow-[0_4px_16px_rgba(16,185,129,0.02)]" 
+                  isCompleted
+                    ? "border-emerald-200 bg-emerald-50/10 shadow-[0_4px_16px_rgba(16,185,129,0.02)]"
                     : "border-slate-150 bg-white shadow-sm"
                 }`}
               >
@@ -752,7 +711,7 @@ export default function HabitsTwentyScreen({
                   </div>
 
                   {/* Info Icon clicker */}
-                  <button 
+                  <button
                     id={`info-key-${k.id}`}
                     type="button"
                     onClick={() => setSelectedKey(k)}
@@ -766,16 +725,16 @@ export default function HabitsTwentyScreen({
                 <div className="w-full flex items-center justify-between pt-1.5 border-t border-slate-50">
                   {/* Status Indicator */}
                   <span className={`text-[12px] font-bold ${
-                    isCompleted 
-                      ? "text-emerald-600 font-black" 
-                      : currentVal > 0 
-                      ? "text-slate-500" 
+                    isCompleted
+                      ? "text-emerald-600 font-black"
+                      : currentVal > 0
+                      ? "text-slate-500"
                       : "text-slate-350"
                   }`}>
-                    {isCompleted 
-                      ? (k.superLevelDone ? "★ Сияющий суперуровень!" : "Выполнено!") 
-                      : k.category === "product" 
-                      ? `Порций: ${currentVal} из ${k.optimum}` 
+                    {isCompleted
+                      ? (k.superLevelDone ? "★ Сияющий суперуровень!" : "Выполнено!")
+                      : k.category === "product"
+                      ? `Порций: ${currentVal} из ${k.optimum}`
                       : "Ожидает выполнения"
                     }
                   </span>
@@ -959,14 +918,14 @@ export default function HabitsTwentyScreen({
 
               {/* Scrollable content block (Purely scrollable, safely bounded) */}
               <div className="flex-1 overflow-y-auto p-5 space-y-4 text-left font-normal select-text scroll-smooth overscroll-contain" style={{ scrollbarWidth: "thin" }}>
-                
+
                 {/* DYNAMIC MANUAL ENTRY ADJUSTMENT BAR (for products only) */}
                 {richKeyInfo.category === "product" && PRODUCT_KEYS_LIST.includes(richKeyInfo.id) && (
                   <div className="p-4 rounded-2xl bg-indigo-50/40 border border-indigo-100 flex flex-col gap-2.5 shrink-0">
                     <h5 className="text-[11px] font-black uppercase text-indigo-500 tracking-wider">
                       📝 Ручной учёт (вне меню)
                     </h5>
-                    
+
                     <div className="flex items-center justify-between gap-3 bg-white px-3 py-2 rounded-xl border border-indigo-100/50">
                       <div className="flex flex-col gap-0.5">
                         <span className="text-[11px] text-slate-450 font-bold">Собрано из меню</span>
@@ -980,7 +939,7 @@ export default function HabitsTwentyScreen({
 
                     <div className="flex items-center gap-3 mt-1 justify-between">
                       <span className="text-[12.5px] font-black text-slate-700 font-sans">Итоговый вес:</span>
-                      
+
                       <div className="flex items-center gap-2">
                         <input
                           type="number"
