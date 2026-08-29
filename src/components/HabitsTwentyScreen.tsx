@@ -572,28 +572,28 @@ export default function HabitsTwentyScreen({
       {/* CONTENT SCROLLABLE GRID */}
       <div className="flex-1 overflow-y-auto px-4 sm:px-5 pt-4 pb-28 flex flex-col gap-4 max-w-lg mx-auto w-full scrollbar-none">
 
-        {/* PROGRESS BLOCK - GLASS FLASK + TEXT */}
+        {/* PROGRESS BLOCK - REALISTIC GLASS FLASK + TEXT */}
         <div className="flex flex-row items-center gap-6 p-4 mb-4">
-          {/* Left: Glass Flask with floating bubbles */}
+          {/* Left: Realistic Glass Flask with floating bubbles */}
           <div className="relative w-28 h-48 shrink-0">
-            {/* Glass vessel (transparent, no border) */}
-            <div className="absolute inset-0 rounded-b-full overflow-hidden">
-              {/* Liquid - 25% base height + fills to 100% based on progress */}
+            {/* Glass vessel with realistic glass effects */}
+            <div className="absolute inset-0 rounded-b-full overflow-hidden border-b-4 border-l-2 border-r-2 border-white/30 shadow-[inset_0_-10px_20px_rgba(255,255,255,0.4)]">
+              {/* Liquid - 33% base height + fills to 100% based on progress */}
               <div
                 className="absolute bottom-0 w-full bg-gradient-to-t from-emerald-500 to-cyan-400 transition-all duration-700 ease-out"
-                style={{ height: `calc(25% + (${closedCount} / 20) * 75%)` }}
+                style={{ height: `calc(33% + (${closedCount} / 20) * 67%)` }}
               >
-                {/* Wave 1 - negative space rotating disc */}
+                {/* Wave 1 - HUGE negative space rotating disc for smooth wave effect */}
                 <div
-                  className="absolute -top-[150%] -left-[50%] w-[200%] h-[200%] bg-[#FFFBF7] rounded-[40%] animate-[spin_6s_linear_infinite]"
+                  className="absolute -top-[350%] -left-[150%] w-[400%] h-[400%] bg-[#FAFAFA] rounded-[43%] animate-[spin_7s_linear_infinite]"
                 />
-                {/* Wave 2 - second rotating disc (semi-transparent for layered effect) */}
+                {/* Wave 2 - Lower wave crest with emerald volume */}
                 <div
-                  className="absolute -top-[150%] -left-[50%] w-[200%] h-[200%] bg-[#FFFBF7] opacity-60 rounded-[45%] animate-[spin_9s_linear_infinite]"
+                  className="absolute -top-[340%] -left-[145%] w-[400%] h-[400%] bg-emerald-400/40 rounded-[40%] animate-[spin_9s_linear_infinite]"
                 />
               </div>
-              {/* Glass shine overlay - adds volume effect */}
-              <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-transparent to-white/30 rounded-b-full pointer-events-none" />
+              {/* Glass shine overlay - horizontal gradient for volume */}
+              <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-transparent to-white/40 pointer-events-none" />
             </div>
 
             {/* Floating bubbles - OUTSIDE the overflow-hidden flask */}
@@ -617,55 +617,55 @@ export default function HabitsTwentyScreen({
               }
             `}</style>
 
-            {/* Bubble 1 - floatWind, large white */}
+            {/* Bubble 1 - floatWind with glow */}
             <div
-              className="absolute w-6 h-6 rounded-full bg-white/60"
-              style={{ left: '18%', bottom: '25%', animation: 'floatWind 4s infinite ease-in', animationDelay: '0s' }}
+              className="absolute w-6 h-6 rounded-full bg-white/60 backdrop-blur-sm"
+              style={{ left: '18%', bottom: '25%', animation: 'floatWind 4s infinite ease-in', animationDelay: '0s', boxShadow: '0 0 8px rgba(255,255,255,0.8)' }}
             />
-            {/* Bubble 2 - popMid, medium cyan */}
+            {/* Bubble 2 - popMid cyan with glow */}
             <div
-              className="absolute w-4 h-4 rounded-full bg-cyan-200/50"
-              style={{ left: '42%', bottom: '30%', animation: 'popMid 3s infinite ease-in', animationDelay: '0.8s' }}
+              className="absolute w-4 h-4 rounded-full bg-cyan-200/50 backdrop-blur-sm"
+              style={{ left: '42%', bottom: '30%', animation: 'popMid 3s infinite ease-in', animationDelay: '0.8s', boxShadow: '0 0 8px rgba(255,255,255,0.8)' }}
             />
-            {/* Bubble 3 - floatFast, small emerald */}
+            {/* Bubble 3 - floatFast emerald with glow */}
             <div
               className="absolute w-3 h-3 rounded-full bg-emerald-200/50"
-              style={{ left: '68%', bottom: '20%', animation: 'floatFast 2.5s infinite ease-in', animationDelay: '1.5s' }}
+              style={{ left: '68%', bottom: '20%', animation: 'floatFast 2.5s infinite ease-in', animationDelay: '1.5s', boxShadow: '0 0 8px rgba(255,255,255,0.8)' }}
             />
-            {/* Bubble 4 - floatWind, medium white */}
+            {/* Bubble 4 - floatWind white with glow */}
             <div
-              className="absolute w-5 h-5 rounded-full bg-white/60"
-              style={{ left: '32%', bottom: '35%', animation: 'floatWind 5s infinite ease-in', animationDelay: '2s' }}
+              className="absolute w-5 h-5 rounded-full bg-white/60 backdrop-blur-sm"
+              style={{ left: '32%', bottom: '35%', animation: 'floatWind 5s infinite ease-in', animationDelay: '2s', boxShadow: '0 0 8px rgba(255,255,255,0.8)' }}
             />
-            {/* Bubble 5 - popMid, small cyan */}
+            {/* Bubble 5 - popMid cyan with glow */}
             <div
               className="absolute w-3.5 h-3.5 rounded-full bg-cyan-200/50"
-              style={{ left: '75%', bottom: '28%', animation: 'popMid 3.5s infinite ease-in', animationDelay: '0.3s' }}
+              style={{ left: '75%', bottom: '28%', animation: 'popMid 3.5s infinite ease-in', animationDelay: '0.3s', boxShadow: '0 0 8px rgba(255,255,255,0.8)' }}
             />
-            {/* Bubble 6 - floatFast, large emerald */}
+            {/* Bubble 6 - floatFast emerald with glow */}
             <div
-              className="absolute w-5 h-5 rounded-full bg-emerald-200/50"
-              style={{ left: '52%', bottom: '22%', animation: 'floatFast 2s infinite ease-in', animationDelay: '1.2s' }}
+              className="absolute w-5 h-5 rounded-full bg-emerald-200/50 backdrop-blur-sm"
+              style={{ left: '52%', bottom: '22%', animation: 'floatFast 2s infinite ease-in', animationDelay: '1.2s', boxShadow: '0 0 8px rgba(255,255,255,0.8)' }}
             />
-            {/* Bubble 7 - floatWind, small white */}
+            {/* Bubble 7 - floatWind white with glow */}
             <div
               className="absolute w-3 h-3 rounded-full bg-white/60"
-              style={{ left: '12%', bottom: '18%', animation: 'floatWind 4.5s infinite ease-in', animationDelay: '3s' }}
+              style={{ left: '12%', bottom: '18%', animation: 'floatWind 4.5s infinite ease-in', animationDelay: '3s', boxShadow: '0 0 8px rgba(255,255,255,0.8)' }}
             />
-            {/* Bubble 8 - popMid, medium emerald */}
+            {/* Bubble 8 - popMid emerald with glow */}
             <div
-              className="absolute w-4 h-4 rounded-full bg-emerald-200/50"
-              style={{ left: '58%', bottom: '32%', animation: 'popMid 4s infinite ease-in', animationDelay: '2.5s' }}
+              className="absolute w-4 h-4 rounded-full bg-emerald-200/50 backdrop-blur-sm"
+              style={{ left: '58%', bottom: '32%', animation: 'popMid 4s infinite ease-in', animationDelay: '2.5s', boxShadow: '0 0 8px rgba(255,255,255,0.8)' }}
             />
-            {/* Bubble 9 - floatFast, tiny cyan */}
+            {/* Bubble 9 - floatFast cyan with glow */}
             <div
               className="absolute w-2.5 h-2.5 rounded-full bg-cyan-200/50"
-              style={{ left: '82%', bottom: '15%', animation: 'floatFast 3s infinite ease-in', animationDelay: '0.5s' }}
+              style={{ left: '82%', bottom: '15%', animation: 'floatFast 3s infinite ease-in', animationDelay: '0.5s', boxShadow: '0 0 8px rgba(255,255,255,0.8)' }}
             />
-            {/* Bubble 10 - floatWind, large white */}
+            {/* Bubble 10 - floatWind white with glow */}
             <div
-              className="absolute w-5.5 h-5.5 rounded-full bg-white/60"
-              style={{ left: '25%', bottom: '28%', animation: 'floatWind 6s infinite ease-in', animationDelay: '1.8s' }}
+              className="absolute w-5.5 h-5.5 rounded-full bg-white/60 backdrop-blur-sm"
+              style={{ left: '25%', bottom: '28%', animation: 'floatWind 6s infinite ease-in', animationDelay: '1.8s', boxShadow: '0 0 8px rgba(255,255,255,0.8)' }}
             />
             {/* Bubble 11 - popMid, small white */}
             <div
