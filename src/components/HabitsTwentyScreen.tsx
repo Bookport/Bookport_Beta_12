@@ -543,12 +543,12 @@ export default function HabitsTwentyScreen({
 
   return (
     <div 
-      className="absolute inset-0 bg-[#F8FAFC] flex flex-col text-slate-800 overflow-hidden" 
+      className="absolute inset-0 bg-[#FFFBF7] flex flex-col text-slate-800 overflow-hidden"
       id="system-keys-screen" 
       style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}
     >
       {/* HEADER SECTION */}
-      <div className="shrink-0 w-full bg-white/90 backdrop-blur-md sticky top-0 z-30 px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+      <div className="shrink-0 w-full bg-[#FFFBF7]/95 backdrop-blur-md sticky top-0 z-30 px-4 py-3 flex items-center justify-between">
         <button 
           id="keys-header-back"
           type="button"
@@ -559,18 +559,18 @@ export default function HabitsTwentyScreen({
               lifestyle: []
             });
           }}
-          className="w-10 h-10 rounded-full flex items-center justify-center bg-slate-50 border border-slate-100 text-slate-600 hover:bg-slate-100 active:scale-95 transition-all cursor-pointer"
+          className="w-11 h-11 rounded-full flex items-center justify-center bg-[#E8E4DF] text-slate-600 hover:bg-[#D8D4CF] active:scale-95 transition-all cursor-pointer"
         >
           <ChevronLeft className="w-5 h-5 stroke-[2.5]" />
         </button>
-        <h1 className="text-[18px] sm:text-[20px] font-black tracking-tight text-slate-800">
+        <h1 className="absolute left-1/2 -translate-x-1/2 text-[20px] sm:text-[22px] font-black tracking-tight text-slate-900">
           Ключи системы
         </h1>
-        <div className="w-10" /> {/* Spacer */}
+        <div className="w-11" /> {/* Spacer */}
       </div>
 
       {/* CONTENT SCROLLABLE GRID */}
-      <div className="flex-1 overflow-y-auto px-4 pt-4 pb-6 flex flex-col gap-4.5 max-w-lg mx-auto w-full scrollbar-none">
+      <div className="flex-1 overflow-y-auto px-4 sm:px-5 pt-4 pb-28 flex flex-col gap-4 max-w-lg mx-auto w-full scrollbar-none">
         
         {/* PREMIUM VESSEL SUMMARY CARD */}
         <div className="w-full bg-gradient-to-br from-[#10B981] via-[#059669] to-[#0D9488] text-white rounded-3xl p-5 relative overflow-hidden shadow-[0_12px_28px_rgba(16,185,129,0.22)] flex gap-4 items-center border border-white/10 shrink-0">
@@ -691,15 +691,15 @@ export default function HabitsTwentyScreen({
         </div>
 
         {/* CUSTOM TAB SELECTOR */}
-        <div className="w-full bg-slate-100 rounded-2xl p-1.5 flex gap-1 justify-between select-none shrink-0 border border-slate-150/50">
+        <div className="w-full bg-[#F5F2EF] rounded-2xl p-1.5 flex gap-1 justify-between select-none shrink-0">
           <button 
             id="tab-products"
             type="button"
             onClick={() => setActiveTab("products")}
             className={`flex-1 py-3 text-center rounded-xl text-[14px] sm:text-[14.5px] font-bold tracking-tight transition-all cursor-pointer ${
               activeTab === "products"
-                ? "bg-white text-slate-900 shadow-sm font-black"
-                : "text-slate-500 hover:text-slate-900"
+                ? "bg-[#FFE5D0] text-slate-900 shadow-[0_2px_8px_rgba(255,180,140,0.3)] font-black"
+                : "bg-transparent text-slate-500 hover:text-slate-700 shadow-none"
             }`}
           >
             🍎 Продукты (13)
@@ -710,8 +710,8 @@ export default function HabitsTwentyScreen({
             onClick={() => setActiveTab("actions")}
             className={`flex-1 py-3 text-center rounded-xl text-[14px] sm:text-[14.5px] font-bold tracking-tight transition-all cursor-pointer ${
               activeTab === "actions"
-                ? "bg-white text-slate-900 shadow-sm font-black"
-                : "text-slate-500 hover:text-slate-900"
+                ? "bg-[#FFE5D0] text-slate-900 shadow-[0_2px_8px_rgba(255,180,140,0.3)] font-black"
+                : "bg-transparent text-slate-500 hover:text-slate-700 shadow-none"
             }`}
           >
             ⚡ Действия (7)
