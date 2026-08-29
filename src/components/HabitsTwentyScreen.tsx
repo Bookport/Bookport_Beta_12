@@ -574,10 +574,10 @@ export default function HabitsTwentyScreen({
 
         {/* PROGRESS BLOCK - REALISTIC GLASS FLASK + TEXT */}
         <div className="flex flex-row items-center gap-6 p-4 mb-4">
-          {/* Left: Realistic Glass Flask with floating bubbles */}
+          {/* Left: Realistic Glass Flask with soap bubbles */}
           <div className="relative w-28 h-48 shrink-0">
-            {/* Glass vessel with realistic glass effects */}
-            <div className="absolute inset-0 rounded-b-full overflow-hidden border-b-4 border-l-2 border-r-2 border-white/30 shadow-[inset_0_-10px_20px_rgba(255,255,255,0.4)]">
+            {/* LAYER 1: Glass vessel with liquid (overflow-hidden) */}
+            <div className="absolute inset-0 rounded-[2.5rem] overflow-hidden border-b-4 border-l-2 border-r-2 border-white/30 shadow-[inset_0_-10px_20px_rgba(255,255,255,0.4)]">
               {/* Liquid - 33% base height + fills to 100% based on progress */}
               <div
                 className="absolute bottom-0 w-full bg-gradient-to-t from-emerald-500 to-cyan-400 transition-all duration-700 ease-out"
@@ -596,77 +596,79 @@ export default function HabitsTwentyScreen({
               <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-transparent to-white/40 pointer-events-none" />
             </div>
 
-            {/* Floating bubbles - OUTSIDE the overflow-hidden flask */}
-            <style>{`
-              @keyframes floatWind {
-                0% { transform: translate(0, 0) scale(0.8); opacity: 0; }
-                10% { opacity: 0.8; }
-                100% { transform: translate(60px, -250px) scale(1.2); opacity: 0; }
-              }
-              @keyframes popMid {
-                0% { transform: translate(0, 0) scale(1); opacity: 0; }
-                20% { opacity: 0.7; }
-                70% { transform: translate(-30px, -120px) scale(1.5); opacity: 0.8; }
-                75% { transform: translate(-32px, -125px) scale(1.8); opacity: 0; }
-                100% { opacity: 0; }
-              }
-              @keyframes floatFast {
-                0% { transform: translate(0, 0) scale(0.4); opacity: 0; }
-                20% { opacity: 0.5; }
-                100% { transform: translate(-50px, -300px) scale(0.5); opacity: 0; }
-              }
-            `}</style>
+            {/* LAYER 2: Floating soap bubbles (OUTSIDE overflow-hidden, z-10) */}
+            <div className="absolute inset-0 z-10 pointer-events-none">
+              <style>{`
+                @keyframes soapFloatWind {
+                  0% { transform: translate(0, 0) scale(0.6); opacity: 0; }
+                  15% { opacity: 1; }
+                  100% { transform: translate(40px, -200px) scale(1.2); opacity: 0; }
+                }
+                @keyframes soapFloatLeft {
+                  0% { transform: translate(0, 0) scale(0.8); opacity: 0; }
+                  20% { opacity: 1; }
+                  100% { transform: translate(-30px, -250px) scale(0.9); opacity: 0; }
+                }
+                @keyframes soapPop {
+                  0% { transform: translate(0, 0) scale(0.7); opacity: 0; }
+                  30% { opacity: 1; }
+                  70% { transform: translate(15px, -100px) scale(1.3); opacity: 1; }
+                  75% { transform: translate(16px, -105px) scale(1.5); opacity: 0; }
+                  100% { opacity: 0; }
+                }
+              `}</style>
 
-            {/* Bubble 1 - floatWind with glow */}
-            <div
-              className="absolute w-6 h-6 rounded-full bg-white/60 backdrop-blur-sm"
-              style={{ left: '18%', bottom: '25%', animation: 'floatWind 4s infinite ease-in', animationDelay: '0s', boxShadow: '0 0 8px rgba(255,255,255,0.8)' }}
-            />
-            {/* Bubble 2 - popMid cyan with glow */}
-            <div
-              className="absolute w-4 h-4 rounded-full bg-cyan-200/50 backdrop-blur-sm"
-              style={{ left: '42%', bottom: '30%', animation: 'popMid 3s infinite ease-in', animationDelay: '0.8s', boxShadow: '0 0 8px rgba(255,255,255,0.8)' }}
-            />
-            {/* Bubble 3 - floatFast emerald with glow */}
-            <div
-              className="absolute w-3 h-3 rounded-full bg-emerald-200/50"
-              style={{ left: '68%', bottom: '20%', animation: 'floatFast 2.5s infinite ease-in', animationDelay: '1.5s', boxShadow: '0 0 8px rgba(255,255,255,0.8)' }}
-            />
-            {/* Bubble 4 - floatWind white with glow */}
-            <div
-              className="absolute w-5 h-5 rounded-full bg-white/60 backdrop-blur-sm"
-              style={{ left: '32%', bottom: '35%', animation: 'floatWind 5s infinite ease-in', animationDelay: '2s', boxShadow: '0 0 8px rgba(255,255,255,0.8)' }}
-            />
-            {/* Bubble 5 - popMid cyan with glow */}
-            <div
-              className="absolute w-3.5 h-3.5 rounded-full bg-cyan-200/50"
-              style={{ left: '75%', bottom: '28%', animation: 'popMid 3.5s infinite ease-in', animationDelay: '0.3s', boxShadow: '0 0 8px rgba(255,255,255,0.8)' }}
-            />
-            {/* Bubble 6 - floatFast emerald with glow */}
-            <div
-              className="absolute w-5 h-5 rounded-full bg-emerald-200/50 backdrop-blur-sm"
-              style={{ left: '52%', bottom: '22%', animation: 'floatFast 2s infinite ease-in', animationDelay: '1.2s', boxShadow: '0 0 8px rgba(255,255,255,0.8)' }}
-            />
-            {/* Bubble 7 - floatWind white with glow */}
-            <div
-              className="absolute w-3 h-3 rounded-full bg-white/60"
-              style={{ left: '12%', bottom: '18%', animation: 'floatWind 4.5s infinite ease-in', animationDelay: '3s', boxShadow: '0 0 8px rgba(255,255,255,0.8)' }}
-            />
-            {/* Bubble 8 - popMid emerald with glow */}
-            <div
-              className="absolute w-4 h-4 rounded-full bg-emerald-200/50 backdrop-blur-sm"
-              style={{ left: '58%', bottom: '32%', animation: 'popMid 4s infinite ease-in', animationDelay: '2.5s', boxShadow: '0 0 8px rgba(255,255,255,0.8)' }}
-            />
-            {/* Bubble 9 - floatFast cyan with glow */}
-            <div
-              className="absolute w-2.5 h-2.5 rounded-full bg-cyan-200/50"
-              style={{ left: '82%', bottom: '15%', animation: 'floatFast 3s infinite ease-in', animationDelay: '0.5s', boxShadow: '0 0 8px rgba(255,255,255,0.8)' }}
-            />
-            {/* Bubble 10 - floatWind white with glow */}
-            <div
-              className="absolute w-5.5 h-5.5 rounded-full bg-white/60 backdrop-blur-sm"
-              style={{ left: '25%', bottom: '28%', animation: 'floatWind 6s infinite ease-in', animationDelay: '1.8s', boxShadow: '0 0 8px rgba(255,255,255,0.8)' }}
-            />
+              {/* Bubble 1 - soapFloatWind */}
+              <div
+                className="absolute w-5 h-5 rounded-full border border-white/40 bg-gradient-to-br from-white/20 to-transparent backdrop-blur-sm shadow-[inset_0_0_8px_rgba(255,255,255,0.3)]"
+                style={{ left: '22%', bottom: '5px', animation: 'soapFloatWind 4s infinite ease-in', animationDelay: '0s', willChange: 'transform, opacity' }}
+              />
+              {/* Bubble 2 - soapFloatLeft */}
+              <div
+                className="absolute w-4 h-4 rounded-full border border-white/40 bg-gradient-to-br from-white/20 to-transparent backdrop-blur-sm shadow-[inset_0_0_8px_rgba(255,255,255,0.3)]"
+                style={{ left: '45%', bottom: '8px', animation: 'soapFloatLeft 4.5s infinite ease-in', animationDelay: '0.5s', willChange: 'transform, opacity' }}
+              />
+              {/* Bubble 3 - soapPop */}
+              <div
+                className="absolute w-6 h-6 rounded-full border border-white/40 bg-gradient-to-br from-white/20 to-transparent backdrop-blur-sm shadow-[inset_0_0_8px_rgba(255,255,255,0.3)]"
+                style={{ left: '68%', bottom: '6px', animation: 'soapPop 3s infinite ease-in', animationDelay: '1s', willChange: 'transform, opacity' }}
+              />
+              {/* Bubble 4 - soapFloatWind */}
+              <div
+                className="absolute w-4.5 h-4.5 rounded-full border border-white/40 bg-gradient-to-br from-white/20 to-transparent backdrop-blur-sm shadow-[inset_0_0_8px_rgba(255,255,255,0.3)]"
+                style={{ left: '35%', bottom: '10px', animation: 'soapFloatWind 5s infinite ease-in', animationDelay: '1.5s', willChange: 'transform, opacity' }}
+              />
+              {/* Bubble 5 - soapFloatLeft */}
+              <div
+                className="absolute w-3.5 h-3.5 rounded-full border border-white/40 bg-gradient-to-br from-white/20 to-transparent backdrop-blur-sm shadow-[inset_0_0_8px_rgba(255,255,255,0.3)]"
+                style={{ left: '78%', bottom: '7px', animation: 'soapFloatLeft 3.5s infinite ease-in', animationDelay: '2s', willChange: 'transform, opacity' }}
+              />
+              {/* Bubble 6 - soapPop */}
+              <div
+                className="absolute w-5.5 h-5.5 rounded-full border border-white/40 bg-gradient-to-br from-white/20 to-transparent backdrop-blur-sm shadow-[inset_0_0_8px_rgba(255,255,255,0.3)]"
+                style={{ left: '52%', bottom: '12px', animation: 'soapPop 3.8s infinite ease-in', animationDelay: '0.8s', willChange: 'transform, opacity' }}
+              />
+              {/* Bubble 7 - soapFloatWind */}
+              <div
+                className="absolute w-4 h-4 rounded-full border border-white/40 bg-gradient-to-br from-white/20 to-transparent backdrop-blur-sm shadow-[inset_0_0_8px_rgba(255,255,255,0.3)]"
+                style={{ left: '15%', bottom: '9px', animation: 'soapFloatWind 4.2s infinite ease-in', animationDelay: '2.5s', willChange: 'transform, opacity' }}
+              />
+              {/* Bubble 8 - soapFloatLeft */}
+              <div
+                className="absolute w-5 h-5 rounded-full border border-white/40 bg-gradient-to-br from-white/20 to-transparent backdrop-blur-sm shadow-[inset_0_0_8px_rgba(255,255,255,0.3)]"
+                style={{ left: '60%', bottom: '11px', animation: 'soapFloatLeft 5s infinite ease-in', animationDelay: '1.2s', willChange: 'transform, opacity' }}
+              />
+              {/* Bubble 9 - soapPop */}
+              <div
+                className="absolute w-3 h-3 rounded-full border border-white/40 bg-gradient-to-br from-white/20 to-transparent backdrop-blur-sm shadow-[inset_0_0_8px_rgba(255,255,255,0.3)]"
+                style={{ left: '82%', bottom: '5px', animation: 'soapPop 2.5s infinite ease-in', animationDelay: '3s', willChange: 'transform, opacity' }}
+              />
+              {/* Bubble 10 - soapFloatWind */}
+              <div
+                className="absolute w-4.5 h-4.5 rounded-full border border-white/40 bg-gradient-to-br from-white/20 to-transparent backdrop-blur-sm shadow-[inset_0_0_8px_rgba(255,255,255,0.3)]"
+                style={{ left: '28%', bottom: '14px', animation: 'soapFloatWind 4.8s infinite ease-in', animationDelay: '1.8s', willChange: 'transform, opacity' }}
+              />
+            </div>
             {/* Bubble 11 - popMid, small white */}
             <div
               className="absolute w-3.5 h-3.5 rounded-full bg-white/60"
