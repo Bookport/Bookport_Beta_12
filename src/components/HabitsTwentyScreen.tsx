@@ -572,147 +572,45 @@ export default function HabitsTwentyScreen({
       {/* CONTENT SCROLLABLE GRID */}
       <div className="flex-1 overflow-y-auto px-4 sm:px-5 pt-4 pb-28 flex flex-col gap-4 max-w-lg mx-auto w-full scrollbar-none">
 
-        {/* LIQUID PROGRESS VESSEL */}
-        <div className="w-full relative h-[165px] overflow-hidden rounded-[30px] bg-white/30 backdrop-blur-md shadow-[0_12px_35px_rgba(16,185,129,0.16)] shrink-0">
-          {/* Glass overlay gradient */}
-          <div className="pointer-events-none absolute inset-0 rounded-[30px] bg-gradient-to-br from-white/70 via-white/20 to-emerald-100/30" />
-
-          {/* Liquid layer - height from closedCount with 18% visual minimum */}
-          <div
-            className="absolute inset-x-0 bottom-0 overflow-hidden bg-gradient-to-t from-orange-400 via-lime-400 to-emerald-500 transition-all duration-700 ease-out"
-            style={{ height: `${Math.max((closedCount / 20) * 100, 18)}%` }}
-          >
-            {/* Wave A */}
-            <div className="liquid-wave liquid-wave-a" />
-
-            {/* Wave B */}
-            <div className="liquid-wave liquid-wave-b" />
-
-            {/* Bright liquid surface highlight */}
-            <div className="absolute left-0 right-0 top-0 h-[10px] bg-[rgba(236,253,245,0.62)] blur-[5px] rounded-[9999px]" />
-
-            {/* Bubbles - 7 varied particles */}
-            <div className="liquid-bubbles absolute inset-0" aria-hidden="true">
-              {/* Bubble 1 - large */}
+        {/* PROGRESS BLOCK - CAPSULE FLASK + TEXT */}
+        <div className="flex flex-row items-center gap-6 p-4 mb-4">
+          {/* Left: Capsule Flask */}
+          <div className="relative w-28 h-40 rounded-[2.5rem] overflow-hidden bg-white shadow-[inset_0_-2px_10px_rgba(0,0,0,0.05)] shrink-0">
+            {/* Liquid - height from closedCount */}
+            <div
+              className="absolute bottom-0 w-full overflow-hidden bg-gradient-to-t from-orange-400 to-green-500 transition-all duration-700 ease-out"
+              style={{ height: `${Math.max((closedCount / 20) * 100, 10)}%` }}
+            >
+              {/* Wave 1 - negative space rotating disc */}
               <div
-                className="system-keys-bubble absolute rounded-full"
-                style={{
-                  width: '14px',
-                  height: '14px',
-                  left: '12%',
-                  bottom: '8px',
-                  background: 'rgba(255,255,255,0.68)',
-                  boxShadow: '0 0 10px rgba(255,255,255,0.38)',
-                  '--bubble-duration': '5.2s',
-                  '--bubble-delay': '0.3s'
-                } as React.CSSProperties}
+                className="absolute -top-[150%] -left-[50%] w-[200%] h-[200%] bg-[#FFFBF7] rounded-[40%] animate-[spin_6s_linear_infinite]"
               />
-              {/* Bubble 2 - medium */}
+              {/* Wave 2 - second rotating disc with offset */}
               <div
-                className="system-keys-bubble absolute rounded-full"
-                style={{
-                  width: '10px',
-                  height: '10px',
-                  left: '25%',
-                  bottom: '12px',
-                  background: 'rgba(255,255,255,0.68)',
-                  boxShadow: '0 0 10px rgba(255,255,255,0.38)',
-                  '--bubble-duration': '4.5s',
-                  '--bubble-delay': '1.1s'
-                } as React.CSSProperties}
+                className="absolute -top-[150%] -left-[50%] w-[200%] h-[200%] bg-[#FFFBF7] opacity-50 rounded-[45%] animate-[spin_9s_linear_infinite]"
               />
-              {/* Bubble 3 - small */}
-              <div
-                className="system-keys-bubble absolute rounded-full"
-                style={{
-                  width: '6px',
-                  height: '6px',
-                  left: '38%',
-                  bottom: '6px',
-                  background: 'rgba(255,255,255,0.68)',
-                  boxShadow: '0 0 10px rgba(255,255,255,0.38)',
-                  '--bubble-duration': '3.8s',
-                  '--bubble-delay': '0.7s'
-                } as React.CSSProperties}
-              />
-              {/* Bubble 4 - large */}
-              <div
-                className="system-keys-bubble absolute rounded-full"
-                style={{
-                  width: '12px',
-                  height: '12px',
-                  left: '52%',
-                  bottom: '10px',
-                  background: 'rgba(255,255,255,0.68)',
-                  boxShadow: '0 0 10px rgba(255,255,255,0.38)',
-                  '--bubble-duration': '6.1s',
-                  '--bubble-delay': '1.8s'
-                } as React.CSSProperties}
-              />
-              {/* Bubble 5 - medium */}
-              <div
-                className="system-keys-bubble absolute rounded-full"
-                style={{
-                  width: '8px',
-                  height: '8px',
-                  left: '65%',
-                  bottom: '14px',
-                  background: 'rgba(255,255,255,0.68)',
-                  boxShadow: '0 0 10px rgba(255,255,255,0.38)',
-                  '--bubble-duration': '4.2s',
-                  '--bubble-delay': '2.3s'
-                } as React.CSSProperties}
-              />
-              {/* Bubble 6 - small */}
-              <div
-                className="system-keys-bubble absolute rounded-full"
-                style={{
-                  width: '5px',
-                  height: '5px',
-                  left: '78%',
-                  bottom: '7px',
-                  background: 'rgba(255,255,255,0.68)',
-                  boxShadow: '0 0 10px rgba(255,255,255,0.38)',
-                  '--bubble-duration': '3.5s',
-                  '--bubble-delay': '0.5s'
-                } as React.CSSProperties}
-              />
-              {/* Bubble 7 - medium */}
-              <div
-                className="system-keys-bubble absolute rounded-full"
-                style={{
-                  width: '9px',
-                  height: '9px',
-                  left: '88%',
-                  bottom: '11px',
-                  background: 'rgba(255,255,255,0.68)',
-                  boxShadow: '0 0 10px rgba(255,255,255,0.38)',
-                  '--bubble-duration': '5.5s',
-                  '--bubble-delay': '1.4s'
-                } as React.CSSProperties}
-              />
+              {/* Bubbles - 4 small white circles rising */}
+              <div className="absolute inset-0">
+                <div className="absolute w-2 h-2 bg-white/40 rounded-full bottom-2 left-3 animate-[bounce_3s_infinite]" />
+                <div className="absolute w-1.5 h-1.5 bg-white/40 rounded-full bottom-4 left-6 animate-[bounce_4s_infinite]" style={{ animationDelay: '0.5s' }} />
+                <div className="absolute w-2.5 h-2.5 bg-white/40 rounded-full bottom-1 left-10 animate-[bounce_3.5s_infinite]" style={{ animationDelay: '1s' }} />
+                <div className="absolute w-1 h-1 bg-white/40 rounded-full bottom-3 left-14 animate-[bounce_4.5s_infinite]" style={{ animationDelay: '0.3s' }} />
+              </div>
             </div>
           </div>
 
-          {/* Text overlay - centered over all layers */}
-          <div className="pointer-events-none absolute inset-0 z-20 flex flex-col items-center justify-center px-4 text-center text-white drop-shadow-[0_2px_7px_rgba(0,0,0,0.38)]">
-            <div className="bg-emerald-900/10 backdrop-blur-[2px] rounded-2xl px-4 py-3 max-w-full">
-              <span className="text-[12px] font-extrabold text-white uppercase tracking-widest leading-none block">
-                ПРОГРЕСС ДНЯ
-              </span>
-              <span className="text-[34px] sm:text-[38px] font-bold text-white leading-none mt-1.5 block select-none">
-                {closedCount} <span className="text-[20px] font-semibold text-white/85">из 20</span>
-              </span>
-              <p className="text-[13px] text-white/90 leading-snug mt-2 font-medium max-w-[280px] mx-auto">
-                {MOTIVATION_PHRASES[closedCount] || MOTIVATION_PHRASES[0]}
-              </p>
-            </div>
+          {/* Right: Text Block - no background/frame */}
+          <div className="flex flex-col flex-1 gap-1">
+            <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">
+              ПРОГРЕСС ДНЯ
+            </span>
+            <span className="text-4xl font-extrabold text-gray-800 leading-none">
+              {closedCount} <span className="text-xl font-semibold text-gray-500">из 20</span>
+            </span>
+            <p className="text-sm text-gray-500 leading-tight mt-1">
+              {MOTIVATION_PHRASES[closedCount] || MOTIVATION_PHRASES[0]}
+            </p>
           </div>
-
-          {/* 100% completion glow */}
-          {closedCount >= 20 && (
-            <div className="pointer-events-none absolute inset-0 bg-[#FDE047]/25 animate-pulse z-10" />
-          )}
         </div>
 
         {/* CUSTOM TAB SELECTOR */}
