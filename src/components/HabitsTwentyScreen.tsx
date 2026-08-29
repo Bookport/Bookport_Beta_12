@@ -6,6 +6,7 @@ import { SystemKeysStore, SYSTEM_KEY_DEFS, SystemKeyProgress } from "../services
 import { MOTIVATION_PHRASES } from "../constants/motivationPhrases";
 import BottomBar from "./BottomBar";
 import { useAppStore } from "../store/useAppStore";
+import legumesImg from "../assets/images/keysustem/14.webp";
 
 interface HabitsTwentyScreenProps {
   dayNotes: Record<number, { text: string; time: string }[]>;
@@ -729,6 +730,132 @@ export default function HabitsTwentyScreen({
             const currentVal = k.portionsFilled;
             const isCompleted = k.optimalDone;
 
+            // Special design for first card: Legumes (Бобовые)
+            if (k.id === "legumes") {
+              return (
+                <div
+                  key={k.id}
+                  className="w-full rounded-3xl bg-[#D4F0E6] shadow-[0_8px_24px_rgba(16,185,129,0.12)] p-0 overflow-hidden border-none ring-0"
+                >
+                  <div className="flex flex-row items-stretch w-full">
+                    {/* Left: Image zone (35-40% width) */}
+                    <div className="w-[38%] relative flex items-center justify-center p-3">
+                      <img
+                        src={legumesImg}
+                        alt="Бобовые"
+                        className="w-full h-full object-contain"
+                      />
+                    </div>
+
+                    {/* Right: Content zone */}
+                    <div className="flex-1 flex flex-col p-4">
+                      {/* Header with title and info button */}
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex flex-col">
+                          <h4 className="text-[17px] sm:text-[18px] font-extrabold text-slate-800 leading-tight">
+                            {k.num}. {k.name}
+                          </h4>
+                          <p className="text-[12px] sm:text-[12.5px] text-slate-500 font-medium leading-normal mt-0.5">
+                            {SYSTEM_KEYS.find(sk => sk.id === k.id)?.subtext || ""}
+                          </p>
+                        </div>
+                        <button
+                          id={`info-key-${k.id}`}
+                          type="button"
+                          onClick={() => setSelectedKey(k)}
+                          className="p-1.5 rounded-full hover:bg-white/50 text-slate-450 hover:text-emerald-600 transition-colors focus:outline-none cursor-pointer"
+                        >
+                          <Info className="w-5 h-5 stroke-[2]" />
+                        </button>
+                      </div>
+
+                      {/* Status text */}
+                      <span className={`text-[13px] font-bold mb-3 ${
+                        isCompleted
+                          ? "text-emerald-700 font-black"
+                          : currentVal > 0
+                          ? "text-slate-600"
+                          : "text-slate-400"
+                      }`}>
+                        {isCompleted
+                          ? (k.superLevelDone ? "★ Сияющий суперуровень!" : "Выполнено!")
+                          : `Порций: ${currentVal} из ${k.optimum}`
+                        }
+                      </span>
+
+                      {/* Controls row */}
+                      <div className="flex items-center gap-2">
+                        {/* Portion buttons */}
+                        <div className="flex gap-1.5">
+                          {Array.from({ length: k.optimum }).map((_, idx) => {
+                            const circleVal = idx + 1;
+                            const checked = currentVal >= circleVal;
+                            return (
+                              <button
+                                id={`portion-${k.id}-${circleVal}`}
+                                key={idx}
+                                type="button"
+                                onClick={() => handleProductPortionClick(k.id, idx, currentVal, k.portionSizeInGrams, k.autoGrams)}
+                                className={`h-9 w-9 rounded-full flex items-center justify-center font-black text-[14px] transition-all duration-200 cursor-pointer shadow-sm ${
+                                  checked
+                                    ? "bg-[#16B551] text-white"
+                                    : "bg-white/60 text-slate-500 hover:bg-white/80"
+                                }`}
+                              >
+                                {circleVal}
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        {/* Superlevel button */}
+                        {k.hasSuperlevel && (
+                          <button
+                            id={`superlevel-btn-${k.id}`}
+                            type="button"
+                            onClick={() => {
+                              if (k.superLevelDone) {
+                                handleGramsInputChangeDirectly(k.id, 0);
+                              } else {
+                                const neededGrams = (k.optimum + 1) * k.portionSizeInGrams;
+                                const manualRequired = Math.max(0, neededGrams - k.autoGrams);
+                                handleGramsInputChangeDirectly(k.id, manualRequired);
+                              }
+                            }}
+                            className={`h-9 w-9 rounded-full flex items-center justify-center text-[16px] font-black transition-all duration-200 cursor-pointer shadow-sm ${
+                              k.superLevelDone
+                                ? "bg-[#F59E0B] text-white"
+                                : "bg-white/60 text-[#F59E0B] hover:bg-white/80"
+                            }`}
+                            title="Суперуровень"
+                          >
+                            ★
+                          </button>
+                        )}
+
+                        {/* Manual grams input */}
+                        <div className="flex items-center gap-1 ml-auto">
+                          <input
+                            type="number"
+                            placeholder="+г"
+                            value={k.manualGrams || ""}
+                            onChange={(e) => {
+                              const val = e.target.value === "" ? 0 : Number(e.target.value);
+                              handleGramsInputChangeDirectly(k.id, val);
+                            }}
+                            className="w-14 h-9 text-center text-[12px] font-black bg-white/50 hover:bg-white/70 focus:bg-white rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-400/30 transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none text-slate-700"
+                            title="Вручную вне рецепта (грамм)"
+                          />
+                          <span className="text-[11px] text-slate-500 font-bold select-none">г</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            }
+
+            // Default design for all other cards
             return (
               <div
                 key={k.id}
