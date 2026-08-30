@@ -379,6 +379,13 @@ const MANUAL_ENTRY_THEMES: Record<string, {
   leafy_greens: { img: leafyGreensImg, surface: "#E3F2EA", accent: "#065F46", accentHover: "#064E3B" }
 };
 
+// Per-asset visual scale for themed product card thumbnails (legumes = 1.00)
+const THEMED_ILLUSTRATION_SCALE: Record<string, number> = {
+  whole_grains: 1.10,
+  vegetables: 1.08,
+  leafy_greens: 1.08
+};
+
 const BUBBLES_TEMPLATE = [
   { id: 1, size: 4, left: "15%", duration: 4.5, delay: 0 },
   { id: 2, size: 6, left: "45%", duration: 5.8, delay: 1.2 },
@@ -1021,6 +1028,11 @@ export default function HabitsTwentyScreen({
                         src={theme.img}
                         alt={k.name}
                         className="w-full h-full object-contain"
+                        style={{
+                          transform: `scale(${THEMED_ILLUSTRATION_SCALE[k.id] || 1})`,
+                          transformOrigin: "center",
+                          willChange: "transform"
+                        }}
                       />
                     </div>
 
