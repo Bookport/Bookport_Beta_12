@@ -1007,8 +1007,9 @@ export default function HabitsTwentyScreen({
               return (
                 <div
                   key={k.id}
-                  className="w-full rounded-3xl flex flex-row items-stretch overflow-hidden border border-white/60 transition-all"
+                  className="w-full rounded-3xl p-0 flex flex-row items-stretch overflow-hidden border-none ring-0 transition-all"
                   style={{
+                    height: "153px",
                     backgroundColor: theme.surface,
                     boxShadow: `0 8px 24px ${hexToRgba(theme.accent, 0.14)}`
                   }}
@@ -1026,11 +1027,11 @@ export default function HabitsTwentyScreen({
                   <div className="flex-1 flex flex-col p-4">
                     {/* Header with title and info button */}
                     <div className="flex items-start justify-between mb-2 gap-2">
-                      <div className="flex flex-col min-w-0">
-                        <h4 className="text-[17px] sm:text-[18px] font-extrabold text-slate-800 leading-tight">
+                      <div className="flex flex-col flex-1 min-w-0">
+                        <h4 className="text-[17px] sm:text-[18px] font-extrabold text-slate-800 leading-tight truncate">
                           {k.num}. {k.name}
                         </h4>
-                        <p className="text-[12px] sm:text-[12.5px] text-slate-500 font-medium leading-normal mt-0.5 break-words">
+                        <p className="text-[12px] sm:text-[12.5px] text-slate-500 font-medium leading-normal mt-0.5 truncate">
                           {SYSTEM_KEYS.find(sk => sk.id === k.id)?.subtext || ""}
                         </p>
                       </div>
