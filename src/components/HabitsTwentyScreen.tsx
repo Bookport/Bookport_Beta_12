@@ -946,7 +946,7 @@ export default function HabitsTwentyScreen({
                     key={idx}
                     type="button"
                     onClick={() => handleProductPortionClick(k.id, idx, currentVal, k.portionSizeInGrams, k.autoGrams)}
-                    className={`w-10 h-10 rounded-full border flex items-center justify-center font-black transition-all duration-200 cursor-pointer text-[15px] ${
+                    className={`h-9 w-9 rounded-full border flex items-center justify-center font-black transition-all duration-200 cursor-pointer text-[14px] shadow-sm ${
                       checked
                         ? isSuper
                           ? "bg-amber-500 border-amber-600 text-white shadow-sm shadow-amber-500/20"
@@ -973,7 +973,7 @@ export default function HabitsTwentyScreen({
                       handleGramsInputChangeDirectly(k.id, manualRequired);
                     }
                   }}
-                  className={`w-10 h-10 rounded-full border flex items-center justify-center text-[16px] font-black transition-all duration-200 cursor-pointer ${
+                  className={`h-9 w-9 rounded-full border flex items-center justify-center text-[16px] font-black transition-all duration-200 cursor-pointer shadow-sm ${
                     k.superLevelDone
                       ? "bg-amber-500 border-amber-600 text-white shadow-sm shadow-amber-500/20"
                       : "border-amber-200 text-amber-500 bg-amber-50/20 hover:bg-amber-500/10"
@@ -985,7 +985,7 @@ export default function HabitsTwentyScreen({
               ) : null;
               const manualEntryCtl = (
                 <>
-                  <div className="h-10 flex items-center px-3 py-1.5 rounded-xl bg-white/70 border border-white/50 text-[13px] font-black text-slate-700 min-w-[60px] text-center">
+                  <div className="px-3 py-1.5 rounded-xl bg-white/70 border border-white/50 text-[13px] font-black text-slate-700 min-w-[60px] text-center">
                     {k.manualGrams || 0} г
                   </div>
                   <button
@@ -1007,27 +1007,28 @@ export default function HabitsTwentyScreen({
               return (
                 <div
                   key={k.id}
-                  className="w-full rounded-3xl p-0 flex flex-row items-stretch overflow-hidden border-none ring-0 transition-all"
+                  className="w-full rounded-3xl p-0 overflow-hidden border-none ring-0"
                   style={{
                     height: "153px",
                     backgroundColor: theme.surface,
                     boxShadow: `0 8px 24px ${hexToRgba(theme.accent, 0.14)}`
                   }}
                 >
-                  {/* Left: WebP image zone (38%, same geometry as legumes) */}
-                  <div className="w-[38%] relative flex items-center justify-center p-3">
-                    <img
-                      src={theme.img}
-                      alt={k.name}
-                      className="w-full h-full object-contain"
-                    />
-                  </div>
+                  <div className="flex flex-row items-stretch w-full">
+                    {/* Left: Image zone (38%, same geometry as legumes) */}
+                    <div className="w-[38%] relative flex items-center justify-center p-3">
+                      <img
+                        src={theme.img}
+                        alt={k.name}
+                        className="w-full h-full object-contain"
+                      />
+                    </div>
 
-                  {/* Right: content zone */}
-                  <div className="flex-1 flex flex-col p-4">
+                    {/* Right: Content zone */}
+                    <div className="flex-1 flex flex-col p-4">
                     {/* Header with title and info button */}
-                    <div className="flex items-start justify-between mb-2 gap-2">
-                      <div className="flex flex-col flex-1 min-w-0">
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex flex-col">
                         <h4 className="text-[17px] sm:text-[18px] font-extrabold text-slate-800 leading-tight truncate">
                           {k.num}. {k.name}
                         </h4>
@@ -1039,7 +1040,7 @@ export default function HabitsTwentyScreen({
                         id={`info-key-${k.id}`}
                         type="button"
                         onClick={() => setSelectedKey(k)}
-                        className="p-1.5 rounded-full hover:bg-white/50 text-slate-450 hover:text-emerald-600 transition-colors focus:outline-none cursor-pointer shrink-0"
+                        className="p-1.5 rounded-full hover:bg-white/50 text-slate-450 hover:text-emerald-600 transition-colors focus:outline-none cursor-pointer"
                       >
                         <Info className="w-5 h-5 stroke-[2]" />
                       </button>
@@ -1064,6 +1065,7 @@ export default function HabitsTwentyScreen({
                       <div className="flex gap-1.5">{circleButtons}</div>
                       {superlevelButton}
                       <div className="flex items-center gap-2 ml-auto">{manualEntryCtl}</div>
+                    </div>
                     </div>
                   </div>
                 </div>
