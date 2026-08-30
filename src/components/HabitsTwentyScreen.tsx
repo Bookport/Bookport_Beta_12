@@ -932,6 +932,75 @@ export default function HabitsTwentyScreen({
             // Themed design for core product cards with manual entry draft modal
             if (THEMED_KEYS.includes(k.id)) {
               const theme = MANUAL_ENTRY_THEMES[k.id];
+              const circleButtons = Array.from({ length: PRODUCT_KEYS_LIST.includes(k.id) ? k.optimum : k.maxCircles }).map((_, idx) => {
+                const circleVal = idx + 1;
+                const checked = currentVal >= circleVal;
+                const isSuper = k.hasSuperlevel && circleVal > k.optimum;
+
+                return (
+                  <button
+                    id={`portion-${k.id}-${circleVal}`}
+                    key={idx}
+                    type="button"
+                    onClick={() => handleProductPortionClick(k.id, idx, currentVal, k.portionSizeInGrams, k.autoGrams)}
+                    className={`h-8 w-8 rounded-full border flex items-center justify-center font-black transition-all duration-200 cursor-pointer text-[13px] ${
+                      checked
+                        ? isSuper
+                          ? "bg-amber-500 border-amber-600 text-white shadow-sm shadow-amber-500/20"
+                          : "bg-emerald-500 border-emerald-600 text-white shadow-sm shadow-emerald-500/25"
+                        : isSuper
+                        ? "border-amber-200 text-amber-500 bg-amber-50/20 hover:bg-amber-500/10"
+                        : "border-slate-200 text-slate-500 hover:bg-emerald-500/5 hover:border-emerald-500/20 bg-slate-50/30"
+                    }`}
+                  >
+                    {isSuper ? "★" : circleVal}
+                  </button>
+                );
+              });
+              const superlevelButton = k.hasSuperlevel ? (
+                <button
+                  id={`superlevel-btn-${k.id}`}
+                  type="button"
+                  onClick={() => {
+                    if (k.superLevelDone) {
+                      handleGramsInputChangeDirectly(k.id, 0);
+                    } else {
+                      const neededGrams = (k.optimum + 1) * k.portionSizeInGrams;
+                      const manualRequired = Math.max(0, neededGrams - k.autoGrams);
+                      handleGramsInputChangeDirectly(k.id, manualRequired);
+                    }
+                  }}
+                  className={`w-8 h-8 rounded-full border flex items-center justify-center text-[15px] font-black transition-all duration-200 cursor-pointer ${
+                    k.superLevelDone
+                      ? "bg-amber-500 border-amber-600 text-white shadow-sm shadow-amber-500/20"
+                      : "border-amber-200 text-amber-500 bg-amber-50/20 hover:bg-amber-500/10"
+                  }`}
+                  title="Суперуровень"
+                >
+                  ★
+                </button>
+              ) : null;
+              const manualEntryCtl = (
+                <>
+                  <div className="px-3 py-1.5 rounded-xl bg-white/70 text-[13px] font-black text-slate-700 min-w-[60px] text-center">
+                    {k.manualGrams || 0} г
+                  </div>
+                  <button
+                    id={`manual-entry-${k.id}`}
+                    type="button"
+                    onClick={() => openManualEntry(k)}
+                    className="w-10 h-10 rounded-full flex items-center justify-center text-white font-black text-[20px] shadow-sm hover:brightness-95 active:scale-95 transition-all cursor-pointer"
+                    style={{ backgroundColor: theme.accent }}
+                    title="Ручной учёт"
+                    aria-label={`Открыть ручной учёт для ${k.name}`}
+                  >
+                    +
+                  </button>
+                </>
+              );
+              // Compact single-row controls (like legumes) when few circles fit inline,
+              // otherwise a deterministic two-row block (no flex-wrap).
+              const standaloneControls = k.optimum + (k.hasSuperlevel ? 1 : 0) <= 3;
               return (
                 <div
                   key={k.id}
@@ -941,8 +1010,8 @@ export default function HabitsTwentyScreen({
                     boxShadow: `0 8px 24px ${hexToRgba(theme.accent, 0.14)}`
                   }}
                 >
-                  {/* Left: WebP image zone */}
-                  <div className="w-[35%] shrink-0 relative flex items-center justify-center p-3">
+                  {/* Left: WebP image zone (38%, same geometry as legumes) */}
+                  <div className="w-[38%] relative flex items-center justify-center p-3">
                     <img
                       src={theme.img}
                       alt={k.name}
@@ -951,9 +1020,9 @@ export default function HabitsTwentyScreen({
                   </div>
 
                   {/* Right: content zone */}
-                  <div className="flex-1 min-w-0 flex flex-col p-4">
+                  <div className="flex-1 flex flex-col p-4">
                     {/* Header with title and info button */}
-                    <div className="flex items-start justify-between gap-2 min-w-0">
+                    <div className="flex items-start justify-between mb-2 gap-2">
                       <div className="flex flex-col min-w-0">
                         <h4 className="text-[17px] sm:text-[18px] font-extrabold text-slate-800 leading-tight">
                           {k.num}. {k.name}
@@ -966,19 +1035,19 @@ export default function HabitsTwentyScreen({
                         id={`info-key-${k.id}`}
                         type="button"
                         onClick={() => setSelectedKey(k)}
-                        className="p-1.5 rounded-full hover:bg-white/60 text-slate-500 hover:text-emerald-600 transition-colors focus:outline-none cursor-pointer shrink-0"
+                        className="p-1.5 rounded-full hover:bg-white/50 text-slate-450 hover:text-emerald-600 transition-colors focus:outline-none cursor-pointer shrink-0"
                       >
                         <Info className="w-5 h-5 stroke-[2]" />
                       </button>
                     </div>
 
-                    <div className="w-full flex flex-col gap-2.5 pt-1.5">
-                    <span className={`text-[12px] font-bold ${
+                    {/* Status text */}
+                    <span className={`text-[13px] font-bold mb-3 ${
                       isCompleted
-                        ? "text-emerald-600 font-black"
+                        ? "text-emerald-700 font-black"
                         : currentVal > 0
-                        ? "text-slate-500"
-                        : "text-slate-350"
+                        ? "text-slate-600"
+                        : "text-slate-400"
                     }`}>
                       {isCompleted
                         ? (k.superLevelDone ? "★ Сияющий суперуровень!" : "Выполнено!")
@@ -986,77 +1055,22 @@ export default function HabitsTwentyScreen({
                       }
                     </span>
 
-                    <div className="flex flex-col gap-2.5">
-                      <div className="flex gap-1.5 flex-wrap items-center">
-                        {Array.from({ length: PRODUCT_KEYS_LIST.includes(k.id) ? k.optimum : k.maxCircles }).map((_, idx) => {
-                          const circleVal = idx + 1;
-                          const checked = currentVal >= circleVal;
-                          const isSuper = k.hasSuperlevel && circleVal > k.optimum;
-
-                          return (
-                            <button
-                              id={`portion-${k.id}-${circleVal}`}
-                              key={idx}
-                              type="button"
-                              onClick={() => handleProductPortionClick(k.id, idx, currentVal, k.portionSizeInGrams, k.autoGrams)}
-                              className={`h-8 rounded-full border flex items-center justify-center font-black transition-all duration-200 cursor-pointer w-8 text-[13px] ${
-                                checked
-                                  ? isSuper
-                                    ? "bg-amber-500 border-amber-600 text-white shadow-sm shadow-amber-500/20"
-                                    : "bg-emerald-500 border-emerald-600 text-white shadow-sm shadow-emerald-500/25"
-                                  : isSuper
-                                  ? "border-amber-200 text-amber-500 bg-amber-50/20 hover:bg-amber-500/10"
-                                  : "border-slate-200 text-slate-500 hover:bg-emerald-500/5 hover:border-emerald-500/20 bg-slate-50/30"
-                              }`}
-                            >
-                              {isSuper ? "★" : circleVal}
-                            </button>
-                          );
-                        })}
-
-                        {k.hasSuperlevel && (
-                          <button
-                            id={`superlevel-btn-${k.id}`}
-                            type="button"
-                            onClick={() => {
-                              if (k.superLevelDone) {
-                                handleGramsInputChangeDirectly(k.id, 0);
-                              } else {
-                                const neededGrams = (k.optimum + 1) * k.portionSizeInGrams;
-                                const manualRequired = Math.max(0, neededGrams - k.autoGrams);
-                                handleGramsInputChangeDirectly(k.id, manualRequired);
-                              }
-                            }}
-                            className={`w-8 h-8 rounded-full border flex items-center justify-center text-[15px] font-black transition-all duration-200 cursor-pointer ${
-                              k.superLevelDone
-                                ? "bg-amber-500 border-amber-600 text-white shadow-sm shadow-amber-500/20"
-                                : "border-amber-200 text-amber-500 bg-amber-50/20 hover:bg-amber-500/10"
-                            }`}
-                            title="Суперуровень"
-                          >
-                            ★
-                          </button>
-                        )}
+                    {/* Controls zone */}
+                    {standaloneControls ? (
+                      <div className="flex items-center gap-2">
+                        <div className="flex gap-1.5">{circleButtons}</div>
+                        {superlevelButton}
+                        <div className="flex items-center gap-2 ml-auto">{manualEntryCtl}</div>
                       </div>
-
-                      <div className="flex items-center gap-2 justify-end">
-                        <div className="px-3 py-1.5 rounded-xl bg-white/70 text-[13px] font-black text-slate-700 min-w-[60px] text-center">
-                          {k.manualGrams || 0} г
+                    ) : (
+                      <div className="flex flex-col gap-2">
+                        <div className="flex gap-1.5 items-center">
+                          {circleButtons}
+                          {superlevelButton}
                         </div>
-                        <button
-                          id={`manual-entry-${k.id}`}
-                          type="button"
-                          onClick={() => openManualEntry(k)}
-                          className="w-10 h-10 rounded-full flex items-center justify-center text-white font-black text-[20px] shadow-sm hover:brightness-95 active:scale-95 transition-all cursor-pointer"
-                          style={{ backgroundColor: theme.accent }}
-                          title="Ручной учёт"
-                          aria-label={`Открыть ручной учёт для ${k.name}`}
-                        >
-                          +
-                        </button>
+                        <div className="flex items-center gap-2 justify-end">{manualEntryCtl}</div>
                       </div>
-                    </div>
-                  </div>
+                    )}
                   </div>
                 </div>
               );
