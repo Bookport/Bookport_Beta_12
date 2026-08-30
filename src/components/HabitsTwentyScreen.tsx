@@ -932,7 +932,10 @@ export default function HabitsTwentyScreen({
             // Themed design for core product cards with manual entry draft modal
             if (THEMED_KEYS.includes(k.id)) {
               const theme = MANUAL_ENTRY_THEMES[k.id];
-              const circleButtons = Array.from({ length: PRODUCT_KEYS_LIST.includes(k.id) ? k.optimum : k.maxCircles }).map((_, idx) => {
+              // Temporary presentation cap: render at most 3 portion circles.
+              // Real k.optimum/maxCircles/store/calculations are intentionally untouched.
+              const visibleCircles = Math.min(PRODUCT_KEYS_LIST.includes(k.id) ? k.optimum : k.maxCircles, 3);
+              const circleButtons = Array.from({ length: visibleCircles }).map((_, idx) => {
                 const circleVal = idx + 1;
                 const checked = currentVal >= circleVal;
                 const isSuper = k.hasSuperlevel && circleVal > k.optimum;
@@ -943,7 +946,7 @@ export default function HabitsTwentyScreen({
                     key={idx}
                     type="button"
                     onClick={() => handleProductPortionClick(k.id, idx, currentVal, k.portionSizeInGrams, k.autoGrams)}
-                    className={`h-8 w-8 rounded-full border flex items-center justify-center font-black transition-all duration-200 cursor-pointer text-[13px] ${
+                    className={`w-10 h-10 rounded-full border flex items-center justify-center font-black transition-all duration-200 cursor-pointer text-[15px] ${
                       checked
                         ? isSuper
                           ? "bg-amber-500 border-amber-600 text-white shadow-sm shadow-amber-500/20"
@@ -970,7 +973,7 @@ export default function HabitsTwentyScreen({
                       handleGramsInputChangeDirectly(k.id, manualRequired);
                     }
                   }}
-                  className={`w-8 h-8 rounded-full border flex items-center justify-center text-[15px] font-black transition-all duration-200 cursor-pointer ${
+                  className={`w-10 h-10 rounded-full border flex items-center justify-center text-[16px] font-black transition-all duration-200 cursor-pointer ${
                     k.superLevelDone
                       ? "bg-amber-500 border-amber-600 text-white shadow-sm shadow-amber-500/20"
                       : "border-amber-200 text-amber-500 bg-amber-50/20 hover:bg-amber-500/10"
@@ -982,7 +985,7 @@ export default function HabitsTwentyScreen({
               ) : null;
               const manualEntryCtl = (
                 <>
-                  <div className="px-3 py-1.5 rounded-xl bg-white/70 text-[13px] font-black text-slate-700 min-w-[60px] text-center">
+                  <div className="h-10 flex items-center px-3 py-1.5 rounded-xl bg-white/70 border border-white/50 text-[13px] font-black text-slate-700 min-w-[60px] text-center">
                     {k.manualGrams || 0} г
                   </div>
                   <button
@@ -998,9 +1001,9 @@ export default function HabitsTwentyScreen({
                   </button>
                 </>
               );
-              // Compact single-row controls (like legumes) when few circles fit inline,
-              // otherwise a deterministic two-row block (no flex-wrap).
-              const standaloneControls = k.optimum + (k.hasSuperlevel ? 1 : 0) <= 3;
+              // Display-only status cap aligned to the temporary 3-circle visual limit.
+              const statusCap = visibleCircles;
+              const statusFilled = Math.min(currentVal, statusCap);
               return (
                 <div
                   key={k.id}
@@ -1041,7 +1044,7 @@ export default function HabitsTwentyScreen({
                       </button>
                     </div>
 
-                    {/* Status text */}
+                    {/* Status text (display-only count, real optimum untouched) */}
                     <span className={`text-[13px] font-bold mb-3 ${
                       isCompleted
                         ? "text-emerald-700 font-black"
@@ -1051,26 +1054,16 @@ export default function HabitsTwentyScreen({
                     }`}>
                       {isCompleted
                         ? (k.superLevelDone ? "★ Сияющий суперуровень!" : "Выполнено!")
-                        : `Порций: ${currentVal} из ${k.optimum}`
+                        : `Порций: ${statusFilled} из ${statusCap}`
                       }
                     </span>
 
-                    {/* Controls zone */}
-                    {standaloneControls ? (
-                      <div className="flex items-center gap-2">
-                        <div className="flex gap-1.5">{circleButtons}</div>
-                        {superlevelButton}
-                        <div className="flex items-center gap-2 ml-auto">{manualEntryCtl}</div>
-                      </div>
-                    ) : (
-                      <div className="flex flex-col gap-2">
-                        <div className="flex gap-1.5 items-center">
-                          {circleButtons}
-                          {superlevelButton}
-                        </div>
-                        <div className="flex items-center gap-2 justify-end">{manualEntryCtl}</div>
-                      </div>
-                    )}
+                    {/* Single compact control row: [circles] [★] [N г] [+] */}
+                    <div className="flex items-center gap-2">
+                      <div className="flex gap-1.5">{circleButtons}</div>
+                      {superlevelButton}
+                      <div className="flex items-center gap-2 ml-auto">{manualEntryCtl}</div>
+                    </div>
                   </div>
                 </div>
               );
