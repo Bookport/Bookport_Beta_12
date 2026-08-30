@@ -417,6 +417,14 @@ const ProductCardShell: React.FC<ProductCardProps> = ({
   const statusCapValue = statusCap ?? optimum;
   const statusFilled = Math.min(currentVal, statusCapValue);
 
+  // Presentation-only target for status label (display cap, not real optimum)
+  const visibleTarget = Math.min(optimum, 3);
+  const visibleFilled = Math.min(currentVal, visibleTarget);
+
+  // Singular/plural form for portion label
+  const portionLabel = visibleTarget === 1 ? "Порция" : "Порций";
+  const statusText = `${portionLabel}: ${visibleFilled} из ${visibleTarget}`;
+
   return (
     <div
       className="w-full rounded-3xl p-0 overflow-hidden border-white border-solid border-[1px] ring-0"
@@ -468,7 +476,7 @@ const ProductCardShell: React.FC<ProductCardProps> = ({
           }`}>
             {isCompleted
               ? (superLevelDone ? "★ Сияющий суперуровень!" : "Выполнено!")
-              : `Порций: ${statusFilled} из ${statusCapValue}`
+              : statusText
             }
           </span>
 
