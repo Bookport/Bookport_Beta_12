@@ -935,38 +935,44 @@ export default function HabitsTwentyScreen({
               return (
                 <div
                   key={k.id}
-                  className="w-full rounded-[22px] p-4 flex flex-col gap-3 transition-all"
+                  className="w-full rounded-3xl flex flex-row items-stretch overflow-hidden border border-white/60 transition-all"
                   style={{
                     backgroundColor: theme.surface,
-                    boxShadow: `0 6px 20px ${hexToRgba(theme.accent, 0.12)}`
+                    boxShadow: `0 8px 24px ${hexToRgba(theme.accent, 0.14)}`
                   }}
                 >
-                  <div className="flex gap-3 justify-between items-start">
-                    <div className="flex gap-2.5 items-center">
-                      <span className="text-[26px] leading-none shrink-0" role="img" aria-label={k.name}>
-                        {k.emoji}
-                      </span>
-                      <div className="flex flex-col">
-                        <h4 className="text-[15px] sm:text-[15.5px] font-extrabold text-slate-800 leading-tight">
+                  {/* Left: WebP image zone */}
+                  <div className="w-[35%] shrink-0 relative flex items-center justify-center p-3">
+                    <img
+                      src={theme.img}
+                      alt={k.name}
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
+
+                  {/* Right: content zone */}
+                  <div className="flex-1 min-w-0 flex flex-col p-4">
+                    {/* Header with title and info button */}
+                    <div className="flex items-start justify-between gap-2 min-w-0">
+                      <div className="flex flex-col min-w-0">
+                        <h4 className="text-[17px] sm:text-[18px] font-extrabold text-slate-800 leading-tight">
                           {k.num}. {k.name}
                         </h4>
-                        <p className="text-[11.5px] sm:text-[12px] text-slate-500 font-medium leading-normal mt-1 max-w-[220px]">
+                        <p className="text-[12px] sm:text-[12.5px] text-slate-500 font-medium leading-normal mt-0.5 break-words">
                           {SYSTEM_KEYS.find(sk => sk.id === k.id)?.subtext || ""}
                         </p>
                       </div>
+                      <button
+                        id={`info-key-${k.id}`}
+                        type="button"
+                        onClick={() => setSelectedKey(k)}
+                        className="p-1.5 rounded-full hover:bg-white/60 text-slate-500 hover:text-emerald-600 transition-colors focus:outline-none cursor-pointer shrink-0"
+                      >
+                        <Info className="w-5 h-5 stroke-[2]" />
+                      </button>
                     </div>
 
-                    <button
-                      id={`info-key-${k.id}`}
-                      type="button"
-                      onClick={() => setSelectedKey(k)}
-                      className="p-1.5 rounded-full hover:bg-slate-50 text-slate-450 hover:text-emerald-500 transition-colors focus:outline-none cursor-pointer"
-                    >
-                      <Info className="w-4.5 h-4.5 stroke-[2]" />
-                    </button>
-                  </div>
-
-                  <div className="w-full flex flex-col gap-2.5 pt-1.5 border-t border-white/70">
+                    <div className="w-full flex flex-col gap-2.5 pt-1.5">
                     <span className={`text-[12px] font-bold ${
                       isCompleted
                         ? "text-emerald-600 font-black"
@@ -981,7 +987,7 @@ export default function HabitsTwentyScreen({
                     </span>
 
                     <div className="flex flex-col gap-2.5">
-                      <div className="flex gap-1.5 items-center">
+                      <div className="flex gap-1.5 flex-wrap items-center">
                         {Array.from({ length: PRODUCT_KEYS_LIST.includes(k.id) ? k.optimum : k.maxCircles }).map((_, idx) => {
                           const circleVal = idx + 1;
                           const checked = currentVal >= circleVal;
@@ -1050,6 +1056,7 @@ export default function HabitsTwentyScreen({
                         </button>
                       </div>
                     </div>
+                  </div>
                   </div>
                 </div>
               );
