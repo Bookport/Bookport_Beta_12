@@ -10,6 +10,14 @@ import legumesImg from "../assets/images/keysustem/14.webp";
 import wholeGrainsImg from "../assets/images/keysustem/15.webp";
 import vegetablesImg from "../assets/images/keysustem/16.webp";
 import leafyGreensImg from "../assets/images/keysustem/17.webp";
+import nutsImg from "../assets/images/keysustem/18.webp";
+import seedsImg from "../assets/images/keysustem/19.webp";
+import groundFlaxImg from "../assets/images/keysustem/8.webp";
+import spicesImg from "../assets/images/keysustem/9.webp";
+import fruitsImg from "../assets/images/keysustem/10.webp";
+import berriesImg from "../assets/images/keysustem/11.webp";
+import sproutsImg from "../assets/images/keysustem/12.webp";
+import mustHaveImg from "../assets/images/keysustem/13.webp";
 
 interface HabitsTwentyScreenProps {
   dayNotes: Record<number, { text: string; time: string }[]>;
@@ -360,6 +368,182 @@ const PRODUCT_KEYS_LIST = [
 
 const THEMED_KEYS = ["whole_grains", "vegetables", "leafy_greens"];
 
+// Single unified product card shell for legumes, whole_grains, vegetables, leafy_greens
+interface ProductCardProps {
+  keyId: string;
+  imageSrc: string;
+  surfaceColor: string;
+  accentColor: string;
+  cardNumber: number;
+  title: string;
+  subtitle: string;
+  manualGrams: number;
+  portionsFilled: number;
+  optimum: number;
+  hasSuperlevel: boolean;
+  superLevelDone: boolean;
+  isCompleted: boolean;
+  currentVal: number;
+  visibleCirclesCount: number;
+  onCircleClick: (circleIdx: number) => void;
+  onSuperlevelToggle: () => void;
+  onManualEntryOpen: () => void;
+  onInfoClick: () => void;
+  statusCap?: number;
+}
+
+const ProductCardShell: React.FC<ProductCardProps> = ({
+  keyId,
+  imageSrc,
+  surfaceColor,
+  accentColor,
+  cardNumber,
+  title,
+  subtitle,
+  manualGrams,
+  portionsFilled,
+  optimum,
+  hasSuperlevel,
+  superLevelDone,
+  isCompleted,
+  currentVal,
+  visibleCirclesCount,
+  onCircleClick,
+  onSuperlevelToggle,
+  onManualEntryOpen,
+  onInfoClick,
+  statusCap
+}) => {
+  const statusCapValue = statusCap ?? optimum;
+  const statusFilled = Math.min(currentVal, statusCapValue);
+
+  return (
+    <div
+      className="w-full rounded-3xl p-0 overflow-hidden border-white border-solid border-[1px] ring-0"
+      style={{
+        minHeight: "153px",
+        backgroundColor: surfaceColor,
+        boxShadow: `0 8px 24px ${hexToRgba(accentColor, 0.14)}`
+      }}
+    >
+      <div className="flex flex-row items-stretch w-full">
+        {/* Left: Image zone (centered vertically with 20px top/bottom margin) */}
+        <div className="w-[140px] h-[153px] relative flex items-center justify-center pt-[20px] pb-[20px] shrink-0">
+          <img
+            src={imageSrc}
+            alt={title}
+            className="w-auto h-[113px] object-contain"
+          />
+        </div>
+
+        {/* Right: Content zone */}
+        <div className="flex-1 flex flex-col p-4 min-w-0">
+          {/* Header with title and info button */}
+          <div className="flex items-start justify-between mb-2">
+            <div className="flex flex-col min-w-0 flex-1">
+              <h4 className="text-[17px] sm:text-[18px] font-extrabold text-slate-800 leading-tight truncate">
+                {cardNumber}. {title}
+              </h4>
+              <p className="text-[12px] sm:text-[12.5px] text-slate-500 font-medium leading-normal mt-0.5 break-words">
+                {subtitle}
+              </p>
+            </div>
+            <button
+              id={`info-key-${keyId}`}
+              type="button"
+              onClick={onInfoClick}
+              className="p-1.5 rounded-full hover:bg-white/50 text-slate-450 hover:text-emerald-600 transition-colors focus:outline-none cursor-pointer"
+            >
+              <Info className="w-5 h-5 stroke-[2]" />
+            </button>
+          </div>
+
+          {/* Status text */}
+          <span className={`text-[13px] font-bold mb-3 ${
+            isCompleted
+              ? "text-emerald-700 font-black"
+              : currentVal > 0
+              ? "text-slate-600"
+              : "text-slate-400"
+          }`}>
+            {isCompleted
+              ? (superLevelDone ? "★ Сияющий суперуровень!" : "Выполнено!")
+              : `Порций: ${statusFilled} из ${statusCapValue}`
+            }
+          </span>
+
+          {/* Controls row */}
+          <div className="flex items-center gap-2">
+            {/* Portion buttons - 5px between circles */}
+            <div className="flex gap-[5px]">
+              {Array.from({ length: visibleCirclesCount }).map((_, idx) => {
+                const circleVal = idx + 1;
+                const checked = currentVal >= circleVal;
+                const isSuper = hasSuperlevel && circleVal > optimum;
+
+                return (
+                  <button
+                    id={`portion-${keyId}-${circleVal}`}
+                    key={idx}
+                    type="button"
+                    onClick={() => onCircleClick(idx)}
+                    className={`h-9 w-9 rounded-full border flex items-center justify-center font-black text-[14px] transition-all duration-200 cursor-pointer shadow-sm ${
+                      checked
+                        ? isSuper
+                          ? "bg-amber-500 border-amber-600 text-white shadow-sm shadow-amber-500/20"
+                          : "bg-emerald-500 border-emerald-600 text-white shadow-sm shadow-emerald-500/25"
+                        : isSuper
+                        ? "border-amber-200 text-amber-500 bg-amber-50/20 hover:bg-amber-500/10"
+                        : "border-slate-200 text-slate-500 hover:bg-emerald-500/5 hover:border-emerald-500/20 bg-slate-50/30"
+                    }`}
+                  >
+                    {isSuper ? "★" : circleVal}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Superlevel button */}
+            {hasSuperlevel && (
+              <button
+                id={`superlevel-btn-${keyId}`}
+                type="button"
+                onClick={onSuperlevelToggle}
+                className={`h-9 w-9 rounded-full border flex items-center justify-center text-[16px] font-black transition-all duration-200 cursor-pointer shadow-sm ${
+                  superLevelDone
+                    ? "bg-amber-500 border-amber-600 text-white shadow-sm shadow-amber-500/20"
+                    : "border-amber-200 text-amber-500 bg-amber-50/20 hover:bg-amber-500/10"
+                }`}
+                title="Суперуровень"
+              >
+                ★
+              </button>
+            )}
+
+            {/* Manual grams display + entry button - aligned to right with info button */}
+            <div className="flex items-center gap-2 ml-auto">
+              <div className="px-3 py-1.5 rounded-xl bg-white/70 border border-white/50 text-[13px] font-black text-slate-700 min-w-[60px] text-center">
+                {manualGrams || 0} г
+              </div>
+              <button
+                id={keyId === "legumes" ? "manual-entry-legumes" : `manual-entry-${keyId}`}
+                type="button"
+                onClick={onManualEntryOpen}
+                className="w-10 h-10 rounded-full flex items-center justify-center text-white font-black text-[20px] shadow-sm hover:brightness-95 active:scale-95 transition-all cursor-pointer"
+                style={{ backgroundColor: accentColor }}
+                title="Ручной учёт"
+                aria-label={`Открыть ручной учёт для ${title}`}
+              >
+                +
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const hexToRgba = (hex: string, alpha: number) => {
   const r = parseInt(hex.slice(1, 3), 16);
   const g = parseInt(hex.slice(3, 5), 16);
@@ -376,14 +560,15 @@ const MANUAL_ENTRY_THEMES: Record<string, {
   legumes: { img: legumesImg, surface: "#D4F0E6", accent: "#16B551", accentHover: "#14a048" },
   whole_grains: { img: wholeGrainsImg, surface: "#FDF3E3", accent: "#D97706", accentHover: "#B45309" },
   vegetables: { img: vegetablesImg, surface: "#F4F8DB", accent: "#65A30D", accentHover: "#4D7C0F" },
-  leafy_greens: { img: leafyGreensImg, surface: "#E3F2EA", accent: "#065F46", accentHover: "#064E3B" }
-};
-
-// Per-asset visual scale for themed product card thumbnails (legumes = 1.00)
-const THEMED_ILLUSTRATION_SCALE: Record<string, number> = {
-  whole_grains: 1.10,
-  vegetables: 1.08,
-  leafy_greens: 1.08
+  leafy_greens: { img: leafyGreensImg, surface: "#E3F2EA", accent: "#065F46", accentHover: "#064E3B" },
+  nuts: { img: nutsImg, surface: "#F3E7D7", accent: "#9A642C", accentHover: "#7C5425" },
+  seeds: { img: seedsImg, surface: "#FBE9C8", accent: "#C47A16", accentHover: "#A36412" },
+  ground_flax: { img: groundFlaxImg, surface: "#FFF6C9", accent: "#A47A00", accentHover: "#8A6600" },
+  spices: { img: spicesImg, surface: "#E8F1D9", accent: "#5E8B3C", accentHover: "#4D7531" },
+  fruits: { img: fruitsImg, surface: "#FFE6DE", accent: "#DE6E52", accentHover: "#BC5A42" },
+  berries: { img: berriesImg, surface: "#F8E2ED", accent: "#B84D86", accentHover: "#9A4070" },
+  sprouts: { img: sproutsImg, surface: "#E1F5DB", accent: "#3E9A5C", accentHover: "#337F4B" },
+  must_have: { img: mustHaveImg, surface: "#FFF0CD", accent: "#BE851B", accentHover: "#9F6F16" }
 };
 
 const BUBBLES_TEMPLATE = [
@@ -810,168 +995,33 @@ export default function HabitsTwentyScreen({
             const currentVal = k.portionsFilled;
             const isCompleted = k.optimalDone;
 
-            // Special design for first card: Legumes (Бобовые)
-            if (k.id === "legumes") {
-              return (
-                <div
-                  key={k.id}
-                  className="w-full rounded-3xl bg-[#D4F0E6] shadow-[0_8px_24px_rgba(16,185,129,0.12)] p-0 overflow-hidden border-none ring-0"
-                >
-                  <div className="flex flex-row items-stretch w-full">
-                    {/* Left: Image zone (35-40% width) */}
-                    <div className="w-[38%] relative flex items-center justify-center p-3">
-                      <img
-                        src={legumesImg}
-                        alt="Бобовые"
-                        className="w-full h-full object-contain"
-                      />
-                    </div>
-
-                    {/* Right: Content zone */}
-                    <div className="flex-1 flex flex-col p-4">
-                      {/* Header with title and info button */}
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex flex-col">
-                          <h4 className="text-[17px] sm:text-[18px] font-extrabold text-slate-800 leading-tight">
-                            {k.num}. {k.name}
-                          </h4>
-                          <p className="text-[12px] sm:text-[12.5px] text-slate-500 font-medium leading-normal mt-0.5">
-                            {SYSTEM_KEYS.find(sk => sk.id === k.id)?.subtext || ""}
-                          </p>
-                        </div>
-                        <button
-                          id={`info-key-${k.id}`}
-                          type="button"
-                          onClick={() => setSelectedKey(k)}
-                          className="p-1.5 rounded-full hover:bg-white/50 text-slate-450 hover:text-emerald-600 transition-colors focus:outline-none cursor-pointer"
-                        >
-                          <Info className="w-5 h-5 stroke-[2]" />
-                        </button>
-                      </div>
-
-                      {/* Status text */}
-                      <span className={`text-[13px] font-bold mb-3 ${
-                        isCompleted
-                          ? "text-emerald-700 font-black"
-                          : currentVal > 0
-                          ? "text-slate-600"
-                          : "text-slate-400"
-                      }`}>
-                        {isCompleted
-                          ? (k.superLevelDone ? "★ Сияющий суперуровень!" : "Выполнено!")
-                          : `Порций: ${currentVal} из ${k.optimum}`
-                        }
-                      </span>
-
-                      {/* Controls row */}
-                      <div className="flex items-center gap-2">
-                        {/* Portion buttons */}
-                        <div className="flex gap-1.5">
-                          {Array.from({ length: k.optimum }).map((_, idx) => {
-                            const circleVal = idx + 1;
-                            const checked = currentVal >= circleVal;
-                            return (
-                              <button
-                                id={`portion-${k.id}-${circleVal}`}
-                                key={idx}
-                                type="button"
-                                onClick={() => handleProductPortionClick(k.id, idx, currentVal, k.portionSizeInGrams, k.autoGrams)}
-                                className={`h-9 w-9 rounded-full flex items-center justify-center font-black text-[14px] transition-all duration-200 cursor-pointer shadow-sm ${
-                                  checked
-                                    ? "bg-[#16B551] text-white"
-                                    : "bg-white/60 text-slate-500 hover:bg-white/80"
-                                }`}
-                              >
-                                {circleVal}
-                              </button>
-                            );
-                          })}
-                        </div>
-
-                        {/* Superlevel button */}
-                        {k.hasSuperlevel && (
-                          <button
-                            id={`superlevel-btn-${k.id}`}
-                            type="button"
-                            onClick={() => {
-                              if (k.superLevelDone) {
-                                handleGramsInputChangeDirectly(k.id, 0);
-                              } else {
-                                const neededGrams = (k.optimum + 1) * k.portionSizeInGrams;
-                                const manualRequired = Math.max(0, neededGrams - k.autoGrams);
-                                handleGramsInputChangeDirectly(k.id, manualRequired);
-                              }
-                            }}
-                            className={`h-9 w-9 rounded-full flex items-center justify-center text-[16px] font-black transition-all duration-200 cursor-pointer shadow-sm ${
-                              k.superLevelDone
-                                ? "bg-[#F59E0B] text-white"
-                                : "bg-white/60 text-[#F59E0B] hover:bg-white/80"
-                            }`}
-                            title="Суперуровень"
-                          >
-                            ★
-                          </button>
-                        )}
-
-                        {/* Manual grams display + entry button */}
-                        <div className="flex items-center gap-2 ml-auto">
-                          <div className="px-3 py-1.5 rounded-xl bg-white/70 border border-white/50 text-[13px] font-black text-slate-700 min-w-[60px] text-center">
-                            {k.manualGrams || 0} г
-                          </div>
-                          <button
-                            id="manual-entry-legumes"
-                            type="button"
-                            onClick={() => openManualEntry(k)}
-                            className="w-10 h-10 rounded-full flex items-center justify-center bg-[#16B551] text-white font-black text-[20px] shadow-sm hover:bg-[#14a048] active:scale-95 transition-all cursor-pointer"
-                            title="Ручной учёт"
-                            aria-label="Открыть ручной учёт для Бобовых"
-                          >
-                            +
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            }
-
-            // Themed design for core product cards with manual entry draft modal
-            if (THEMED_KEYS.includes(k.id)) {
+            // Unified product card shell for all 13 products (except healthy_drinks which needs special handling)
+            if (PRODUCT_KEYS_LIST.includes(k.id) && k.id !== "healthy_drinks") {
               const theme = MANUAL_ENTRY_THEMES[k.id];
-              // Temporary presentation cap: render at most 3 portion circles.
-              // Real k.optimum/maxCircles/store/calculations are intentionally untouched.
-              const visibleCircles = Math.min(PRODUCT_KEYS_LIST.includes(k.id) ? k.optimum : k.maxCircles, 3);
-              const circleButtons = Array.from({ length: visibleCircles }).map((_, idx) => {
-                const circleVal = idx + 1;
-                const checked = currentVal >= circleVal;
-                const isSuper = k.hasSuperlevel && circleVal > k.optimum;
+              // Display cap: max 3 visible circles + separate ★ for superlevel
+              const maxVisibleCircles = 3;
+              const visibleCirclesCount = Math.min(PRODUCT_KEYS_LIST.includes(k.id) ? k.optimum : k.maxCircles, maxVisibleCircles);
 
-                return (
-                  <button
-                    id={`portion-${k.id}-${circleVal}`}
-                    key={idx}
-                    type="button"
-                    onClick={() => handleProductPortionClick(k.id, idx, currentVal, k.portionSizeInGrams, k.autoGrams)}
-                    className={`h-9 w-9 rounded-full border flex items-center justify-center font-black transition-all duration-200 cursor-pointer text-[14px] shadow-sm ${
-                      checked
-                        ? isSuper
-                          ? "bg-amber-500 border-amber-600 text-white shadow-sm shadow-amber-500/20"
-                          : "bg-emerald-500 border-emerald-600 text-white shadow-sm shadow-emerald-500/25"
-                        : isSuper
-                        ? "border-amber-200 text-amber-500 bg-amber-50/20 hover:bg-amber-500/10"
-                        : "border-slate-200 text-slate-500 hover:bg-emerald-500/5 hover:border-emerald-500/20 bg-slate-50/30"
-                    }`}
-                  >
-                    {isSuper ? "★" : circleVal}
-                  </button>
-                );
-              });
-              const superlevelButton = k.hasSuperlevel ? (
-                <button
-                  id={`superlevel-btn-${k.id}`}
-                  type="button"
-                  onClick={() => {
+              return (
+                <ProductCardShell
+                  key={k.id}
+                  keyId={k.id}
+                  imageSrc={theme.img}
+                  surfaceColor={theme.surface}
+                  accentColor={theme.accent}
+                  cardNumber={k.num}
+                  title={k.name}
+                  subtitle={SYSTEM_KEYS.find(sk => sk.id === k.id)?.subtext || ""}
+                  manualGrams={k.manualGrams || 0}
+                  portionsFilled={k.portionsFilled}
+                  optimum={k.optimum}
+                  hasSuperlevel={k.hasSuperlevel}
+                  superLevelDone={k.superLevelDone}
+                  isCompleted={k.optimalDone}
+                  currentVal={currentVal}
+                  visibleCirclesCount={visibleCirclesCount}
+                  onCircleClick={(idx) => handleProductPortionClick(k.id, idx, currentVal, k.portionSizeInGrams, k.autoGrams)}
+                  onSuperlevelToggle={() => {
                     if (k.superLevelDone) {
                       handleGramsInputChangeDirectly(k.id, 0);
                     } else {
@@ -980,107 +1030,10 @@ export default function HabitsTwentyScreen({
                       handleGramsInputChangeDirectly(k.id, manualRequired);
                     }
                   }}
-                  className={`h-9 w-9 rounded-full border flex items-center justify-center text-[16px] font-black transition-all duration-200 cursor-pointer shadow-sm ${
-                    k.superLevelDone
-                      ? "bg-amber-500 border-amber-600 text-white shadow-sm shadow-amber-500/20"
-                      : "border-amber-200 text-amber-500 bg-amber-50/20 hover:bg-amber-500/10"
-                  }`}
-                  title="Суперуровень"
-                >
-                  ★
-                </button>
-              ) : null;
-              const manualEntryCtl = (
-                <>
-                  <div className="px-3 py-1.5 rounded-xl bg-white/70 border border-white/50 text-[13px] font-black text-slate-700 min-w-[60px] text-center">
-                    {k.manualGrams || 0} г
-                  </div>
-                  <button
-                    id={`manual-entry-${k.id}`}
-                    type="button"
-                    onClick={() => openManualEntry(k)}
-                    className="w-10 h-10 rounded-full flex items-center justify-center text-white font-black text-[20px] shadow-sm hover:brightness-95 active:scale-95 transition-all cursor-pointer"
-                    style={{ backgroundColor: theme.accent }}
-                    title="Ручной учёт"
-                    aria-label={`Открыть ручной учёт для ${k.name}`}
-                  >
-                    +
-                  </button>
-                </>
-              );
-              // Display-only status cap aligned to the temporary 3-circle visual limit.
-              const statusCap = visibleCircles;
-              const statusFilled = Math.min(currentVal, statusCap);
-              return (
-                <div
-                  key={k.id}
-                  className="w-full rounded-3xl p-0 overflow-hidden border-none ring-0"
-                  style={{
-                    height: "153px",
-                    backgroundColor: theme.surface,
-                    boxShadow: `0 8px 24px ${hexToRgba(theme.accent, 0.14)}`
-                  }}
-                >
-                  <div className="flex flex-row items-stretch w-full">
-                    {/* Left: Image zone (38%, same geometry as legumes) */}
-                    <div className="w-[38%] relative flex items-center justify-center p-3">
-                      <img
-                        src={theme.img}
-                        alt={k.name}
-                        className="w-full h-full object-contain"
-                        style={{
-                          transform: `scale(${THEMED_ILLUSTRATION_SCALE[k.id] || 1})`,
-                          transformOrigin: "center",
-                          willChange: "transform"
-                        }}
-                      />
-                    </div>
-
-                    {/* Right: Content zone */}
-                    <div className="flex-1 flex flex-col p-4">
-                    {/* Header with title and info button */}
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="flex flex-col">
-                        <h4 className="text-[17px] sm:text-[18px] font-extrabold text-slate-800 leading-tight truncate">
-                          {k.num}. {k.name}
-                        </h4>
-                        <p className="text-[12px] sm:text-[12.5px] text-slate-500 font-medium leading-normal mt-0.5 truncate">
-                          {SYSTEM_KEYS.find(sk => sk.id === k.id)?.subtext || ""}
-                        </p>
-                      </div>
-                      <button
-                        id={`info-key-${k.id}`}
-                        type="button"
-                        onClick={() => setSelectedKey(k)}
-                        className="p-1.5 rounded-full hover:bg-white/50 text-slate-450 hover:text-emerald-600 transition-colors focus:outline-none cursor-pointer"
-                      >
-                        <Info className="w-5 h-5 stroke-[2]" />
-                      </button>
-                    </div>
-
-                    {/* Status text (display-only count, real optimum untouched) */}
-                    <span className={`text-[13px] font-bold mb-3 ${
-                      isCompleted
-                        ? "text-emerald-700 font-black"
-                        : currentVal > 0
-                        ? "text-slate-600"
-                        : "text-slate-400"
-                    }`}>
-                      {isCompleted
-                        ? (k.superLevelDone ? "★ Сияющий суперуровень!" : "Выполнено!")
-                        : `Порций: ${statusFilled} из ${statusCap}`
-                      }
-                    </span>
-
-                    {/* Single compact control row: [circles] [★] [N г] [+] */}
-                    <div className="flex items-center gap-2">
-                      <div className="flex gap-1.5">{circleButtons}</div>
-                      {superlevelButton}
-                      <div className="flex items-center gap-2 ml-auto">{manualEntryCtl}</div>
-                    </div>
-                    </div>
-                  </div>
-                </div>
+                   onManualEntryOpen={() => openManualEntry(k)}
+                   onInfoClick={() => setSelectedKey(k)}
+                   statusCap={3}
+                 />
               );
             }
 
@@ -1335,8 +1288,8 @@ export default function HabitsTwentyScreen({
               {/* Scrollable content block (Purely scrollable, safely bounded) */}
               <div className="flex-1 overflow-y-auto p-5 space-y-4 text-left font-normal select-text scroll-smooth overscroll-contain" style={{ scrollbarWidth: "thin" }}>
 
-                {/* DYNAMIC MANUAL ENTRY ADJUSTMENT BAR (for products only, except legumes) */}
-                {richKeyInfo.category === "product" && PRODUCT_KEYS_LIST.includes(richKeyInfo.id) && richKeyInfo.id !== "legumes" && !THEMED_KEYS.includes(richKeyInfo.id) && (
+                {/* DYNAMIC MANUAL ENTRY ADJUSTMENT BAR (only for healthy_drinks) */}
+                {richKeyInfo.category === "product" && richKeyInfo.id === "healthy_drinks" && (
                   <div className="p-4 rounded-2xl bg-indigo-50/40 border border-indigo-100 flex flex-col gap-2.5 shrink-0">
                     <h5 className="text-[11px] font-black uppercase text-indigo-500 tracking-wider">
                       📝 Ручной учёт (вне меню)
