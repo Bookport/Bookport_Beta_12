@@ -472,10 +472,10 @@ const ProductCardShell: React.FC<ProductCardProps> = ({
             }
           </span>
 
-          {/* Controls row */}
-          <div className="flex items-center gap-2">
-            {/* Portion buttons - 5px between circles */}
-            <div className="flex gap-[5px]">
+          {/* Controls row - aligned to right with responsive wrap */}
+          <div className="flex items-center justify-end gap-3 w-full flex-wrap gap-y-2">
+            {/* Portion buttons - compact group */}
+            <div className="flex gap-1.5">
               {Array.from({ length: visibleCirclesCount }).map((_, idx) => {
                 const circleVal = idx + 1;
                 const checked = currentVal >= circleVal;
@@ -520,8 +520,8 @@ const ProductCardShell: React.FC<ProductCardProps> = ({
               </button>
             )}
 
-            {/* Manual grams display + entry button - aligned to right with info button */}
-            <div className="flex items-center gap-2 ml-auto">
+            {/* Manual grams display + entry button */}
+            <div className="flex items-center gap-2">
               <div className="px-3 py-1.5 rounded-xl bg-white/70 border border-white/50 text-[13px] font-black text-slate-700 min-w-[60px] text-center">
                 {manualGrams || 0} г
               </div>
