@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { avatarManifest } from "../src/assets/images/anna/anna-manifest";
 import {
   clampAnnaAvatarIntensity,
@@ -11,6 +12,15 @@ import {
   planAvatarForUiState,
   planAvatarForUserInput,
 } from "../src/utils/annaAvatarPlanner";
+import {
+  normalizeAnnaAvatarIntent,
+  resolveAvatar,
+  resolveAvatarByState,
+  resolveAvatarForCompliance,
+  resolveAvatarForIntent,
+  resolveAvatarForTab,
+  resolveAvatarForUiState,
+} from "../src/utils/annaAvatarResolver";
 
 const failures: string[] = [];
 let passed = 0;
@@ -168,6 +178,190 @@ assertEqual(
 );
 assertEqual(fallback.confidence, "fallback", "Measurements fallback confidence");
 assertManifestIntent(fallback.intent, "Measurements fallback");
+
+
+// 8. Legacy aliases must map to physical snake_case manifest keys.
+const aliasCases: ReadonlyArray<readonly [string, AnnaAvatarIntent]> = [
+  ["joyandadmiration", "joy_and_admiration"],
+  ["joy_user_success", "joy_user_success"],
+  ["clearexplanation", "clear_explanation"],
+  ["importantwarning", "important_warning"],
+  ["irritationandanger", "irritation_and_anger"],
+  ["anna_screaming", "anna_screaming"],
+  ["warm_encouragement", "affirmation"],
+];
+
+for (const [rawIntent, expectedIntent] of aliasCases) {
+  assertEqual(
+    normalizeAnnaAvatarIntent(rawIntent),
+    expectedIntent,
+    `Alias "${rawIntent}"`,
+  );
+  assertManifestIntent(
+    normalizeAnnaAvatarIntent(rawIntent) ?? "thoughtful",
+    `Alias manifest target "${rawIntent}"`,
+  );
+}
+
+// 9. Resolver must build paths from actual manifest sourceDir values.
+const legacyResolverResult = resolveAvatar({
+  toneGroup: "neutralthoughtful",
+  intent: "clearexplanation",
+  intensity: 3,
+});
+
+assertEqual(
+  legacyResolverResult.key,
+  "clear_explanation",
+  "Legacy resolver canonical key",
+);
+assertEqual(
+  legacyResolverResult.src,
+  "/anna/clear_explanation/3.webp",
+  "Legacy resolver WebP path",
+);
+assertEqual(
+  legacyResolverResult.toneGroup,
+  "neutral_thoughtful",
+  "Legacy tone group normalization",
+);
+
+const canonicalResolverResult = resolveAvatarForIntent(
+  "joy_user_success",
+  4,
+);
+
+assertEqual(
+  canonicalResolverResult.key,
+  "joy_user_success",
+  "Canonical resolver key",
+);
+assertEqual(
+  canonicalResolverResult.src,
+  "/anna/joy_user_success/4.webp",
+  "Canonical resolver WebP path",
+);
+assertManifestIntent(
+  canonicalResolverResult.key,
+  "Canonical resolver manifest target",
+);
+
+const unknownResolverResult = resolveAvatar({
+  toneGroup: "positive",
+  intent: "not_a_real_avatar",
+  intensity: 2,
+});
+
+assertEqual(
+  unknownResolverResult.key,
+  "affirmation",
+  "Unknown intent positive fallback",
+);
+assertEqual(
+  unknownResolverResult.src,
+  "/anna/affirmation/2.webp",
+  "Unknown intent fallback WebP path",
+);
+
+// 10. Resolver UI state and legacy state wrapper must remain valid.
+const resolverThinking = resolveAvatarForUiState("Думаю");
+assertEqual(resolverThinking.key, "thoughtful_v1", "Resolver thinking key");
+assertEqual(
+  resolverThinking.src,
+  "/anna/thoughtful_v1/3.webp",
+  "Resolver thinking WebP path",
+);
+
+const legacyThinking = resolveAvatarByState(
+  "Думаю",
+  "Я опять сорвалась и съела слишком много сладкого",
+);
+assertEqual(
+  legacyThinking.key,
+  "affirmation",
+  "Legacy thinking state uses user-input planner",
+);
+
+const legacyAnswering = resolveAvatarByState(
+  "Отвечаю",
+  "Ты ничего не испортила: один эпизод не отменяет весь путь.",
+);
+assertEqual(
+  legacyAnswering.key,
+  "affirmation",
+  "Legacy answering state uses assistant-reply planner",
+);
+
+// 11. Every StateNow base tab must have an existing manifest-backed series.
+for (const tabId of [
+  "balance",
+  "scales",
+  "kbju",
+  "micro",
+  "composition",
+  "dynamics",
+] as const) {
+  const tabAvatar = resolveAvatarForTab(tabId);
+
+  assertManifestIntent(tabAvatar.key, `StateNow tab "${tabId}"`);
+  assert(
+    /^\/anna\/[a-z0-9_]+\/[1-6]\.webp$/.test(tabAvatar.src),
+    `StateNow tab "${tabId}" has an invalid WebP path: ${tabAvatar.src}`,
+  );
+}
+
+// 12. WFPB compliance reaction must be deterministic and render-order independent.
+const cleanCompliance = resolveAvatarForCompliance(0, 5);
+assertEqual(
+  cleanCompliance.key,
+  "cheerful_approval",
+  "Clean WFPB compliance intent",
+);
+
+const oneViolation = resolveAvatarForCompliance(1, 5);
+assertEqual(
+  oneViolation.key,
+  "important_reminder",
+  "Single WFPB violation intent",
+);
+
+const repeatedFirst = resolveAvatarForCompliance(3, 5);
+const unrelatedCall = resolveAvatarForCompliance(0, 1);
+const repeatedSecond = resolveAvatarForCompliance(3, 5);
+
+assertEqual(
+  repeatedFirst.key,
+  repeatedSecond.key,
+  "WFPB result must not depend on prior calls",
+);
+assertEqual(
+  repeatedFirst.level,
+  repeatedSecond.level,
+  "WFPB intensity must not depend on prior calls",
+);
+assertManifestIntent(
+  repeatedFirst.key,
+  "WFPB repeated result manifest target",
+);
+assertManifestIntent(
+  unrelatedCall.key,
+  "WFPB unrelated result manifest target",
+);
+
+
+// 13. Every canonical manifest series must have all six public WebP layers.
+// This validates the exact browser URL contract: /anna/<intent>/<level>.webp.
+for (const intent of ANNA_AVATAR_INTENTS) {
+  for (const level of [1, 2, 3, 4, 5, 6] as const) {
+    const avatar = resolveAvatarForIntent(intent, level);
+    const publicFilePath = `public${avatar.src}`;
+
+    assert(
+      existsSync(publicFilePath),
+      `Missing public avatar asset: ${publicFilePath}`,
+    );
+  }
+}
 
 if (failures.length > 0) {
   console.error(`\nFAILED: ${failures.length} assertion(s)`);
