@@ -861,7 +861,7 @@ export default function MyDiaryScreen({
     const allowedFolders = ["affirmation", "joy_and_support", "important_affirmation"];
     const folder = allowedFolders[Math.floor(Math.random() * allowedFolders.length)];
     const num = Math.floor(Math.random() * 6) + 1; // 1-6
-    setRitualAvatarImg(`/anna/${folder}/${num}.png`);
+    setRitualAvatarImg(`/anna/${folder}/${num}.webp`);
   }, [selectedDayIndex]);
 
   useEffect(() => {

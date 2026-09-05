@@ -103,7 +103,7 @@ const toneFallback: Record<ToneGroup, string> = {
 
 const GLOBAL_FALLBACK: AvatarResult = {
   key: 'thoughtful',
-  src: '/anna/thoughtful/3.png',
+  src: '/anna/thoughtful/3.webp',
   level: 3,
   toneGroup: 'neutral_thoughtful',
   description: 'Задумчивость (глобальный fallback)',
@@ -145,7 +145,7 @@ export function resolveAvatar(params: AvatarParams): AvatarResult {
     if (!fallbackSeries) return GLOBAL_FALLBACK
     return {
       key: fallbackKey,
-      src: `/anna/${fallbackKey}/${level}.png`,
+      src: `/anna/${fallbackKey}/${level}.webp`,
       level,
       toneGroup,
       description: fallbackSeries.description,
@@ -154,7 +154,7 @@ export function resolveAvatar(params: AvatarParams): AvatarResult {
 
   return {
     key: matched.key,
-    src: `/anna/${matched.key}/${level}.png`,
+    src: `/anna/${matched.key}/${level}.webp`,
     level,
     toneGroup: matched.toneGroup as ToneGroup,
     description: matched.description,
@@ -284,7 +284,7 @@ export function resolveAvatarForCompliance(violationCount: number, totalCount: n
     const series = wfpbNegativeSeries[idx]
     return {
       key: series.key,
-      src: `/anna/${series.key}/${level}.png`,
+      src: `/anna/${series.key}/${level}.webp`,
       level,
       toneGroup: series.toneGroup as ToneGroup,
       description: series.description,
@@ -295,7 +295,7 @@ export function resolveAvatarForCompliance(violationCount: number, totalCount: n
   const series = wfpbPositiveSeries[idx]
   return {
     key: series.key,
-    src: `/anna/${series.key}/${level}.png`,
+    src: `/anna/${series.key}/${level}.webp`,
     level,
     toneGroup: series.toneGroup as ToneGroup,
     description: series.description,
