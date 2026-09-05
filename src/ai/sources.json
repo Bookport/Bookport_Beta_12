@@ -1,0 +1,80 @@
+{
+  "schema_version": 1,
+  "reviewed_at": "2026-09-04",
+  "sources": [
+    {
+      "id": "nih_ods_b12",
+      "type": "government_fact_sheet",
+      "publisher": "NIH Office of Dietary Supplements",
+      "title": "Vitamin B12 — Health Professional Fact Sheet",
+      "url": "https://ods.od.nih.gov/factsheets/VitaminB12-HealthProfessional/",
+      "reviewed_at": "2026-09-04"
+    },
+    {
+      "id": "nih_ods_iodine",
+      "type": "government_fact_sheet",
+      "publisher": "NIH Office of Dietary Supplements",
+      "title": "Iodine — Health Professional Fact Sheet",
+      "url": "https://ods.od.nih.gov/factsheets/Iodine-HealthProfessional/",
+      "reviewed_at": "2026-09-04"
+    },
+    {
+      "id": "nih_ods_iron",
+      "type": "government_fact_sheet",
+      "publisher": "NIH Office of Dietary Supplements",
+      "title": "Iron — Health Professional Fact Sheet",
+      "url": "https://ods.od.nih.gov/factsheets/Iron-HealthProfessional/",
+      "reviewed_at": "2026-09-04"
+    },
+    {
+      "id": "bda_calcium",
+      "type": "professional_association_fact_sheet",
+      "publisher": "British Dietetic Association",
+      "title": "Calcium — Food Fact Sheet",
+      "url": "https://www.bda.uk.com/resource/calcium.html",
+      "reviewed_at": "2026-09-04"
+    },
+    {
+      "id": "nih_ods_omega3",
+      "type": "government_fact_sheet",
+      "publisher": "NIH Office of Dietary Supplements",
+      "title": "Omega-3 Fatty Acids — Health Professional Fact Sheet",
+      "url": "https://ods.od.nih.gov/factsheets/Omega3FattyAcids-HealthProfessional/",
+      "reviewed_at": "2026-09-04"
+    }
+,
+    {
+      "id": "mayo_clinic_fiber",
+      "type": "medical_center_article",
+      "publisher": "Mayo Clinic",
+      "title": "Dietary fiber: Essential for a healthy diet",
+      "url": "https://www.mayoclinic.org/healthy-lifestyle/nutrition-and-healthy-eating/in-depth/fiber/art-20043983",
+      "reviewed_at": "2026-09-04"
+    },
+    {
+      "id": "niddk_gas_tract",
+      "type": "government_fact_sheet",
+      "publisher": "National Institute of Diabetes and Digestive and Kidney Diseases",
+      "title": "Gas in the Digestive Tract",
+      "url": "https://www.niddk.nih.gov/health-information/digestive-diseases/gas-digestive-tract",
+      "reviewed_at": "2026-09-04"
+    }
+,
+    {
+      "id": "harvard_carbs_blood_sugar",
+      "type": "university_nutrition_source",
+      "publisher": "Harvard T.H. Chan School of Public Health",
+      "title": "Carbohydrates and Blood Sugar",
+      "url": "https://www.hsph.harvard.edu/nutritionsource/carbohydrates/carbohydrates-and-blood-sugar/",
+      "reviewed_at": "2026-09-04"
+    },
+    {
+      "id": "nih_nhlbi_sleep_deprivation",
+      "type": "government_fact_sheet",
+      "publisher": "National Heart, Lung, and Blood Institute (NIH)",
+      "title": "Sleep Deprivation and Deficiency",
+      "url": "https://www.nhlbi.nih.gov/health/sleep-deprivation",
+      "reviewed_at": "2026-09-04"
+    }
+  ]
+}

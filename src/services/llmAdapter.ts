@@ -74,8 +74,12 @@ async function callDashScope(payload: any) {
         model: modelName,
         messages: messages as any,
         temperature: config.temperature ?? 0.7,
-        max_tokens: config.maxOutputTokens || 4000,
+        max_tokens: config.maxOutputTokens || 600,
       };
+
+      if (config.responseMimeType === "application/json") {
+        params.response_format = { type: "json_object" };
+      }
 
       if (tools) params.tools = tools;
       if (toolChoice) params.tool_choice = toolChoice;
@@ -93,23 +97,6 @@ async function callDashScope(payload: any) {
     }
   }
   throw lastErr;
-}
-
-async function callGemini(payload: any) {
-  const { GoogleGenAI } = await import("@google/genai");
-
-  const geminiKey = (() => {
-    const fromEnv = process.env.GEMINI_API_KEY;
-    if (fromEnv && fromEnv.length > 0 && fromEnv !== "MY_GEMINI_API_KEY") return fromEnv;
-    return "AIzaSyBJg1Q4iJN3s7Tq5Zw3BKik-W4GZ-MozZg";
-  })();
-
-  const ai = new GoogleGenAI({
-    apiKey: geminiKey,
-    httpOptions: { headers: { "User-Agent": "aistudio-build" } },
-  });
-
-  return await ai.models.generateContent(payload);
 }
 
 export async function callLLM(payload: any) {

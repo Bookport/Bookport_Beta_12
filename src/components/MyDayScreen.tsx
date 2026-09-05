@@ -6,6 +6,7 @@ import { getUserTimeZone } from "../shared/timeZoneStore";
 import {
   SleepDaySummary,
   SleepEntry,
+  SleepQuality,
   aggregateSleepPerDay,
   makeSleepId,
   mergeSleepEntries,
@@ -67,6 +68,8 @@ import volumePitcherImg from "../assets/images/water/volume_pitcher.webp";
 import foodImg from "../assets/images/buttons/еда.webp";
 import movementImg from "../assets/images/buttons/движение.webp";
 import sleepImg from "../assets/images/buttons/сон.webp";
+import imgNightPrompt from "../assets/images/slipping/8.webp";
+import imgWakeUp from "../assets/images/slipping/15.webp";
 import measurementsImg from "../assets/images/buttons/замеры.webp";
 import recipesImg from "../assets/images/buttons/рецепты.webp";
 import organismImg from "../assets/images/buttons/организм.webp";
@@ -75,6 +78,7 @@ import purchasesImg from "../assets/images/buttons/покупки.webp";
 import diaryImg from "../assets/images/buttons/дневник.webp";
 import stateNowImg from "../assets/images/buttons/состояние сейчас.webp";
 import logoSprout from "../assets/images/buttons/logo.webp";
+import systemKeyWidget from "../assets/images/keysustem/22.webp";
 import { DailyNutritionStore } from "../services/DailyNutritionStore";
 import { 
   BREAKFAST_RECIPES, 
@@ -277,6 +281,47 @@ export default function MyDayScreen({
   React.useEffect(() => {
     setSelectedGraphDay(currentDayIndex);
   }, [currentDayIndex, setSelectedGraphDay]);
+
+  // Механизм сброса нового дня (New Day Reset)
+  React.useEffect(() => {
+    const checkAndResetNewDay = () => {
+      const tz = getUserTimeZone();
+      const todayStr = todayLocalDate(tz);
+      const storedDate = localStorage.getItem('wfpb_last_active_date');
+
+      if (storedDate && storedDate !== todayStr) {
+        // 1. Жестко удаляем кэш рецептов и напитков прошлого дня из памяти
+        const keysToClear = [
+          "wfpb_breakfast_state", 
+          "wfpb_lunch_state", 
+          "wfpb_dinner_state",
+          "wfpb_must_have_state", 
+          "wfpb_compliments_state",
+          "wfpb_recipe_of_day_state", 
+          "wfpb_drinks_state"
+        ];
+        keysToClear.forEach(k => localStorage.removeItem(k));
+
+        // 2. Очищаем Zustand стор
+        useAppStore.setState({ recipeStates: {} });
+        
+        // 3. Записываем новую дату и перезагружаем приложение для инициализации с нуля
+        localStorage.setItem('wfpb_last_active_date', todayStr);
+        window.location.reload();
+      } else if (!storedDate) {
+        localStorage.setItem('wfpb_last_active_date', todayStr);
+      }
+    };
+
+    checkAndResetNewDay();
+
+    const handleVisibility = () => {
+      if (!document.hidden) checkAndResetNewDay();
+    };
+    
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
+  }, []);
 
   // Local state for metrics (will be saved via API)
   const [water, setWater] = useState(0);
@@ -579,6 +624,15 @@ export default function MyDayScreen({
   const [showSleepDetails, setShowSleepDetails] = useState(false);
   const [showFastSleep, setShowFastSleep] = useState(false);
   const [showSleepQualityModal, setShowSleepQualityModal] = useState(false);
+  const [showNightPrompt, setShowNightPrompt] = useState(false);
+  const [lastConsumedDate, setLastConsumedDate] = useState<string | null>(() => {
+    try {
+      const raw = localStorage.getItem("wfpb_night_prompt_v1");
+      return raw ? JSON.parse(raw).consumedDate : null;
+    } catch {
+      return null;
+    }
+  });
 
   const [isNightModeActive, setIsNightModeActive] = useState<boolean>(() => {
     try {
@@ -617,6 +671,13 @@ export default function MyDayScreen({
       }
     } catch {}
   }, [isNightModeActive, bedTimeRecorded]);
+
+  // Persist consumed date so prompt doesn't reappear within the same local day.
+  useEffect(() => {
+    try {
+      localStorage.setItem("wfpb_night_prompt_v1", JSON.stringify({ consumedDate: lastConsumedDate ?? null }));
+    } catch {}
+  }, [lastConsumedDate]);
 
   // Timers to handle double click vs. single click vs. long press without intersection conflicts
   const sleepClickTimeoutRef = React.useRef<number | null>(null);
@@ -956,14 +1017,27 @@ export default function MyDayScreen({
         clearTimeout(sleepClickTimeoutRef.current);
       }
       sleepClickTimeoutRef.current = window.setTimeout(() => {
-        if (isSleepButtonNightActive) {
-          setShowFastSleep(true);
+        // Double click / long press always → SleepDetailsScreen (handled above)
+        if (!isSleepButtonNightActive) {
+          setShowSleepDetails(true);
+          return;
+        }
+        if (isNightModeActive) {
+          return;
+        }
+        const tz = getUserTimeZone();
+        const todayStr = todayLocalDate(tz);
+        if (lastConsumedDate !== todayStr) {
+          setShowNightPrompt(true);
         } else {
-          // Daytime state clicks open the analytics panel directly
           setShowSleepDetails(true);
         }
       }, 220);
     }
+  };
+
+  const handleWakeUpFromOverlay = () => {
+    completeSleepSession(null);
   };
 
   const startSleepLongPress = () => {
@@ -1459,37 +1533,42 @@ export default function MyDayScreen({
   };
 
   const handleWakeUpClick = () => {
-    playMorningChimes();
-    const curTime = formatTimeHM(new Date().toISOString(), getUserTimeZone());
-    setWakeTimeRecorded(curTime);
-    setShowSleepQualityModal(true);
+    completeSleepSession("fair");
   };
 
-  const handleSaveSleepQuality = (quality: "good" | "fair" | "poor") => {
+  const completeSleepSession = (manualQuality?: SleepQuality) => {
     if (!bedTimeRecorded) {
       setActiveNotification({
         text: "Время начала сна не зафиксировано — нажмите «Лечь спать», чтобы внести сон.",
         type: "error"
       });
-      setShowSleepQualityModal(false);
-      setIsNightModeActive(false);
-      setShowFastSleep(false);
       return;
     }
 
     const tz = getUserTimeZone();
     const finalBedTime = bedTimeRecorded;
-    const finalWakeTime = formatTimeHM(new Date().toISOString(), tz);
-    const durationMin = sleepDurationMinutes(finalBedTime, finalWakeTime);
+    const curTime = formatTimeHM(new Date().toISOString(), tz);
+    setWakeTimeRecorded(curTime);
+
+    const durationMin = sleepDurationMinutes(finalBedTime, curTime);
+    if (durationMin <= 0) {
+      setActiveNotification({
+        text: "Не удалось рассчитать длительность сна.",
+        type: "error"
+      });
+      setIsNightModeActive(false);
+      return;
+    }
 
     const now = Date.now();
+    const quality = manualQuality ?? null;
     const entry: SleepEntry = {
       id: makeSleepId(),
       dayIndex: currentDayIndex,
       sleepDate: todayLocalDate(tz),
       bedtime: finalBedTime,
       sleepTime: finalBedTime,
-      wakeTime: finalWakeTime,
+      wakeTime: curTime,
       duration: durationMin,
       quality,
       source: "quick",
@@ -1502,7 +1581,6 @@ export default function MyDayScreen({
     const updatedJournal = mergeSleepEntries(sleepJournal, [entry]);
     setSleepJournal(updatedJournal);
 
-    // Persist the canonical journal to the DB (sleepMinutes recomputed server-side).
     api("/api/metrics/daily", {
       method: "POST",
       body: {
@@ -1513,18 +1591,18 @@ export default function MyDayScreen({
       },
     }).catch(() => {});
 
-    // Close overlays and clear the overnight session.
-    setShowSleepQualityModal(false);
+    // Clear overnight session from localStorage
+    try {
+      localStorage.removeItem('wfpb_sleep_session');
+    } catch {}
+
     setIsNightModeActive(false);
-    setShowFastSleep(false);
     setWakeTimeRecorded("");
     setBedTimeRecorded("");
 
     recordClick(20);
     setActiveNotification({
-      text: `Сон записан: ${Math.floor(durationMin / 60)} ч ${durationMin % 60} мин. Самочувствие: ${
-        quality === "good" ? "Отличное" : quality === "fair" ? "Удовлетворительное" : "Разбитое"
-      }. Так держать! ☀️`,
+      text: `Сон записан: ${Math.floor(durationMin / 60)} ч ${durationMin % 60} мин. Так держать! ☀️`,
       type: "success"
     });
   };
@@ -1903,16 +1981,16 @@ export default function MyDayScreen({
       if (timestamp - lastSpawnTime > 750) { // spawn gentle rate
         lastSpawnTime = timestamp;
         
-        // 50% small, 35% medium, 15% large
+        // 50% small, 35% medium, 15% large (увеличенные размеры)
         const rStream = Math.random();
         let bType: "small" | "medium" | "large" = "small";
-        let bSize = 5 + Math.random() * 4; // 5-9px
+        let bSize = 8 + Math.random() * 6; // 8-14px (было 5-9px)
         if (rStream > 0.50 && rStream <= 0.85) {
           bType = "medium";
-          bSize = 10 + Math.random() * 5; // 10-15px
+          bSize = 15 + Math.random() * 8; // 15-23px (было 10-15px)
         } else if (rStream > 0.85) {
           bType = "large";
-          bSize = 16 + Math.random() * 7; // 16-23px
+          bSize = 24 + Math.random() * 12; // 24-36px (было 16-23px)
         }
 
         const newBubble: SystemBubble = {
@@ -2229,52 +2307,13 @@ export default function MyDayScreen({
         isNightModeActive ? "blur-[5px] brightness-[0.25] pointer-events-none" : ""
       }`}>
         
-        {/* Branded Premium Header - Slogan "Всё дело в еде!" + "система" + Calendar Day Block aligned opposite */}
-        <div className="flex justify-between items-center w-full mb-3 mt-1.5" id="branded-header">
-          <div className="flex flex-col text-left select-none relative">
-            <span 
-              className="text-[11px] font-medium tracking-[0.14em] text-[#2E6B47] uppercase opacity-75 font-sans leading-none mb-1.5"
-            >
-              система
-            </span>
-            <span 
-              className="text-[23px] sm:text-[25px] font-bold text-[#2E6B47] tracking-tight leading-none font-sans"
-              style={{ 
-                textShadow: "0.5px 0.5px 0px rgba(255,255,255,1), 0.2px 0.5px 1px rgba(46,107,71,0.12)"
-              }}
-            >
-              Всё дело в еде!
-            </span>
-          </div>
-
-          {/* Calendar 1 из 28 dynamic button opposite to the slogan */}
-          <motion.button
-            type="button"
-            onClick={() => { recordClick(); onOpenCalendar(); }}
-            className="bg-white rounded-[16px] border border-gray-100 shadow-[0_3px_8px_-1.5px_rgba(43,49,55,0.03)] px-3 py-1.5 flex items-center gap-2.5 text-left relative overflow-hidden transition-all duration-300 hover:scale-[1.03] active:scale-97 cursor-pointer focus:outline-none shrink-0"
-            whileTap={{ scale: 0.97 }}
-          >
-            <div className="w-7.5 h-7.5 rounded-lg bg-[#EBF5EF] flex items-center justify-center text-[#2E6B47] shrink-0">
-              <Calendar className="w-4 h-4 stroke-[2]" />
-            </div>
-            <div className="flex flex-col">
-              <span 
-                className="text-[15px] sm:text-[16px] font-bold text-text-dark leading-none whitespace-nowrap"
-                style={{ fontFamily: '"Calibri", sans-serif' }}
-              >
-                {currentDayIndex} из 28
-              </span>
-              <span 
-                className="text-[9.5px] text-text-muted font-bold tracking-tight lowercase mt-0.5 leading-none"
-                style={{ fontFamily: '"Calibri", sans-serif' }}
-              >
-                день
-              </span>
-            </div>
-          </motion.button>
+        {/* Header: System Title */}
+        <div className="flex flex-col mb-3 z-10 relative px-1">
+          <span className="text-[16px] font-bold text-gray-400 uppercase tracking-[0.15em]">Система</span>
+          <h1 className="text-[26px] leading-none font-black text-emerald-800 mt-1">Всё дело в еде!</h1>
         </div>
 
-        {/* Central Dashboard Matrix (Main progress circle + Right Card info Column) */}
+        {/* Central Dashboard Matrix */}
         <div className="grid grid-cols-12 gap-3.5 items-start mb-4.5 pt-0.5">
           
           {/* Central element: Big Glass Liquid Circle representing "План дня" */}
@@ -2302,7 +2341,7 @@ export default function MyDayScreen({
               ))}
             </div>
 
-            <div className="relative w-[184px] h-[184px] rounded-full flex items-center justify-center select-none active:scale-[0.98] transition-transform duration-300 z-10">
+            <div className="relative w-[216px] h-[216px] rounded-full flex items-center justify-center select-none active:scale-[0.98] transition-transform duration-300 z-10">
               
               {/* Outer heavy immersive drop realistic casting shadow */}
               <div className="absolute inset-[-1.5px] rounded-full bg-slate-900/15 pointer-events-none filter blur-[12px] translate-y-5" />
@@ -2370,7 +2409,7 @@ export default function MyDayScreen({
                   <img 
                     src={logoSprout}
                     alt="лого"
-                    className="w-[36px] h-[36px] object-contain mt-1"
+                    className="w-[68px] h-[68px] object-contain mt-1"
                   />
                 </div>
               </div>
@@ -2388,180 +2427,85 @@ export default function MyDayScreen({
             </div>
           </div>
 
-          {/* Right Cards Stack: 2 compact responsive blocks corresponding to physical layout */}
-          <div className="col-span-5 flex flex-col gap-2">
+          {/* Right Cards Stack: Unified Progress + Calendar Widget */}
+          <div className="col-span-5 flex flex-col gap-2 items-end mt-6">
             
-            {/* Card 1: Прогресс (Global Action Counter) */}
-            <div className="bg-white rounded-[18px] border border-gray-100 shadow-[0_3px_8px_-1px_rgba(43,49,55,0.02)] p-2.5 flex items-center gap-2 text-left relative overflow-hidden">
-              <div className="w-8 h-8 rounded-lg bg-[#F0FDF4] flex items-center justify-center text-[#15803D] shrink-0">
-                <Sparkles className="w-4.5 h-4.5 stroke-[2]" />
+            {/* Unified Widget: Progress + Calendar */}
+            <div className="flex flex-row items-center justify-between w-full bg-slate-50/50 backdrop-blur-md border border-slate-200/50 shadow-sm rounded-2xl px-4 py-2.5 mb-3">
+              {/* Left: Progress */}
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-[#F0FDF4] flex items-center justify-center text-[#15803D] shrink-0">
+                  <Sparkles className="w-4.5 h-4.5 stroke-[2]" />
+                </div>
+                <div className="flex flex-col">
+                  <span 
+                    className="text-[17px] sm:text-[18px] font-bold text-text-dark leading-none"
+                    style={{ fontFamily: '"Calibri", sans-serif' }}
+                  >
+                    {globalProgress}
+                  </span>
+                  <span 
+                    className="text-[11px] text-text-muted font-bold tracking-tight lowercase mt-0.5 leading-none"
+                    style={{ fontFamily: '"Calibri", sans-serif' }}
+                  >
+                    прогресс
+                  </span>
+                </div>
               </div>
-              <div className="flex flex-col">
-                <span 
-                  className="text-[17px] sm:text-[18px] font-bold text-text-dark leading-none"
-                  style={{ fontFamily: '"Calibri", sans-serif' }}
-                >
-                  {globalProgress}
-                </span>
-                <span 
-                  className="text-[11px] text-text-muted font-bold tracking-tight lowercase mt-0.5 leading-none"
-                  style={{ fontFamily: '"Calibri", sans-serif' }}
-                >
-                  прогресс
-                </span>
-              </div>
+
+              {/* Center Separator */}
+              <div className="w-px h-8 bg-gray-300/50 mx-2"></div>
+
+              {/* Right: Calendar */}
+              <motion.button
+                type="button"
+                onClick={() => { recordClick(); onOpenCalendar(); }}
+                className="flex items-center gap-2.5 transition-all duration-300 hover:scale-[1.03] active:scale-97 cursor-pointer focus:outline-none shrink-0"
+                whileTap={{ scale: 0.97 }}
+              >
+                <div className="w-7.5 h-7.5 rounded-lg bg-[#EBF5EF] flex items-center justify-center text-[#2E6B47] shrink-0">
+                  <Calendar className="w-4 h-4 stroke-[2]" />
+                </div>
+                <div className="flex flex-col">
+                  <span 
+                    className="text-[17px] sm:text-[18px] font-bold text-text-dark leading-none whitespace-nowrap"
+                    style={{ fontFamily: '"Calibri", sans-serif' }}
+                  >
+                    {currentDayIndex} из 28
+                  </span>
+                  <span 
+                    className="text-[11px] text-text-muted font-bold tracking-tight lowercase mt-0.5 leading-none"
+                    style={{ fontFamily: '"Calibri", sans-serif' }}
+                  >
+                    день
+                  </span>
+                </div>
+              </motion.button>
             </div>
 
-            {/* Card 3: Привычки (Important Rhythm-Setting Volumetric Action Zone) */}
-            <motion.button
+            {/* Card 3: Привычки (Ключи системы — новый дизайн с картинкой) */}
+            <button
               type="button"
               onClick={() => {
                 recordClick(1);
                 onOpenHabitsTwenty();
               }}
-              className="rounded-[22px] flex flex-col items-center justify-center text-center p-3 relative hover:scale-[1.04] active:scale-95 transition-all duration-305 cursor-pointer select-none border border-slate-250/35 overflow-hidden min-h-[104px] sm:min-h-[112px] hover:brightness-105 bg-slate-50/40 backdrop-blur-md"
-              animate={habitsDone >= 20 ? {
-                scale: [1, 1.04, 1],
-                boxShadow: [
-                  "0 0 16px 4px rgba(16,185,129,0.3), inset 0 2.5px 5px rgba(255,255,255,0.5), inset 0 -4px 6px rgba(0,0,0,0.1)",
-                  "0 0 28px 8px rgba(16,185,129,0.5), inset 0 2.5px 5px rgba(255,255,255,0.5), inset 0 -4px 6px rgba(0,0,0,0.1)",
-                  "0 0 16px 4px rgba(16,185,129,0.3), inset 0 2.5px 5px rgba(255,255,255,0.5), inset 0 -4px 6px rgba(0,0,0,0.1)",
-                ]
-              } : {
-                boxShadow: "inset 0 2px 5px rgba(255,255,255,0.45), inset 0 -3px 5px rgba(0,0,0,0.08), 0 5px 12px rgba(0,0,0,0.02)"
-              }}
-              transition={habitsDone >= 20 ? {
-                duration: 2.2,
-                repeat: Infinity,
-                ease: "easeInOut"
-              } : undefined}
+              className="flex flex-col items-center justify-center cursor-pointer active:scale-[0.98] transition-transform duration-200 w-full -translate-y-4"
             >
-              {/* === PHYSICAL LIQUID SIMULATION BACKGROUND === */}
-              {/* Soft tint background of the dry glass vessel when empty */}
-              <div className="absolute inset-0 bg-slate-100/10 z-0" />
-
-              {/* Layer 2: Living Green Fluid rising from the bottom */}
-              <div 
-                className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-emerald-650/45 via-emerald-500/40 to-teal-400/35 z-0 overflow-hidden transition-all duration-[800ms] ease-out" 
-                style={{ height: `${(habitsDone / 20) * 100}%` }}
-              >
-                {/* Active wrestling wave interface at the horizontal dividing boundaries */}
-                {(habitsDone / 20) * 100 > 0 && (habitsDone / 20) * 100 < 100 && (
-                  <div className="absolute top-0 left-[-150%] w-[400%] h-10 -mt-8 pointer-events-none z-10">
-                    {/* SVG Wave 1: Rolling emerald waves */}
-                    <motion.svg
-                      viewBox="0 0 1200 120"
-                      preserveAspectRatio="none"
-                      className="absolute inset-0 w-full h-full fill-emerald-500/35 opacity-70"
-                      animate={{ x: [0, -600] }}
-                      transition={{ repeat: Infinity, ease: "linear", duration: 3.2 }}
-                    >
-                      <path d="M0,60 C150,115 350,5 500,60 C650,115 850,5 1000,60 C1150,115 1300,5 1500,60 L1500,120 L0,120 Z" />
-                    </motion.svg>
-                    {/* SVG Wave 2: Quick interfering waves */}
-                    <motion.svg
-                      viewBox="0 0 1200 120"
-                      preserveAspectRatio="none"
-                      className="absolute inset-0 w-full h-full fill-[#34D399]/30 opacity-90"
-                      animate={{ x: [-600, 0] }}
-                      transition={{ repeat: Infinity, ease: "linear", duration: 1.8 }}
-                    >
-                      <path d="M0,50 C150,5 350,95 500,50 C650,5 850,95 1000,50 C1150,5 1300,95 1500,50 L1500,120 L0,120 Z" />
-                    </motion.svg>
-                  </div>
-                )}
-
-                {/* Slowly rising organic bubbles inside active liquid */}
-                {VESSEL_BUBBLES.slice(0, Math.min(VESSEL_BUBBLES.length, Math.max(2, Math.floor(habitsDone / 1.5)))).map((b) => (
-                  <motion.div
-                    key={b.id}
-                    className="absolute rounded-full bg-white/20 border border-white/35 shadow-[0_0_4px_rgba(255,255,255,0.15)]"
-                    style={{
-                      width: b.size,
-                      height: b.size,
-                      left: b.left,
-                      bottom: "-10px",
-                    }}
-                    animate={{
-                      y: ["0%", "-115%"],
-                      x: ["0px", b.id % 2 === 0 ? "5px" : "-5px", "0px"],
-                      opacity: [0, 0.8, 0.8, 0],
-                    }}
-                    transition={{
-                      duration: b.duration,
-                      repeat: Infinity,
-                      ease: "easeInOut",
-                      delay: b.delay,
-                    }}
-                  />
-                ))}
-              </div>
-
-              {/* Pulsing inner green halo light reflection inside the vessel when 100% complete */}
-              {habitsDone >= 20 && (
-                <motion.div 
-                  className="absolute inset-0 bg-emerald-450/15 mix-blend-screen z-0 rounded-[22px]"
-                  animate={{ opacity: [0.15, 0.45, 0.15] }}
-                  transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
+              <div className="relative w-full">
+                <img
+                  src={systemKeyWidget}
+                  alt="Ключи системы"
+                  className="w-full h-auto drop-shadow-sm pointer-events-none object-contain"
                 />
-              )}
-
-              {/* Glossy 3D glass volumetric flask sheer reflection overlays */}
-              <div className="absolute inset-0 bg-gradient-to-tr from-white/10 via-white/5 to-white/0 pointer-events-none z-10" />
-              <div className="absolute top-0.5 left-2 right-2 h-1/3 bg-white/15 rounded-full pointer-events-none filter blur-[0.2px] z-10" />
-              
-              {/* === PHYSICAL SPLASH OUTBREAK EMITTER === */}
-              <div className="absolute top-0 left-1/2 w-0 h-0 overflow-visible pointer-events-none z-30">
-                {splashParticles.map((p) => (
-                  <motion.div
-                    key={p.id}
-                    className="absolute rounded-full shadow-[0_2px_10px_rgba(16,185,129,0.35)] border border-emerald-100"
-                    style={{
-                      width: p.size,
-                      height: p.size,
-                      left: -p.size / 2,
-                      top: -p.size / 2,
-                      background: "radial-gradient(circle at 35% 35%, #FFFFFF 0%, #F0FDF4 20%, #10B981 80%, #047857 100%)",
-                    }}
-                    initial={{ x: 0, y: 0, opacity: 1, scale: 0.5 }}
-                    animate={{
-                      x: [0, p.x, p.x * 1.2],
-                      y: [0, p.y, p.y + 45], // Parabolic gravity curve path
-                      opacity: [1, 0.9, 0.4, 0],
-                      scale: [0.6, 1.2, 0.9, 0],
-                    }}
-                    transition={{
-                      duration: p.duration,
-                      ease: "easeOut",
-                      delay: p.delay,
-                    }}
-                  />
-                ))}
+                <div className="absolute top-[53%] right-[25%] -translate-y-1/2 translate-x-1/2 flex items-center justify-center w-12 h-12 text-[36px] font-extrabold text-gray-700 tracking-tighter">
+                  {habitsDone}
+                </div>
               </div>
-
-              {/* Foreground readable interface layers */}
-              {/* Icon slot: Glossy liquid-floating bubble containing lucide Award badge */}
-              <div className="w-8 h-8 rounded-full bg-[#10B981]/15 border border-[#34D399]/25 flex items-center justify-center text-emerald-600 mb-2 relative shadow-inner z-10">
-                <div className="absolute inset-0.5 top-0.5 h-[15%] bg-white/20 rounded-full" />
-                <Award className={`w-4.5 h-4.5 text-emerald-600 ${habitsDone >= 20 ? "animate-pulse" : ""}`} />
-              </div>
-
-              {/* Progress counter text */}
-              <span 
-                className="text-[19px] sm:text-[21px] font-black leading-none text-slate-800 tracking-tight z-10 relative drop-shadow-sm"
-                style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}
-              >
-                {habitsDone} из 20
+              <span className="text-[13px] font-bold text-gray-500 uppercase tracking-wider text-center mt-1 whitespace-nowrap">
+                Ключи системы
               </span>
-
-              {/* Subtitle / Caption: "ключи системы" */}
-              <span 
-                className="text-[9.5px] sm:text-[10px] font-extrabold tracking-wider uppercase mt-1 leading-none text-[#5B636C] z-10 relative"
-                style={{ fontFamily: '"Calibri", sans-serif' }}
-              >
-                ключи системы
-              </span>
-            </motion.button>
+            </button>
 
           </div>
         </div>
@@ -2984,244 +2928,111 @@ export default function MyDayScreen({
 
       {/* --- SLEEP SYSTEM INTERACTIVE OVERLAYS & MODALS --- */}
 
-      {/* 6. FAST SLEEP BOTTOM SHEET CONTROL PANEL */}
+      {/* NIGHT PROMPT MODAL */}
       <AnimatePresence>
-        {showFastSleep && (
+        {showNightPrompt && (
           <>
-            {/* Dark glass backdrop layout */}
             <motion.div
               initial={{ opacity: 0 }}
-              animate={{ opacity: 0.45 }}
+              animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => setShowFastSleep(false)}
-              className="absolute inset-0 bg-[#0F172A] backdrop-blur-xs z-50 cursor-pointer pointer-events-auto"
+              className="absolute inset-0 bg-[#0F172A]/80 z-[60] flex items-center justify-center p-5"
             />
-
-            {/* Bottom sliding tray control board */}
-            <motion.div
-              initial={{ y: "100%" }}
-              animate={{ y: "0%" }}
-              exit={{ y: "100%" }}
-              transition={{ type: "spring", damping: 28, stiffness: 240 }}
-              className="absolute inset-x-0 bottom-0 max-h-[80dvh] bg-white rounded-t-[34px] shadow-[0_-12px_45px_rgba(31,35,40,0.14)] z-50 border-t border-slate-100 flex flex-col pt-3 pb-6 px-6 text-left pointer-events-auto overflow-y-auto overscroll-contain"
-            >
-              {/* Premium Drag handle */}
-              <div className="w-11 h-1.5 bg-slate-200 rounded-full mx-auto mb-4.5" />
-
-              <div className="flex justify-between items-start mb-4">
-                <div className="flex flex-col text-left">
-                  <span className="text-[11px] font-bold text-violet-600 tracking-wider uppercase">БЫСТРЫЙ УЧЁТ СНА</span>
-                  <h3 className="text-[19px] font-black text-text-dark" style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}>
-                    Планка ночного ритма
-                  </h3>
-                </div>
-                
-                <button
-                  type="button"
-                  onClick={() => setShowFastSleep(false)}
-                  className="w-8 h-8 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
-                >
-                  <X className="w-4 h-4 pointer-events-none" />
-                </button>
-              </div>
-
-              {/* Dynamic informative block */}
-              <div className="bg-violet-500/5 p-3 rounded-2xl border border-violet-200/30 text-[13px] font-semibold text-violet-800 leading-snug mb-5 flex items-start gap-2.5">
-                <Moon className="w-4 h-4 text-violet-500 shrink-0 mt-0.5" />
-                <span>Обычный клик открывает быстрый учёт засыпания и пробуждения, а двойной клик или длинное зажатие кнопки «Сон» покажет развёрнутую аналитику за весь 28‑дневный курс.</span>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4.5 mb-5.5">
-                {/* BUTTON 1: "Сон" (bedtime record) */}
-                <button
-                  type="button"
-                  id="fast-sleep-button-log"
-                  onClick={() => {
-                    playDeepBellSound();
-                    const curTime = formatTimeHM(new Date().toISOString(), getUserTimeZone());
-                    setBedTimeRecorded(curTime);
-                    setIsNightModeActive(true);
-                    setShowFastSleep(false);
-                  }}
-                  className="bg-gradient-to-tr from-violet-600 to-indigo-500 rounded-3xl p-4 flex flex-col justify-between min-h-[142px] text-left shadow-md hover:scale-[1.02] cursor-pointer transition-transform"
-                >
-                  <div className="flex justify-between items-center w-full">
-                    <span className="text-[18px]">🌙</span>
-                    <span className="text-[10px] uppercase font-black tracking-wider bg-white/20 px-2.2 py-0.5 rounded-full text-white">Уснул</span>
-                  </div>
-                  <div className="flex flex-col gap-0.5 mt-4 text-white">
-                    <span className="text-[17px] font-black leading-tight">ЛЕЧЬ СПАТЬ</span>
-                    <span className="text-[11.5px] text-violet-100 font-mono font-bold">
-                      {bedTimeRecorded ? `Готово: ${bedTimeRecorded}` : "Нажмите сейчас"}
-                    </span>
-                  </div>
-                </button>
-
-                {/* BUTTON 2: "Пробуждение" (wake up record) */}
-                <button
-                  type="button"
-                  id="fast-wake-button-log"
-                  onClick={handleWakeUpClick}
-                  className="bg-gradient-to-tr from-amber-500 to-orange-400 rounded-3xl p-4 flex flex-col justify-between min-h-[142px] text-left shadow-md hover:scale-[1.02] cursor-pointer transition-transform"
-                >
-                  <div className="flex justify-between items-center w-full">
-                    <span className="text-[18px]">☀️</span>
-                    <span className="text-[10px] uppercase font-black tracking-wider bg-white/20 px-2.2 py-0.5 rounded-full text-white">Утро</span>
-                  </div>
-                  <div className="flex flex-col gap-0.5 mt-4 text-white">
-                    <span className="text-[17px] font-black leading-tight">ПРОБУЖДЕНИЕ</span>
-                    <span className="text-[11.5px] text-amber-50 font-mono font-bold">
-                      {wakeTimeRecorded ? `Готово: ${wakeTimeRecorded}` : "Нажмите утром"}
-                    </span>
-                  </div>
-                </button>
-              </div>
-
-              {bedTimeRecorded && (
-                <div className="flex items-center justify-between text-xs font-bold text-slate-500 bg-slate-50 p-3 rounded-2xl border border-slate-100/75">
-                  <span>Статус реального отхода: лимфоток</span>
-                  <span className="text-violet-600 font-bold">время зафиксировано</span>
-                </div>
-              )}
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
-
-      {/* 7. FULL-SCREEN DARK SLEEPY VIEWPORT (NIGHT MODE) */}
-      <AnimatePresence>
-        {isNightModeActive && (
-          <div className="absolute inset-0 bg-[#0F172A]/90 dark:bg-[#020617]/95 flex flex-col justify-between p-6 z-[45] overflow-hidden text-center text-white select-none pointer-events-auto">
-            {/* Subtle starry glowing ambient light */}
-            <div className="absolute top-10 left-10 w-48 h-48 bg-violet-600/10 rounded-full blur-3xl animate-pulse" />
-            <div className="absolute bottom-32 right-10 w-52 h-52 bg-indigo-500/15 rounded-full blur-3xl" />
-            
-            <div /> {/* Top Space */}
-
             <motion.div
               initial={{ scale: 0.92, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              transition={{ duration: 0.8 }}
-              className="flex flex-col items-center gap-5 mt-10"
+              exit={{ scale: 0.92, opacity: 0 }}
+              transition={{ type: "spring", damping: 26, stiffness: 300 }}
+              className="absolute z-[61] flex flex-col items-center gap-4 p-6 w-full max-w-[340px]"
             >
-              <div className="w-[84px] h-[84px] rounded-full bg-violet-950/45 border border-violet-500/35 flex items-center justify-center relative shadow-[0_0_25px_rgba(139,92,246,0.3)]">
-                <Moon className="w-10 h-10 text-violet-300 animate-pulse" />
-                <div className="absolute -top-1 -right-1 text-xs font-black bg-violet-600 text-white rounded-full px-2 py-0.5 animate-bounce">zzz</div>
-              </div>
-              
-              <div className="flex flex-col gap-1.5 px-4 text-center">
-                <h2 className="text-[21px] font-black tracking-tight" style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}>
-                  Приложение спит вместе с тобой... 🌌
-                </h2>
-                <p className="text-[13px] text-violet-200/70 max-w-[280px]" style={{ fontFamily: '"Calibri", sans-serif' }}>
-                  Твой организм обновляется, и цельные растительные компоненты очищают твои сосуды каждую секунду.
-                </p>
-              </div>
+              <button
+                type="button"
+                onClick={() => setShowNightPrompt(false)}
+                className="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-slate-300 hover:text-white hover:bg-white/20 transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4 pointer-events-none" />
+              </button>
 
-              {bedTimeRecorded && (
-                <span className="text-[13px] bg-white/5 px-4 py-1.5 rounded-full font-mono text-violet-200 border border-white/5 font-bold">
-                  Легли спать в: {bedTimeRecorded}
+              <img
+                src={imgNightPrompt}
+                alt="Лечь спать"
+                className="w-[180px] h-auto object-contain cursor-pointer select-none"
+              />
+
+              <div className="text-center">
+                <span className="text-[20px] font-black text-white tracking-tight block leading-tight">
+                  ЛЕЧЬ СПАТЬ
                 </span>
-              )}
-            </motion.div>
-
-            {/* Floating Point of morning activation */}
-            <div className="flex justify-end p-2 relative z-50 mt-10">
-              <div className="flex flex-col items-center gap-1.5 mr-2">
-                <span className="text-[10px] uppercase font-black tracking-wider text-violet-300 animate-pulse">Пробуждение</span>
-                <motion.button
-                  type="button"
-                  id="wake-up-circle-btn"
-                  onClick={handleWakeUpClick}
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.9 }}
-                  animate={{ y: [0, -3, 0] }}
-                  transition={{ repeat: Infinity, duration: 2.5, ease: "easeInOut" }}
-                  className="w-16 h-16 rounded-full bg-gradient-to-tr from-amber-500 via-orange-500 to-amber-400 hover:brightness-110 flex items-center justify-center text-white border-2 border-white/30 shadow-[0_4px_18px_rgba(245,158,11,0.5),_inset_0_2px_4px_rgba(255,255,255,0.4)] cursor-pointer"
-                >
-                  <span className="text-[22px]">☀️</span>
-                </motion.button>
-              </div>
-            </div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* 8. RECTANGULAR SLEEP QUALITY EVALUATION MODAL */}
-      <AnimatePresence>
-        {showSleepQualityModal && (
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-6 z-[60]">
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-[32px] border border-gray-100 p-5.5 w-full max-w-[320px] text-center shadow-[0_20px_50px_rgba(0,0,0,0.15)] flex flex-col gap-4.5 max-h-[85dvh] overflow-y-auto overscroll-contain"
-            >
-              <div className="flex flex-col gap-1">
-                <span className="text-[11px] font-bold text-violet-600 tracking-wider uppercase">КАЧЕСТВО СНА</span>
-                <h3 className="text-[18px] font-black text-text-dark leading-tight" style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}>
-                  Как спалось, {userName}?
-                </h3>
-                <p className="text-[12.5px] text-text-sec px-1 leading-tight mt-0.5">
-                  Оцени утреннее самочувствие. Твой WFPB-рацион защищает глубокие фазы восстановления.
-                </p>
-              </div>
-
-              <div className="flex flex-col gap-2.5">
-                <button
-                  type="button"
-                  onClick={() => handleSaveSleepQuality("good")}
-                  className="w-full py-3 px-4 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 font-bold rounded-2xl flex items-center justify-between text-[14px] transition-all cursor-pointer active:scale-98"
-                >
-                  <div className="flex items-center gap-2 text-left">
-                    <span className="text-[16px]">😀</span>
-                    <span>Отлично и свежо</span>
-                  </div>
-                  <Check className="w-4 h-4 text-emerald-600" />
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleSaveSleepQuality("fair")}
-                  className="w-full py-3 px-4 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-700 font-bold rounded-2xl flex items-center justify-between text-[14px] transition-all cursor-pointer active:scale-98"
-                >
-                  <div className="flex items-center gap-2 text-left">
-                    <span className="text-[16px]">😐</span>
-                    <span>Удовлетворительно</span>
-                  </div>
-                  <Check className="w-4 h-4 text-amber-600" />
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleSaveSleepQuality("poor")}
-                  className="w-full py-3 px-4 bg-rose-50 hover:bg-rose-100 border border-rose-250 text-rose-700 font-bold rounded-2xl flex items-center justify-between text-[14px] transition-all cursor-pointer active:scale-98"
-                >
-                  <div className="flex items-center gap-2 text-left">
-                    <span className="text-[16px]">😴</span>
-                    <span>Разбит / не выспался</span>
-                  </div>
-                  <Check className="w-4 h-4 text-rose-600" />
-                </button>
+                <span className="text-[12px] text-violet-200/60 font-bold mt-0.5 block">
+                  нажмите сейчас
+                </span>
               </div>
 
               <button
                 type="button"
                 onClick={() => {
-                  setShowSleepQualityModal(false);
-                  setIsNightModeActive(false);
-                  setShowFastSleep(false);
+                  const tz = getUserTimeZone();
+                  const todayStr = todayLocalDate(tz);
+                  setLastConsumedDate(todayStr);
+                  setShowNightPrompt(false);
                 }}
-                className="text-[12px] font-bold text-text-muted hover:text-text-dark transition-colors mt-1 cursor-pointer"
+                className="mt-2 py-3 px-5 rounded-2xl bg-purple-100 text-purple-600 font-semibold text-[14px] transition-all cursor-pointer active:scale-98"
               >
-                Пропустить оценку
+                Нарушаем режим
               </button>
             </motion.div>
-          </div>
+          </>
         )}
       </AnimatePresence>
 
-      {/* 9. SMART REMINDERS LIVE TOAST OVERLAY */}
+      {/* LOCK OVERLAY (active session) */}
+      <AnimatePresence>
+        {isNightModeActive && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 bg-[#0B0F1C] z-[45] flex flex-col items-center justify-between p-6 overflow-hidden select-none"
+          >
+            {/* Stars ambient */}
+            <div className="absolute top-8 left-12 w-40 h-40 bg-violet-600/8 rounded-full blur-3xl animate-pulse" />
+            <div className="absolute bottom-24 right-8 w-48 h-48 bg-indigo-500/10 rounded-full blur-3xl" />
+
+            <div className="flex flex-col items-center gap-4 relative z-10 pt-8">
+              <img src={imgNightPrompt} alt="" className="w-[120px] h-auto object-contain opacity-70" />
+              <div className="flex flex-col items-center gap-1.5">
+                <h2 className="text-[20px] font-black text-white/90 tracking-tight text-center leading-snug">
+                  Приложение отдыхает вместе с тобой…
+                </h2>
+                <p className="text-[13px] text-violet-200/50 text-center leading-relaxed max-w-[260px]">
+                  Твой организм восстанавливается. Отдыхай спокойно.
+                </p>
+              </div>
+              {bedTimeRecorded && (
+                <span className="text-[12px] bg-white/6 px-4 py-1.5 rounded-full font-mono text-violet-200 border border-white/10 font-bold mt-1">
+                  Начали в: {bedTimeRecorded}
+                </span>
+              )}
+            </div>
+
+            <div className="flex flex-col items-center gap-3 pb-16 relative z-10">
+              <img
+                src={imgWakeUp}
+                alt="Пробуждение"
+                className="w-[160px] h-auto object-contain cursor-pointer select-none active:scale-95 transition-transform"
+                onClick={handleWakeUpFromOverlay}
+              />
+              <div className="text-center">
+                <span className="text-[18px] font-black text-white tracking-tight block">
+                  ПРОБУЖДЕНИЕ
+                </span>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* REMINDERS TOAST */}
       <AnimatePresence>
         {activeNotification && (
           <motion.div

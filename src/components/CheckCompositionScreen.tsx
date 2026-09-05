@@ -1435,7 +1435,7 @@ export default function CheckCompositionScreen({
 
                 {/* Text Block */}
                 <div className="flex flex-col items-center justify-center w-full">
-                  <span className={`text-xs md:text-sm font-medium text-center leading-tight ${
+                  <span className={`text-[14px] md:text-[15px] font-bold text-center leading-tight ${
                     isRed ? "text-red-600" : isUnrecognized ? "text-blue-600" : "text-gray-800"
                   }`}>
                     {isUnrecognized ? "Ингредиент не распознан" : c.shortName}
@@ -1443,7 +1443,7 @@ export default function CheckCompositionScreen({
                   
                   {/* Weight display */}
                   {c.weight ? (
-                    <span className="text-[11px] font-extrabold mt-0.5 text-gray-500">
+                    <span className="text-[14px] font-extrabold mt-0.5 text-gray-500">
                       {c.weight} г
                     </span>
                   ) : (
@@ -1530,7 +1530,7 @@ export default function CheckCompositionScreen({
                     </div>
 
                     <span
-                      className="flex-1 min-w-0 whitespace-nowrap overflow-hidden text-[9.5px] font-extrabold tracking-tight text-[#2B3137] leading-none"
+                      className="flex-1 min-w-0 whitespace-nowrap overflow-hidden text-[14px] font-extrabold tracking-tight text-[#2B3137] leading-none"
                       style={{ fontFamily: '"Calibri", sans-serif' }}
                     >
                       {cat.key}
@@ -1960,7 +1960,7 @@ export default function CheckCompositionScreen({
         {!selectedCardId && !isNonFoodMode && (
           <div className="bg-[#FAFBFB] p-4 text-center rounded-[20px] border border-dashed border-[#D1E7DD] mb-5">
             <p className="text-[13px] text-[#737C86] leading-snug font-medium" style={{ fontFamily: '"Calibri", sans-serif' }}>
-              💡 Нажмите на любую карточку выше, чтобы подтвердить, отредактировать её название, вес или заменить ингредиент 🌱
+              💡 Нажмите на любую карточку выше, чтобы подтвердить, отредактировать её название, вес или заменить ингредиент
             </p>
           </div>
         )}

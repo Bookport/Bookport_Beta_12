@@ -70,14 +70,44 @@ export interface SystemKeyProgress {
 
 const store = new Map<string, any>();
 
+// Load persisted data from localStorage on module init
+if (typeof window !== "undefined") {
+  const keys = Object.keys(localStorage).filter(k => k.startsWith("wfpb_"));
+  for (const key of keys) {
+    try {
+      const data = JSON.parse(localStorage.getItem(key) || "null");
+      if (data !== null) {
+        store.set(key, data);
+      }
+    } catch {}
+  }
+}
+
 export class SystemKeysStore {
   private static getStoredState(key: string, fallback: any = {}): any {
     if (store.has(key)) return store.get(key);
+    // Fallback to localStorage for persistence across reloads
+    if (typeof window !== "undefined") {
+      try {
+        const stored = localStorage.getItem(key);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          store.set(key, parsed);
+          return parsed;
+        }
+      } catch {}
+    }
     return fallback;
   }
 
   private static setStoredState(key: string, data: any): void {
     store.set(key, data);
+    // Persist to localStorage for survival across reloads
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem(key, JSON.stringify(data));
+      } catch {}
+    }
   }
 
   /**
@@ -96,7 +126,7 @@ export class SystemKeysStore {
     };
     for (const [storeKey, sysKey] of Object.entries(keyMap)) {
       if (recipeStates[storeKey]) {
-        store.set(sysKey, recipeStates[storeKey]);
+        this.setStoredState(sysKey, recipeStates[storeKey]);
       }
     }
   }
@@ -195,12 +225,6 @@ export class SystemKeysStore {
       else if (name.includes("пророс") || name.includes("микрозелен") || name.includes("ростк")) {
         autoGrams["sprouts"] += weight;
       }
-      
-      // 13. Healthy Drinks (Полезные напитки / вода)
-      else if (name.includes("вода") || name.includes("чай") || name.includes("напит") || name.includes("зеленый чай") || 
-               name.includes("шиповник") || name.includes("настой") || name.includes("отвар") || name.includes("ромашк") || name.includes("мята")) {
-        autoGrams["healthy_drinks"] += weight;
-      }
     });
 
     // Disable automatic progress calculation for "must_have" (fermented products) 
@@ -256,14 +280,25 @@ export class SystemKeysStore {
     // 3. Extract mapped ingredients auto weights
     const autoGramsMap = this.mapIngredientsToAutoGrams(dailyData.aggregatedIngredients);
 
-  // Manual-only keys: "sprouts" (Проростки) and "must_have" (ферментированные продукты)
-  // must NEVER be auto-filled by cooked recipes or auto-detected ingredients.
-  const manualOnlyKeys = new Set(["sprouts", "must_have"]);
+    // Manual-only keys: "sprouts" (Проростки) and "must_have" (ферментированные продукты)
+    // must NEVER be auto-filled by cooked recipes or auto-detected ingredients.
+    const manualOnlyKeys = new Set(["sprouts", "must_have"]);
 
-    // Overwrite water progress with direct water log state if higher
-    if (waterAmountMl > 0) {
-      autoGramsMap["healthy_drinks"] = Math.max(autoGramsMap["healthy_drinks"] || 0, waterAmountMl);
+    // Calculate healthy_drinks auto progress from ALL cooked DRINKS_RECIPES (any day)
+    // User can cook any drink recipe from the Book, not limited to current day's assignment
+    let cookedDrinksMl = 0;
+    if (drinksState && Array.isArray(DRINKS_RECIPES)) {
+      Object.entries(drinksState).forEach(([recipeId, state]: [string, any]) => {
+        if (state?.status === "cooked") {
+          const recipe = DRINKS_RECIPES.find(r => r.id === parseInt(recipeId));
+          // Count ANY cooked drink recipe, regardless of its assigned day in the Book
+          if (recipe) {
+            cookedDrinksMl += 200;
+          }
+        }
+      });
     }
+    autoGramsMap["healthy_drinks"] = cookedDrinksMl;
 
     // 4. Load manual inputs / toggle overrides for this day
     const manualInputs = this.getStoredState(`wfpb_system_keys_day_${currentDayIndex}_manual`, {});

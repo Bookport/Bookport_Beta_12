@@ -19,7 +19,8 @@ import {
   Info, 
   CheckCircle2,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  ChevronRight
 } from "lucide-react";
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from "html5-qrcode";
 import BottomBar from "./BottomBar";
@@ -27,6 +28,10 @@ import { resolveAvatar } from "../utils/annaAvatarResolver";
 import { useAppStore } from "../store/useAppStore";
 import { api } from "../utils/api";
 import { clientLogger } from "../utils/clientLogger";
+import iconFlame from "../assets/images/icone/1.webp";
+import iconPeas from "../assets/images/icone/2.webp";
+import iconAvocado from "../assets/images/icone/3.webp";
+import iconGrains from "../assets/images/icone/4.webp";
 
 const annaAvatarSrc = resolveAvatar({ toneGroup: 'reminder_caution', intent: 'caution' }).src;
 
@@ -37,14 +42,38 @@ interface OFFProduct {
   product_name_ru?: string;
   brands?: string;
   image_front_url?: string;
+  image_ingredients_url?: string;
+  image_nutrition_url?: string;
   ingredients_text?: string;
   ingredients_text_ru?: string;
-  allergens?: string;
+  ingredients_tags?: string[];
+  allergens_tags?: string[];
+  traces_tags?: string[];
+  additives_tags?: string[];
+  labels_tags?: string[];
+  ecoscore_grade?: string;
   nutrition_grades?: string;
   nova_group?: number | string;
-  additives_tags?: string[];
   categories?: string;
   stores?: string;
+  nutriments?: {
+    "energy-kcal_100g"?: number;
+    "energy-kj_100g"?: number;
+    proteins_100g?: number;
+    fat_100g?: number;
+    carbohydrates_100g?: number;
+    sugars_100g?: number;
+    sodium_100g?: number;
+    salt_100g?: number;
+    fiber_100g?: number;
+    calcium_100g?: number;
+    iron_100g?: number;
+    magnesium_100g?: number;
+    potassium_100g?: number;
+    zinc_100g?: number;
+    "vitamin-c_100g"?: number;
+    "vitamin-d_100g"?: number;
+  };
 }
 
 interface PersonalShoppingItem {
@@ -145,7 +174,7 @@ const LOCAL_FALLBACK_PRODUCTS: OFFProduct[] = [
   },
   {
     code: "4600080350438",
-    product_name_ru: "Шоколад Бабаевский горький элитный 85% какао",
+    product_name_ru: "Шокола Бабаевский горький элитный 85% какао",
     product_name: "Elite Dark Chocolate 85%",
     brands: "Бабаевский",
     image_front_url: "https://images.unsplash.com/photo-1548907040-4d42b52145ca?w=200&auto=format&fit=crop&q=60",
@@ -226,7 +255,6 @@ const isIngredientsListValid = (text: string | undefined): boolean => {
   const pruned = text.trim();
   if (pruned.length < 12) return false;
 
-  // Count percentage of numbers and special symbols
   const len = pruned.length;
   let digits = 0;
   let symbols = 0;
@@ -236,26 +264,16 @@ const isIngredientsListValid = (text: string | undefined): boolean => {
     else if (/[%\/*\\_\[\]+=#@<>|]/.test(char)) symbols++;
   }
 
-  // If numbers and weird symbols take up more than 35% of the string, it's likely a nutritional table or OCR noise
   if ((digits + symbols) / len > 0.35) {
     return false;
   }
 
   const lowercase = pruned.toLowerCase();
   
-  // If it's just a raw dump of energy values
-  const isNutritionTableNoise = 
-    lowercase.includes("пищевая ценность") && 
-    lowercase.includes("белки") && 
-    lowercase.includes("жиры") && 
-    lowercase.includes("углеводы") && 
-    lowercase.length < 200;
-    
-  if (isNutritionTableNoise) {
+  if (lowercase.includes("пищевая ценность") && lowercase.includes("белки") && lowercase.includes("жиры") && lowercase.includes("углеводы") && lowercase.length < 200) {
     return false;
   }
 
-  // If it contains technical web patterns
   if (lowercase.includes("openfoodfacts") || lowercase.includes("http://") || lowercase.includes("https://")) {
     return false;
   }
@@ -263,7 +281,6 @@ const isIngredientsListValid = (text: string | undefined): boolean => {
   const words = pruned.split(/[\s,.;()]+/).filter(w => w.length > 0);
   if (words.length < 2) return false;
 
-  // Check language mixture: if there are too many single letters, reject
   const singleLettersCount = words.filter(w => w.length === 1).length;
   if (singleLettersCount / words.length > 0.45) {
     return false;
@@ -287,14 +304,52 @@ export default function MyPurchasesScreen({
   const screen = propsScreen || useAppStore((s) => s.screen);
   const onOpenCalendar = propsOnOpenCalendar || (() => {});
   const userName = propsUserName || profile.name || "";
-  // Current tab or mode: "start" | "scan" | "name-search" | "result"
-  const [activeMode, setActiveMode] = useState<"start" | "scan" | "name-search" | "result">("start");
+
+  const [activeMode, setActiveMode] = useState<"start" | "scan" | "result">("start");
   const [loading, setLoading] = useState(false);
+  const [searchProgress, setSearchProgress] = useState(0); 
   const [searchQuery, setSearchQuery] = useState("");
+  const [hasSearched, setHasSearched] = useState(false); 
   const [searchResults, setSearchResults] = useState<OFFProduct[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<OFFProduct | null>(null);
   const [manualBarcode, setManualBarcode] = useState("");
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const [lightboxImage, setLightboxImage] = useState<string | null>(null);
+  
+  // Добавлен стейт для спойлера (открыт/закрыт)
+  const [isShoppingListOpen, setIsShoppingListOpen] = useState(false);
+
+  // === ИНИЦИАЛИЗАЦИЯ И УМНЫЙ ДВОРНИК В LOCAL STORAGE ===
+  const [shoppingList, setShoppingList] = useState<PersonalShoppingItem[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const localData = localStorage.getItem("wfpb_shopping_list");
+        if (localData) {
+          const parsed = JSON.parse(localData);
+          const now = Date.now();
+          const sevenDays = 7 * 24 * 60 * 60 * 1000;
+          
+          // Удаляем зачеркнутые (купленные) и старше 7 дней
+          let cleaned = parsed.filter((item: PersonalShoppingItem) => !item.checked && (now - item.addedAt < sevenDays));
+          
+          // Лимит 50 продуктов
+          if (cleaned.length > 50) {
+            cleaned = cleaned.slice(0, 50);
+          }
+          return cleaned;
+        }
+      } catch (e) {
+        return [];
+      }
+    }
+    return [];
+  });
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("wfpb_shopping_list", JSON.stringify(shoppingList));
+    }
+  }, [shoppingList]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -327,62 +382,30 @@ export default function MyPurchasesScreen({
     };
   }, [currentDayIndex, activeMode, selectedProduct, manualBarcode, searchQuery]);
   
-  // Accordion details toggle inside results
-  const [showIngredientsList, setShowIngredientsList] = useState(false);
-
-  // Shopping list
-  const [shoppingList, setShoppingList] = useState<PersonalShoppingItem[]>([]);
+  const [showIngredientsList, setShowIngredientsList] = useState(true);
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
 
-  // html5-qrcode implementation states
   const [scannerActive, setScannerActive] = useState(false);
   const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
   const scannerContainerId = "browser-barcode-viewport";
 
-  // Robust scanner states using strict sequential state representation:
-  // 1. "permission-prompt" - Ожидание разрешения на камеру
-  // 2. "initializing"      - Запуск камеры
-  // 3. "scanning"          - Активное live-сканирование barcode из видеопотока
-  // 4. "scanned-success"    - Barcode найден / успешно зафиксирован
-  // 5. "searching-db"       - Поиск товара в базе по считанному barcode
-  // 6. "not-found"          - Товар не найден в Open Food Facts базе
-  // 7. "camera-error"       - Ошибка камеры
-  // 8. "temp-error"         - Временная ошибка распознавания (по таймауту/нечитаемости)
   const [scanStatus, setScanStatus] = useState<
     "permission-prompt" | "initializing" | "scanning" | "scanned-success" | "searching-db" | "not-found" | "camera-error" | "temp-error"
   >("initializing");
 
   const [scannedCode, setScannedCode] = useState<string | null>(null);
   
-  // Keep these dummy or auxiliary variables only to avoid any breaking dependencies elsewhere
-  const [scannedAttempts, setScannedAttempts] = useState<number>(0);
-  const [isAligned, setIsAligned] = useState<boolean>(false);
-  const [showHint, setShowHint] = useState(false);
   const timeoutRef = useRef<any>(null);
-  const capturedAttemptsRef = useRef<string[]>([]);
-  const lastScanTimeRef = useRef<number>(0);
-
-  // New scanner-specific robust refs for timing, retries & locking
   const retryTimeoutRef = useRef<any>(null);
   const tempErrorTimeoutRef = useRef<any>(null);
   const startCameraAttemptsCount = useRef<number>(0);
   const hasFoundBarcodeRef = useRef<boolean>(false);
 
-  // Stop camera scanning cleanly
   const stopScanner = async () => {
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
-    }
-    if (retryTimeoutRef.current) {
-      clearTimeout(retryTimeoutRef.current);
-      retryTimeoutRef.current = null;
-    }
-    if (tempErrorTimeoutRef.current) {
-      clearTimeout(tempErrorTimeoutRef.current);
-      tempErrorTimeoutRef.current = null;
-    }
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    if (retryTimeoutRef.current) clearTimeout(retryTimeoutRef.current);
+    if (tempErrorTimeoutRef.current) clearTimeout(tempErrorTimeoutRef.current);
     if (html5QrCodeRef.current && html5QrCodeRef.current.isScanning) {
       try {
         await html5QrCodeRef.current.stop();
@@ -393,7 +416,6 @@ export default function MyPurchasesScreen({
     setScannerActive(false);
   };
 
-  // Cleanup scanner on unmount
   useEffect(() => {
     return () => {
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
@@ -405,36 +427,51 @@ export default function MyPurchasesScreen({
     };
   }, []);
 
-  // Initialize camera scanner immediately trying continuous live streaming decoding
+  const handleTopBack = () => {
+    if (activeMode !== "start") {
+      if (activeMode === "scan") stopScanner();
+      setActiveMode("start");
+      setSelectedProduct(null);
+    } else if (searchResults.length > 0 || searchQuery !== "") {
+      setSearchQuery("");
+      setSearchResults([]);
+      setHasSearched(false);
+    } else {
+      onBack();
+    }
+  };
+
   const startCameraScan = async () => {
+    // Интеграция нативного сканера Telegram Mini App
+    const tg = (window as any).Telegram?.WebApp;
+    if (tg && tg.initData && tg.showScanQrPopup) {
+      tg.showScanQrPopup({ text: "Наведите камеру на штрихкод продукта" }, (decodedText: string) => {
+        if (decodedText) {
+          handleSearchBarcode(decodedText);
+          tg.closeScanQrPopup();
+        }
+      });
+      return; // Останавливаем выполнение, чтобы не запускать веб-сканер
+    }
+
+    // Резервный веб-сканер для обычных браузеров
     setCameraError(null);
     setScanStatus("initializing");
     setScannedCode(null);
     setScannerActive(true);
     setActiveMode("scan");
-
-    // Clean locking and timing states
     hasFoundBarcodeRef.current = false;
     
-    if (retryTimeoutRef.current) {
-      clearTimeout(retryTimeoutRef.current);
-      retryTimeoutRef.current = null;
-    }
-    if (tempErrorTimeoutRef.current) {
-      clearTimeout(tempErrorTimeoutRef.current);
-      tempErrorTimeoutRef.current = null;
-    }
+    if (retryTimeoutRef.current) clearTimeout(retryTimeoutRef.current);
+    if (tempErrorTimeoutRef.current) clearTimeout(tempErrorTimeoutRef.current);
 
-    // After 30s of scan streaming without any decoded barcode, trigger warm troubleshoot help state ("temp-error")
     tempErrorTimeoutRef.current = setTimeout(() => {
       setScanStatus("temp-error");
     }, 30000);
 
-    // Render viewport container briefly first before attachment
     setTimeout(async () => {
       try {
         const html5QrCode = new Html5Qrcode(scannerContainerId, {
-          // Explicit list of core product barcode Symbologies to maximize accuracy and frame decoding performance
           formatsToSupport: [
             Html5QrcodeSupportedFormats.EAN_13,
             Html5QrcodeSupportedFormats.EAN_8,
@@ -445,9 +482,8 @@ export default function MyPurchasesScreen({
         });
         html5QrCodeRef.current = html5QrCode;
 
-        // Custom slim viewport box optimized for horizontal retail barcodes on products
         const config = {
-          fps: 24, // Optimized rate for instant mobile focus locks
+          fps: 24,
           qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
             const boxWidth = Math.floor(viewfinderWidth * 0.85);
             const boxHeight = Math.floor(boxWidth * 0.35);
@@ -460,25 +496,17 @@ export default function MyPurchasesScreen({
 
         const onScanSuccess = async (decodedText: string) => {
           if (!decodedText || decodedText.trim() === "") return;
-          
-          // Strict duplicate lock check - instantly prevent multi-triggering of subsequent scans
           if (hasFoundBarcodeRef.current) return;
           hasFoundBarcodeRef.current = true;
 
-          // Clear timer
-          if (tempErrorTimeoutRef.current) {
-            clearTimeout(tempErrorTimeoutRef.current);
-            tempErrorTimeoutRef.current = null;
-          }
+          if (tempErrorTimeoutRef.current) clearTimeout(tempErrorTimeoutRef.current);
 
           setScannedCode(decodedText);
           setScanStatus("scanned-success");
 
-          // Brief delay (600ms) to let user enjoy the successful "Code Captured" visual confirmation
           setTimeout(async () => {
             setScanStatus("searching-db");
             try {
-              // 0. Try offline local fallback products first
               const localMatch = LOCAL_FALLBACK_PRODUCTS.find(p => p.code === decodedText.trim());
               if (localMatch) {
                 await stopScanner();
@@ -487,65 +515,42 @@ export default function MyPurchasesScreen({
                 return;
               }
 
-              // 1. Try RU db lookup
-              const res = await fetch(`https://ru.openfoodfacts.org/api/v2/product/${decodedText.trim()}.json`);
+              const res = await fetch(`https://ru.openfoodfacts.org/api/v2/product/${decodedText.trim()}.json?_t=${Date.now()}`);
               const data = await res.json();
               
               if (data && data.status === 1 && data.product) {
                 await stopScanner();
-                setSelectedProduct({
-                  code: decodedText,
-                  ...data.product
-                });
+                setSelectedProduct({ code: decodedText, ...data.product });
                 setActiveMode("result");
                 return;
               } else {
-                // 2. Try Global db lookup fallback
-                const resGlobal = await fetch(`https://world.openfoodfacts.org/api/v2/product/${decodedText.trim()}.json`);
+                const resGlobal = await fetch(`https://world.openfoodfacts.org/api/v2/product/${decodedText.trim()}.json?_t=${Date.now()}`);
                 const dataGlobal = await resGlobal.json();
                 if (dataGlobal && dataGlobal.status === 1 && dataGlobal.product) {
                   await stopScanner();
-                  setSelectedProduct({
-                    code: decodedText,
-                    ...dataGlobal.product
-                  });
+                  setSelectedProduct({ code: decodedText, ...dataGlobal.product });
                   setActiveMode("result");
                   return;
                 }
               }
             } catch (err) {
-              console.warn("OpenFoodFacts lookup failed (using local or empty fallback)", err);
+              console.warn("OpenFoodFacts lookup failed", err);
             }
 
-            // Either API search crashed or nothing was found
             await stopScanner();
             setScanStatus("not-found");
           }, 600);
         };
 
-        // Standard rear facing mobile camera selection
-        let cameraToUse: MediaTrackConstraints = { facingMode: "environment", focusMode: "continuous" } as MediaTrackConstraints;
+        let cameraIdOrConfig: any = { facingMode: "environment" };
         try {
           const devices = await Html5Qrcode.getCameras();
           if (devices && devices.length > 0) {
             const rearCamera = devices.find(device => {
               const label = device.label.toLowerCase();
-              return (
-                label.includes("back") ||
-                label.includes("rear") ||
-                label.includes("основная") ||
-                label.includes("задняя") ||
-                label.includes("environment") ||
-                label.includes("triple") ||
-                label.includes("dual") ||
-                label.includes("camera 0")
-              );
+              return /back|rear|основная|задняя|environment|triple|dual|camera 0/i.test(label);
             });
-            if (rearCamera) {
-              cameraToUse = { deviceId: rearCamera.id, focusMode: "continuous" } as MediaTrackConstraints;
-            } else {
-              cameraToUse = { deviceId: devices[0].id, focusMode: "continuous" } as MediaTrackConstraints;
-            }
+            cameraIdOrConfig = rearCamera ? rearCamera.id : devices[0].id;
           }
         } catch (camListErr) {
           console.warn("Direct environment query fallback mode active...", camListErr);
@@ -553,22 +558,16 @@ export default function MyPurchasesScreen({
 
         try {
           await html5QrCode.start(
-            cameraToUse,
+            cameraIdOrConfig,
             config,
             onScanSuccess,
-            () => {
-              // Ignore silent mismatched noise frames in live flow
-            }
+            () => {}
           );
           setScanStatus("scanning");
-          startCameraAttemptsCount.current = 0; // reset retry limit upon verified starting
+          startCameraAttemptsCount.current = 0; 
         } catch (startErr: any) {
           const errorMessage = startErr?.message || String(startErr);
-          // Check for permission block
-          const isPermissionBlocked = 
-            errorMessage.toLowerCase().includes("notallowed") || 
-            errorMessage.toLowerCase().includes("permission") || 
-            errorMessage.toLowerCase().includes("denied");
+          const isPermissionBlocked = errorMessage.toLowerCase().includes("notallowed") || errorMessage.toLowerCase().includes("permission") || errorMessage.toLowerCase().includes("denied");
 
           if (isPermissionBlocked) {
             setScanStatus("permission-prompt");
@@ -576,11 +575,9 @@ export default function MyPurchasesScreen({
             return;
           }
 
-          // Non-permission general starting errors (exponential backoff retry, max 3 times)
           if (startCameraAttemptsCount.current < 3) {
             startCameraAttemptsCount.current += 1;
             const backoffDelay = startCameraAttemptsCount.current * 1000 + Math.random() * 150;
-            console.warn(`Camera lock retry attempt ${startCameraAttemptsCount.current} in ${backoffDelay.toFixed(0)}ms...`);
             retryTimeoutRef.current = setTimeout(() => {
               startCameraScan();
             }, backoffDelay);
@@ -600,97 +597,83 @@ export default function MyPurchasesScreen({
     }, 150);
   };
 
-  // Close scanner and return to menu
   const handleCloseScanner = () => {
     stopScanner();
     setActiveMode("start");
   };
 
-  // Call Open Food Facts API by barcode
   const handleSearchBarcode = async (barcode: string) => {
     if (!barcode || barcode.trim() === "") return;
     setLoading(true);
     setCameraError(null);
     setActiveMode("result");
     setSelectedProduct(null);
-    setShowIngredientsList(false);
+    setShowIngredientsList(true); 
 
     try {
-      // 0. Try offline local fallback products first
       const localMatch = LOCAL_FALLBACK_PRODUCTS.find(p => p.code === barcode.trim());
       if (localMatch) {
         setSelectedProduct(localMatch);
         return;
       }
 
-      const res = await fetch(`https://ru.openfoodfacts.org/api/v2/product/${barcode.trim()}.json`);
+      const res = await fetch(`https://ru.openfoodfacts.org/api/v2/product/${barcode.trim()}.json?_t=${Date.now()}`);
       const data = await res.json();
       
       if (data && data.status === 1 && data.product) {
-        setSelectedProduct({
-          code: barcode,
-          ...data.product
-        });
+        setSelectedProduct({ code: barcode, ...data.product });
       } else {
-        // Fallback: If not found in RU db, try Global DB 
-        const resGlobal = await fetch(`https://world.openfoodfacts.org/api/v2/product/${barcode.trim()}.json`);
+        const resGlobal = await fetch(`https://world.openfoodfacts.org/api/v2/product/${barcode.trim()}.json?_t=${Date.now()}`);
         const dataGlobal = await resGlobal.json();
         if (dataGlobal && dataGlobal.status === 1 && dataGlobal.product) {
-          setSelectedProduct({
-            code: barcode,
-            ...dataGlobal.product
-          });
+          setSelectedProduct({ code: barcode, ...dataGlobal.product });
         } else {
-          // Empty state: Product not found
           setSelectedProduct(null);
         }
       }
     } catch (err) {
-      console.warn("Error fetching OFF product data (using empty or local fallback)", err);
+      console.warn("Error fetching OFF product data", err);
       setSelectedProduct(null);
     } finally {
       setLoading(false);
     }
   };
 
-  // Call Open Food Facts API Search by product text
   const handleSearchByName = async () => {
     if (!searchQuery.trim()) return;
     setLoading(true);
+    setHasSearched(true);
     setSearchResults([]);
+    setSearchProgress(15); 
 
     const fetchOFF = async (q: string, isRu: boolean): Promise<OFFProduct[]> => {
       try {
         const domain = isRu ? "ru" : "world";
         const formattedQuery = encodeURIComponent(q.trim());
-        const url = `https://${domain}.openfoodfacts.org/cgi/search.pl?search_terms=${formattedQuery}&search_simple=1&action=process&json=1&page_size=24`;
-        const res = await fetch(url);
+        const url = `https://${domain}.openfoodfacts.org/cgi/search.pl?search_terms=${formattedQuery}&search_simple=1&action=process&json=1&page_size=100&_t=${Date.now()}`;
+        const res = await fetch(url, { cache: "no-store" });
         if (!res.ok) return [];
         const data = await res.json();
         return data.products || [];
       } catch (err) {
-        console.warn(`Fetch OFF failed for ${q} (${isRu ? "ru" : "world"}):`, err);
+        console.warn(`Fetch OFF failed for ${q}`, err);
         return [];
       }
     };
 
     try {
-      // 1. Clean and correct query
       const rawQuery = searchQuery.trim().toLowerCase();
       let cleanedQuery = rawQuery;
       
-      // Apply spelling/clean map
       Object.entries(RussianCleanMap).forEach(([wrong, right]) => {
         cleanedQuery = cleanedQuery.replace(new RegExp(wrong, "g"), right);
       });
       
-      // Gather search query variations
       const queriesToTry = [cleanedQuery];
       if (cleanedQuery !== rawQuery) {
         queriesToTry.push(rawQuery);
       }
 
-      // Expand synonyms if we find a trigger keyword in the query
       Object.entries(SynonymMap).forEach(([keyword, synonyms]) => {
         if (cleanedQuery.includes(keyword)) {
           synonyms.forEach(syn => {
@@ -702,7 +685,6 @@ export default function MyPurchasesScreen({
         }
       });
 
-      // Split into partial words to allow broader matches (e.g. searching for "молоко овсяное Nemoloko")
       const words = cleanedQuery.split(/\s+/).filter(w => w.length > 3);
       if (words.length > 1) {
         const twoWords = words.slice(0, 2).join(" ");
@@ -716,7 +698,6 @@ export default function MyPurchasesScreen({
         });
       }
 
-      // 2. Perform concurrent fetches to both RU and Global databases
       let allProducts: OFFProduct[] = [];
       const seenCodes = new Set<string>();
 
@@ -729,7 +710,6 @@ export default function MyPurchasesScreen({
         });
       };
 
-      // Match and add any relevant local offline fallback products immediately
       const matchedLocal = LOCAL_FALLBACK_PRODUCTS.filter(p => {
         const nameRu = (p.product_name_ru || "").toLowerCase();
         const nameEn = (p.product_name || "").toLowerCase();
@@ -740,28 +720,49 @@ export default function MyPurchasesScreen({
       });
       addProducts(matchedLocal);
 
-      // Query the main top 2-3 terms concurrently (RU first, and also Global fallback)
-      const topQueries = queriesToTry.slice(0, 3);
-      const fetchPromises = topQueries.flatMap(q => [
-        fetchOFF(q, true),
-        fetchOFF(q, false)
-      ]);
+      const uniqueQueries = Array.from(new Set(queriesToTry));
+      const topQueries = uniqueQueries.slice(0, 3);
 
-      const results = await Promise.all(fetchPromises);
-      results.forEach(addProducts);
+      let apiFound = false;
+      let attempt = 0;
+      const maxAttempts = 4;
 
-      // If results are extremely sparse, fetch the remaining words/stems
-      if (allProducts.length < 5 && queriesToTry.length > 3) {
-        const remainingQueries = queriesToTry.slice(3, 6);
-        const fallbackPromises = remainingQueries.flatMap(q => [
-          fetchOFF(q, true),
-          fetchOFF(q, false)
-        ]);
-        const fallbackResults = await Promise.all(fallbackPromises);
-        fallbackResults.forEach(addProducts);
+      while (attempt < maxAttempts && !apiFound) {
+        attempt++;
+        setSearchProgress(20 + attempt * 15); 
+        
+        for (const q of topQueries) {
+          const ruProducts = await fetchOFF(q, true);
+          if (ruProducts.length > 0) apiFound = true;
+          addProducts(ruProducts);
+        }
+
+        if (!apiFound) {
+          for (const q of topQueries) {
+            const worldProducts = await fetchOFF(q, false);
+            if (worldProducts.length > 0) apiFound = true;
+            addProducts(worldProducts);
+          }
+        }
+
+        if (apiFound) break; 
+        
+        if (attempt < maxAttempts) {
+          await new Promise(resolve => setTimeout(resolve, 1500));
+        }
       }
 
-      // 3. Score results for maximum relevant matching (Russian title, matching full query words, image availability)
+      if (allProducts.length < 5 && uniqueQueries.length > 3) {
+        setSearchProgress(90);
+        const remainingQueries = uniqueQueries.slice(3, 6);
+        for (const q of remainingQueries) {
+           const fallbackResults = await fetchOFF(q, true);
+           addProducts(fallbackResults);
+        }
+      }
+
+      setSearchProgress(100);
+
       const searchWords = cleanedQuery.split(/\s+/);
       const scoredProducts = allProducts.map(p => {
         let score = 0;
@@ -769,25 +770,19 @@ export default function MyPurchasesScreen({
         const nameEn = (p.product_name || "").toLowerCase();
         const brand = (p.brands || "").toLowerCase();
 
-        // Exact cleaned query match
         if (nameRu.includes(cleanedQuery) || nameEn.includes(cleanedQuery)) {
           score += 200;
         }
 
-        // Substring matches for individual words
         searchWords.forEach(word => {
           if (nameRu.includes(word)) score += 40;
           if (nameEn.includes(word)) score += 20;
           if (brand.includes(word)) score += 10;
         });
 
-        // Small bonus for Russian name presence
         if (p.product_name_ru) score += 30;
-
-        // Bonus for having image
         if (p.image_front_url) score += 20;
 
-        // Bonus for readable ingredients list
         const ingredients = p.ingredients_text_ru || p.ingredients_text;
         if (ingredients && isIngredientsListValid(ingredients)) {
           score += 15;
@@ -796,106 +791,97 @@ export default function MyPurchasesScreen({
         return { product: p, score };
       });
 
-      // Sort descending by score
       scoredProducts.sort((a, b) => b.score - a.score);
       setSearchResults(scoredProducts.map(sp => sp.product));
 
     } catch (err) {
       console.warn("Search warning inside handleSearchByName", err);
     } finally {
-      setLoading(false);
+      setTimeout(() => {
+        setLoading(false);
+        setSearchProgress(0);
+      }, 400);
     }
   };
 
-  // Generate healthy coaching advice from Anna based on composition
   const getAnnasVerdict = (product: OFFProduct) => {
-    const ingredients = (product.ingredients_text_ru || product.ingredients_text || "").toLowerCase();
+    let rawText = (product.ingredients_text_ru || product.ingredients_text || "").toLowerCase();
     
-    // 1. Identify specific animal ingredients
+    const traceMarkers = ["может содержать", "содержит следы", "следы", "следов", "на предприятии", "производится на", "возможно наличие"];
+    let cutoff = rawText.length;
+    traceMarkers.forEach(marker => {
+      const idx = rawText.indexOf(marker);
+      if (idx !== -1 && idx < cutoff) cutoff = idx;
+    });
+    const ingredientsOnly = rawText.substring(0, cutoff);
+    
+    const searchCorpus = [
+      product.product_name_ru,
+      product.product_name,
+      product.categories,
+      ingredientsOnly,
+      ...(product.ingredients_tags || [])
+    ].filter(Boolean).join(" | ").toLowerCase();
+
     const foundAnimalIngredients: string[] = [];
     
-    const dairyTerms = ["молоко", "молочн", "сухое молоко", "сливки", "сыворотка", "казеин", "лактоза", "масло сливоч", "йогурт", "сыр", "творог", "сметана"];
+    const dairyTerms = ["молоко", "молочн", "сухое", "сливки", "сыворотка", "казеин", "лактоза", "масло сливоч", "йогурт", "сыр", "творог", "сметана", "milk", "cheese", "butter", "whey", "dairy", "en:milk"];
     dairyTerms.forEach(term => {
-      if (ingredients.includes(term)) {
-        if (term === "молоко" && !foundAnimalIngredients.includes("молоко")) foundAnimalIngredients.push("молоко");
-        else if (term === "сухое молоко" && !foundAnimalIngredients.includes("сухое молоко")) foundAnimalIngredients.push("сухое молоко");
-        else if (term === "сливки" && !foundAnimalIngredients.includes("сливки")) foundAnimalIngredients.push("сливки");
-        else if (term === "сыворотка" && !foundAnimalIngredients.includes("молочная сыворотка")) foundAnimalIngredients.push("молочная сыворотка");
-        else if (term === "казеин" && !foundAnimalIngredients.includes("казеин")) foundAnimalIngredients.push("казеин");
-        else if (term === "лактоза" && !foundAnimalIngredients.includes("лактоза")) foundAnimalIngredients.push("лактоза");
-        else if (term === "масло сливоч" && !foundAnimalIngredients.includes("сливочное масло")) foundAnimalIngredients.push("сливочное масло");
-        else if (term === "сыр" && !foundAnimalIngredients.includes("сыр")) foundAnimalIngredients.push("сыр");
-        else if (term === "творог" && !foundAnimalIngredients.includes("творог")) foundAnimalIngredients.push("творог");
+      if (searchCorpus.includes(term)) {
+        if (!foundAnimalIngredients.includes("молочные продукты")) foundAnimalIngredients.push("молочные продукты");
       }
     });
 
-    if (ingredients.includes("яйц") || ingredients.includes("яичн") || ingredients.includes("меланж")) {
-      foundAnimalIngredients.push("яйца/яичные продукты");
+    if (searchCorpus.includes("яйц") || searchCorpus.includes("яичн") || searchCorpus.includes("меланж") || searchCorpus.includes("egg") || searchCorpus.includes("en:egg")) {
+      if (!foundAnimalIngredients.includes("яйца/яичные продукты")) foundAnimalIngredients.push("яйца/яичные продукты");
     }
 
-    const meatTerms = ["мясо", "куриц", "говяд", "свинин", "птиц", "индейк", "рыб", "шпик", "сало", "бульон мяс", "желатин"];
+    const meatTerms = ["мясо", "куриц", "говяд", "свинин", "птиц", "индейк", "рыб", "шпик", "сало", "бульон", "желатин", "треск", "печень", "лосос", "тунец", "горбуш", "сельдь", "скумбри", "икр", "кревет", "кальмар", "краб", "миди", "шпрот", "meat", "beef", "pork", "chicken", "poultry", "fish", "seafood", "salmon", "cod", "tuna", "en:fish", "en:meat", "dorsch"];
     meatTerms.forEach(term => {
-      if (ingredients.includes(term)) {
-        if (term === "рыб" && !foundAnimalIngredients.includes("рыбные продукты")) foundAnimalIngredients.push("рыбные продукты");
-        else if (term === "желатин" && !foundAnimalIngredients.includes("желатин")) foundAnimalIngredients.push("желатин");
-        else if (!foundAnimalIngredients.includes("мясные компоненты")) {
-          foundAnimalIngredients.push("животные жиры или мясо");
+      if (searchCorpus.includes(term)) {
+        if (!foundAnimalIngredients.includes("животные белки/жиры (мясо, птица или рыба)")) {
+          foundAnimalIngredients.push("животные белки/жиры (мясо, птица или рыба)");
         }
       }
     });
 
-    if (ingredients.includes("мед") || ingredients.includes("мёд")) {
-      foundAnimalIngredients.push("мёд");
+    if (searchCorpus.includes("мед") || searchCorpus.includes("мёд") || searchCorpus.includes("honey") || searchCorpus.includes("en:honey")) {
+      if (!foundAnimalIngredients.includes("мёд")) foundAnimalIngredients.push("мёд");
     }
 
     const isAnimal = foundAnimalIngredients.length > 0;
 
-    // 2. Identify refined oils
     const foundOils: string[] = [];
-    const oilTerms = ["подсолнеч", "пальм", "рапс", "кокос", "соев", "растительное масло", "рафинирован"];
+    const oilTerms = ["подсолнеч", "пальм", "рапс", "кокос", "соев", "растительное масло", "рафинирован", "маргарин", " oil ", "öl", "en:oil", "en:palm-oil", "en:sunflower-oil"];
     oilTerms.forEach(term => {
-      if (ingredients.includes(term)) {
-        if (term === "пальм" && !foundOils.includes("пальмовое масло")) foundOils.push("пальмовое масло");
-        else if (term === "рапс" && !foundOils.includes("рапсовое масло")) foundOils.push("рапсовое масло");
-        else if (term === "кокос" && !foundOils.includes("кокосовое масло")) foundOils.push("кокосовое масло");
-        else if (term === "подсолнеч" && !foundOils.includes("подсолнечное масло")) foundOils.push("подсолнечное масло");
-        else if (!foundOils.includes("рафинированное растительное масло")) foundOils.push("рафинированное масло");
+      if (searchCorpus.includes(term)) {
+        if (!foundOils.includes("рафинированное масло")) foundOils.push("рафинированное масло");
       }
     });
     const hasRefinedOils = foundOils.length > 0;
 
-    // 3. Identify sugars and syrups
     const foundSugars: string[] = [];
-    const sugarTerms = ["сахар", "фруктоз", "глюкоз", "сахароз", "сироп", "мальтодекстрин"];
+    const sugarTerms = ["сахар", "фруктоз", "глюкоз", "сахароз", "сироп", "мальтодекстрин", "sugar", "zucker", "syrup", "en:sugar", "en:syrup"];
     sugarTerms.forEach(term => {
-      if (ingredients.includes(term)) {
-        if (term === "сахар" && !foundSugars.includes("сахар")) foundSugars.push("добавленный сахар");
-        else if (term === "сироп" && !foundSugars.includes("глюкозный или фруктозный сироп")) foundSugars.push("подслащивающий сироп");
-        else if (term === "мальтодекстрин" && !foundSugars.includes("мальтодекстрин")) foundSugars.push("мальтодекстрин");
-        else if (!foundSugars.includes("изолированные сахара")) foundSugars.push("простые сахара");
+      if (searchCorpus.includes(term)) {
+        if (!foundSugars.includes("сахар/сиропы")) foundSugars.push("сахар/сиропы");
       }
     });
     const hasSugar = foundSugars.length > 0;
 
-    // 4. Identify salt
-    const hasSalt = ingredients.includes("соль");
+    const hasSalt = searchCorpus.includes("соль") || searchCorpus.includes("salt") || searchCorpus.includes("salz") || searchCorpus.includes("en:salt");
 
-    // 5. Identify chemical additives
     const foundAdditives: string[] = [];
     const additiveTerms = ["глутамат", "ароматизатор", "краситель", "консервант", "стабилизатор", "эмульгатор", "е-", " e-", "кислота лимонная", "лецитин"];
     additiveTerms.forEach(term => {
-      if (ingredients.includes(term)) {
-        if (term === "ароматизатор" && !foundAdditives.includes("ароматизаторы")) foundAdditives.push("ароматизаторы");
-        else if (term === "консервант" && !foundAdditives.includes("консерванты")) foundAdditives.push("консерванты");
-        else if (term === "эмульгатор" && !foundAdditives.includes("эмульгаторы")) foundAdditives.push("эмульгаторы");
-        else if (term === "стабилизатор" && !foundAdditives.includes("стабилизаторы")) foundAdditives.push("стабилизаторы");
-        else if (term === "глутамат" && !foundAdditives.includes("усилители вкуса")) foundAdditives.push("усилители вкуса");
+      if (searchCorpus.includes(term)) {
+        if (!foundAdditives.includes("технологические добавки")) foundAdditives.push("технологические добавки");
       }
     });
-    const hasHeavyAdditives = foundAdditives.length > 0 || product.nova_group === 4;
+    const hasHeavyAdditives = foundAdditives.length > 0 || Number(product.nova_group) === 4;
 
     if (isAnimal) {
-      const listStr = foundAnimalIngredients.join(", ");
+      const listStr = Array.from(new Set(foundAnimalIngredients)).join(", ");
       return {
         status: "bad" as const,
         title: "Продукт животного происхождения",
@@ -904,39 +890,34 @@ export default function MyPurchasesScreen({
     }
 
     if (hasRefinedOils && hasSugar) {
-      const oilsStr = foundOils.join(", ");
-      const sugarsStr = foundSugars.join(", ");
       return {
         status: "bad" as const,
         title: "Рафинированные жиры и сахар",
-        text: `В составе одновременно присутствуют рафинированные жиры (${oilsStr}) и добавленный сахар (${sugarsStr}). Такое сочетание изолированных калорий перегружает поджелудочную железу и провоцирует скрытые воспаления. Рекомендую заменить этот продукт цельными злаками, фруктами или орехами.`
+        text: `В составе одновременно присутствуют рафинированные жиры и добавленный сахар. Такое сочетание изолированных калорий перегружает поджелудочную железу и провоцирует скрытые воспаления. Рекомендую заменить этот продукт цельными злаками, фруктами или орехами.`
       };
     }
 
     if (hasRefinedOils) {
-      const oilsStr = foundOils.join(", ");
       return {
         status: "oil-sugar" as const,
         title: "Содержит рафинированные масла",
-        text: `В составе присутствует изолированное масло: ${oilsStr}. Согласно правилам WFPB, мы бережём стенки артерий и рекомендуем получать жиры только в их природной оболочке — из семечек, орехов, авокадо, льна или чиа, где они связаны с клетчаткой.`
+        text: `В составе присутствует изолированное масло. Согласно правилам WFPB, мы бережём стенки артерий и рекомендуем получать жиры только в их природной оболочке — из семечек, орехов, авокадо, льна или чиа, где они связаны с клетчаткой.`
       };
     }
 
     if (hasSugar) {
-      const sugarsStr = foundSugars.join(", ");
       return {
         status: "oil-sugar" as const,
         title: "Содержит добавленный сахар",
-        text: `В списке ингредиентов замечен рафинированный подсластитель: ${sugarsStr}. Быстрые изолированные сахара провоцируют резкие инсулиновые колебания. Старайтесь выбирать продукты со сладостью от цельных фиников, кураги или спелых фруктов.`
+        text: `В списке ингредиентов замечен рафинированный подсластитель. Быстрые изолированные сахара провоцируют резкие инсулиновые колебания. Старайтесь выбирать продукты со сладостью от цельных фиников, кураги или спелых фруктов.`
       };
     }
 
     if (hasHeavyAdditives) {
-      const addStr = foundAdditives.length > 0 ? foundAdditives.join(", ") : "технологические добавки ультра-обработки";
       return {
         status: "warning" as const,
         title: "Высокая степень обработки",
-        text: `Полностью растительный продукт, однако содержит добавленные компоненты глубокой обработки (${addStr}). Это допустимо как редкое компромиссное решение в пути, но для регулярного рациона лучше отдавать предпочтение минимально обработанным цельным продуктам.`
+        text: `Полностью растительный продукт, однако содержит добавленные компоненты глубокой обработки. Это допустимо как редкое компромиссное решение в пути, но для регулярного рациона лучше отдавать предпочтение минимально обработанным цельным продуктам.`
       };
     }
 
@@ -948,8 +929,7 @@ export default function MyPurchasesScreen({
       };
     }
 
-    // Cleaned-ingredients based formulation
-    const cleanedIngredientsList = ingredients.split(/[,.;()]+/);
+    const cleanedIngredientsList = ingredientsOnly.split(/[,.;()]+/);
     const topIngredients = cleanedIngredientsList
       .slice(0, 3)
       .map(i => i.trim())
@@ -962,11 +942,10 @@ export default function MyPurchasesScreen({
     return {
       status: "perfect" as const,
       title: "Идеально чистый WFPB состав!",
-      text: `Превосходный выбор! Перед нами абсолютно натуральный продукт ${ingredientsMention}, не содержащий добавленной соли, сахара, рафинированных масел и избыточной химии. Ваши клетки получат чистую пользу, пищевые волокна и ценные нутриенты. Полное одобрение Анны! 🌱💚`
+      text: `Превосходный выбор! Перед нами абсолютно натуральный продукт ${ingredientsMention}, не содержащий добавленной соли, сахара, рафинированных масел и избыточной химии. Ваши клетки получат чистую пользу, пищевые волокна и ценные нутриенты. Полное одобрение Анны!`
     };
   };
 
-  // Map local verdict status to DB verdictStatus
   function mapVerdictStatus(status: "perfect" | "warning" | "oil-sugar" | "bad"): "green" | "orange" | "red" {
     switch (status) {
       case "perfect": return "green";
@@ -976,7 +955,6 @@ export default function MyPurchasesScreen({
     }
   }
 
-  // Add current selected product to shopping list
   const handleAddToShoppingList = () => {
     if (!selectedProduct) return;
     
@@ -1004,14 +982,25 @@ export default function MyPurchasesScreen({
       addedAt: Date.now()
     };
 
-    setShoppingList(prev => [newItem, ...prev]);
+    setShoppingList(prev => {
+      const updated = [newItem, ...prev];
+      return updated.slice(0, 50); // Жесткий лимит 50 продуктов
+    });
 
-    // Show toast and go back
     setToastMessage("Добавлено в список!");
     setToastVisible(true);
-    setTimeout(() => { setToastVisible(false); setActiveMode("start"); setSelectedProduct(null); }, 1200);
+    
+    // Мгновенный и жесткий сброс поиска, открытие спойлера и возврат в Start
+    setTimeout(() => { 
+      setToastVisible(false); 
+      setSearchQuery("");
+      setSearchResults([]);
+      setHasSearched(false);
+      setIsShoppingListOpen(true);
+      setActiveMode("start"); 
+      setSelectedProduct(null); 
+    }, 1200);
 
-    // Persist shopping item to DB (fire-and-forget)
     api("/api/shopping-list", {
       method: "POST",
       body: {
@@ -1021,38 +1010,26 @@ export default function MyPurchasesScreen({
         imageUrl: newItem.image || null,
         verdictStatus,
       },
-    }).then((res: any) => {
-      // Update local id with server UUID for future PATCH/DELETE
-      if (res?.id) {
-        setShoppingList(prev => prev.map(item =>
-          item.id === newItem.id ? { ...item, id: res.id } : item
-        ));
-      }
     }).catch(() => {});
   };
 
-  // Toggle item check status
   const handleToggleItem = (itemId: string) => {
     setShoppingList(prev => prev.map(item =>
       item.id === itemId ? { ...item, checked: !item.checked } : item
     ));
-    // Sync to DB (fire-and-forget)
     api("/api/shopping-list/" + encodeURIComponent(itemId), {
       method: "PATCH",
       body: { checked: !shoppingList.find(i => i.id === itemId)?.checked },
     }).catch(() => {});
   };
 
-  // Remove item from shopping list
   const handleRemoveItem = (itemId: string) => {
     setShoppingList(prev => prev.filter(item => item.id !== itemId));
-    // Sync to DB (fire-and-forget)
     api("/api/shopping-list/" + encodeURIComponent(itemId), {
       method: "DELETE",
     }).catch(() => {});
   };
 
-  // Reset entire shopping list
   const handleClearShoppingList = () => {
     if (window.confirm("Очистить ваш список покупок?")) {
       setShoppingList([]);
@@ -1070,7 +1047,7 @@ export default function MyPurchasesScreen({
         <div className="flex justify-between items-center w-full mb-3 mt-1">
           <button 
             type="button" 
-            onClick={onBack}
+            onClick={handleTopBack}
             className="w-10 h-10 rounded-full border border-gray-150/70 bg-white shadow-xs flex items-center justify-center text-slate-600 hover:text-brand-green-dark cursor-pointer transition-all active:scale-95 outline-none"
           >
             <ArrowLeft className="w-5 h-5 stroke-[2.2]" />
@@ -1091,12 +1068,12 @@ export default function MyPurchasesScreen({
           <h1 className="text-[25px] sm:text-[27px] font-bold text-[#2E6B47] tracking-tight leading-none mb-1 font-sans">
             Покупки
           </h1>
-          <p className="text-[13.5px] text-text-muted font-medium leading-tight">
+          <p className="text-[15px] text-text-muted font-medium leading-tight">
             Проверяй продукты и собирай список осознанно
           </p>
         </div>
 
-        {/* ================= MODE: SCANNING (REAL DEVICE CAMERA WITH HTML5) ================= */}
+        {/* ================= MODE: SCANNING ================= */}
         <AnimatePresence mode="wait">
           {activeMode === "scan" && (
             <motion.div 
@@ -1130,15 +1107,12 @@ export default function MyPurchasesScreen({
 
               {/* Aiming guidelines Frame Viewport */}
               <div className="w-full h-48 bg-slate-950 rounded-[18px] relative overflow-hidden flex items-center justify-center border border-[#E6E1D7] shadow-inner" id="media-viewport-container">
-                {/* HTML5 Video output slot (only when initialized, camera is loaded) */}
                 <div id={scannerContainerId} className="absolute inset-0 w-full h-full object-cover [&_video]:object-cover [&_video]:w-full [&_video]:h-full" />
                 
-                {/* Dark overlay with blur for specific non-scanning/checking views to focus eyes */}
                 {scanStatus !== "scanning" && scanStatus !== "temp-error" && (
                   <div className="absolute inset-0 bg-slate-950/75 backdrop-blur-[2px] z-5 transition-all" />
                 )}
 
-                {/* 1. STATE: PERMISSION PROMPT VIEW */}
                 {scanStatus === "permission-prompt" && (
                   <div className="absolute inset-0 z-20 flex flex-col items-center justify-center text-center p-5 text-white">
                     <AlertTriangle className="w-7 h-7 text-[#D8A85F] mb-1.5" />
@@ -1156,7 +1130,6 @@ export default function MyPurchasesScreen({
                   </div>
                 )}
 
-                {/* 2. STATE: INITIALIZING VIEW */}
                 {scanStatus === "initializing" && (
                   <div className="absolute inset-0 z-20 flex flex-col items-center justify-center text-center p-4 text-white">
                     <Loader2 className="w-7 h-7 text-[#7BBE8A] animate-spin mb-2" />
@@ -1165,7 +1138,6 @@ export default function MyPurchasesScreen({
                   </div>
                 )}
 
-                {/* 3. SCANNERS VIEWFINDER FRAME (Only showing during active camera streams) */}
                 {(scanStatus === "scanning" || scanStatus === "temp-error" || scanStatus === "scanned-success") && (
                   <div className={`absolute w-[82%] h-[35%] border rounded-[12px] z-10 flex flex-col items-center justify-center transition-all duration-300 pointer-events-none ${
                     scanStatus === "scanned-success"
@@ -1173,7 +1145,6 @@ export default function MyPurchasesScreen({
                       : "border-white/30 bg-transparent"
                   }`} id="barcode-scan-frame">
                     
-                    {/* Viewfinder brackets inside the scan frame to suggest correct alignment direction */}
                     <div className={`absolute top-1.5 left-1.5 w-4 h-4 border-t-2 border-l-2 transition-colors duration-300 ${scanStatus === "scanned-success" ? "border-[#7BBE8A]" : "border-white/85"}`} />
                     <div className={`absolute top-1.5 right-1.5 w-4 h-4 border-t-2 border-r-2 transition-colors duration-300 ${scanStatus === "scanned-success" ? "border-[#7BBE8A]" : "border-white/85"}`} />
                     <div className={`absolute bottom-1.5 left-1.5 w-4 h-4 border-b-2 border-l-2 transition-colors duration-300 ${scanStatus === "scanned-success" ? "border-[#7BBE8A]" : "border-white/85"}`} />
@@ -1188,13 +1159,11 @@ export default function MyPurchasesScreen({
                         <Check className="w-4 h-4 stroke-[3]" />
                       </motion.div>
                     ) : (
-                      /* Active scan laser guiding bar - styled nicely in our accent red/amber/green shades */
                       <div className={`w-[92%] h-[1.5px] transition-all duration-300 bg-[#7BBE8A] shadow-[0_0_8px_#7BBE8A] animate-pulse`} />
                     )}
                   </div>
                 )}
 
-                {/* 4. STATE: SCANNED SUCCESS VIEW OVERLAY */}
                 {scanStatus === "scanned-success" && (
                   <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-[1px] flex flex-col items-center justify-center z-25 text-white pointer-events-none">
                     <span className="text-[12.5px] font-bold tracking-wider uppercase text-[#7BBE8A] bg-slate-900/90 px-3.5 py-1 rounded-full border border-[#7BBE8A]/35 shadow-lg mb-1.5">
@@ -1206,7 +1175,6 @@ export default function MyPurchasesScreen({
                   </div>
                 )}
 
-                {/* 5. STATE: SEARCHING DATABASE STATE OVERLAY */}
                 {scanStatus === "searching-db" && (
                   <div className="absolute inset-0 z-20 flex flex-col items-center justify-center text-white pointer-events-none">
                     <Loader2 className="w-8 h-8 text-[#7BBE8A] animate-spin mb-2" />
@@ -1216,13 +1184,12 @@ export default function MyPurchasesScreen({
                   </div>
                 )}
 
-                {/* 6. STATE: PRODUCT NOT FOUND OVERLAY */}
                 {scanStatus === "not-found" && (
                   <div className="absolute inset-0 flex flex-col items-center justify-center z-20 text-white p-4">
                     <div className="w-9 h-9 rounded-full bg-amber-500/15 border border-amber-500 text-[#D8A85F] flex items-center justify-center mb-2">
                       <AlertTriangle className="w-5 h-5" />
                     </div>
-                    <span className="text-[13px] font-bold text-amber-200 tracking-tight text-center leading-tight mb-1 bg-slate-950/70 px-3 py-1 rounded-lg border border-amber-500/10">
+                    <span className="text-[13px] font-bold text-amber-200 tracking-tight leading-tight mb-1 bg-slate-950/70 px-3 py-1 rounded-lg border border-amber-500/10">
                       Товар отсутствует в реестре
                     </span>
                     <span className="text-[10px] text-slate-450 font-mono bg-slate-950/40 px-2 py-0.5 rounded">
@@ -1231,7 +1198,6 @@ export default function MyPurchasesScreen({
                   </div>
                 )}
 
-                {/* 7. STATE: SYSTEM CAMERA STARTUP ERROR OVERLAY */}
                 {scanStatus === "camera-error" && (
                   <div className="absolute inset-0 flex flex-col items-center justify-center z-20 text-white p-4 text-center">
                     <div className="w-9 h-9 rounded-full bg-[#D98B8B]/25 border border-[#D98B8B] text-[#D98B8B] flex items-center justify-center mb-2">
@@ -1246,7 +1212,6 @@ export default function MyPurchasesScreen({
                   </div>
                 )}
 
-                {/* Bottom viewfinder HUD prompt */}
                 <div className="absolute bottom-2.5 inset-x-0 mx-auto text-center z-15 pointer-events-none">
                   <span className="text-[9px] uppercase tracking-wider bg-slate-900/90 text-slate-200 font-bold px-3 py-0.5 rounded-full select-none shadow-sm">
                     {scanStatus === "permission-prompt" && "ожидание камерного доступа"}
@@ -1261,9 +1226,7 @@ export default function MyPurchasesScreen({
                 </div>
               </div>
 
-              {/* Dynamic Anna's Coaching Dialog block */}
               <div className="bg-[#FBFAF7] border border-[#E6E1D7] rounded-[22px] p-3.5 flex items-start gap-3 text-left mt-3.5 relative overflow-hidden shadow-xs" id="annas-scan-advice">
-                {/* Visual ambient warm green light ray */}
                 <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-[#2E6B47]/5 to-transparent rounded-full blur-xl pointer-events-none" />
                 <div className="relative shrink-0 select-none">
                   <div className="w-[45px] h-[45px] rounded-full overflow-hidden shadow-md border border-[#2E6B47]/20 relative">
@@ -1299,33 +1262,30 @@ export default function MyPurchasesScreen({
                 </div>
               </div>
 
-              {/* ACTION MODULE AFTER ERROR ENCOUNTERED ("not-found", "camera-error" or "temp-error") */}
               {(scanStatus === "not-found" || scanStatus === "camera-error" || scanStatus === "temp-error") && (
-                <div className="mt-3.5 p-3.5 bg-[#F6F4EE] rounded-[20px] border border-[#E6E1D7] flex flex-col gap-2.5 w-full">
-                  <span className="text-[12px] font-bold text-[#263326] leading-none">Быстрые действия:</span>
-                  <div className="grid grid-cols-2 gap-2">
+                <div className="mt-3.5 p-4 bg-[#F6F4EE] rounded-[20px] border border-[#E6E1D7] flex flex-col gap-3 w-full">
+                  <span className="text-[13px] font-bold text-[#263326] leading-none">Быстрые действия:</span>
+                  <div className="grid grid-cols-2 gap-2.5">
                     {scanStatus !== "camera-error" && (
                       <button
                         type="button"
                         onClick={() => {
                           startCameraScan();
                         }}
-                        className="bg-[#2E6B47] hover:bg-[#1f4c31] text-white rounded-xl py-2 px-3 text-center font-bold text-[11px] tracking-tight transition-all active:scale-95 cursor-pointer"
+                        className="bg-[#2E6B47] hover:bg-[#1f4c31] text-white rounded-xl py-3 px-4 text-center font-bold text-[13px] tracking-tight transition-all active:scale-95 cursor-pointer shadow-sm"
                       >
-                        Повторить сканирование
+                        Повторить скан
                       </button>
                     )}
                     <button
                       type="button"
                       onClick={() => {
                         stopScanner();
-                        setActiveMode("name-search");
-                        setSearchQuery("");
-                        setSearchResults([]);
+                        setActiveMode("start");
                       }}
-                      className="bg-white border border-[#E6E1D7] hover:bg-slate-50 text-[#263326] rounded-xl py-2 px-3 text-center font-bold text-[11px] tracking-tight transition-all active:scale-95 cursor-pointer"
+                      className="bg-white border border-[#E6E1D7] hover:bg-slate-50 text-[#263326] rounded-xl py-3 px-4 text-center font-bold text-[13px] tracking-tight transition-all active:scale-95 cursor-pointer shadow-sm"
                     >
-                      Искать по названию
+                      Искать текстом
                     </button>
                     {scanStatus === "camera-error" && (
                       <button
@@ -1333,25 +1293,24 @@ export default function MyPurchasesScreen({
                         onClick={() => {
                           startCameraScan();
                         }}
-                        className="bg-[#2E6B47] hover:bg-[#1f4c31] text-white rounded-xl py-2 px-3 text-center font-bold text-[11px] tracking-tight transition-all active:scale-95 cursor-pointer"
+                        className="bg-[#2E6B47] hover:bg-[#1f4c31] text-white rounded-xl py-3 px-4 text-center font-bold text-[13px] tracking-tight transition-all active:scale-95 cursor-pointer shadow-sm"
                       >
-                        Перезагрузить камеру
+                        Перезагрузить
                       </button>
                     )}
                   </div>
                 </div>
               )}
 
-              {/* MANUAL BARCODE INPUT FALLBACK */}
-              <div className="border-t border-[#E6E1D7] pt-3.5 mt-3.5 w-full">
-                <span className="text-[12px] font-bold text-[#667064] block mb-1.5">Не считывается? Введите штрихкод руками:</span>
-                <div className="flex gap-1.5">
+              <div className="border-t border-[#E6E1D7] pt-4 mt-4 w-full">
+                <span className="text-[13px] font-bold text-[#667064] block mb-2">Не считывается? Введите штрихкод руками:</span>
+                <div className="flex gap-2">
                   <input 
                     type="text" 
                     placeholder="Пример: 4600676008688"
                     value={manualBarcode}
                     onChange={(e) => setManualBarcode(e.target.value.replace(/\D/g, ""))}
-                    className="flex-1 outline-none text-[13.5px] px-3 py-1.5 bg-[#FBFAF7] border border-[#E6E1D7] rounded-xl focus:border-[#2E6B47]/60 font-mono transition-all text-[#263326]"
+                    className="flex-1 outline-none text-[15px] px-4 py-2.5 bg-[#FBFAF7] border border-[#E6E1D7] rounded-xl focus:border-[#2E6B47]/60 font-mono transition-all text-[#263326]"
                   />
                   <button 
                     type="button"
@@ -1361,7 +1320,7 @@ export default function MyPurchasesScreen({
                         handleSearchBarcode(manualBarcode);
                       }
                     }}
-                    className="bg-[#2E6B47] hover:bg-[#1F4C31] text-white px-4 py-1.5 rounded-xl font-bold text-[13px] tracking-tight cursor-pointer transition-all active:scale-95"
+                    className="bg-[#2E6B47] hover:bg-[#1F4C31] text-white px-5 py-2.5 rounded-xl font-bold text-[14px] tracking-tight cursor-pointer transition-all active:scale-95 shadow-sm"
                   >
                     Поиск
                   </button>
@@ -1373,74 +1332,186 @@ export default function MyPurchasesScreen({
 
         {/* ================= MAIN INTERACTIVE HOME HUB OF THE SCREEN ================= */}
         {activeMode === "start" && (
-          <div className="flex flex-col gap-3.5 mb-5 w-full">
+          <div className="flex flex-col gap-4 mb-5 w-full">
             
-            {/* Visual Two Actions Premium Cards row/stack */}
-            <div className="grid grid-cols-2 gap-3.5 mt-1">
+            {/* УМНАЯ СТРОКА ПОИСКА (SMART SEARCH BAR) СО ВСТРОЕННЫМ СКАНЕРОМ */}
+            <div className="bg-white rounded-[26px] border border-slate-100 shadow-[0_2px_10px_rgba(0,0,0,0.02)] p-2.5 relative overflow-hidden">
+              <div className="flex gap-2.5 relative z-10">
+                <div className="flex-1 flex items-center bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3 transition-colors focus-within:border-[#2E6B47]/30 focus-within:bg-white">
+                  <Search className="w-5 h-5 text-slate-400 shrink-0 mr-2.5" />
+                  <input 
+                    type="text" 
+                    placeholder="Искать продукт или бренд..."
+                    value={searchQuery}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value);
+                      setHasSearched(false);
+                      if(e.target.value.trim() === '') setSearchResults([]);
+                    }}
+                    onKeyDown={(e) => e.key === "Enter" && handleSearchByName()}
+                    className="w-full bg-transparent border-none outline-none text-[16px] text-slate-800 placeholder:text-slate-400"
+                  />
+                  {searchQuery ? (
+                    <button 
+                      type="button" 
+                      onClick={() => {
+                        setSearchQuery("");
+                        setHasSearched(false);
+                        setSearchResults([]);
+                      }}
+                      className="text-slate-400 hover:text-slate-600 transition-colors p-1 rounded-full hover:bg-slate-200"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  ) : (
+                    <button 
+                      type="button" 
+                      onClick={startCameraScan}
+                      className="text-[#2E6B47] hover:text-[#1F4C31] transition-colors p-1 rounded-full hover:bg-emerald-50 cursor-pointer"
+                    >
+                      <Camera className="w-5 h-5" />
+                    </button>
+                  )}
+                </div>
+                <button 
+                  type="button"
+                  onClick={handleSearchByName}
+                  disabled={loading || !searchQuery.trim()}
+                  className="bg-[#2E6B47] hover:bg-[#1F4C31] text-white px-6 py-3 rounded-2xl font-bold text-[15px] tracking-tight cursor-pointer transition-all active:scale-95 flex items-center justify-center min-w-[90px] disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : "Найти"}
+                </button>
+              </div>
               
-              {/* BRAND CARD 1: CAMERA SCANNER (HIGHER ACCENT) */}
-              <motion.button
-                whileTap={{ scale: 0.97 }}
-                onClick={startCameraScan}
-                className="flex flex-col items-start justify-between bg-gradient-to-b from-[#2E6B47] via-[#1F4C31] to-[#143420] text-white rounded-[26px] p-4 text-left border-t border-white/20 shadow-[inset_0_2px_4px_rgba(255,255,255,0.35),_inset_0_-2.5px_4px_rgba(0,0,0,0.18),_0_8px_18px_rgba(31,76,49,0.18)] active:brightness-95 transition-all outline-none cursor-pointer h-36"
-              >
-                <div className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center text-white shrink-0 shadow-[inset_0_1px_2px_rgba(255,255,255,0.2)]">
-                  <Camera className="w-5 h-5 text-white" />
-                </div>
-                <div className="flex flex-col mt-3 text-left">
-                  <span className="text-[15px] font-bold tracking-tight leading-none font-sans">
-                    Сканировать
-                  </span>
-                  <span className="text-[10px] opacity-75 font-semibold mt-1 leading-normal font-sans">
-                    штрихкод через камеру телефона
-                  </span>
-                </div>
-              </motion.button>
-
-              {/* BRAND CARD 2: SEARCH BY TEXT */}
-              <motion.button
-                whileTap={{ scale: 0.97 }}
-                onClick={() => setActiveMode("name-search")}
-                className="flex flex-col items-start justify-between bg-gradient-to-b from-white via-slate-50 to-slate-100 text-[#2E6B47] rounded-[26px] p-4 text-left border border-slate-100 shadow-[inset_0_2px_4px_rgba(255,255,255,0.9),_inset_0_-2px_4px_rgba(30,30,30,0.02),_0_8px_18px_rgba(0,0,0,0.03)] active:brightness-98 transition-all outline-none cursor-pointer h-36"
-              >
-                <div className="w-10 h-10 rounded-full bg-[#EBF5EF] flex items-center justify-center text-[#2E6B47] shrink-0 border border-emerald-50">
-                  <Search className="w-5 h-5 text-[#2E6B47]" />
-                </div>
-                <div className="flex flex-col mt-3 text-left">
-                  <span className="text-[15px] font-bold tracking-tight leading-none font-sans text-slate-800">
-                    Найти по имени
-                  </span>
-                  <span className="text-[10px] text-slate-500 font-semibold mt-1 leading-normal font-sans">
-                    ручной поиск продуктов в базе данных
-                  </span>
-                </div>
-              </motion.button>
+              {/* Прогресс-бар скрытых повторов API */}
+              <div 
+                className="absolute bottom-0 left-0 h-1.5 bg-gradient-to-r from-[#2E6B47] to-[#16B551] transition-all duration-300 ease-out z-0" 
+                style={{ width: `${searchProgress}%`, opacity: searchProgress > 0 ? 1 : 0 }} 
+              />
             </div>
 
-            {/* ERROR AND CAMERA PERMISSION ALERTS */}
+            {/* СПОЙЛЕР ВАШЕГО СПИСКА ПОКУПОК (Выводится под строкой поиска, если не пуст) */}
+            {!loading && shoppingList.length > 0 && (
+              <div className="w-full mt-2 select-none" id="shopping-list-collection">
+                <button
+                  type="button"
+                  onClick={() => setIsShoppingListOpen(!isShoppingListOpen)}
+                  className="flex justify-between items-center w-full mb-3 outline-none active:scale-95 transition-transform"
+                >
+                  <span className="text-[15.5px] font-extrabold text-[#2F4F3F] font-sans tracking-tight flex items-center gap-1.5">
+                    <ShoppingBag className="w-4.5 h-4.5 text-[#2E6B47]" /> Мой список ({shoppingList.length})
+                    {isShoppingListOpen ? <ChevronUp className="w-4 h-4 text-slate-400 ml-1" /> : <ChevronDown className="w-4 h-4 text-slate-400 ml-1" />}
+                  </span>
+                  
+                  <span
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleClearShoppingList();
+                    }}
+                    className="text-[11.5px] font-bold text-red-500 hover:text-red-700 cursor-pointer flex items-center gap-0.5 transition-colors"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" /> Очистить
+                  </span>
+                </button>
+
+                <AnimatePresence>
+                  {isShoppingListOpen && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      className="overflow-hidden flex flex-col gap-2.5"
+                    >
+                      {shoppingList.map((item) => {
+                        const vColor: Record<string, string> = {
+                          green: "bg-emerald-50 text-emerald-700",
+                          orange: "bg-amber-50 text-amber-700",
+                          red: "bg-red-50 text-red-700",
+                        };
+                        const vLabel: Record<string, string> = {
+                          green: "WFPB ✅",
+                          orange: "С осторожностью",
+                          red: "Не рекомендуется ❌",
+                        };
+                        
+                        return (
+                          <div
+                            key={item.id}
+                            className={`rounded-[22px] p-3 flex items-start gap-2.5 text-left relative overflow-hidden transition-all duration-300 shadow-[0_6px_16px_rgba(46,107,71,0.06),_0_1px_3px_rgba(0,0,0,0.02)] border-[1.5px] border-white ${
+                              item.checked
+                                ? "bg-[#EBF5EF]/50 opacity-60 grayscale-[0.5]"
+                                : "bg-gradient-to-br from-[#F2F8F4] to-[#E9F3EC]"
+                            }`}
+                          >
+                            <button
+                              type="button"
+                              onClick={() => handleToggleItem(item.id)}
+                              className={`w-6 h-6 rounded-full border flex items-center justify-center cursor-pointer shrink-0 transition-all ${
+                                item.checked
+                                  ? "bg-[#16B551] border-[#16B551] text-white"
+                                  : "bg-white border-slate-200 hover:border-[#16B551]"
+                              }`}
+                            >
+                              {item.checked && <Check className="w-3.5 h-3.5 stroke-[2.5]" />}
+                            </button>
+
+                            <div className="flex-1 flex gap-2 min-w-0">
+                              {item.image ? (
+                                <img 
+                                  src={item.image} 
+                                  alt={item.name}
+                                  className="w-12 h-12 rounded-xl object-cover shrink-0 shadow-sm border border-white/50"
+                                  referrerPolicy="no-referrer"
+                                />
+                              ) : (
+                                <div className="w-12 h-12 rounded-xl bg-slate-100 border border-slate-200/50 flex items-center justify-center text-slate-300 shrink-0 font-sans text-[8px] font-extrabold uppercase">
+                                  ФОТО
+                                </div>
+                              )}
+                              <div className="flex flex-col min-w-0">
+                                <span className={`text-[13.5px] font-bold text-slate-800 leading-tight ${item.checked ? "line-through text-slate-400" : ""}`}>
+                                  {item.name}
+                                </span>
+                                {item.brand && (
+                                  <span className="text-[11px] text-slate-500 leading-none truncate mt-0.5">
+                                    {item.brand}
+                                  </span>
+                                )}
+
+                                <div className="flex items-center gap-1.5 mt-1.5">
+                                  <span className={`text-[9.5px] font-bold px-1.5 py-0.5 rounded-full ${vColor[item.verdictStatus] || "bg-emerald-50 text-emerald-700"}`}>
+                                    {vLabel[item.verdictStatus] || "Чистый состав"}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveItem(item.id)}
+                              className="text-slate-400 hover:text-red-500 hover:bg-red-50 p-1.5 rounded-lg transition-colors cursor-pointer shrink-0 ml-1 mt-0.5 focus:outline-none"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            )}
+
             {cameraError && (
               <div className="bg-amber-50 rounded-[18px] border border-amber-100 p-3 text-amber-900 text-[12.5px] leading-tight flex items-start gap-2.5">
                 <AlertTriangle className="w-4.5 h-4.5 text-amber-600 shrink-0 mt-0.5" />
                 <div className="flex-1 flex flex-col gap-1 text-left">
                   <span className="font-bold">Доступ ограничен</span>
-                  <span>{cameraError} Приложение автоматически переключилось в режим ручного поиска. Вы можете ввести номер штрихкода руками.</span>
+                  <span>{cameraError} Приложение автоматически переключилось в режим ручного поиска.</span>
                   <div className="flex gap-2.5 mt-1.5">
                     <button 
                       type="button"
-                      onClick={() => {
-                        setCameraError(null);
-                        setManualBarcode("");
-                        setActiveMode("name-search");
-                      }}
-                      className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-[11px] uppercase tracking-wide px-3 py-1 rounded-lg transition-all"
-                    >
-                      Ручной поиск
-                    </button>
-                    <button 
-                      type="button"
-                      onClick={() => {
-                        setCameraError(null);
-                      }}
+                      onClick={() => setCameraError(null)}
                       className="text-amber-700 underline font-semibold text-[11px]"
                     >
                       Скрыть
@@ -1450,179 +1521,109 @@ export default function MyPurchasesScreen({
               </div>
             )}
 
-            {/* DEMONSTRATION POPULAR BARCODES BLOCK - VERY CONVENIENT FOR DESKTOP OR TESTERS */}
-            <div className="bg-white rounded-[24px] border border-slate-100 shadow-[0_4px_12px_rgba(0,0,0,0.015)] p-4 text-left w-full">
-              <div className="flex items-center gap-1.5 mb-2.5">
-                <Sparkles className="w-4 h-4 text-[#16B551]" />
-                <span className="text-[13px] font-extrabold text-slate-700 font-sans tracking-tight">Быстрый тест без камеры (популярно)</span>
-              </div>
-              <p className="text-[11.5px] text-text-muted leading-tight mb-3">
-                Нажмите на любой товар ниже, чтобы протестировать распознавание состава и вердикт Анны по штрихкоду на лету:
-              </p>
-              <div className="flex flex-col gap-2">
-                {SAMPLE_BARCODES.map((sample, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => handleSearchBarcode(sample.code)}
-                    className="flex justify-between items-center text-left bg-slate-50 hover:bg-[#EBF5EF] hover:border-emerald-100 border border-slate-100 p-2.5 rounded-[14px] transition-all cursor-pointer active:scale-98 group"
-                  >
-                    <div className="flex flex-col">
-                      <span className="text-[12.5px] font-bold text-slate-700 leading-none group-hover:text-[#2E6B47] transition-colors">{sample.name}</span>
-                      <span className="text-[10px] text-text-muted leading-none mt-1 font-mono font-bold tracking-tight">{sample.code}</span>
-                    </div>
-                    <span className="text-[10.5px] font-semibold text-[#2E6B47] opacity-80 group-hover:opacity-100 transition-all flex items-center gap-0.5 shrink-0 bg-white group-hover:bg-emerald-50 px-2 py-1 rounded-lg border border-slate-150/40">
-                      Тест <RefreshCw className="w-3 h-3 text-[#16B551] animate-spin-slow" />
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-          </div>
-        )}
-
-        {/* ================= MODE: NAME SEARCH GRID & LIST RESULTS ================= */}
-        {activeMode === "name-search" && (
-          <div className="flex flex-col gap-3.5 mb-5 w-full">
-            {/* Search Input text box */}
-            <div className="bg-white rounded-[22px] border border-slate-100 shadow-[0_2px_10px_rgba(0,0,0,0.015)] p-2">
-              <div className="flex gap-2">
-                <div className="flex-1 flex items-center bg-slate-50 border border-slate-100 rounded-xl px-2.5 py-1.5">
-                  <Search className="w-4 h-4 text-slate-400 shrink-0 mr-2" />
-                  <input 
-                    type="text" 
-                    placeholder="Искать: Nemoloko, овсянка, хлебцы..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && handleSearchByName()}
-                    className="w-full bg-transparent border-none outline-none text-[14px] text-slate-700"
-                  />
-                  {searchQuery && (
-                    <button 
-                      type="button" 
-                      onClick={() => setSearchQuery("")}
-                      className="text-slate-400 hover:text-slate-600 transition-colors p-0.5 rounded-full hover:bg-slate-200"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </div>
-                <button 
-                  type="button"
-                  onClick={handleSearchByName}
-                  className="bg-[#2E6B47] hover:bg-[#1F4C31] text-white px-5 py-2 rounded-xl font-bold text-[13px] tracking-tight cursor-pointer transition-all active:scale-95 flex items-center gap-1.5"
-                >
-                  Найти
-                </button>
-              </div>
-            </div>
-
-            {/* Back to normal view link */}
-            <div className="flex justify-between items-center px-1">
-              <button 
-                type="button"
-                onClick={() => {
-                  setSearchQuery("");
-                  setSearchResults([]);
-                  setActiveMode("start");
-                }}
-                className="text-slate-500 hover:text-[#2E6B47] font-semibold text-[12.5px] transition-colors flex items-center gap-1"
-              >
-                <ArrowLeft className="w-4 h-4" /> Назад в меню
-              </button>
-              <span className="text-[11px] font-bold text-text-muted font-mono bg-slate-100 px-2 py-0.5 rounded-md">
-                Найдено: {searchResults.length}
-              </span>
-            </div>
-
-            {/* Search items listing */}
+            {/* СПИСОК РЕЗУЛЬТАТОВ ПОИСКА */}
             {searchResults.length > 0 ? (
-              <div className="flex flex-col gap-2.5 max-h-[360px] overflow-y-auto pr-1">
-                {searchResults.map((prod, idx) => {
-                  const hasFrontImage = !!prod.image_front_url;
-                  return (
-                    <div
-                      key={idx}
-                      className="bg-white rounded-[18px] border border-slate-100 p-2.5 shadow-sm flex items-center justify-between text-left group hover:border-emerald-100 transition-all duration-300"
-                    >
-                      <div className="flex items-center gap-2.5 flex-1 min-w-0 pr-1.5">
-                        {hasFrontImage ? (
-                          <img 
-                            src={prod.image_front_url} 
-                            alt={prod.product_name_ru || prod.product_name || "Продукт"}
-                            className="w-12 h-12 rounded-xl object-contain bg-slate-50 p-0.5 border border-slate-100 border-dashed shrink-0"
-                            referrerPolicy="no-referrer"
-                          />
-                        ) : (
-                          <div className="w-12 h-12 rounded-xl bg-slate-50 border border-slate-100 border-dashed flex items-center justify-center text-slate-300 shrink-0 font-sans text-[9px] font-extrabold uppercase">
-                            НЕТ ФОТО
-                          </div>
-                        )}
-                        <div className="flex flex-col min-w-0">
-                          <span className="text-[13.5px] font-bold text-slate-800 leading-tight truncate">
-                            {prod.product_name_ru || prod.product_name || "Без названия"}
-                          </span>
-                          <span className="text-[11px] text-slate-500 leading-none truncate mt-0.5 font-sans">
-                            {prod.brands || "Неизвестный бренд"}
-                          </span>
-                          
-                          {/* Quick details chips */}
-                          <div className="flex gap-1.5 mt-1 items-center">
-                            {prod.nutrition_grades && (
-                              <span className={`text-[9.5px] font-extrabold uppercase px-1.5 py-0.5 rounded-sm line-none ${
-                                prod.nutrition_grades === "a" || prod.nutrition_grades === "b"
-                                  ? "bg-green-100 text-green-700"
-                                  : prod.nutrition_grades === "c"
-                                    ? "bg-amber-100 text-amber-700"
-                                    : "bg-red-100 text-red-700"
-                              }`}>
-                                Nutri {prod.nutrition_grades}
-                              </span>
-                            )}
-                            {prod.nova_group && (
-                              <span className="text-[9.5px] font-bold text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded-sm">
-                                Nova {prod.nova_group}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
+              <>
+                <div className="flex justify-between items-center px-1">
+                  <span className="text-[12px] font-bold text-text-muted font-mono bg-slate-100 px-2.5 py-1 rounded-lg">
+                    Найдено: {searchResults.length}
+                  </span>
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      setSearchQuery("");
+                      setSearchResults([]);
+                      setHasSearched(false);
+                    }}
+                    className="text-slate-500 hover:text-[#2E6B47] font-semibold text-[12.5px] transition-colors flex items-center gap-1"
+                  >
+                    Сбросить
+                  </button>
+                </div>
+                <div className="flex flex-col gap-3 max-h-[440px] overflow-y-auto pr-1 [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
+                  {searchResults.map((prod, idx) => {
+                    const hasFrontImage = !!prod.image_front_url;
+                    const validScore = prod.nutrition_grades && !["unknown", "not-applicable"].includes(prod.nutrition_grades.toLowerCase());
+                    
+                    return (
                       <button
+                        key={idx}
                         type="button"
                         onClick={() => {
                           setSelectedProduct(prod);
                           setActiveMode("result");
                         }}
-                        className="bg-[#EBF5EF] hover:bg-[#2E6B47] text-[#2E6B47] hover:text-white px-3.5 py-2 rounded-xl text-[12px] font-extrabold tracking-tight cursor-pointer transition-all active:scale-95 shrink-0"
+                        className="w-full bg-gradient-to-br from-[#FFF9F2] to-[#FFF1DE] rounded-[22px] border border-[#FFE4C4] p-3 shadow-sm flex items-center justify-between text-left group hover:border-[#FFC885] hover:shadow-md transition-all duration-300 cursor-pointer active:scale-[0.98] outline-none"
                       >
-                        Открыть
+                        <div className="flex items-center gap-3 flex-1 min-w-0 pr-2">
+                          {hasFrontImage ? (
+                            <img 
+                              src={prod.image_front_url} 
+                              alt={prod.product_name_ru || prod.product_name || "Продукт"}
+                              className="w-14 h-14 rounded-xl object-cover shrink-0 shadow-sm border border-[#FFE4C4]/50"
+                              referrerPolicy="no-referrer"
+                            />
+                          ) : (
+                            <div className="w-14 h-14 rounded-xl bg-orange-50/50 border border-orange-200/50 border-dashed flex items-center justify-center text-orange-300 shrink-0 font-sans text-[10px] font-extrabold uppercase">
+                              НЕТ ФОТО
+                            </div>
+                          )}
+                          <div className="flex flex-col min-w-0">
+                            <span className="text-[16px] font-bold text-slate-800 leading-tight truncate">
+                              {prod.product_name_ru || prod.product_name || "Без названия"}
+                            </span>
+                            <span className="text-[12px] text-slate-500 leading-none truncate mt-1 font-sans">
+                              {prod.brands || "Неизвестный бренд"}
+                            </span>
+                            
+                            <div className="flex gap-1.5 mt-1.5 items-center">
+                              {validScore && (
+                                <span className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-sm line-none ${
+                                  prod.nutrition_grades === "a" || prod.nutrition_grades === "b"
+                                    ? "bg-green-100 text-green-700"
+                                    : prod.nutrition_grades === "c"
+                                      ? "bg-amber-100 text-amber-700"
+                                      : "bg-red-100 text-red-700"
+                                }`}>
+                                  Nutri {prod.nutrition_grades}
+                                </span>
+                              )}
+                              {prod.nova_group && (
+                                <span className="text-[10px] font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-sm">
+                                  Nova {prod.nova_group.toString().toLowerCase() === 'unknown' ? 'Неизвестно' : prod.nova_group}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="w-8 h-8 rounded-full bg-white/60 group-hover:bg-[#FFF] flex items-center justify-center shrink-0 transition-colors shadow-3xs">
+                          <ChevronRight className="w-5 h-5 text-orange-300 group-hover:text-orange-500" />
+                        </div>
                       </button>
-                    </div>
-                  );
-                })}
-              </div>
+                    );
+                  })}
+                </div>
+              </>
             ) : (
-              searchQuery && !loading && (
+              hasSearched && !loading && searchProgress === 0 && (
                 <div className="bg-white rounded-[22px] border border-slate-100 p-6 text-center shadow-sm">
                   <div className="w-12 h-12 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-3">
                     <Info className="w-6 h-6 stroke-[1.8]" />
                   </div>
                   <span className="text-[14.5px] font-bold text-slate-700 block mb-1">Ничего не найдено</span>
                   <span className="text-[12px] text-text-muted max-w-[250px] mx-auto block leading-normal">
-                    База Open Food Facts не вернула результатов. Попробуйте ввести более общее название товара или проверьте орфографию.
+                    База Open Food Facts не вернула результатов. Попробуйте ввести более общее название товара или бренд.
                   </span>
                 </div>
               )
             )}
-
           </div>
         )}
 
         {/* ================= LOADING PULSING ANIMATION STATE ================= */}
         {loading && (
-          <div className="bg-white rounded-[32px] border border-slate-100/80 shadow-md p-10 text-center mb-5 w-full">
+          <div className="bg-white rounded-[32px] border border-slate-100/80 shadow-md p-10 text-center mb-5 w-full mt-4">
             <Loader2 className="w-9 h-9 text-[#16B551] animate-spin mx-auto mb-4" />
             <span className="text-[15px] font-bold text-slate-800 block mb-1">Соединение с сервером базы...</span>
             <span className="text-[12px] text-text-muted leading-tight block">
@@ -1641,16 +1642,11 @@ export default function MyPurchasesScreen({
                 className="bg-white rounded-[32px] border border-slate-100/50 shadow-[0_10px_25px_-5px_rgba(43,49,55,0.04)] overflow-hidden text-left mb-5 w-full relative"
               >
                 
-                {/* Back to search or start corner Button overlay */}
                 <div className="absolute top-3 right-3 z-20">
                   <button 
                     type="button" 
                     onClick={() => {
-                      if (searchResults.length > 0) {
-                        setActiveMode("name-search");
-                      } else {
-                        setActiveMode("start");
-                      }
+                      setActiveMode("start");
                       setSelectedProduct(null);
                     }}
                     className="w-8 h-8 rounded-full bg-slate-900/60 hover:bg-slate-900 text-white flex items-center justify-center backdrop-blur-md shadow-xs transition-colors cursor-pointer active:scale-90"
@@ -1659,26 +1655,64 @@ export default function MyPurchasesScreen({
                   </button>
                 </div>
 
-                {/* 1. LARGE ROUNDED PRODUCT CONTAINER PHOTO */}
-                <div className="w-full h-44 bg-[#F8FAFC] relative flex items-center justify-center p-3 border-b border-dashed border-slate-100">
-                  {selectedProduct.image_front_url ? (
-                    <img 
-                      src={selectedProduct.image_front_url} 
-                      alt={selectedProduct.product_name_ru || selectedProduct.product_name || "Фото продукта"} 
-                      className="h-full object-contain mix-blend-multiply drop-shadow-sm select-none"
-                      referrerPolicy="no-referrer"
-                    />
-                  ) : (
-                    <div className="flex flex-col items-center justify-center text-slate-300">
-                      <ShoppingBag className="w-12 h-12 stroke-[1.2] mb-1.5 text-slate-300" />
-                      <span className="text-[10px] font-extrabold uppercase tracking-widest bg-slate-100 px-2.5 py-1 rounded-full text-slate-400">
-                        Изображение отсутствует
-                      </span>
-                    </div>
-                  )}
+                {/* 1. PRODUCT IMAGES GALLERY С ЭФФЕКТОМ ГЛУБИНЫ И СТЕКЛА */}
+                <div className="w-full bg-[#F8FAFC] relative border-b border-dashed border-slate-100 overflow-hidden">
+                  {(() => {
+                    const images = [
+                      selectedProduct.image_front_url,
+                      selectedProduct.image_ingredients_url,
+                      selectedProduct.image_nutrition_url
+                    ].filter(Boolean) as string[];
 
-                  {/* Absolute subtle WFPB Badge info */}
-                  <div className="absolute bottom-3 left-3 bg-[#EBF5EF] px-2.5 py-1 rounded-lg border border-emerald-50">
+                    if (images.length === 0) {
+                      return (
+                        <div className="w-full h-44 flex flex-col items-center justify-center text-slate-300 p-3 relative z-10">
+                          <ShoppingBag className="w-12 h-12 stroke-[1.2] mb-1.5" />
+                          <span className="text-[10px] font-extrabold uppercase tracking-widest bg-slate-100 px-2.5 py-1 rounded-full text-slate-400">
+                            Нет фото
+                          </span>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <>
+                        {/* Glassmorphism Background layer */}
+                        <div className="absolute inset-0 pointer-events-none">
+                           <img 
+                             src={images[0]} 
+                             className="w-full h-full object-cover blur-3xl opacity-30 scale-110 saturate-150" 
+                             alt="" 
+                             referrerPolicy="no-referrer"
+                           />
+                           <div className="absolute inset-0 bg-gradient-to-b from-white/40 to-[#F8FAFC]/90" />
+                        </div>
+
+                        <div className="flex overflow-x-auto snap-x snap-mandatory no-scrollbar w-full relative z-10">
+                          {images.map((img, idx) => (
+                            <div key={idx} className="w-full h-56 shrink-0 snap-center relative flex items-center justify-center p-3 cursor-zoom-in group" onClick={() => setLightboxImage(img)}>
+                              <img 
+                                src={img} 
+                                alt={`Ракурс ${idx + 1}`} 
+                                className="h-full w-full object-contain mix-blend-multiply drop-shadow-sm select-none"
+                                referrerPolicy="no-referrer"
+                              />
+                              {images.length > 1 && (
+                                <div className="absolute bottom-3 right-3 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-md shadow-sm text-[10px] font-bold text-slate-600 border border-slate-100 pointer-events-none">
+                                  {idx + 1} / {images.length}
+                                </div>
+                              )}
+                              <div className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none rounded-t-[32px]">
+                                <Search className="w-8 h-8 text-slate-700/50" />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </>
+                    );
+                  })()}
+
+                  <div className="absolute bottom-3 left-3 bg-[#EBF5EF] px-2.5 py-1 rounded-lg border border-emerald-50 pointer-events-none z-20">
                     <span className="text-[9px] font-extrabold uppercase text-[#2E6B47] tracking-wider font-sans">
                       Open Food Facts
                     </span>
@@ -1686,35 +1720,47 @@ export default function MyPurchasesScreen({
                 </div>
 
                 {/* 2. PRODUCT NAME & BRAND TEXT LIST */}
-                <div className="p-4 pt-3 w-full">
-                  <div className="flex flex-col text-left mb-3">
-                    <span className="text-[18px] font-bold text-slate-800 leading-tight">
+                <div className="p-4 w-full">
+                  <div className="flex flex-col text-left mb-1">
+                    <span className="text-[20px] sm:text-[22px] font-bold text-slate-800 leading-snug">
                       {selectedProduct.product_name_ru || selectedProduct.product_name || "Продукт по штрихкоду"}
-                    </span>
-                    <span className="text-[12.5px] text-slate-500 font-medium leading-none mt-1">
-                      {selectedProduct.brands || "Бренд не указан"}
                     </span>
                   </div>
 
-                  {/* 3. QUICK SYSTEMIC WELLNESS CHIPS/BADGES BLOCK */}
-                  <div className="flex flex-wrap gap-1.5 mb-4">
-                    {/* NUTRI-SCORE CHIP */}
-                    {selectedProduct.nutrition_grades && (
-                      <div className={`px-2 py-1 rounded-xl flex items-center gap-1.5 border text-[11px] font-bold ${
-                        selectedProduct.nutrition_grades.toLowerCase() === "a" || selectedProduct.nutrition_grades.toLowerCase() === "b"
-                          ? "bg-green-50 border-green-100 text-green-700"
-                          : selectedProduct.nutrition_grades.toLowerCase() === "c"
-                            ? "bg-amber-50 border-amber-100 text-amber-700"
-                            : "bg-red-50 border-red-100 text-red-700"
-                      }`}>
-                        <span className="font-extrabold uppercase">Nutri-Score</span>
-                        <span className="text-[13px] uppercase tracking-none shrink-0 font-black">
-                          {selectedProduct.nutrition_grades}
-                        </span>
+                  {/* 3. QUICK SYSTEMIC WELLNESS CHIPS/BADGES BLOCK С ДОБАВЛЕННЫМ ВОЗДУХОМ */}
+                  <div className="flex flex-wrap gap-2 mb-5 mt-3">
+                    
+                    {/* ДОБАВЛЕННЫЙ БЕЙДЖ БРЕНДА ПЕРВЫМ В СПИСКЕ */}
+                    {selectedProduct.brands && (
+                      <div className="px-2 py-1 rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-700 text-[11px] font-bold flex items-center gap-1">
+                        <span>Бренд:</span>
+                        <span className="bg-white/80 px-1.5 py-0.5 rounded font-extrabold">{selectedProduct.brands}</span>
                       </div>
                     )}
 
-                    {/* NOVA CHIP */}
+                    {(() => {
+                      const grade = selectedProduct.nutrition_grades?.toLowerCase();
+                      const isValidGrade = grade && !['unknown', 'not-applicable'].includes(grade);
+                      
+                      if (isValidGrade) {
+                        return (
+                          <div className={`px-2 py-1 rounded-xl flex items-center gap-1.5 border text-[11px] font-bold ${
+                            grade === "a" || grade === "b"
+                              ? "bg-green-50 border-green-100 text-green-700"
+                              : grade === "c"
+                                ? "bg-amber-50 border-amber-100 text-amber-700"
+                                : "bg-red-50 border-red-100 text-red-700"
+                          }`}>
+                            <span className="font-extrabold uppercase">Nutri-Score</span>
+                            <span className="text-[13px] uppercase tracking-none shrink-0 font-black">
+                              {grade}
+                            </span>
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
+
                     {selectedProduct.nova_group && (
                       <div className={`px-2 py-1 rounded-xl flex items-center gap-1 border text-[11px] font-bold ${
                         Number(selectedProduct.nova_group) <= 2
@@ -1725,36 +1771,207 @@ export default function MyPurchasesScreen({
                       }`}>
                         <span>NOVA Group</span>
                         <span className="bg-white/90 px-1 rounded font-extrabold">
-                          {selectedProduct.nova_group}
+                          {selectedProduct.nova_group.toString().toLowerCase() === 'unknown' ? 'Неизвестно' : selectedProduct.nova_group}
                         </span>
                       </div>
                     )}
 
-                    {/* Categories tag or custom WFPB label */}
                     <div className="px-2 py-1 rounded-xl bg-[#F0F5FA] border border-slate-100 text-slate-600 text-[11px] font-bold flex items-center gap-1">
                       <span>Штрихкод:</span>
                       <span className="font-mono">{selectedProduct.code}</span>
                     </div>
                   </div>
+				  
+				  {/* === КОМПАКТНЫЙ ПРЕМИАЛЬНЫЙ БЛОК КБЖУ С ТОНКИМ КОНТУРОМ И ГЛУБОКОЙ ТЕНЬЮ === */}
+                  {selectedProduct.nutriments && (Object.keys(selectedProduct.nutriments).length > 0) && (() => {
+                    const n = selectedProduct.nutriments as Record<string, any>;
+                    
+                    const rawKcal = n["energy-kcal_100g"] ?? n["energy-kcal"] ?? n["energy-kcal_value"] ?? n["energy"];
+                    const rawKj = n["energy-kj_100g"] ?? n["energy-kj"] ?? n["energy-kj_value"];
+                    const calculatedKcal = rawKcal ? Math.round(Number(rawKcal)) : (rawKj ? Math.round(Number(rawKj) / 4.184) : null);
 
-                  {/* 4. REAL INGREDIENTS BODY ACCORDION COMPONENT */}
-                  <div className="bg-slate-50 border border-slate-100 rounded-[18px] p-3 mb-4 text-left w-full">
+                    const proteins = n["proteins_100g"] ?? n["proteins"] ?? n["proteins_value"];
+                    const fat = n["fat_100g"] ?? n["fat"] ?? n["fat_value"];
+                    const carbs = n["carbohydrates_100g"] ?? n["carbohydrates"] ?? n["carbohydrates_value"];
+                    
+                    const fiber = n["fiber_100g"] ?? n["fiber"];
+                    const salt = n["salt_100g"] ?? n["salt"] ?? (n["sodium_100g"] ? n["sodium_100g"] * 2.5 : null);
+                    const magnesium = n["magnesium_100g"] !== undefined ? Math.round(Number(n["magnesium_100g"]) * 1000) : null;
+                    const iron = n["iron_100g"] !== undefined ? Number(Number(n["iron_100g"]) * 1000).toFixed(1) : null;
+
+                    const getProgress = (val: number, max: number) => Math.min(100, Math.max(5, Math.round((val / max) * 100)));
+
+                    return (
+                      <div className="flex flex-col gap-2.5 mb-4 w-full select-none">
+                        
+                        <div className="grid grid-cols-2 gap-3 w-full">
+                          
+                          <div className="bg-gradient-to-br from-[#FFF9F0] to-[#FFF3E2] rounded-[22px] p-3.5 border border-white shadow-[0_10px_25px_rgba(249,115,22,0.08),_0_2px_6px_rgba(0,0,0,0.02)] flex flex-col justify-between relative overflow-hidden">
+                            <div className="flex justify-between items-start">
+                              <span className="text-[11px] font-extrabold text-orange-900/60 uppercase tracking-wider">Калорийность</span>
+                              <div className="w-14 h-14 flex items-center justify-center -mr-2 -mt-2 drop-shadow-md opacity-95">
+                                <img src={iconFlame} alt="Огонь" className="w-full h-full object-contain" />
+                              </div>
+                            </div>
+                            <div className="flex items-baseline gap-1 -mt-2 mb-1">
+                              <span className="text-[24px] font-black text-orange-950 tracking-tight leading-none">
+                                {calculatedKcal !== null && !isNaN(calculatedKcal) ? calculatedKcal : "—"}
+                              </span>
+                              <span className="text-[11px] font-bold text-orange-800/60">ккал</span>
+                            </div>
+                            <div className="w-full bg-orange-200/40 h-1.5 rounded-full overflow-hidden">
+                              <div className="bg-orange-500 h-full rounded-full transition-all duration-500" style={{ width: `${calculatedKcal ? getProgress(calculatedKcal, 400) : 0}%` }} />
+                            </div>
+                          </div>
+
+                          <div className="bg-gradient-to-br from-[#EBF5EF] to-[#E3F2E8] rounded-[22px] p-3.5 border border-white shadow-[0_10px_25px_rgba(46,107,71,0.08),_0_2px_6px_rgba(0,0,0,0.02)] flex flex-col justify-between relative overflow-hidden">
+                            <div className="flex justify-between items-start">
+                              <span className="text-[11px] font-extrabold text-[#2E6B47]/60 uppercase tracking-wider">Белки</span>
+                              <div className="w-14 h-14 flex items-center justify-center -mr-2 -mt-2 drop-shadow-md opacity-95">
+                                <img src={iconPeas} alt="Горошек" className="w-full h-full object-contain" />
+                              </div>
+                            </div>
+                            <div className="flex items-baseline gap-1 -mt-2 mb-1">
+                              <span className="text-[24px] font-black text-[#1E4A30] tracking-tight leading-none">
+                                {proteins !== undefined && !isNaN(Number(proteins)) ? Number(proteins).toFixed(1) : "—"}
+                              </span>
+                              <span className="text-[11px] font-bold text-[#2E6B47]/60">г</span>
+                            </div>
+                            <div className="w-full bg-emerald-200/40 h-1.5 rounded-full overflow-hidden">
+                              <div className="bg-[#2E6B47] h-full rounded-full transition-all duration-500" style={{ width: `${proteins ? getProgress(Number(proteins), 30) : 0}%` }} />
+                            </div>
+                          </div>
+
+                          <div className="bg-gradient-to-br from-[#F0F5FA] to-[#E5EFF8] rounded-[22px] p-3.5 border border-white shadow-[0_10px_25px_rgba(59,130,246,0.08),_0_2px_6px_rgba(0,0,0,0.02)] flex flex-col justify-between relative overflow-hidden">
+                            <div className="flex justify-between items-start">
+                              <span className="text-[11px] font-extrabold text-blue-900/60 uppercase tracking-wider">Жиры</span>
+                              <div className="w-14 h-14 flex items-center justify-center -mr-2 -mt-2 drop-shadow-md opacity-95">
+                                <img src={iconAvocado} alt="Авокадо" className="w-full h-full object-contain" />
+                              </div>
+                            </div>
+                            <div className="flex items-baseline gap-1 -mt-2 mb-1">
+                              <span className="text-[24px] font-black text-blue-950 tracking-tight leading-none">
+                                {fat !== undefined && !isNaN(Number(fat)) ? Number(fat).toFixed(1) : "—"}
+                              </span>
+                              <span className="text-[11px] font-bold text-blue-800/60">г</span>
+                            </div>
+                            <div className="w-full bg-blue-200/40 h-1.5 rounded-full overflow-hidden">
+                              <div className="bg-blue-500 h-full rounded-full transition-all duration-500" style={{ width: `${fat ? getProgress(Number(fat), 70) : 0}%` }} />
+                            </div>
+                          </div>
+
+                          <div className="bg-gradient-to-br from-[#FDF4F6] to-[#FAECF0] rounded-[22px] p-3.5 border border-white shadow-[0_10px_25px_rgba(244,63,94,0.08),_0_2px_6px_rgba(0,0,0,0.02)] flex flex-col justify-between relative overflow-hidden">
+                            <div className="flex justify-between items-start">
+                              <span className="text-[11px] font-extrabold text-rose-900/60 uppercase tracking-wider">Углеводы</span>
+                              <div className="w-14 h-14 flex items-center justify-center -mr-2 -mt-2 drop-shadow-md opacity-95">
+                                <img src={iconGrains} alt="Злаки" className="w-full h-full object-contain" />
+                              </div>
+                            </div>
+                            <div className="flex items-baseline gap-1 -mt-2 mb-1">
+                              <span className="text-[24px] font-black text-rose-950 tracking-tight leading-none">
+                                {carbs !== undefined && !isNaN(Number(carbs)) ? Number(carbs).toFixed(1) : "—"}
+                              </span>
+                              <span className="text-[11px] font-bold text-rose-800/60">г</span>
+                            </div>
+                            <div className="w-full bg-rose-200/40 h-1.5 rounded-full overflow-hidden">
+                              <div className="bg-rose-500 h-full rounded-full transition-all duration-500" style={{ width: `${carbs ? getProgress(Number(carbs), 80) : 0}%` }} />
+                            </div>
+                          </div>
+
+                        </div>
+
+                        {(fiber !== undefined || salt !== undefined || magnesium !== null || iron !== null) && (
+                          <div className="grid grid-cols-4 gap-2 w-full pt-0.5">
+                            
+                            <div className="bg-gradient-to-br from-[#F2F8F4] to-[#E9F3EC] rounded-2xl p-2.5 border border-white shadow-[0_6px_16px_rgba(46,107,71,0.06),_0_1px_3px_rgba(0,0,0,0.02)] flex flex-col justify-center items-center text-center">
+                              <span className="text-[10px] font-extrabold text-emerald-800/60 uppercase tracking-wider mb-0.5">Клетчатка</span>
+                              <span className="text-[15px] font-black text-emerald-950">{fiber !== undefined ? `${Number(fiber).toFixed(1)}г` : "—"}</span>
+                            </div>
+
+                            <div className="bg-gradient-to-br from-[#F0F5FA] to-[#E6EEF7] rounded-2xl p-2.5 border border-white shadow-[0_6px_16px_rgba(59,130,246,0.06),_0_1px_3px_rgba(0,0,0,0.02)] flex flex-col justify-center items-center text-center">
+                              <span className="text-[10px] font-extrabold text-blue-800/60 uppercase tracking-wider mb-0.5">Соль</span>
+                              <span className="text-[15px] font-black text-blue-950">{salt !== undefined ? `${Number(salt).toFixed(2)}г` : "—"}</span>
+                            </div>
+
+                            <div className="bg-gradient-to-br from-[#FAF5FA] to-[#F5ECF5] rounded-2xl p-2.5 border border-white shadow-[0_6px_16px_rgba(147,51,234,0.06),_0_1px_3px_rgba(0,0,0,0.02)] flex flex-col justify-center items-center text-center">
+                              <span className="text-[10px] font-extrabold text-purple-800/60 uppercase tracking-wider mb-0.5">Магний</span>
+                              <span className="text-[15px] font-black text-purple-950">{magnesium !== null ? `${magnesium}мг` : "—"}</span>
+                            </div>
+
+                            <div className="bg-gradient-to-br from-[#FFF8F0] to-[#FEF0E3] rounded-2xl p-2.5 border border-white shadow-[0_6px_16px_rgba(249,115,22,0.06),_0_1px_3px_rgba(0,0,0,0.02)] flex flex-col justify-center items-center text-center">
+                              <span className="text-[10px] font-extrabold text-orange-800/60 uppercase tracking-wider mb-0.5">Железо</span>
+                              <span className="text-[15px] font-black text-orange-950">{iron !== null ? `${iron}мг` : "—"}</span>
+                            </div>
+
+                          </div>
+                        )}
+
+                      </div>
+                    );
+                  })()}
+
+                  {/* 4. RICH INGREDIENTS & PRODUCT PASSPORT COMPONENT: УВЕЛИЧЕННЫЙ ШРИФТ И БЕЗ РАМОК */}
+                  <div className="bg-slate-50 border border-slate-100 rounded-[18px] p-3 mb-4 text-left w-full shadow-xs">
                     <button
                       type="button"
                       onClick={() => setShowIngredientsList(prev => !prev)}
-                      className="w-full flex justify-between items-center text-slate-700 font-bold text-[13px] tracking-tight cursor-pointer focus:outline-none"
+                      className="w-full flex justify-between items-center text-slate-700 font-bold text-[16px] tracking-tight cursor-pointer focus:outline-none"
                     >
                       <span className="flex items-center gap-1.5">
-                        <Info className="w-4 h-4 text-slate-500" /> Ингредиенты в составе
+                        <Info className="w-5 h-5 text-[#2E6B47]" /> Состав, эко-оценка и теги базы
                       </span>
-                      {showIngredientsList ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                      {showIngredientsList ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
                     </button>
                     
                     <AnimatePresence>
                       {(!showIngredientsList) ? (
-                        <p className="text-[11.5px] text-text-muted mt-1.5 leading-snug line-clamp-2">
-                          {selectedProduct.ingredients_text_ru || selectedProduct.ingredients_text || "Текст состава недоступен во внешнем справочнике."}
-                        </p>
+                        <div className="mt-2.5 flex flex-col gap-1.5">
+                          {(() => {
+                            const rawText = selectedProduct.ingredients_text_ru || selectedProduct.ingredients_text;
+                            const ingTags = selectedProduct.ingredients_tags;
+                            
+                            if (rawText) {
+                              return (
+                                <p className="text-[14.5px] text-text-muted leading-snug line-clamp-2">
+                                  {rawText}
+                                </p>
+                              );
+                            } else if (ingTags && Array.isArray(ingTags) && ingTags.length > 0) {
+                              const synthesized = ingTags.map(t => t.replace(/^[a-z]{2}:/, "")).join(", ");
+                              return (
+                                <p className="text-[14.5px] text-slate-700 leading-snug line-clamp-2">
+                                  <span className="text-[13px] text-[#2E6B47] font-bold uppercase mr-1">Состав из тегов:</span>
+                                  {synthesized}
+                                </p>
+                              );
+                            } else {
+                              return (
+                                <div className="flex flex-wrap gap-1.5 mt-1">
+                                  {selectedProduct.categories && (
+                                    <span className="text-[13px] bg-emerald-50 text-emerald-800 px-2 py-0.5 rounded-md font-medium">
+                                      📁 {selectedProduct.categories.split(",")[0]}
+                                    </span>
+                                  )}
+                                  {selectedProduct.ecoscore_grade && (
+                                    <span className={`text-[13px] px-2 py-0.5 rounded-md font-bold uppercase ${
+                                      selectedProduct.ecoscore_grade.toLowerCase() === 'a' || selectedProduct.ecoscore_grade.toLowerCase() === 'b'
+                                        ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'
+                                    }`}>
+                                      Eco-Score: {selectedProduct.ecoscore_grade.toLowerCase() === 'unknown' ? 'Неизвестно' : 
+                                                 selectedProduct.ecoscore_grade.toLowerCase() === 'not-applicable' ? 'Нет данных' : 
+                                                 selectedProduct.ecoscore_grade}
+                                    </span>
+                                  )}
+                                  {selectedProduct.stores && (
+                                    <span className="text-[13px] bg-blue-50 text-blue-800 px-2 py-0.5 rounded-md font-medium">
+                                      🛒 {selectedProduct.stores}
+                                    </span>
+                                  )}
+                                </div>
+                              );
+                            }
+                          })()}
+                        </div>
                       ) : (
                         <motion.div
                           initial={{ height: 0, opacity: 0 }}
@@ -1762,15 +1979,77 @@ export default function MyPurchasesScreen({
                           exit={{ height: 0, opacity: 0 }}
                           className="overflow-hidden"
                         >
-                          <p className="text-[12px] text-slate-600 mt-2 leading-relaxed bg-white p-2.5 rounded-xl border border-dotted border-slate-250/60 font-sans">
-                            {selectedProduct.ingredients_text_ru || selectedProduct.ingredients_text || "Текст состава отсутствует."}
-                          </p>
+                          <div className="text-[16px] text-slate-700 mt-3 leading-relaxed bg-white p-4 rounded-xl shadow-sm border border-white font-sans flex flex-col gap-3.5">
+                            
+                            <div>
+                              <span className="font-bold text-[#2E6B47] text-[13.5px] uppercase tracking-wide block mb-1">Ингредиенты / Компоненты:</span>
+                              {(() => {
+                                const rawText = selectedProduct.ingredients_text_ru || selectedProduct.ingredients_text;
+                                const ingTags = selectedProduct.ingredients_tags;
+                                if (rawText) return <p>{rawText}</p>;
+                                if (ingTags && ingTags.length > 0) {
+                                  return <p>{ingTags.map(t => t.replace(/^[a-z]{2}:/, "")).join(", ")}</p>;
+                                }
+                                return <p className="text-text-muted italic">Текстовый состав не заполнен волонтерами в базе OFF.</p>;
+                              })()}
+                            </div>
+
+                            <div className="border-t border-slate-100 pt-3 flex flex-col gap-3">
+                              <span className="font-bold text-slate-700 text-[13.5px] uppercase tracking-wide">Паспортные данные из базы:</span>
+                              
+                              {selectedProduct.ecoscore_grade && (
+                                <div className="flex items-center justify-between text-[15px]">
+                                  <span className="text-slate-500">Экологичность (Eco-Score):</span>
+                                  <span className="font-bold uppercase bg-slate-100 px-3 py-1.5 rounded-lg text-slate-700 shadow-3xs">
+                                    {selectedProduct.ecoscore_grade.toLowerCase() === 'unknown' ? 'Неизвестно' : 
+                                     selectedProduct.ecoscore_grade.toLowerCase() === 'not-applicable' ? 'Нет данных' : 
+                                     selectedProduct.ecoscore_grade}
+                                  </span>
+                                </div>
+                              )}
+                              
+                              {selectedProduct.labels_tags && selectedProduct.labels_tags.length > 0 && (
+                                <div className="flex flex-col gap-2 text-[15px]">
+                                  <span className="text-slate-500">Сертификаты и маркировки:</span>
+                                  <div className="flex flex-wrap gap-2">
+                                    {selectedProduct.labels_tags.map((lbl, i) => (
+                                      <span key={i} className="text-[14px] bg-emerald-50 text-emerald-700 border border-emerald-100 px-2.5 py-1.5 rounded-lg font-semibold shadow-3xs">
+                                        {lbl.replace(/^[a-z]{2}:/, "")}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+
+                              {selectedProduct.stores && (
+                                <div className="flex items-center justify-between text-[15px]">
+                                  <span className="text-slate-500">Сеть магазинов:</span>
+                                  <span className="font-semibold text-slate-700">{selectedProduct.stores}</span>
+                                </div>
+                              )}
+
+                              {/* ЧИСТКА АДДИТИВОВ "Е" В ФОРМАТ АККУРАТНЫХ ТЕГОВ */}
+                              {selectedProduct.additives_tags && selectedProduct.additives_tags.length > 0 && (
+                                <div className="text-[15px] mt-1">
+                                  <span className="text-slate-500 block mb-2">Пищевые добавки (Е):</span>
+                                  <div className="flex flex-wrap gap-2">
+                                    {selectedProduct.additives_tags.map((add, idx) => (
+                                      <span key={idx} className="text-[14px] bg-amber-50 text-amber-700 border border-amber-100 px-2.5 py-1.5 rounded-lg font-bold tracking-wide shadow-3xs">
+                                        {add.replace(/^[a-z]{2}:/, "").toUpperCase()}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+
+                          </div>
                         </motion.div>
                       )}
                     </AnimatePresence>
                   </div>
 
-                  {/* 5. COZY ANNA'S ANALYTICAL INSIGHT VERDICT BLOCK (PREMIUM HEALTH COACHING) */}
+                  {/* 5. COZY ANNA'S ANALYTICAL INSIGHT VERDICT BLOCK */}
                   {(() => {
                     const ingredients = selectedProduct.ingredients_text_ru || selectedProduct.ingredients_text || "";
                     if (!isIngredientsListValid(ingredients)) return null;
@@ -1780,68 +2059,87 @@ export default function MyPurchasesScreen({
                     const isWarning = verdict.status === "warning";
                     const isOilSugar = verdict.status === "oil-sugar";
                     
+                    let dynamicAvatarSrc = "";
+                    if (isPerfect) {
+                      dynamicAvatarSrc = resolveAvatar({ toneGroup: 'positive', intent: 'success' }).src;
+                    } else if (isWarning) {
+                      dynamicAvatarSrc = resolveAvatar({ toneGroup: 'reminder_caution', intent: 'caution' }).src;
+                    } else {
+                      dynamicAvatarSrc = resolveAvatar({ toneGroup: 'negative_displeasure', intent: 'irritation_and_anger' }).src;
+                    }
+                    
                     return (
-                      <div className={`rounded-[22px] p-4.5 border text-left w-full mb-4 shadow-3xs relative overflow-hidden ${
+                      <div className={`rounded-[22px] p-4.5 border text-left w-full mb-4 shadow-sm relative overflow-hidden ${
                         isPerfect 
-                          ? "bg-gradient-to-tr from-[#EBF5EF] to-emerald-50/50 border-emerald-100/80 text-[#1E3F20]" 
+                          ? "bg-gradient-to-tr from-[#EBF5EF] to-emerald-50/50 border-emerald-100/80" 
                           : isWarning
-                            ? "bg-gradient-to-tr from-amber-50 to-orange-50/40 border-amber-100 text-amber-900"
+                            ? "bg-gradient-to-tr from-amber-50 to-orange-50/40 border-amber-100"
                             : isOilSugar
-                              ? "bg-gradient-to-tr from-orange-50/70 to-red-50/30 border-orange-100 text-amber-900"
-                              : "bg-gradient-to-tr from-red-50 to-orange-50/10 border-red-100 text-red-950"
+                              ? "bg-gradient-to-tr from-orange-50/70 to-red-50/30 border-orange-100"
+                              : "bg-gradient-to-tr from-red-50 to-orange-50/10 border-red-100"
                       }`}>
                         
-                        {/* Shimmer background layout */}
-                        <div className="absolute right-[-20px] top-[-10px] w-28 h-28 opacity-10 bg-[#2E6B47]/20 rounded-full blur-2xl pointer-events-none" />
+                        <div className="absolute right-[-20px] top-[-10px] w-28 h-28 opacity-10 bg-current rounded-full blur-2xl pointer-events-none" />
 
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 shadow-3xs ${
-                            isPerfect 
-                              ? "bg-[#2E6B47] text-white" 
-                              : isWarning || isOilSugar
-                                ? "bg-amber-500 text-white"
-                                : "bg-red-500 text-white"
-                          }`}>
-                            <Sparkles className="w-4 h-4" />
+                        <div className="flex items-center gap-3 mb-3">
+                          <div className="relative shrink-0 select-none">
+                            <div className="w-[45px] h-[45px] rounded-full overflow-hidden shadow-md border border-white/60 relative bg-white">
+                              <img
+                                src={dynamicAvatarSrc}
+                                alt="Анна — Советник WFPB"
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                            <span className="absolute -bottom-0.5 -right-0.5 w-[12px] h-[12px] bg-[#10D150] rounded-full border-2 border-white shadow-sm flex items-center justify-center">
+                              <span className="w-1.5 h-1.5 bg-white rounded-full animate-ping" />
+                            </span>
                           </div>
-                          <div className="flex flex-col text-left">
-                            <span className="text-[11px] uppercase tracking-widest font-extrabold opacity-75 font-sans leading-none">Вердикт Анны</span>
-                            <span className="text-[14px] font-extrabold tracking-tight mt-0.5 leading-none">
+                          
+                          <div className="flex flex-col justify-center">
+                            <div className="flex items-baseline gap-1.5">
+                              <span className="text-[14px] font-black text-[#2E6B47] font-sans leading-none">
+                                Анна
+                              </span>
+                              <span className="text-[10px] font-bold text-slate-500 leading-none font-sans uppercase tracking-wider">
+                                Советник WFPB
+                              </span>
+                            </div>
+                            <span className={`text-[15px] sm:text-[16px] font-extrabold tracking-tight mt-1.5 leading-none ${
+                              isPerfect ? "text-[#1E3F20]" : isWarning ? "text-amber-900" : "text-red-900"
+                            }`}>
                               {verdict.title}
                             </span>
                           </div>
                         </div>
 
-                        <p className="text-[12.8px] leading-relaxed font-sans opacity-95">
+                        <p className={`text-[15.5px] font-medium leading-relaxed font-sans opacity-95 ${
+                          isPerfect ? "text-[#1E3F20]" : isWarning ? "text-amber-950" : "text-red-950"
+                        }`}>
                           {verdict.text}
                         </p>
                       </div>
                     );
                   })()}
 
-                  {/* 6. DYNAMIC BRAND ACTION BUTTONS */}
-                  <div className="flex flex-col gap-2 w-full mt-2">
+                  {/* 6. DYNAMIC BRAND ACTION BUTTONS (ПРЕМИАЛЬНЫЕ КАРТОЧКИ В ОДИН РЯД) */}
+                  <div className="grid grid-cols-2 gap-3 w-full mt-4 mb-2">
                     <button
                       type="button"
-                      onClick={handleAddToShoppingList}
-                      className="w-full bg-[#2E6B47] hover:bg-[#1F4C31] text-white rounded-xl py-3 text-center font-bold text-[14px] tracking-tight cursor-pointer transition-all active:scale-98 shadow-sm flex items-center justify-center gap-1.5"
+                      onClick={() => {
+                        setActiveMode("start");
+                        setSelectedProduct(null);
+                      }}
+                      className="bg-gradient-to-br from-[#F0F5FA] to-[#E6EEF7] text-blue-900 border border-white shadow-[0_6px_16px_rgba(59,130,246,0.06),_0_1px_3px_rgba(0,0,0,0.02)] active:scale-95 px-2 py-3.5 rounded-[22px] text-center font-extrabold text-[13px] sm:text-[14px] cursor-pointer transition-all flex items-center justify-center gap-1.5 w-full outline-none select-none"
                     >
-                      <Plus className="w-4.5 h-4.5" /> Добавить в список покупок
+                      <Search className="w-4 h-4" /> Искать замену
                     </button>
                     
                     <button
                       type="button"
-                      onClick={() => {
-                        if (searchResults.length > 0) {
-                          setActiveMode("name-search");
-                        } else {
-                          setActiveMode("start");
-                        }
-                        setSelectedProduct(null);
-                      }}
-                      className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl py-2.5 text-center font-bold text-[13px] tracking-tight cursor-pointer transition-all active:scale-98"
+                      onClick={handleAddToShoppingList}
+                      className="bg-gradient-to-br from-[#EBF5EF] to-[#E3F2E8] text-[#1E4A30] border border-white shadow-[0_6px_16px_rgba(46,107,71,0.06),_0_1px_3px_rgba(0,0,0,0.02)] active:scale-95 px-2 py-3.5 rounded-[22px] text-center font-extrabold text-[13px] sm:text-[14px] cursor-pointer transition-all flex items-center justify-center gap-1.5 w-full outline-none select-none"
                     >
-                      Искать замену / Вернуться
+                      <Plus className="w-4.5 h-4.5" /> Добавить в список
                     </button>
                   </div>
 
@@ -1849,162 +2147,83 @@ export default function MyPurchasesScreen({
 
               </motion.div>
             ) : (
-              // Case: No product returned by the API (Product not found)
               <div className="bg-white rounded-[32px] border border-amber-100 p-6 text-center shadow-md mb-5 w-full">
                 <div className="w-14 h-14 rounded-full bg-amber-50 text-amber-500 flex items-center justify-center mx-auto mb-3 border border-amber-100">
                   <AlertTriangle className="w-7 h-7 stroke-[1.8]" />
                 </div>
                 <h3 className="text-[16px] font-bold text-slate-800 mb-1 font-sans">Продукт не найден в базе данных</h3>
-                <p className="text-[12.5px] text-text-muted leading-relaxed max-w-[280px] mx-auto mb-4">
-                  Штрихкод <span className="font-mono font-bold text-slate-800 bg-slate-100 px-1 py-0.5 rounded">{(selectedProduct as any)?.code || "введенный"}</span> отсутствует в свободной базе Open Food Facts.
+                <p className="text-[13px] text-text-muted leading-relaxed max-w-[280px] mx-auto mb-5">
+                  Штрихкод <span className="font-mono font-bold text-slate-800 bg-slate-100 px-1.5 py-0.5 rounded">{(selectedProduct as any)?.code || "введенный"}</span> отсутствует в свободной базе Open Food Facts.
                 </p>
 
-                <div className="flex flex-col gap-2 w-full">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setActiveMode("name-search");
-                      setSearchQuery("");
-                      setSearchResults([]);
-                    }}
-                    className="w-full bg-[#2E6B47] hover:bg-[#1F4C31] text-white rounded-xl py-2.5 text-center font-bold text-[13px] tracking-tight cursor-pointer transition-all active:scale-98 flex items-center justify-center gap-1"
-                  >
-                    <Search className="w-4 h-4" /> Искать по названию текстом
-                  </button>
-                  
+                <div className="grid grid-cols-2 gap-3 w-full mt-2 mb-2">
                   <button
                     type="button"
                     onClick={() => setActiveMode("start")}
-                    className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl py-2.5 text-center font-bold text-[13px] tracking-tight cursor-pointer transition-all active:scale-98"
+                    className="bg-gradient-to-br from-[#F0F5FA] to-[#E6EEF7] text-blue-900 border border-white shadow-[0_6px_16px_rgba(59,130,246,0.06),_0_1px_3px_rgba(0,0,0,0.02)] active:scale-95 px-2 py-4 rounded-[22px] text-center font-extrabold text-[14px] cursor-pointer transition-all flex items-center justify-center gap-1.5 w-full outline-none select-none"
                   >
                     Вернуться в меню
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveMode("start");
+                    }}
+                    className="bg-gradient-to-br from-[#EBF5EF] to-[#E3F2E8] text-[#1E4A30] border border-white shadow-[0_6px_16px_rgba(46,107,71,0.06),_0_1px_3px_rgba(0,0,0,0.02)] active:scale-95 px-2 py-4 rounded-[22px] text-center font-extrabold text-[14px] cursor-pointer transition-all flex items-center justify-center gap-1.5 w-full outline-none select-none"
+                  >
+                    <Search className="w-4 h-4" /> Искать текстом
                   </button>
                 </div>
               </div>
             )}
           </div>
         )}
-
-        {/* ================= MY SHOPPING LIST (СПИСОК ПОКУПОК) ================= */}
-        {activeMode === "start" && (
-          <div className="w-full mt-3.5 select-none" id="shopping-list-collection">
-            <div className="flex justify-between items-center mb-3">
-              <span className="text-[15.5px] font-extrabold text-[#2F4F3F] font-sans tracking-tight flex items-center gap-1.5">
-                <ShoppingBag className="w-4.5 h-4.5 text-[#2E6B47]" /> Мой список
-              </span>
-              {shoppingList.length > 0 && (
-                <button
-                  type="button"
-                  onClick={handleClearShoppingList}
-                  className="text-[11.5px] font-bold text-red-500 hover:text-red-700 cursor-pointer flex items-center gap-0.5 transition-colors"
-                >
-                  <Trash2 className="w-3.5 h-3.5" /> Очистить
-                </button>
-              )}
-            </div>
-
-            {shoppingList.length > 0 ? (
-              <div className="flex flex-col gap-2.5">
-                {shoppingList.map((item) => {
-                  const vColor: Record<string, string> = {
-                    green: "bg-emerald-50 text-emerald-700",
-                    orange: "bg-amber-50 text-amber-700",
-                    red: "bg-red-50 text-red-700",
-                  };
-                  const vLabel: Record<string, string> = {
-                    green: "WFPB ✅",
-                    orange: "С осторожностью",
-                    red: "Не рекомендуется ❌",
-                  };
-                  
-                  return (
-                    <div
-                      key={item.id}
-                      className={`rounded-[22px] border p-3 flex items-start gap-2.5 text-left relative overflow-hidden transition-all duration-300 shadow-3xs ${
-                        item.checked
-                          ? "bg-slate-50/70 border-slate-100 opacity-60"
-                          : "bg-white border-slate-150/60"
-                      }`}
-                    >
-                      {/* Checkbox circle selector */}
-                      <button
-                        type="button"
-                        onClick={() => handleToggleItem(item.id)}
-                        className={`w-6 h-6 rounded-full border flex items-center justify-center cursor-pointer shrink-0 transition-all ${
-                          item.checked
-                            ? "bg-[#16B551] border-[#16B551] text-white"
-                            : "bg-white border-slate-200 hover:border-[#16B551]"
-                        }`}
-                      >
-                        {item.checked && <Check className="w-3.5 h-3.5 stroke-[2.5]" />}
-                      </button>
-
-                      {/* Info layout */}
-                      <div className="flex-1 flex gap-2 min-w-0">
-                        {item.image && (
-                          <img 
-                            src={item.image} 
-                            alt={item.name}
-                            className="w-12 h-12 rounded-xl object-contain bg-slate-50 border border-slate-100 p-0.5 shrink-0"
-                            referrerPolicy="no-referrer"
-                          />
-                        )}
-                        <div className="flex flex-col min-w-0">
-                          <span className={`text-[13.5px] font-bold text-slate-800 leading-tight ${item.checked ? "line-through text-slate-400" : ""}`}>
-                            {item.name}
-                          </span>
-                          {item.brand && (
-                            <span className="text-[11px] text-slate-400 leading-none truncate mt-0.5">
-                              {item.brand}
-                            </span>
-                          )}
-
-                          {/* Anna's quick tag indicator */}
-                          <div className="flex items-center gap-1.5 mt-1.5">
-                            <span className={`text-[9.5px] font-bold px-1.5 py-0.5 rounded-full ${vColor[item.verdictStatus] || "bg-emerald-50 text-emerald-700"}`}>
-                              {vLabel[item.verdictStatus] || "Чистый состав"}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Trash Delete action Icon */}
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveItem(item.id)}
-                        className="text-slate-300 hover:text-red-500 hover:bg-red-50 p-1.5 rounded-lg transition-colors cursor-pointer shrink-0 ml-1 mt-0.5 focus:outline-none"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              // Empty list state illustration
-              <div className="bg-slate-50 border border-slate-100 border-dashed rounded-[24px] p-8 text-center select-none w-full">
-                <div className="w-11 h-11 rounded-full bg-white text-[#2E6B47] flex items-center justify-center mx-auto mb-2.5 border border-slate-150/40 shadow-3xs">
-                  <ShoppingBag className="w-5 h-5 text-[#2E6B47] shrink-0" />
-                </div>
-                <span className="text-[13.5px] font-bold text-slate-700 block mb-0.5">Список продуктов пуст</span>
-                <span className="text-[11.5px] text-text-muted max-w-[200px] mx-auto block leading-tight">
-                  Чистые WFPB продукты помогут вашим сосудам и микробиоте. Сканируйте штрихкоды и добавляйте продукты осознанно!
-                </span>
-              </div>
-            )}
-          </div>
-        )}
-
       </div>
 
-      {/* Toast notification */}
+      {/* ПЛАВАЮЩАЯ КНОПКА СКАНЕРА (FAB) */}
+      {activeMode === "start" && (
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={startCameraScan}
+          className="fixed bottom-24 right-5 z-40 w-14 h-14 bg-[#2E6B47] text-white rounded-full flex items-center justify-center shadow-[0_8px_20px_rgba(46,107,71,0.3)] border-2 border-white cursor-pointer outline-none"
+        >
+          <Camera className="w-6 h-6" />
+        </motion.button>
+      )}
+
       {toastVisible && (
-        <div className="fixed top-8 left-1/2 -translate-x-1/2 z-[999] bg-indigo-600 text-white text-[14px] font-bold px-5 py-2.5 rounded-2xl shadow-lg animate-fade-in">
+        <div className="fixed top-8 left-1/2 -translate-x-1/2 z-[999] bg-[#F0F5FA] text-blue-900 border border-blue-100 text-[14px] font-bold px-5 py-2.5 rounded-2xl shadow-lg animate-fade-in">
           {toastMessage}
         </div>
       )}
+	  
+      <AnimatePresence>
+        {lightboxImage && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setLightboxImage(null)}
+            className="fixed inset-0 z-[9999] bg-slate-900/95 backdrop-blur-md flex items-center justify-center px-6 py-12 cursor-zoom-out"
+          >
+            <button className="absolute top-6 right-6 z-50 w-10 h-10 bg-white/10 rounded-full flex items-center justify-center text-white hover:bg-white/20 transition-colors">
+              <X className="w-6 h-6" />
+            </button>
+            <motion.img
+              initial={{ scale: 0.9 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.9 }}
+              src={lightboxImage}
+              alt="Увеличенное фото"
+              className="w-full h-full object-contain drop-shadow-2xl"
+              referrerPolicy="no-referrer"
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {/* 2. FIXED STICKY NAVIGATION BAR WITH HOME / CELLULAR IMPULSE TABS */}
       <div className="absolute bottom-0 inset-x-0 w-full z-30 pointer-events-auto">
         <BottomBar 
           onHomeClick={onBack}

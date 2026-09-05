@@ -1077,8 +1077,15 @@ async function startServer() {
       }
 
       // ── Step B: LLM generates ONLY dish name + insights (no nutrient guessing) ──
-      const ingredientsDescription = ingredients
-        .map(ing => `- ${ing.fullName || ing.shortName}: ${ing.weight || 100}g`)
+      // Сортируем ингредиенты по реальному весу от большего к меньшему
+      const sortedByWeight = [...ingredients].sort((a: any, b: any) => {
+        const wA = parseFloat(String(a.weight || 0).replace(',', '.')) || 0;
+        const wB = parseFloat(String(b.weight || 0).replace(',', '.')) || 0;
+        return wB - wA;
+      });
+
+      const ingredientsDescription = sortedByWeight
+        .map(ing => `- ${ing.fullName || ing.shortName}: ${ing.weight || 100}г${ing.manuallyAllowed || ing.status === 'error' || ing.status === 'red' ? ' (ВНИМАНИЕ: не-WFPB продукт)' : ''}`)
         .join("\n");
 
       // WFPB compliance: authoritatively from local FoodItem DB (exact nameRu/nameEn),
@@ -1110,40 +1117,68 @@ async function startServer() {
         }
       }
 
+      // Проверяем принудительно разрешенные нарушители (status: error/red или manuallyAllowed)
+      const forcedViolations = ingredients.filter(
+        (i: any) => i.manuallyAllowed || i.status === "error" || i.status === "red"
+      );
+
       let forbiddenWarning = "";
-      if (forbiddenLines.length > 0) {
-        forbiddenWarning = `⚠️ ВНИМАНИЕ: Среди ингредиентов обнаружены продукты, НЕ соответствующие WFPB-стандарту! Предупреди пользователя мягко, но прямо, и дай рекомендации по замене:\n${forbiddenLines.join("\n")}\n\nПожалуйста, отрази это в блоке "compliance" в ответе.\n\n`;
+      if (forbiddenLines.length > 0 || forcedViolations.length > 0) {
+        const forcedNames = forcedViolations
+          .map((i: any) => `«${i.fullName || i.shortName || i.name}» (${i.weight || 100}г)`)
+          .join(", ");
+
+        forbiddenWarning = `\n⚠️ ГРУБОЕ НАРУШЕНИЕ СТАНДАРТОВ WFPB:
+Пользователь сознательно проигнорировал запрет и принудительно добавил не-WFPB продукты: ${forcedNames || "запрещенные добавки"}.
+${forbiddenLines.join("\n")}
+
+ПРАВИЛО РЕАКЦИИ АННЫ:
+Никаких восторгов и хвалебных од! Включи тонкую иронию и сарказм советницы WFPB.
+В блоке "compliance" прямо и язвительно укажи на факт осознанного добавления запрещенки (сахар, мясо, масло, соль или продукты животного происхождения). Назови вещи своими именами.\n\n`;
       }
 
-      const basePromptText = `Ты — Анна, профессиональный нутрициолог для WFPB-приложения «Всё дело в еде!».
+      const basePromptText = `Ты — Анна, умная, слегка ироничная девушка-нутрициолог приложения WFPB «Всё дело в еде!».
+${ANNA_REACTION_MATRIX}
 
-${forbiddenWarning}Пользователь подтвердил ингредиенты:
+${forbiddenWarning}Пользователь подтвердил состав тарелки:
 ${ingredientsDescription}
 
 Проанализируй блюдо и верни JSON.
 Правила для блока insights:
-1. КАЖДЫЙ текст (strengths, improvements, compliance) должен быть ОЧЕНЬ коротким: строго 1-2 предложения, максимум 20 слов на пункт. Пиши самую суть, без воды.
-2. КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНО писать в тексте любые цифры (граммы, миллиграммы, проценты), касающиеся витаминов, минералов или нутриентов. Используй только качественные оценки (например, "богато витамином С", "высокое содержание белка").
+1. КАЖДЫЙ текст (strengths, improvements, compliance) должен быть лаконичным: строго 1-2 предложения, максимум 20 слов на пункт. Пиши самую суть, без воды.
+2. КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНО писать в тексте любые цифры (граммы, миллиграммы, проценты), касающиеся витаминов, минералов или нутриентов. Используй только качественные оценки.
+3. Если есть нарушения или принудительно разрешенный сахар/мясо/масло/соль — блок compliance ОБЯЗАН отражать сарказм и строгое замечание за нарушение канонов WFPB, а не хвалить блюдо.
 
 Формат JSON:
 {"dishName": "string", "insights": {"strengths":{"title":"...","text":"..."},"improvements":{"title":"...","text":"..."},"compliance":{"title":"...","text":"..."}}}
 
 Важно: только JSON, без markdown, всё на русском.`;
 
-      // Module-specific naming micro-instruction (only for "Из того, что есть")
-      const moduleNamingInstruction = mealSource === "from-what-is" && dishCategory
-        ? `\n\nДополнительное требование: При генерации названия строго учитывай выбранную категорию блюда: "${dishCategory}". Название должно соответствовать этой категории (например, если категория "Первые блюда", используй слова "суп", "похлебка" и т.д.; если "Смузи" — "смузи"). Не добавляй ингредиенты, которых нет в списке.`
+      // Формируем мощное требование к названию с ПРИМЕРАМИ
+      const categoryHint = dishCategory
+        ? `\n\nКРИТИЧЕСКОЕ УСЛОВИЕ: Категория блюда — "${dishCategory}". Адаптируй форму названия под неё! Если "Закуски" и есть хлеб — это бутерброд/сэндвич/брускетта. Если "Первые блюда" — суп/похлебка. Если "Вторые блюда" — горячее блюдо.`
         : "";
 
-      const promptText = basePromptText + moduleNamingInstruction;
+      const enhancedPromptText = `${basePromptText}${categoryHint}
+
+ПРАВИЛО ФОРМИРОВАНИЯ ПОЛЯ "dishName" (СТРОГО СОБЛЮДАТЬ):
+1. Ингредиенты уже отсортированы по весу. Главный продукт ОБЯЗАН быть в начале названия.
+2. СВЯЗНОСТЬ И ГРАММАТИКА: КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНО выдавать просто список через запятую! Соединяй слова по правилам русского языка, используя предлоги (с, и, из, на, под) и правильные падежи.
+3. ОЧИСТКА: Убирай технические слова ("сырой", "изделия", "пром.", "консервированный").
+4. НАЗВАНИЕ: 2-8 слов, связная русская фраза. Включай максимум главный ингредиент и 1-2 значимых дополнения. Не включай зелень, специи и мелкие акценты, если они не определяют блюдо.
+5. ПРИМЕРЫ ИДЕАЛЬНОГО РЕЗУЛЬТАТА:
+   - курица, нут, белые грибы → "Курица с нутом и белыми грибами"
+   - тофу, хлеб, огурец; Закуски → "Сэндвич с тофу и огурцом"
+   - белые грибы, батат; Основные блюда → "Белые грибы с бататом"
+6. ЗАПРЕЩЕНО писать ярлык категории в ответе (никаких "Закуски: ..."). Выдай только название.`;
 
       let llmData: any = { dishName: "", insights: null };
       try {
         const llmResponse = await generateContentWithFallback({
-          contents: promptText,
+          contents: enhancedPromptText,
           config: {
             responseMimeType: "application/json",
-            temperature: 0,
+            temperature: 0.3,
             responseSchema: {
               type: Type.OBJECT,
               properties: {
@@ -1163,10 +1198,26 @@ ${ingredientsDescription}
           }
         });
         const llmText = llmResponse?.text || "{}";
-        const { data: parsed } = safeParseJSON(llmText, {});
-        llmData = parsed;
+        const { data: parsed, ok } = safeParseJSON(llmText, {});
+
+        if (ok && parsed) {
+          llmData = parsed;
+        }
       } catch (e) {
         console.error("[LLM] Dish analysis failed:", e);
+      }
+
+      // Если модель упала, собираем fallback без кривых предлогов, просто безопасным перечислением
+      if (!llmData?.dishName || /цельное растительное блюдо/i.test(llmData.dishName)) {
+        const top1 = sortedByWeight[0]?.shortName || sortedByWeight[0]?.fullName || "Блюдо";
+        const top2 = sortedByWeight[1]?.shortName || sortedByWeight[1]?.fullName;
+        const top3 = sortedByWeight[2]?.shortName || sortedByWeight[2]?.fullName;
+
+        const parts = [top1];
+        if (top2) parts.push(top2.toLowerCase());
+        if (top3) parts.push(top3.toLowerCase());
+
+        llmData.dishName = parts.join(", ");
       }
 
       // ── Step C: Assemble response ──
@@ -1205,15 +1256,25 @@ ${ingredientsDescription}
       const rawDishName = String(llmData?.dishName || defaultDishName || "Цельное растительное блюдо");
       const dishName = rawDishName.charAt(0).toUpperCase() + rawDishName.slice(1);
 
+      // Формируем честный вердикт Анны в зависимости от нарушений
+      let annaComment = "";
+      if (forcedViolations.length > 0 || forbiddenLines.length > 0) {
+        const badItems = forcedViolations.map((i: any) => i.fullName || i.shortName || i.name).join(", ");
+        annaComment = `Ну что, полюбуемся на это творение? Вроде бы цельная растительная основа, но рука всё равно потянулась добавить ${badItems || "запрещенку"}! Организм, конечно, переварит, но каноны WFPB смотрят на эту тарелку с неприкрытой грустью. В следующий раз давай без компромиссов!`;
+      } else {
+        annaComment = `${dishName} — прекрасный, чистый выбор! Отличный баланс растительных компонентов без скрытых масел, соли и сахара. Твой микробиом аплодирует стоя! 🌿`;
+      }
+
       const resultData = {
         dishName,
         nutrients,
         micronutrients,
         nutrientsFlat: nutrientsFlatResponse,
+        annaComment,
         insights: llmData?.insights || {
           strengths: { title: "Сильные стороны блюда", text: "Блюдо на основе цельных растительных ингредиентов." },
           improvements: { title: "Что можно улучшить", text: "Добавьте больше зелени и семян для баланса нутриентов." },
-          compliance: { title: "Соответствие растительному рациону", text: forbiddenLines.length > 0 ? "Обнаружены несоответствия WFPB." : "Блюдо соответствует WFPB-рациону." }
+          compliance: { title: "Соответствие растительному рациону", text: (forbiddenLines.length > 0 || forcedViolations.length > 0) ? "Обнаружены грубые несоответствия WFPB." : "Блюдо полностью соответствует WFPB-рациону." }
         },
       };
 
@@ -1333,7 +1394,7 @@ Only valid JSON, no markdown.`,
       };
 
       const weightFallbackLog: { name: string; rawFields: unknown; reason?: string }[] = [];
-      const candidates = rawIngredients
+      const parsedCandidates = rawIngredients
         .map((ing: any) => {
           const fullName = typeof ing?.fullName === "string" ? ing.fullName.trim() : "";
           const shortName = typeof ing?.shortName === "string" && ing.shortName.trim()
@@ -1346,20 +1407,36 @@ Only valid JSON, no markdown.`,
           if (parsed.reason) {
             weightFallbackLog.push({ name: shortName || fullName, rawFields: { estimatedWeightGrams: ing?.estimatedWeightGrams, weight: ing?.weight, weightGrams: ing?.weightGrams }, reason: parsed.reason });
           }
-          const candidate: {
-            fullName: string;
-            shortName: string;
-            estimatedWeightGrams: number;
-            status: string;
-          } = {
+          return {
             fullName: fullName || shortName,
             shortName,
             estimatedWeightGrams: parsed.value,
             status,
           };
-          return candidate;
         })
         .filter(Boolean);
+
+      // Схлопывание и суммирование одинаковых продуктов по базовому имени
+      const mergedMap = new Map<string, { fullName: string; shortName: string; estimatedWeightGrams: number; status: string }>();
+
+      for (const item of parsedCandidates) {
+        if (!item) continue;
+        const key = normalize(item.shortName || item.fullName);
+
+        if (mergedMap.has(key)) {
+          const existing = mergedMap.get(key)!;
+          existing.estimatedWeightGrams = clampWeight(existing.estimatedWeightGrams + item.estimatedWeightGrams);
+          if (item.status === "error" || existing.status === "error") {
+            existing.status = "error";
+          } else if (item.status === "blue" || existing.status === "blue") {
+            existing.status = "blue";
+          }
+        } else {
+          mergedMap.set(key, { ...item });
+        }
+      }
+
+      const candidates = Array.from(mergedMap.values());
 
       // Dev-only диагностика: fallback 100 сработал для КАЖДОГО ингредиента —
       // вероятная ошибка схемы/парсинга ответа Qwen. Только console, без UI.
@@ -1460,15 +1537,24 @@ Only valid JSON, no markdown.`,
     try {
       const { dishName, ingredients, mealSource, dishCategory } = req.body;
       const list = Array.isArray(ingredients) ? ingredients : [];
-      const forcedList = list.filter((i: any) => i.manuallyAllowed && i.status === "red");
-      const normalList = list.filter((i: any) => !(i.manuallyAllowed && i.status === "red"));
+
+      // Ловим любые флаги нарушений: red, error, forbidden или принудительно разрешенные
+      const isViolation = (i: any) =>
+        i.manuallyAllowed ||
+        i.status === "red" ||
+        i.status === "error" ||
+        i.wfpbStatus === "forbidden" ||
+        i.isForbidden === true;
+
+      const forcedList = list.filter(isViolation);
+      const normalList = list.filter((i: any) => !isViolation(i));
 
       const forcedStr = forcedList.length > 0
-        ? `\n\nВредные ингредиенты, которые пользователь проигнорировал и принудительно добавил в разбор: ${forcedList.map((i: any) => `«${i.name}» (${i.weight})`).join(", ")}. Это сознательное нарушение правил WFPB, игнорирование предупреждений.`
+        ? `\n\n⚠️ КРИТИЧЕСКИ ВАЖНО: В блюдо добавлены запрещенные ингредиенты, нарушающие стандарты WFPB: ${forcedList.map((i: any) => `«${i.name || i.shortName || i.fullName || "ингредиент"}» (${i.weight || "?"} г)`).join(", ")}. Пользователь сознательно разрешил или оставил эти продукты в тарелке. ОБЯЗАТЕЛЬНО отреагируй на это язвительно, с сарказмом и строгим упреком согласно матрице реакций!`
         : "";
 
-      const ingredientStr = normalList
-        .map((i: any) => `- ${i.name || i.shortName || i.fullName || "?"} (${i.weight || "?"} г, статус: ${i.status || "?"})`)
+      const ingredientStr = list
+        .map((i: any) => `- ${i.name || i.shortName || i.fullName || "?"} (${i.weight || "?"} г, статус: ${i.status || "?"}${i.manuallyAllowed ? ", принудительно разрешен" : ""})`)
         .join("\n");
 
       // Module-specific hidden philosophy context (only for "Из того, что есть")

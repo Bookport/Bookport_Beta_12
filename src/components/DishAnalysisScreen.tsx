@@ -260,7 +260,7 @@ export default function DishAnalysisScreen({
     );
   };
 
-  useEffect(() => {
+useEffect(() => {
     const key = JSON.stringify(
       ingredients.map((ingredient) => [
         ingredient.fullName,
@@ -272,14 +272,17 @@ export default function DishAnalysisScreen({
 
     analyzedKeyRef.current = key;
 
-    let progressInterval: NodeJS.Timeout;
-
-    progressInterval = setInterval(() => {
+    // Плавная и реалистичная имитация прогресса от 0 до 95%
+    let currentProgress = 0;
+    const progressInterval = setInterval(() => {
       setProgress((p) => {
-        if (p >= 92) return p;
-        return p + Math.floor(Math.random() * 8) + 3;
+        if (p >= 95) return 95;
+        // Замедляемся по мере приближения к концу, чтобы шкала не «висела» на 92%
+        const increment = Math.max(1, Math.floor((95 - p) / 8));
+        currentProgress = p + increment;
+        return currentProgress;
       });
-    }, 150);
+    }, 120);
 
     const runAnalysis = async () => {
       const startTime = Date.now();
@@ -296,31 +299,23 @@ export default function DishAnalysisScreen({
           { mealSource, dishCategory }
         );
 
-        // B1: результат считается валидным только если собственный серверный
-        // анализатор вернул конечные числовые макросы (calories/protein/fat/fiber).
-        // Никаких локальных/фейковых подстановок.
         if (!isValidAnalysisResult(resultData)) {
           throw new Error("Анализатор вернул неполный результат");
         }
 
-        const elapsed = Date.now() - startTime;
-        const delay = Math.max(0, 2000 - elapsed);
-
+        clearInterval(progressInterval);
+        
+        // Плавный догон до 100% перед отображением результата
+        setProgress(100);
         setTimeout(() => {
-          clearInterval(progressInterval);
-          setProgress(100);
-          setTimeout(() => {
-            setResult(resultData as any);
-            setCustomTitle(resultData.dishName);
-            setLoading(false);
-          }, 400);
-        }, delay);
+          setResult(resultData as any);
+          setCustomTitle(resultData.dishName);
+          setLoading(false);
+        }, 350);
+
       } catch (err) {
         console.warn("[DishAnalysis] Nutrition analysis failed, no local fallback:", err);
 
-        // 422 от сервера: есть нераспознанные/неполные ингредиенты.
-        // Частичный анализ не рисуем; показываем список и возвращаем
-        // пользователя к составу кнопкой «Повторить анализ» (onBack).
         const unresolved = (err as { unresolved?: { input: string; weight?: number }[] })?.unresolved;
         const baseMessage = (err as Error)?.message?.startsWith("Невозможно выполнить анализ")
           ? (err as Error).message
@@ -329,18 +324,13 @@ export default function DishAnalysisScreen({
           ? `${baseMessage} Нераспознанные: ${unresolved.map(u => u.input).join(", ")}.`
           : baseMessage;
 
-        const elapsed = Date.now() - startTime;
-        const delay = Math.max(0, 2000 - elapsed);
-
+        clearInterval(progressInterval);
+        setProgress(100);
         setTimeout(() => {
-          clearInterval(progressInterval);
-          setProgress(100);
-          setTimeout(() => {
-            setResult(null);
-            setError(message);
-            setLoading(false);
-          }, 400);
-        }, delay);
+          setResult(null);
+          setError(message);
+          setLoading(false);
+        }, 350);
       }
     };
 
@@ -473,7 +463,7 @@ export default function DishAnalysisScreen({
                   Анализируем блюдо...
                 </h3>
                 <p className="text-[13px] text-[#737C86] font-semibold leading-snug">
-                  Сопоставляем ингредиенты с эталонной базой данных «Всё дело в еде!» для точного расчета КБЖУ и микроэлементов 🌱
+                  Сопоставляем ингредиенты с эталонной базой данных «Всё дело в еде!» для точного расчета КБЖУ и микроэлементов.
                 </p>
               </div>
 

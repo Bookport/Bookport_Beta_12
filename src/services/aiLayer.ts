@@ -38,10 +38,6 @@ export interface AnnaVoiceResponse {
   transcript: string;
 }
 
-// Rich-контракт фото-распознавания: Qwen возвращает русские имена, вес в
-// граммах и визуальный WFPB-статус для немедленного рендера карточек.
-// Qwen НЕ поставляет FoodItem id/канонические имена/нутриенты/изображения БД;
-// identity и финальные значения назначает общий FoodItem-pipeline приложения.
 export interface RecognizedIngredient {
   fullName: string;
   shortName?: string;
@@ -113,10 +109,8 @@ export interface AppControlAction {
 // -------------------------------------------------------------
 
 export const AISystemConfig = {
-  // Configurable Active Provider Option
   currentProvider: "server" as "server" | "studio" | "hybrid",
 
-  // 1. Anna Character Profile & System Instructions
   AnnaCharacter: {
     name: "Анна",
     role: "Заботливый WFPB-советник и велнес-гид",
@@ -141,7 +135,6 @@ export const AISystemConfig = {
     ]
   },
 
-  // 3. AI Prompts for vision and analysis (used to update custom engines)
   Prompts: {
     ingredientRecognition: `Analyze the dish image to extract ingredients matching WFPB rules. Use strictly JSON schema.`,
     mealAnalysis: `Map list of food items against USDA nutritional databases. Compute sum proportion to weight in grams.`,
@@ -153,11 +146,7 @@ export const AISystemConfig = {
 // LOCAL RESILIENT FALLBACK ENGINES (Protects against 429 Quotas)
 // -------------------------------------------------------------
 
-/**
- * Resilient image recognition local fallback (protects against rate limits)
- */
 export function simulateLocalVisionPlan(): RecognitionResponse {
-  // Локальный fallback: rich-кандидаты без identity/нутриентов из БД.
   return {
     noFoodDetected: false,
     ingredients: [
@@ -171,12 +160,51 @@ export function simulateLocalVisionPlan(): RecognitionResponse {
 }
 
 // -------------------------------------------------------------
+// Helper: Image Compression for Vision LLMs
+// -------------------------------------------------------------
+const compressImageBase64 = async (base64Str: string, maxSize = 1024, quality = 0.8): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    // Basic validation to avoid breaking if not a true image
+    if (!base64Str.startsWith("data:image")) {
+      resolve(base64Str);
+      return;
+    }
+
+    const img = new Image();
+    img.src = base64Str;
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      let { width, height } = img;
+
+      if (width > height && width > maxSize) {
+        height = Math.round(height * (maxSize / width));
+        width = maxSize;
+      } else if (height > maxSize) {
+        width = Math.round(width * (maxSize / height));
+        height = maxSize;
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      
+      if (ctx) {
+        // Fill white background to prevent black artifacts on transparent PNGs
+        ctx.fillStyle = "#FFFFFF";
+        ctx.fillRect(0, 0, width, height);
+        ctx.drawImage(img, 0, 0, width, height);
+      }
+
+      resolve(canvas.toDataURL("image/webp", quality));
+    };
+    img.onerror = (error) => reject(error);
+  });
+};
+
+// -------------------------------------------------------------
 // 2. Concrete Provider Implementations (Abstractions)
 // -------------------------------------------------------------
 
-/**
- * TEXT COGNITIVE ENGINE (Anna dialogue re-generation)
- */
 export const AnnaTextProvider = {
   async getCaringSupport(situation: string): Promise<AnnaTextResponse> {
     const isServerMode = AISystemConfig.currentProvider === "server" || AISystemConfig.currentProvider === "hybrid";
@@ -185,10 +213,6 @@ export const AnnaTextProvider = {
     let isFemale = true;
     name = "";
     isFemale = true;
-
-    const namePrefix = name ? `${name}, ` : "";
-    const preparedWord = "готова";
-    const checkedWord = "проверила";
 
     if (isServerMode) {
       try {
@@ -206,7 +230,6 @@ export const AnnaTextProvider = {
       }
     }
 
-    // Direct AI Studio endpoint call
     try {
       const resp = await fetch("/api/anna-supports", {
         method: "POST",
@@ -221,7 +244,6 @@ export const AnnaTextProvider = {
       console.warn("[AnnaTextProvider] AI Studio failed / rate limits. Falling back safely.", e);
     }
 
-    // High fidelity offline collection of tech-oriented supportive statements without first person pronouns
     const offlineLines = [
       `Система производит детальный анализ ингредиентов, процесс займет несколько секунд. 🌱`,
       `Проводится глубокий автоматический разбор кадра на предмет скрытой соли, масел и животных добавок. ✨`,
@@ -236,13 +258,8 @@ export const AnnaTextProvider = {
   }
 };
 
-/**
- * FUTURE AI VOICE SPEECH GENERATOR ROLE
- */
 export const AnnaVoiceProvider = {
   async speakSentence(text: string): Promise<AnnaVoiceResponse> {
-    // Registered profile ready for production TTS integration / audio context outputs.
-    // For now, return structured configuration and log action in mono/Kore layout style.
     console.log(`[AnnaVoiceProvider] Synthesizing text output: "${text}"`);
     return {
       voiceName: "Kore (Zephyr-optimised)",
@@ -252,13 +269,8 @@ export const AnnaVoiceProvider = {
   }
 };
 
-/**
- * DIETETIC & NUTRITIONAL PROFILE COMPOSER ROLE
- */
 export const MealAnalysisProvider = {
   async aggregateNutrients(ingredients: any[], meta?: MealAnalysisMeta): Promise<MealAnalysisResult> {
-    // B1: только результат собственного серверного анализатора. При ошибке/недоступности
-    // НЕ подставляем локальные фейковые КБЖУ — пробрасываем ошибку, чтобы UI заблокировал сохранение.
     const body = JSON.stringify({ ingredients, ...meta });
 
     const resp = await fetch("/api/analyze-dish", {
@@ -290,15 +302,23 @@ export const MealAnalysisProvider = {
   }
 };
 
-/**
- * COMPUTER VISION RECOGNITION PROVIDER ROLE
- */
 export const IngredientRecognitionProvider = {
   async extractIngredientsFromImage(imageBase64: string): Promise<RecognitionResponse> {
+    
+    // Перехват и сжатие картинки перед отправкой
+    let payloadBase64 = imageBase64;
+    try {
+      if (typeof window !== "undefined") {
+        payloadBase64 = await compressImageBase64(imageBase64, 1024, 0.8);
+      }
+    } catch (compressionError) {
+      console.warn("[IngredientRecognitionProvider] Failed to compress image, sending original.", compressionError);
+    }
+
     const resp = await fetch("/api/analyze-image", {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-Telegram-Init-Data": getTelegramInitData() },
-      body: JSON.stringify({ imageBase64 })
+      body: JSON.stringify({ imageBase64: payloadBase64 })
     });
     
     if (resp.ok) {
@@ -318,9 +338,6 @@ export const IngredientRecognitionProvider = {
   }
 };
 
-/**
- * STRICT WFPB DIET RULES ENGINE ROLE
- */
 export const WFPBDecisionProvider = {
   checkCompliance(ingredientName: string): WFPBAuditResponse {
     const result = checkWFPB(ingredientName);
@@ -347,9 +364,6 @@ export const WFPBDecisionProvider = {
   }
 };
 
-/**
- * DYNAMIC APP NAVIGATION CONTROL layer
- */
 export const AppControlProvider = {
   handleComplexUserScenario(utterance: string): AppControlAction {
     const clean = utterance.toLowerCase();
@@ -362,10 +376,6 @@ export const AppControlProvider = {
     return { actionType: "none" };
   }
 };
-
-// -------------------------------------------------------------
-// Core System Controller for Config & Provider Switch
-// -------------------------------------------------------------
 
 export const AIServiceLayer = {
   getCurrentProvider(): "studio" | "server" | "hybrid" {

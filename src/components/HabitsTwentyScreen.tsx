@@ -6,6 +6,7 @@ import { SystemKeysStore, SYSTEM_KEY_DEFS, SystemKeyProgress } from "../services
 import { MOTIVATION_PHRASES } from "../constants/motivationPhrases";
 import BottomBar from "./BottomBar";
 import { useAppStore } from "../store/useAppStore";
+import logoGreen from "../assets/ingredients/ingr_green.webp";
 import legumesImg from "../assets/images/keysustem/14.webp";
 import wholeGrainsImg from "../assets/images/keysustem/15.webp";
 import vegetablesImg from "../assets/images/keysustem/16.webp";
@@ -18,6 +19,14 @@ import fruitsImg from "../assets/images/keysustem/10.webp";
 import berriesImg from "../assets/images/keysustem/11.webp";
 import sproutsImg from "../assets/images/keysustem/12.webp";
 import mustHaveImg from "../assets/images/keysustem/13.webp";
+import healthyDrinksImg from "../assets/images/keysustem/2.webp";
+import complimentImg from "../assets/images/keysustem/3.webp";
+import recipeImg from "../assets/images/keysustem/4.webp";
+import soakingImg from "../assets/images/keysustem/5.webp";
+import noOilImg from "../assets/images/keysustem/6.webp";
+import noSaltImg from "../assets/images/keysustem/7.webp";
+import noCaffeineImg from "../assets/images/keysustem/20.webp";
+import noSugarImg from "../assets/images/keysustem/21.webp";
 
 interface HabitsTwentyScreenProps {
   dayNotes: Record<number, { text: string; time: string }[]>;
@@ -368,7 +377,7 @@ const PRODUCT_KEYS_LIST = [
 
 const THEMED_KEYS = ["whole_grains", "vegetables", "leafy_greens"];
 
-// Single unified product card shell for legumes, whole_grains, vegetables, leafy_greens
+// Single unified product card shell for legumes, whole_grains, vegetables, leafy_greens + 7 actions
 interface ProductCardProps {
   keyId: string;
   imageSrc: string;
@@ -390,6 +399,9 @@ interface ProductCardProps {
   onManualEntryOpen: () => void;
   onInfoClick: () => void;
   statusCap?: number;
+  variant?: "product" | "action";
+  handleActionToggle?: (keyId: string, optimalDone: boolean) => void;
+  optimalDone?: boolean;
 }
 
 const ProductCardShell: React.FC<ProductCardProps> = ({
@@ -412,18 +424,27 @@ const ProductCardShell: React.FC<ProductCardProps> = ({
   onSuperlevelToggle,
   onManualEntryOpen,
   onInfoClick,
-  statusCap
+  statusCap,
+  variant = "product",
+  handleActionToggle,
+  optimalDone = false
 }) => {
   const statusCapValue = statusCap ?? optimum;
   const statusFilled = Math.min(currentVal, statusCapValue);
 
-  // Presentation-only target for status label (display cap, not real optimum)
-  const visibleTarget = Math.min(optimum, 3);
-  const visibleFilled = Math.min(currentVal, visibleTarget);
-
-  // Singular/plural form for portion label
-  const portionLabel = visibleTarget === 1 ? "Порция" : "Порций";
-  const statusText = `${portionLabel}: ${visibleFilled} из ${visibleTarget}`;
+  // Different status text for product vs action variants
+  let statusText: string;
+  if (variant === "action") {
+    statusText = isCompleted ? "✓ Выполнено" : "Ожидает выполнения";
+  } else {
+    // Presentation-only target for status label (display cap, not real optimum)
+    const visibleTarget = Math.min(optimum, 3);
+    const visibleFilled = Math.min(currentVal, visibleTarget);
+    
+    // Singular/plural form for portion label
+    const portionLabel = visibleTarget === 1 ? "Порция" : "Порций";
+    statusText = `${portionLabel}: ${visibleFilled} из ${visibleTarget}`;
+  }
 
   return (
     <div
@@ -482,69 +503,96 @@ const ProductCardShell: React.FC<ProductCardProps> = ({
 
           {/* Controls row - aligned to right with responsive wrap */}
           <div className="flex items-center justify-end gap-3 w-full flex-wrap gap-y-2">
-            {/* Portion buttons - compact group */}
-            <div className="flex gap-1.5">
-              {Array.from({ length: visibleCirclesCount }).map((_, idx) => {
-                const circleVal = idx + 1;
-                const checked = currentVal >= circleVal;
-                const isSuper = hasSuperlevel && circleVal > optimum;
+            {variant === "action" ? (
+              // Action variant: single toggle button
+              handleActionToggle && (
+                <button
+                  id={`toggle-${keyId}`}
+                  type="button"
+                  onClick={() => handleActionToggle(keyId, optimalDone)}
+                  className={`px-6 py-2 rounded-full text-[13px] font-black tracking-tight transition-all cursor-pointer border ${
+                    isCompleted
+                      ? "bg-emerald-500 border-emerald-600 text-white shadow-sm shadow-emerald-500/25"
+                      : "bg-slate-100 border-slate-200 text-slate-500 hover:bg-slate-200/60"
+                  }`}
+                >
+                  {isCompleted ? (
+                    <span className="flex items-center gap-1.5">
+                      <Check className="w-4 h-4 stroke-[3]" /> Выполнено
+                    </span>
+                  ) : (
+                    "Сделал"
+                  )}
+                </button>
+              )
+            ) : (
+              // Product variant: circles, superlevel, manual entry
+              <>
+                {/* Portion buttons - compact group */}
+                <div className="flex gap-1.5">
+                  {Array.from({ length: visibleCirclesCount }).map((_, idx) => {
+                    const circleVal = idx + 1;
+                    const checked = currentVal >= circleVal;
+                    const isSuper = hasSuperlevel && circleVal > optimum;
 
-                return (
+                    return (
+                      <button
+                        id={`portion-${keyId}-${circleVal}`}
+                        key={idx}
+                        type="button"
+                        onClick={() => onCircleClick(idx)}
+                        className={`h-9 w-9 rounded-full border flex items-center justify-center font-black text-[14px] transition-all duration-200 cursor-pointer shadow-sm ${
+                          checked
+                            ? isSuper
+                              ? "bg-amber-500 border-amber-600 text-white shadow-sm shadow-amber-500/20"
+                              : "bg-emerald-500 border-emerald-600 text-white shadow-sm shadow-emerald-500/25"
+                            : isSuper
+                            ? "border-amber-200 text-amber-500 bg-amber-50/20 hover:bg-amber-500/10"
+                            : "border-slate-200 text-slate-500 hover:bg-emerald-500/5 hover:border-emerald-500/20 bg-slate-50/30"
+                        }`}
+                      >
+                        {isSuper ? "★" : circleVal}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Superlevel button */}
+                {hasSuperlevel && (
                   <button
-                    id={`portion-${keyId}-${circleVal}`}
-                    key={idx}
+                    id={`superlevel-btn-${keyId}`}
                     type="button"
-                    onClick={() => onCircleClick(idx)}
-                    className={`h-9 w-9 rounded-full border flex items-center justify-center font-black text-[14px] transition-all duration-200 cursor-pointer shadow-sm ${
-                      checked
-                        ? isSuper
-                          ? "bg-amber-500 border-amber-600 text-white shadow-sm shadow-amber-500/20"
-                          : "bg-emerald-500 border-emerald-600 text-white shadow-sm shadow-emerald-500/25"
-                        : isSuper
-                        ? "border-amber-200 text-amber-500 bg-amber-50/20 hover:bg-amber-500/10"
-                        : "border-slate-200 text-slate-500 hover:bg-emerald-500/5 hover:border-emerald-500/20 bg-slate-50/30"
+                    onClick={onSuperlevelToggle}
+                    className={`h-9 w-9 rounded-full border flex items-center justify-center text-[16px] font-black transition-all duration-200 cursor-pointer shadow-sm ${
+                      superLevelDone
+                        ? "bg-amber-500 border-amber-600 text-white shadow-sm shadow-amber-500/20"
+                        : "border-amber-200 text-amber-500 bg-amber-50/20 hover:bg-amber-500/10"
                     }`}
+                    title="Суперуровень"
                   >
-                    {isSuper ? "★" : circleVal}
+                    ★
                   </button>
-                );
-              })}
-            </div>
+                )}
 
-            {/* Superlevel button */}
-            {hasSuperlevel && (
-              <button
-                id={`superlevel-btn-${keyId}`}
-                type="button"
-                onClick={onSuperlevelToggle}
-                className={`h-9 w-9 rounded-full border flex items-center justify-center text-[16px] font-black transition-all duration-200 cursor-pointer shadow-sm ${
-                  superLevelDone
-                    ? "bg-amber-500 border-amber-600 text-white shadow-sm shadow-amber-500/20"
-                    : "border-amber-200 text-amber-500 bg-amber-50/20 hover:bg-amber-500/10"
-                }`}
-                title="Суперуровень"
-              >
-                ★
-              </button>
+                {/* Manual grams display + entry button */}
+                <div className="flex items-center gap-2">
+                  <div className="px-3 py-1.5 rounded-xl bg-white/70 border border-white/50 text-[13px] font-black text-slate-700 min-w-[60px] text-center">
+                    {manualGrams || 0} г
+                  </div>
+                  <button
+                    id={keyId === "legumes" ? "manual-entry-legumes" : `manual-entry-${keyId}`}
+                    type="button"
+                    onClick={onManualEntryOpen}
+                    className="w-10 h-10 rounded-full flex items-center justify-center text-white font-black text-[20px] shadow-sm hover:brightness-95 active:scale-95 transition-all cursor-pointer"
+                    style={{ backgroundColor: accentColor }}
+                    title="Ручной учёт"
+                    aria-label={`Открыть ручной учёт для ${title}`}
+                  >
+                    +
+                  </button>
+                </div>
+              </>
             )}
-
-            {/* Manual grams display + entry button */}
-            <div className="flex items-center gap-2">
-              <div className="px-3 py-1.5 rounded-xl bg-white/70 border border-white/50 text-[13px] font-black text-slate-700 min-w-[60px] text-center">
-                {manualGrams || 0} г
-              </div>
-              <button
-                id={keyId === "legumes" ? "manual-entry-legumes" : `manual-entry-${keyId}`}
-                type="button"
-                onClick={onManualEntryOpen}
-                className="w-10 h-10 rounded-full flex items-center justify-center text-white font-black text-[20px] shadow-sm hover:brightness-95 active:scale-95 transition-all cursor-pointer"
-                style={{ backgroundColor: accentColor }}
-                title="Ручной учёт"
-                aria-label={`Открыть ручной учёт для ${title}`}
-              >
-                +
-              </button>
-            </div>
           </div>
         </div>
       </div>
@@ -565,18 +613,28 @@ const MANUAL_ENTRY_THEMES: Record<string, {
   accent: string;
   accentHover: string;
 }> = {
-  legumes: { img: legumesImg, surface: "#D4F0E6", accent: "#16B551", accentHover: "#14a048" },
-  whole_grains: { img: wholeGrainsImg, surface: "#FDF3E3", accent: "#D97706", accentHover: "#B45309" },
-  vegetables: { img: vegetablesImg, surface: "#F4F8DB", accent: "#65A30D", accentHover: "#4D7C0F" },
-  leafy_greens: { img: leafyGreensImg, surface: "#E3F2EA", accent: "#065F46", accentHover: "#064E3B" },
-  nuts: { img: nutsImg, surface: "#F3E7D7", accent: "#9A642C", accentHover: "#7C5425" },
-  seeds: { img: seedsImg, surface: "#FBE9C8", accent: "#C47A16", accentHover: "#A36412" },
-  ground_flax: { img: groundFlaxImg, surface: "#FFF6C9", accent: "#A47A00", accentHover: "#8A6600" },
-  spices: { img: spicesImg, surface: "#E8F1D9", accent: "#5E8B3C", accentHover: "#4D7531" },
-  fruits: { img: fruitsImg, surface: "#FFE6DE", accent: "#DE6E52", accentHover: "#BC5A42" },
-  berries: { img: berriesImg, surface: "#F8E2ED", accent: "#B84D86", accentHover: "#9A4070" },
-  sprouts: { img: sproutsImg, surface: "#E1F5DB", accent: "#3E9A5C", accentHover: "#337F4B" },
-  must_have: { img: mustHaveImg, surface: "#FFF0CD", accent: "#BE851B", accentHover: "#9F6F16" }
+  // Products - 13 unique themes
+  legumes: { img: legumesImg, surface: "#F7E8D0", accent: "#A6602F", accentHover: "#87451F" },
+  whole_grains: { img: wholeGrainsImg, surface: "#FCEBC5", accent: "#B7791F", accentHover: "#8F5A08" },
+  vegetables: { img: vegetablesImg, surface: "#E1F3D8", accent: "#4C8B3B", accentHover: "#376C2B" },
+  leafy_greens: { img: leafyGreensImg, surface: "#DDF4E7", accent: "#23805A", accentHover: "#166543" },
+  nuts: { img: nutsImg, surface: "#F5E2D5", accent: "#A65A35", accentHover: "#7D3C21" },
+  seeds: { img: seedsImg, surface: "#EEE7F7", accent: "#7652A3", accentHover: "#56367D" },
+  ground_flax: { img: groundFlaxImg, surface: "#F5EBDC", accent: "#9A6B3E", accentHover: "#70461D" },
+  spices: { img: spicesImg, surface: "#FBE2DD", accent: "#C75B45", accentHover: "#A83D2B" },
+  fruits: { img: fruitsImg, surface: "#FFE5D6", accent: "#DB6B39", accentHover: "#B94A1D" },
+  berries: { img: berriesImg, surface: "#F3E1ED", accent: "#A54679", accentHover: "#7E2E5B" },
+  sprouts: { img: sproutsImg, surface: "#EAF4D6", accent: "#6B982F", accentHover: "#4C741C" },
+  must_have: { img: mustHaveImg, surface: "#E0F0F4", accent: "#2D7F8D", accentHover: "#1C6070" },
+  healthy_drinks: { img: healthyDrinksImg, surface: "#DDF4F0", accent: "#129887", accentHover: "#0C7164" },
+  // Actions (unchanged)
+  compliment: { img: complimentImg, surface: "#FFF8E8", accent: "#C98A18", accentHover: "#A87515" },
+  recipe: { img: recipeImg, surface: "#FEF3C7", accent: "#B45309", accentHover: "#92400E" },
+  soaking: { img: soakingImg, surface: "#DBEAFE", accent: "#2563EB", accentHover: "#1D4ED8" },
+  no_oil_cook: { img: noOilImg, surface: "#D1FAE5", accent: "#059669", accentHover: "#047857" },
+  no_salt_cook: { img: noSaltImg, surface: "#EDE9FE", accent: "#7C3AED", accentHover: "#6D28D9" },
+  no_caffeine_day: { img: noCaffeineImg, surface: "#FFEDD5", accent: "#C2410C", accentHover: "#9A3412" },
+  no_sugar_day: { img: noSugarImg, surface: "#FCE7F3", accent: "#DB2777", accentHover: "#BE185D" }
 };
 
 const BUBBLES_TEMPLATE = [
@@ -622,7 +680,11 @@ export default function HabitsTwentyScreen({
 
   // Bridge recipe states from useAppStore into SystemKeysStore
   const recipeStates = useAppStore((s) => s.recipeStates);
-  SystemKeysStore.syncRecipeStates(recipeStates);
+  
+  // Sync recipe states whenever they change (including after cooked action in BookRecipesScreen)
+  useEffect(() => {
+    SystemKeysStore.syncRecipeStates(recipeStates);
+  }, [recipeStates]);
 
   // Track detailed information sheet target
   const [selectedKey, setSelectedKey] = useState<SystemKeyProgress | null>(null);
@@ -700,11 +762,7 @@ export default function HabitsTwentyScreen({
     const totalNeededGrams = nextPortionCount * portionGrams;
     const manualResult = Math.max(0, totalNeededGrams - autoGrams);
 
-    if (keyId === "healthy_drinks") {
-      setWater(totalNeededGrams);
-    } else {
-      SystemKeysStore.updateManualKey(currentDayIndex, keyId, true, { manualGrams: manualResult });
-    }
+    SystemKeysStore.updateManualKey(currentDayIndex, keyId, true, { manualGrams: manualResult });
     setUpdateTrigger(prev => prev + 1);
 
     // Sync selected Key if open
@@ -739,11 +797,7 @@ export default function HabitsTwentyScreen({
   // Direct manual grams input from key main grid rows
   const handleGramsInputChangeDirectly = (keyId: string, val: number) => {
     const finalVal = Math.max(0, val);
-    if (keyId === "healthy_drinks") {
-      setWater(finalVal);
-    } else {
-      SystemKeysStore.updateManualKey(currentDayIndex, keyId, true, { manualGrams: finalVal });
-    }
+    SystemKeysStore.updateManualKey(currentDayIndex, keyId, true, { manualGrams: finalVal });
     setUpdateTrigger(prev => prev + 1);
   };
 
@@ -762,11 +816,7 @@ export default function HabitsTwentyScreen({
     if (!selectedKey) return;
     const finalVal = Math.max(0, newGrams);
 
-    if (selectedKey.id === "healthy_drinks") {
-      setWater(finalVal);
-    } else {
-      SystemKeysStore.updateManualKey(currentDayIndex, selectedKey.id, true, { manualGrams: finalVal });
-    }
+    SystemKeysStore.updateManualKey(currentDayIndex, selectedKey.id, true, { manualGrams: finalVal });
 
     setTempManualGrams(finalVal);
     setUpdateTrigger(prev => prev + 1);
@@ -844,114 +894,49 @@ export default function HabitsTwentyScreen({
       </div>
 
       {/* CONTENT SCROLLABLE GRID */}
-      <div className="flex-1 overflow-y-auto px-4 sm:px-5 pt-4 pb-28 flex flex-col gap-4 max-w-lg mx-auto w-full scrollbar-none">
+      <div className="flex-1 overflow-y-auto px-4 sm:px-5 pt-4 pb-5 flex flex-col gap-4 max-w-lg mx-auto w-full scrollbar-none">
 
-        {/* PROGRESS BLOCK - REALISTIC GLASS FLASK + TEXT */}
+        {/* PROGRESS BLOCK - Circular Progress Bar + Text */}
         <div className="flex flex-row items-center gap-6 p-4 mb-4">
-          {/* Left: Realistic Glass Flask with soap bubbles */}
-          <div className="relative w-28 h-48 shrink-0">
-            {/* LAYER 1: Glass vessel with liquid (overflow-hidden) */}
-            <div className="absolute inset-0 rounded-[2.5rem] overflow-hidden border-b-4 border-l-2 border-r-2 border-white/30 shadow-[inset_0_-10px_20px_rgba(255,255,255,0.4)]">
-              {/* Liquid - 33% base height + fills to 100% based on progress */}
-              <div
-                className="absolute bottom-0 w-full bg-gradient-to-t from-emerald-500 to-cyan-400 transition-all duration-700 ease-out"
-                style={{ height: `calc(33% + (${closedCount} / 20) * 67%)` }}
-              >
-                {/* Wave 1 - HUGE negative space rotating disc for smooth wave effect */}
-                <div
-                  className="absolute -top-[350%] -left-[150%] w-[400%] h-[400%] bg-[#FAFAFA] rounded-[43%] animate-[spin_7s_linear_infinite]"
-                />
-                {/* Wave 2 - Lower wave crest with emerald volume */}
-                <div
-                  className="absolute -top-[340%] -left-[145%] w-[400%] h-[400%] bg-emerald-400/40 rounded-[40%] animate-[spin_9s_linear_infinite]"
-                />
-              </div>
-              {/* Glass shine overlay - horizontal gradient for volume */}
-              <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-transparent to-white/40 pointer-events-none" />
-            </div>
+          {/* Left: Circular Progress Bar */}
+          <div className="relative w-40 h-40 flex items-center justify-center shrink-0">
+            <svg className="w-full h-full transform -rotate-90" viewBox="0 0 120 120">
+              <circle 
+                cx="60" 
+                cy="60" 
+                r="52" 
+                fill="none" 
+                stroke="#E2E8F0" 
+                strokeWidth="8"
+                className="opacity-75"
+              />
+              <motion.circle 
+                cx="60" 
+                cy="60" 
+                r="52" 
+                fill="none" 
+                stroke="url(#progressGradient)" 
+                strokeWidth="9"
+                strokeDasharray={`${2 * Math.PI * 52}`}
+                initial={{ strokeDashoffset: `${2 * Math.PI * 52}` }}
+                animate={{ strokeDashoffset: `${2 * Math.PI * 52 * (1 - closedCount / 20)}` }}
+                transition={{ duration: 1.2, ease: "easeOut" }}
+                strokeLinecap="round"
+              />
+              <defs>
+                <linearGradient id="progressGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#129887" />
+                  <stop offset="50%" stopColor="#10B981" />
+                  <stop offset="100%" stopColor="#34D399" />
+                </linearGradient>
+              </defs>
+            </svg>
 
-            {/* LAYER 2: Floating soap bubbles (OUTSIDE overflow-hidden, z-10) */}
-            <div className="absolute inset-0 z-10 pointer-events-none">
-              <style>{`
-                @keyframes soapFloatWind {
-                  0% { transform: translate(0, 0) scale(0.6); opacity: 0; }
-                  15% { opacity: 1; }
-                  100% { transform: translate(40px, -200px) scale(1.2); opacity: 0; }
-                }
-                @keyframes soapFloatLeft {
-                  0% { transform: translate(0, 0) scale(0.8); opacity: 0; }
-                  20% { opacity: 1; }
-                  100% { transform: translate(-30px, -250px) scale(0.9); opacity: 0; }
-                }
-                @keyframes soapPop {
-                  0% { transform: translate(0, 0) scale(0.7); opacity: 0; }
-                  30% { opacity: 1; }
-                  70% { transform: translate(15px, -100px) scale(1.3); opacity: 1; }
-                  75% { transform: translate(16px, -105px) scale(1.5); opacity: 0; }
-                  100% { opacity: 0; }
-                }
-              `}</style>
-
-              {/* Bubble 1 - soapFloatWind */}
-              <div
-                className="absolute w-5 h-5 rounded-full border border-white/40 bg-gradient-to-br from-white/20 to-transparent backdrop-blur-sm shadow-[inset_0_0_8px_rgba(255,255,255,0.3)]"
-                style={{ left: '22%', bottom: '5px', animation: 'soapFloatWind 4s infinite ease-in', animationDelay: '0s', willChange: 'transform, opacity' }}
-              />
-              {/* Bubble 2 - soapFloatLeft */}
-              <div
-                className="absolute w-4 h-4 rounded-full border border-white/40 bg-gradient-to-br from-white/20 to-transparent backdrop-blur-sm shadow-[inset_0_0_8px_rgba(255,255,255,0.3)]"
-                style={{ left: '45%', bottom: '8px', animation: 'soapFloatLeft 4.5s infinite ease-in', animationDelay: '0.5s', willChange: 'transform, opacity' }}
-              />
-              {/* Bubble 3 - soapPop */}
-              <div
-                className="absolute w-6 h-6 rounded-full border border-white/40 bg-gradient-to-br from-white/20 to-transparent backdrop-blur-sm shadow-[inset_0_0_8px_rgba(255,255,255,0.3)]"
-                style={{ left: '68%', bottom: '6px', animation: 'soapPop 3s infinite ease-in', animationDelay: '1s', willChange: 'transform, opacity' }}
-              />
-              {/* Bubble 4 - soapFloatWind */}
-              <div
-                className="absolute w-4.5 h-4.5 rounded-full border border-white/40 bg-gradient-to-br from-white/20 to-transparent backdrop-blur-sm shadow-[inset_0_0_8px_rgba(255,255,255,0.3)]"
-                style={{ left: '35%', bottom: '10px', animation: 'soapFloatWind 5s infinite ease-in', animationDelay: '1.5s', willChange: 'transform, opacity' }}
-              />
-              {/* Bubble 5 - soapFloatLeft */}
-              <div
-                className="absolute w-3.5 h-3.5 rounded-full border border-white/40 bg-gradient-to-br from-white/20 to-transparent backdrop-blur-sm shadow-[inset_0_0_8px_rgba(255,255,255,0.3)]"
-                style={{ left: '78%', bottom: '7px', animation: 'soapFloatLeft 3.5s infinite ease-in', animationDelay: '2s', willChange: 'transform, opacity' }}
-              />
-              {/* Bubble 6 - soapPop */}
-              <div
-                className="absolute w-5.5 h-5.5 rounded-full border border-white/40 bg-gradient-to-br from-white/20 to-transparent backdrop-blur-sm shadow-[inset_0_0_8px_rgba(255,255,255,0.3)]"
-                style={{ left: '52%', bottom: '12px', animation: 'soapPop 3.8s infinite ease-in', animationDelay: '0.8s', willChange: 'transform, opacity' }}
-              />
-              {/* Bubble 7 - soapFloatWind */}
-              <div
-                className="absolute w-4 h-4 rounded-full border border-white/40 bg-gradient-to-br from-white/20 to-transparent backdrop-blur-sm shadow-[inset_0_0_8px_rgba(255,255,255,0.3)]"
-                style={{ left: '15%', bottom: '9px', animation: 'soapFloatWind 4.2s infinite ease-in', animationDelay: '2.5s', willChange: 'transform, opacity' }}
-              />
-              {/* Bubble 8 - soapFloatLeft */}
-              <div
-                className="absolute w-5 h-5 rounded-full border border-white/40 bg-gradient-to-br from-white/20 to-transparent backdrop-blur-sm shadow-[inset_0_0_8px_rgba(255,255,255,0.3)]"
-                style={{ left: '60%', bottom: '11px', animation: 'soapFloatLeft 5s infinite ease-in', animationDelay: '1.2s', willChange: 'transform, opacity' }}
-              />
-              {/* Bubble 9 - soapPop */}
-              <div
-                className="absolute w-3 h-3 rounded-full border border-white/40 bg-gradient-to-br from-white/20 to-transparent backdrop-blur-sm shadow-[inset_0_0_8px_rgba(255,255,255,0.3)]"
-                style={{ left: '82%', bottom: '5px', animation: 'soapPop 2.5s infinite ease-in', animationDelay: '3s', willChange: 'transform, opacity' }}
-              />
-              {/* Bubble 10 - soapFloatWind */}
-              <div
-                className="absolute w-4.5 h-4.5 rounded-full border border-white/40 bg-gradient-to-br from-white/20 to-transparent backdrop-blur-sm shadow-[inset_0_0_8px_rgba(255,255,255,0.3)]"
-                style={{ left: '28%', bottom: '14px', animation: 'soapFloatWind 4.8s infinite ease-in', animationDelay: '1.8s', willChange: 'transform, opacity' }}
-              />
-            </div>
-            {/* Bubble 11 - popMid, small white */}
-            <div
-              className="absolute w-3.5 h-3.5 rounded-full bg-white/60"
-              style={{ left: '45%', bottom: '38%', animation: 'popMid 3.2s infinite ease-in', animationDelay: '4s' }}
-            />
-            {/* Bubble 12 - floatFast, medium emerald */}
-            <div
-              className="absolute w-4 h-4 rounded-full bg-emerald-200/50"
-              style={{ left: '65%', bottom: '24%', animation: 'floatFast 2.8s infinite ease-in', animationDelay: '3.5s' }}
+            {/* Logo Green in center - no text inside ring */}
+            <img
+              src={logoGreen}
+              alt=""
+              className="absolute w-[65%] h-[65%] object-contain pointer-events-none select-none"
             />
           </div>
 
@@ -969,265 +954,103 @@ export default function HabitsTwentyScreen({
           </div>
         </div>
 
-        {/* CUSTOM TAB SELECTOR */}
-        <div className="w-full bg-[#F5F2EF] rounded-2xl p-1.5 flex gap-1 justify-between select-none shrink-0">
+        {/* CUSTOM TAB SELECTOR - Two separate buttons */}
+        <div className="w-full flex gap-2 justify-between select-none shrink-0">
           <button
             id="tab-products"
             type="button"
             onClick={() => setActiveTab("products")}
-            className={`flex-1 py-3 text-center rounded-xl text-[14px] sm:text-[14.5px] font-bold tracking-tight transition-all cursor-pointer ${
+            className={`flex-[1] py-3 px-4 text-center rounded-xl text-[16px] font-bold tracking-tight transition-all cursor-pointer border shadow-sm ${
               activeTab === "products"
-                ? "bg-[#FFE5D0] text-slate-900 shadow-[0_2px_8px_rgba(255,180,140,0.3)] font-black"
-                : "bg-transparent text-slate-500 hover:text-slate-700 shadow-none"
+                ? "bg-[#DDF4F0] text-[#129887] border-white shadow-[0_2px_8px_rgba(18,152,135,0.15)]"
+                : "bg-[#DDF4F0] text-[#129887]/70 border-white hover:bg-[#D1EBE6]"
             }`}
           >
-            🍎 Продукты (13)
+            Продукты
           </button>
           <button
             id="tab-actions"
             type="button"
             onClick={() => setActiveTab("actions")}
-            className={`flex-1 py-3 text-center rounded-xl text-[14px] sm:text-[14.5px] font-bold tracking-tight transition-all cursor-pointer ${
+            className={`flex-[1] py-3 px-4 text-center rounded-xl text-[16px] font-bold tracking-tight transition-all cursor-pointer border shadow-sm ${
               activeTab === "actions"
-                ? "bg-[#FFE5D0] text-slate-900 shadow-[0_2px_8px_rgba(255,180,140,0.3)] font-black"
-                : "bg-transparent text-slate-500 hover:text-slate-700 shadow-none"
+                ? "bg-[#EEE8FF] text-[#7C3AED] border-white shadow-[0_2px_8px_rgba(124,58,237,0.15)]"
+                : "bg-[#EEE8FF] text-[#7C3AED]/70 border-white hover:bg-[#E6D9FF]"
             }`}
           >
-            ⚡ Действия (7)
+            Действия
           </button>
         </div>
 
         {/* HEALTHY KEYS GRID */}
         <div className="w-full flex flex-col gap-3">
           {keys.filter(k => k.category === (activeTab === "products" ? "product" : "action")).map(k => {
-            const currentVal = k.portionsFilled;
-            const isCompleted = k.optimalDone;
+             const currentVal = k.portionsFilled;
+             const isCompleted = k.optimalDone;
 
-            // Unified product card shell for all 13 products (except healthy_drinks which needs special handling)
-            if (PRODUCT_KEYS_LIST.includes(k.id) && k.id !== "healthy_drinks") {
-              const theme = MANUAL_ENTRY_THEMES[k.id];
-              // Display cap: max 3 visible circles + separate ★ for superlevel
-              const maxVisibleCircles = 3;
-              const visibleCirclesCount = Math.min(PRODUCT_KEYS_LIST.includes(k.id) ? k.optimum : k.maxCircles, maxVisibleCircles);
+             // Unified product card shell for all 13 products + 7 action cards
+             if (PRODUCT_KEYS_LIST.includes(k.id) || k.category === "action") {
+               const theme = MANUAL_ENTRY_THEMES[k.id];
+               if (!theme) {
+                 console.error(`No theme found for key: ${k.id}`);
+                 return null;
+               }
+               // Display cap: max 3 visible circles + separate ★ for superlevel
+               const maxVisibleCircles = 3;
+               const visibleCirclesCount = Math.min(PRODUCT_KEYS_LIST.includes(k.id) ? k.optimum : k.maxCircles, maxVisibleCircles);
 
-              return (
-                <ProductCardShell
-                  key={k.id}
-                  keyId={k.id}
-                  imageSrc={theme.img}
-                  surfaceColor={theme.surface}
-                  accentColor={theme.accent}
-                  cardNumber={k.num}
-                  title={k.name}
-                  subtitle={SYSTEM_KEYS.find(sk => sk.id === k.id)?.subtext || ""}
-                  manualGrams={k.manualGrams || 0}
-                  portionsFilled={k.portionsFilled}
-                  optimum={k.optimum}
-                  hasSuperlevel={k.hasSuperlevel}
-                  superLevelDone={k.superLevelDone}
-                  isCompleted={k.optimalDone}
-                  currentVal={currentVal}
-                  visibleCirclesCount={visibleCirclesCount}
-                  onCircleClick={(idx) => handleProductPortionClick(k.id, idx, currentVal, k.portionSizeInGrams, k.autoGrams)}
-                  onSuperlevelToggle={() => {
-                    if (k.superLevelDone) {
-                      handleGramsInputChangeDirectly(k.id, 0);
-                    } else {
-                      const neededGrams = (k.optimum + 1) * k.portionSizeInGrams;
-                      const manualRequired = Math.max(0, neededGrams - k.autoGrams);
-                      handleGramsInputChangeDirectly(k.id, manualRequired);
-                    }
-                  }}
-                   onManualEntryOpen={() => openManualEntry(k)}
-                   onInfoClick={() => setSelectedKey(k)}
-                   statusCap={3}
-                 />
-              );
-            }
+               // For actions: use variant "action", otherwise "product"
+               const cardVariant = k.category === "action" ? "action" as const : "product" as const;
 
-            // Default design for all other cards
-            return (
-              <div
-                key={k.id}
-                className={`w-full rounded-[22px] bg-white border p-4 flex flex-col gap-3 transition-all ${
-                  isCompleted
-                    ? "border-emerald-200 bg-emerald-50/10 shadow-[0_4px_16px_rgba(16,185,129,0.02)]"
-                    : "border-slate-150 bg-white shadow-sm"
-                }`}
-              >
-                <div className="flex gap-3 justify-between items-start">
-                  <div className="flex gap-2.5 items-center">
-                    <span className="text-[26px] leading-none shrink-0" role="img" aria-label={k.name}>
-                      {k.emoji}
-                    </span>
-                    <div className="flex flex-col">
-                      <h4 className="text-[15px] sm:text-[15.5px] font-extrabold text-slate-800 leading-tight">
-                        {k.num}. {k.name}
-                      </h4>
-                      <p className="text-[11.5px] sm:text-[12px] text-slate-400 font-medium leading-normal mt-1 max-w-[220px]">
-                        {k.id === "healthy_drinks" && water > 0 && !hasWaterAuto
-                          ? `Вода порция: ${water} мл`
-                          : SYSTEM_KEYS.find(sk => sk.id === k.id)?.subtext || ""
-                        }
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Info Icon clicker */}
-                  <button
-                    id={`info-key-${k.id}`}
-                    type="button"
-                    onClick={() => setSelectedKey(k)}
-                    className="p-1.5 rounded-full hover:bg-slate-50 text-slate-450 hover:text-emerald-500 transition-colors focus:outline-none cursor-pointer"
-                  >
-                    <Info className="w-4.5 h-4.5 stroke-[2]" />
-                  </button>
-                </div>
-
-                {/* VISUAL CONTROLS */}
-                <div className="w-full flex items-center justify-between pt-1.5 border-t border-slate-50">
-                  {/* Status Indicator */}
-                  <span className={`text-[12px] font-bold ${
-                    isCompleted
-                      ? "text-emerald-600 font-black"
-                      : currentVal > 0
-                      ? "text-slate-500"
-                      : "text-slate-350"
-                  }`}>
-                    {isCompleted
-                      ? (k.superLevelDone ? "★ Сияющий суперуровень!" : "Выполнено!")
-                      : k.category === "product"
-                      ? `Порций: ${currentVal} из ${k.optimum}`
-                      : "Ожидает выполнения"
-                    }
-                  </span>
-
-                  {/* Action or Portion clicker */}
-                  {k.category === "product" ? (
-                    <div className="flex gap-1.5 items-center select-none">
-                      {/* Portion check circles */}
-                      <div className="flex gap-1 items-center">
-                        {Array.from({ length: PRODUCT_KEYS_LIST.includes(k.id) ? k.optimum : k.maxCircles }).map((_, idx) => {
-                          const circleVal = idx + 1;
-                          const checked = currentVal >= circleVal;
-                          const isSuper = k.hasSuperlevel && circleVal > k.optimum;
-
-                          return (
-                            <button
-                              id={`portion-${k.id}-${circleVal}`}
-                              key={idx}
-                              type="button"
-                              onClick={() => handleProductPortionClick(k.id, idx, currentVal, k.portionSizeInGrams, k.autoGrams)}
-                              className={`h-8 rounded-full border flex items-center justify-center font-black transition-all duration-200 cursor-pointer w-8 text-[13px] ${
-                                checked
-                                  ? isSuper
-                                    ? "bg-amber-500 border-amber-600 text-white shadow-sm shadow-amber-500/20"
-                                    : "bg-emerald-500 border-emerald-600 text-white shadow-sm shadow-emerald-500/25"
-                                  : isSuper
-                                  ? "border-amber-200 text-amber-500 bg-amber-50/20 hover:bg-amber-500/10"
-                                  : "border-slate-200 text-slate-500 hover:bg-emerald-500/5 hover:border-emerald-500/20 bg-slate-50/30"
-                              }`}
-                            >
-                              {isSuper ? "★" : circleVal}
-                            </button>
-                          );
-                        })}
-                      </div>
-
-                      {/* For keys 1-13: Render dedicated single Superlevel button and manual weight input field */}
-                      {PRODUCT_KEYS_LIST.includes(k.id) && (
-                        <div className="flex items-center gap-1.5 border-l border-slate-100 pl-1.5 ml-0.5">
-                          {k.hasSuperlevel && (
-                            <button
-                              id={`superlevel-btn-${k.id}`}
-                              type="button"
-                              onClick={() => {
-                                // Toggle Superlevel: toggle between 0 and manual grams to complete Superlevel
-                                if (k.superLevelDone) {
-                                  handleGramsInputChangeDirectly(k.id, 0);
-                                } else {
-                                  const neededGrams = (k.optimum + 1) * k.portionSizeInGrams;
-                                  const manualRequired = Math.max(0, neededGrams - k.autoGrams);
-                                  handleGramsInputChangeDirectly(k.id, manualRequired);
-                                }
-                              }}
-                              className={`w-8 h-8 rounded-full border flex items-center justify-center text-[15px] font-black transition-all duration-200 cursor-pointer ${
-                                k.superLevelDone
-                                  ? "bg-amber-500 border-amber-600 text-white shadow-sm shadow-amber-500/20"
-                                  : "border-amber-200 text-amber-500 bg-amber-50/20 hover:bg-amber-500/10"
-                              }`}
-                              title="Суперуровень"
-                            >
-                              ★
-                            </button>
-                          )}
-                          <div className="flex items-center gap-0.5">
-                            <input
-                              type="number"
-                              placeholder={k.id === "healthy_drinks" ? "+мл" : "+г"}
-                              value={k.manualGrams || ""}
-                              onChange={(e) => {
-                                const val = e.target.value === "" ? 0 : Number(e.target.value);
-                                handleGramsInputChangeDirectly(k.id, val);
-                              }}
-                              className="w-13 h-8 text-center text-[11px] font-black bg-slate-50 hover:bg-slate-100/60 focus:bg-white border border-slate-200 focus:border-amber-400 rounded-lg focus:outline-none transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none text-slate-800"
-                              title={k.id === "healthy_drinks" ? "Вручную вне рецепта (мл)" : "Вручную вне рецепта (грамм)"}
-                            />
-                            <span className="text-[10px] text-slate-400 font-bold select-none p-0.5">
-                              {k.id === "healthy_drinks" ? "мл" : "г"}
-                            </span>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <button
-                      id={`toggle-${k.id}`}
-                      type="button"
-                      onClick={() => handleActionToggle(k.id, k.optimalDone)}
-                      className={`px-4 py-1.5 rounded-full text-[12.5px] font-black tracking-tight transition-all cursor-pointer ${
-                        k.optimalDone
-                          ? "bg-emerald-500 border border-emerald-600 text-white shadow-sm shadow-emerald-500/25"
-                          : "bg-slate-100 border border-slate-200 text-slate-500 hover:bg-slate-200/60"
-                      }`}
-                    >
-                      {k.optimalDone ? (
-                        <span className="flex items-center gap-1">
-                          <Check className="w-3.5 h-3.5 stroke-[3]" /> Выполнено
-                        </span>
-                      ) : "Сделал"}
-                    </button>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+               return (
+                 <ProductCardShell
+                   key={k.id}
+                   keyId={k.id}
+                   imageSrc={theme.img}
+                   surfaceColor={theme.surface}
+                   accentColor={theme.accent}
+                   cardNumber={k.num}
+                   title={k.name}
+                   subtitle={SYSTEM_KEYS.find(sk => sk.id === k.id)?.subtext || ""}
+                   manualGrams={k.manualGrams || 0}
+                   portionsFilled={k.portionsFilled}
+                   optimum={k.optimum}
+                   hasSuperlevel={k.hasSuperlevel}
+                   superLevelDone={k.superLevelDone}
+                   isCompleted={k.optimalDone}
+                   currentVal={currentVal}
+                   visibleCirclesCount={visibleCirclesCount}
+                   onCircleClick={(idx) => handleProductPortionClick(k.id, idx, currentVal, k.portionSizeInGrams, k.autoGrams)}
+                   onSuperlevelToggle={() => {
+                     if (k.superLevelDone) {
+                       handleGramsInputChangeDirectly(k.id, 0);
+                     } else {
+                       const neededGrams = (k.optimum + 1) * k.portionSizeInGrams;
+                       const manualRequired = Math.max(0, neededGrams - k.autoGrams);
+                       handleGramsInputChangeDirectly(k.id, manualRequired);
+                     }
+                   }}
+                    onManualEntryOpen={() => openManualEntry(k)}
+                    onInfoClick={() => setSelectedKey(k)}
+                    statusCap={3}
+                    variant={cardVariant}
+                    handleActionToggle={k.category === "action" ? handleActionToggle : undefined}
+                    optimalDone={k.optimalDone}
+                  />
+               );
+             }
+           })}
         </div>
       </div>
 
-      {/* BOTTOM ACTION BAR AND NAVIGATION ZONE */}
-      <div className="shrink-0 w-full z-20 flex flex-col bg-white">
-        {/* Save button card sitting above bottom menu */}
-        <div className="w-full px-4 pt-4 pb-1 bg-white border-t border-slate-100 max-w-lg mx-auto">
-          <button
-            id="btn-keys-save-footer"
-            type="button"
-            onClick={handleSave}
-            className="w-full py-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-emerald-600 text-white font-black text-[15px] sm:text-[16px] tracking-wide shadow-md shadow-emerald-500/25 hover:brightness-105 active:scale-[0.98] transition-all cursor-pointer text-center"
-          >
-            Сохранить прогресс дня
-          </button>
-        </div>
-
-        {/* Bottom Menu Navigation Bar inside the viewport */}
-        <div className="w-full">
-          <BottomBar
-            onHomeClick={onNavigateHome || onBack}
-            onDiaryClick={onNavigateDiary}
-            onAnalyticsClick={onNavigateProgress}
-            activeTab="progress"
-          />
-        </div>
+      {/* BOTTOM NAVIGATION BAR */}
+      <div className="shrink-0 w-full z-20">
+        <BottomBar
+          onHomeClick={onNavigateHome || onBack}
+          onDiaryClick={onNavigateDiary}
+          onAnalyticsClick={onNavigateProgress}
+          activeTab="progress"
+        />
       </div>
 
       {/* SYSTEM KEY DYNAMIC INFO SHEET (POYASNYALKA) */}
@@ -1296,121 +1119,53 @@ export default function HabitsTwentyScreen({
               {/* Scrollable content block (Purely scrollable, safely bounded) */}
               <div className="flex-1 overflow-y-auto p-5 space-y-4 text-left font-normal select-text scroll-smooth overscroll-contain" style={{ scrollbarWidth: "thin" }}>
 
-                {/* DYNAMIC MANUAL ENTRY ADJUSTMENT BAR (only for healthy_drinks) */}
+                {/* DYNAMIC MANUAL ENTRY ADJUSTMENT BAR (only for healthy_drinks - quick ml buttons only) */}
                 {richKeyInfo.category === "product" && richKeyInfo.id === "healthy_drinks" && (
-                  <div className="p-4 rounded-2xl bg-indigo-50/40 border border-indigo-100 flex flex-col gap-2.5 shrink-0">
-                    <h5 className="text-[11px] font-black uppercase text-indigo-500 tracking-wider">
-                      📝 Ручной учёт (вне меню)
+                  <div className="p-4 rounded-2xl bg-teal-50/40 border border-teal-100 flex flex-col gap-3 shrink-0">
+                    <h5 className="text-[11px] font-black uppercase text-teal-600 tracking-wider">
+                      📝 Ручной учёт напитков
                     </h5>
 
-                    <div className="flex items-center justify-between gap-3 bg-white px-3 py-2 rounded-xl border border-indigo-100/50">
-                      <div className="flex flex-col gap-0.5">
-                        <span className="text-[11px] text-slate-450 font-bold">Собрано из меню</span>
-                        <span className="text-[13px] font-black text-slate-700">{Math.round(selectedKey.autoGrams)} г</span>
-                      </div>
-                      <div className="flex flex-col gap-0.5 text-right">
-                        <span className="text-[11px] text-slate-450 font-bold">Введено вручную</span>
-                        <span className="text-[13px] font-black text-indigo-700">{Math.round(selectedKey.manualGrams)} г</span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-3 mt-1 justify-between">
-                      <span className="text-[12.5px] font-black text-slate-700 font-sans">Итоговый вес:</span>
-
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="number"
-                          value={tempManualGrams === "" ? "" : tempManualGrams}
-                          onChange={(e) => {
-                            const val = e.target.value === "" ? "" : Number(e.target.value);
-                            setTempManualGrams(val);
-                            if (typeof val === "number") {
-                              handleGramsFieldChange(val);
-                            }
-                          }}
-                          placeholder="0"
-                          className="w-20 px-2 py-1 rounded-lg border border-slate-200 text-center text-slate-850 font-black text-[14px] focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-100"
-                        />
-                        <span className="text-[11px] font-bold text-slate-455">грамм</span>
-                      </div>
-                    </div>
-
-                    {/* Quick increment buttons */}
-                    <div className="flex gap-1.5 mt-1.5 select-none shrink-0 w-full">
-                      <button
-                        type="button"
-                        onClick={() => handleGramsFieldChange(selectedKey.manualGrams + selectedKey.portionSizeInGrams)}
-                        className="flex-1 py-1.5 rounded-lg bg-indigo-500 text-white font-bold text-[11.5px] hover:bg-indigo-600 transition-colors shadow-sm cursor-pointer"
-                      >
-                        + {selectedKey.portionSizeInGrams} г
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleGramsFieldChange(Math.max(0, selectedKey.manualGrams - selectedKey.portionSizeInGrams))}
-                        className="flex-1 py-1.5 rounded-lg bg-slate-100 text-slate-600 border border-slate-200 font-bold text-[11.5px] hover:bg-slate-200/80 transition-colors cursor-pointer"
-                      >
-                        - {selectedKey.portionSizeInGrams} г
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleGramsFieldChange(0)}
-                        className="px-2.5 py-1.5 rounded-lg bg-red-50 text-red-500 border border-red-100 font-bold text-[11.5px] hover:bg-red-100/60 transition-colors cursor-pointer"
-                      >
-                        Сброс
-                      </button>
-                    </div>
-
-                    {/* Extra Granular weight additions */}
+                    {/* Quick increment/decrement buttons in ml */}
                     <div className="flex gap-1.5 select-none shrink-0 w-full">
-                      {selectedKey.id === "healthy_drinks" ? (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => handleGramsFieldChange(selectedKey.manualGrams + 100)}
-                            className="flex-1 py-1 rounded-lg bg-white text-indigo-600 border border-indigo-100 font-bold text-[10.5px] hover:bg-indigo-50/50 transition-colors cursor-pointer"
-                          >
-                            +100 мл
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleGramsFieldChange(selectedKey.manualGrams + 250)}
-                            className="flex-1 py-1 rounded-lg bg-white text-indigo-600 border border-indigo-100 font-bold text-[10.5px] hover:bg-indigo-50/50 transition-colors cursor-pointer"
-                          >
-                            +250 мл
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleGramsFieldChange(selectedKey.manualGrams + 500)}
-                            className="flex-1 py-1 rounded-lg bg-white text-indigo-600 border border-indigo-100 font-bold text-[10.5px] hover:bg-indigo-50/50 transition-colors cursor-pointer"
-                          >
-                            +500 мл
-                          </button>
-                        </>
-                      ) : (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => handleGramsFieldChange(selectedKey.manualGrams + 10)}
-                            className="flex-1 py-1 rounded-lg bg-white text-indigo-600 border border-indigo-100 font-bold text-[10.5px] hover:bg-indigo-50/50 transition-colors cursor-pointer"
-                          >
-                            +10 г
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleGramsFieldChange(selectedKey.manualGrams + 50)}
-                            className="flex-1 py-1 rounded-lg bg-white text-indigo-600 border border-indigo-100 font-bold text-[10.5px] hover:bg-indigo-50/50 transition-colors cursor-pointer"
-                          >
-                            +50 г
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleGramsFieldChange(selectedKey.manualGrams + 100)}
-                            className="flex-1 py-1 rounded-lg bg-white text-indigo-600 border border-indigo-100 font-bold text-[10.5px] hover:bg-indigo-50/50 transition-colors cursor-pointer"
-                          >
-                            +100 г
-                          </button>
-                        </>
-                      )}
+                      <button
+                        type="button"
+                        onClick={() => handleGramsFieldChange(selectedKey.manualGrams + 200)}
+                        className="flex-1 py-1.5 rounded-lg bg-teal-500 text-white font-bold text-[11px] hover:bg-teal-600 transition-colors shadow-sm cursor-pointer"
+                      >
+                        +200 мл
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleGramsFieldChange(Math.max(0, selectedKey.manualGrams - 200))}
+                        className="flex-1 py-1.5 rounded-lg bg-white text-teal-600 border border-teal-200 font-bold text-[11px] hover:bg-teal-50 transition-colors cursor-pointer"
+                      >
+                        -200 мл
+                      </button>
+                    </div>
+
+                    <div className="flex gap-1.5 select-none shrink-0 w-full">
+                      <button
+                        type="button"
+                        onClick={() => handleGramsFieldChange(selectedKey.manualGrams + 100)}
+                        className="flex-1 py-1 rounded-lg bg-white text-teal-600 border border-teal-100 font-bold text-[10.5px] hover:bg-teal-50/50 transition-colors cursor-pointer"
+                      >
+                        +100 мл
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleGramsFieldChange(selectedKey.manualGrams + 250)}
+                        className="flex-1 py-1 rounded-lg bg-white text-teal-600 border border-teal-100 font-bold text-[10.5px] hover:bg-teal-50/50 transition-colors cursor-pointer"
+                      >
+                        +250 мл
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleGramsFieldChange(selectedKey.manualGrams + 500)}
+                        className="flex-1 py-1 rounded-lg bg-white text-teal-600 border border-teal-100 font-bold text-[10.5px] hover:bg-teal-50/50 transition-colors cursor-pointer"
+                      >
+                        +500 мл
+                      </button>
                     </div>
                   </div>
                 )}
