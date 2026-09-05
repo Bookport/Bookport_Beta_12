@@ -13,7 +13,6 @@ import { DISH_PHILOSOPHY } from "./src/data/dishPhilosophy";
 import { callLLM } from "./src/services/llmAdapter";
 import { PromptCompiler } from "./src/services/promptCompiler";
 import { safeParseJSON } from "./src/utils/safeParseJSON";
-import { parseAnnaEmotionReply } from "./src/utils/annaEmotionPrefix";
 import { getPlural } from "./src/utils/pluralize";
 import { Prisma } from "@prisma/client";
 import { prisma } from "./src/prisma";
@@ -1020,15 +1019,7 @@ async function startServer() {
         console.warn("[Anna Final Reply] Response already sent — skipping second send.");
       } else {
         console.log('[Anna Final Reply]:', finalReply);
-        const parsedReply = parseAnnaEmotionReply(finalReply);
-        return res.json({
-          success: true,
-          data: {
-            reply: parsedReply.reply,
-            emotion: parsedReply.avatarIntent,
-            suggestedActions: ["food", "water", "movement", "mood", "sleep"] as const,
-          },
-        });
+        return res.json({ reply: finalReply });
       }
     } catch (err: any) {
       if (res.headersSent) {
@@ -1045,14 +1036,7 @@ const fallbackReply = parseAnnaEmotionReply(
         avatarIntensity: fallbackReply.avatarIntensity,
       });
 
-      return res.json({
-        success: true,
-        data: {
-          reply: fallbackReply.reply,
-          emotion: fallbackReply.avatarIntent,
-          suggestedActions: ["food", "water", "movement", "mood", "sleep"] as const,
-        },
-      });
+      return res.json(fallbackReply);
     }
   });
 
