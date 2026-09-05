@@ -18,7 +18,8 @@
     "db:seed": "prisma db seed",
     "db:studio": "prisma studio",
     "db:deploy": "prisma migrate deploy",
-    "db:generate": "prisma generate"
+    "db:generate": "prisma generate",
+    "verify:anna-avatar": "tsx scripts/verifyAnnaAvatar.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
