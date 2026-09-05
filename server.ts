@@ -1026,8 +1026,17 @@ async function startServer() {
         console.warn("[Anna Final Reply] Error after response sent:", err?.message || err);
         return;
       }
-      console.log('[Anna Final Reply]:', "Ошибка — возврат запасного ответа");
-      return res.json({ reply: "Привет! Всё отлично! Я всегда рядом, чтобы поддержать твой путь к здоровью и чистой энергии всей душой! 🌿" });
+const fallbackReply = parseAnnaEmotionReply(
+        "Привет! Всё отлично! Я всегда рядом, чтобы поддержать твой путь к здоровью и чистой энергии всей душой! 🌿",
+      );
+
+      console.log("[Anna Final Reply]:", {
+        reply: fallbackReply.reply,
+        avatarIntent: fallbackReply.avatarIntent,
+        avatarIntensity: fallbackReply.avatarIntensity,
+      });
+
+      return res.json(fallbackReply);
     }
   });
 
