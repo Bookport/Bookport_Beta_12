@@ -13,6 +13,7 @@ import { DISH_PHILOSOPHY } from "./src/data/dishPhilosophy";
 import { callLLM } from "./src/services/llmAdapter";
 import { PromptCompiler } from "./src/services/promptCompiler";
 import { safeParseJSON } from "./src/utils/safeParseJSON";
+import { parseAnnaEmotionReply } from "./src/utils/annaEmotionPrefix";
 import { getPlural } from "./src/utils/pluralize";
 import { Prisma } from "@prisma/client";
 import { prisma } from "./src/prisma";
