@@ -1,4 +1,5 @@
 import { existsSync } from "node:fs";
+import { parseAnnaEmotionReply } from "../src/utils/annaEmotionPrefix";
 import { avatarManifest } from "../src/assets/images/anna/anna-manifest";
 import {
   clampAnnaAvatarIntensity,
@@ -362,6 +363,149 @@ for (const intent of ANNA_AVATAR_INTENTS) {
     );
   }
 }
+
+
+// 14. LLM emotion prefix parser: valid formats, aliases and safe fallbacks.
+const canonicalPrefix = parseAnnaEmotionReply(
+  "`joy_user_success` (4)\nТы отлично справилась с этим шагом.",
+);
+assertEqual(
+  canonicalPrefix.reply,
+  "Ты отлично справилась с этим шагом.",
+  "Canonical prefix reply cleanup",
+);
+assertEqual(
+  canonicalPrefix.avatarIntent,
+  "joy_user_success",
+  "Canonical prefix intent",
+);
+assertEqual(
+  canonicalPrefix.avatarIntensity,
+  4,
+  "Canonical prefix intensity",
+);
+assertEqual(
+  canonicalPrefix.source,
+  "server_prefix",
+  "Canonical prefix source",
+);
+assertEqual(
+  canonicalPrefix.hadEmotionPrefix,
+  true,
+  "Canonical prefix detection",
+);
+
+const noBackticksPrefix = parseAnnaEmotionReply(
+  "clear_explanation (3)\nДавай разберёмся по шагам.",
+);
+assertEqual(
+  noBackticksPrefix.reply,
+  "Давай разберёмся по шагам.",
+  "Plain prefix reply cleanup",
+);
+assertEqual(
+  noBackticksPrefix.avatarIntent,
+  "clear_explanation",
+  "Plain prefix intent",
+);
+
+const legacyAliasPrefix = parseAnnaEmotionReply(
+  "`clearexplanation` (2)\nВот в чём смысл.",
+);
+assertEqual(
+  legacyAliasPrefix.avatarIntent,
+  "clear_explanation",
+  "Legacy prefix alias normalization",
+);
+assertEqual(
+  legacyAliasPrefix.avatarIntensity,
+  2,
+  "Legacy prefix intensity",
+);
+
+const warmAliasPrefix = parseAnnaEmotionReply(
+  "warm_encouragement (2)\nОдин эпизод не отменяет твой путь.",
+);
+assertEqual(
+  warmAliasPrefix.avatarIntent,
+  "affirmation",
+  "Warm encouragement alias normalization",
+);
+assertEqual(
+  warmAliasPrefix.source,
+  "server_prefix",
+  "Warm encouragement source",
+);
+
+const dashPrefix = parseAnnaEmotionReply(
+  "important_warning — 5\nЭтот момент лучше не игнорировать.",
+);
+assertEqual(
+  dashPrefix.reply,
+  "Этот момент лучше не игнорировать.",
+  "Dash prefix reply cleanup",
+);
+assertEqual(
+  dashPrefix.avatarIntent,
+  "important_warning",
+  "Dash prefix intent",
+);
+assertEqual(
+  dashPrefix.avatarIntensity,
+  5,
+  "Dash prefix intensity",
+);
+
+const invalidPrefix = parseAnnaEmotionReply(
+  "`invented_emotion` (4)\nЭтот prefix не должен быть удалён.",
+);
+assertEqual(
+  invalidPrefix.reply,
+  "`invented_emotion` (4)\nЭтот prefix не должен быть удалён.",
+  "Invalid prefix preserves complete reply",
+);
+assertEqual(
+  invalidPrefix.hadEmotionPrefix,
+  false,
+  "Invalid prefix is not accepted",
+);
+assertEqual(
+  invalidPrefix.avatarIntent,
+  "clear_explanation",
+  "Invalid prefix safe fallback",
+);
+
+const plainSupportiveReply = parseAnnaEmotionReply(
+  "Ты ничего не испортила: один эпизод не отменяет весь путь.",
+);
+assertEqual(
+  plainSupportiveReply.hadEmotionPrefix,
+  false,
+  "Plain reply has no prefix",
+);
+assertEqual(
+  plainSupportiveReply.avatarIntent,
+  "affirmation",
+  "Plain supportive reply lexicon fallback",
+);
+assertEqual(
+  plainSupportiveReply.source,
+  "lexicon",
+  "Plain supportive reply lexicon source",
+);
+
+const emptyReply = parseAnnaEmotionReply("");
+assertEqual(emptyReply.reply, "", "Empty reply remains empty");
+assertEqual(
+  emptyReply.avatarIntent,
+  "clear_explanation",
+  "Empty reply safe intent fallback",
+);
+assertEqual(
+  emptyReply.source,
+  "fallback",
+  "Empty reply fallback source",
+);
 
 if (failures.length > 0) {
   console.error(`\nFAILED: ${failures.length} assertion(s)`);
