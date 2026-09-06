@@ -995,21 +995,26 @@ async function startServer() {
         finalReply = "Я сейчас не могу найти эту информацию. Попробуй спросить иначе!";
       }
 
+      // Parse a possible technical emotion prefix, such as:
+      // "curiosity (2)\nТекст ответа".
+      // Only the clean reply belongs in chat history and the database.
+      const parsedReply = parseAnnaEmotionReply(finalReply);
+
       // Save chat to database
       if (req.userId && message) {
         prisma.annaChat.create({
           data: {
             userId: req.userId,
             message,
-            reply: finalReply || null,
+            reply: parsedReply.reply || null,
             screen: screenContext || null,
             dayIndex: dayIndex ?? null,
           },
         }).catch((err) => console.warn("[AnnaChat] save failed:", err.message));
       }
 
-      if (finalReply) {
-        annaCache.set(cacheKey, { reply: finalReply, ts: Date.now() });
+      if (parsedReply.reply) {
+        annaCache.set(cacheKey, { reply: parsedReply.reply, ts: Date.now() });
       }
 
       // ── Send final answer exactly ONCE, at the very end after all tool rounds ──
@@ -1019,8 +1024,8 @@ async function startServer() {
       if (res.headersSent) {
         console.warn("[Anna Final Reply] Response already sent — skipping second send.");
       } else {
-        console.log('[Anna Final Reply]:', finalReply);
-        return res.json({ reply: finalReply });
+        console.log("[Anna Final Reply]:", parsedReply);
+        return res.json(parsedReply);
       }
     } catch (err: any) {
       if (res.headersSent) {
