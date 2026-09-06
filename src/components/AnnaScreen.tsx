@@ -3,7 +3,6 @@ import { motion, AnimatePresence } from "motion/react";
 import { 
   ChevronLeft, 
   Settings, 
-  Mic, 
   Send, 
   Volume2, 
   VolumeX, 
@@ -14,10 +13,8 @@ import {
 } from "lucide-react";
 import BottomBar from "./BottomBar";
 import { resolveGeneralAvatar, resolveAvatarByState } from "../utils/annaAvatarResolver";
-import { SpeechToTextSession, ensureMicPermission } from "../utils/speechToText";
 import { useAppStore } from "../store/useAppStore";
 import { api } from "../utils/api";
-import { getTelegramInitData } from "../utils/telegramClient";
 import { clientLogger } from "../utils/clientLogger";
 
 export interface AnnaScreenProps {
@@ -83,14 +80,7 @@ export default function AnnaScreen(props: AnnaScreenProps) {
   const annaAvatarSrc = resolveGeneralAvatar().src;
 
   // Chat dialogue state - clean greeting from Anna
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: "init-welcome",
-      sender: "anna",
-      text: "Привет! Я Анна, твой личный гид по системе «Всё дело в еде!». Рада видеть тебя. Нажми зелёную кнопку микрофона внизу и задай свой вопрос голосом, или просто напиши его в поле ввода. С удовольствием помогу тебе настроить цельный растительный рацион! 🍏",
-      time: "14:00"
-    }
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]);
 
   const chatEndRef = useRef<HTMLDivElement | null>(null);
 
@@ -124,117 +114,10 @@ export default function AnnaScreen(props: AnnaScreenProps) {
 
   const [annaState, setAnnaState] = useState<ConversationState>("На связи");
   const [typedInput, setTypedInput] = useState<string>("");
-  const [isHoldingMic, setIsHoldingMic] = useState<boolean>(false);
   const [showSettingsModal, setShowSettingsModal] = useState<boolean>(false);
 
   const typingTimerRef = useRef<NodeJS.Timeout | null>(null);
   const activeFetchAbortRef = useRef<AbortController | null>(null);
-  const [currentlyPlayingMessageId, setCurrentlyPlayingMessageId] = useState<string | null>(null);
-
-  const annaAudioRef = useRef<HTMLAudioElement | null>(null);
-
-  const interruptAnnaSpeech = () => {
-    if (typeof window !== "undefined" && window.speechSynthesis) {
-      window.speechSynthesis.cancel();
-    }
-    if (annaAudioRef.current) {
-      annaAudioRef.current.pause();
-      annaAudioRef.current = null;
-    }
-    if (typingTimerRef.current) {
-      clearTimeout(typingTimerRef.current);
-    }
-    setCurrentlyPlayingMessageId(null);
-  };
-
-  const playAnnaAudio = async (audioBase64: string, audioUrl?: string) => {
-    try {
-      let audioSrc: string;
-      if (audioBase64) {
-        audioSrc = `data:audio/wav;base64,${audioBase64}`;
-      } else if (audioUrl) {
-        // OSS URLs are HTTP-only; fetch + blob URL avoids mixed-content blocks
-        const resp = await fetch(audioUrl);
-        if (!resp.ok) throw new Error("audio fetch failed");
-        const blob = await resp.blob();
-        audioSrc = URL.createObjectURL(blob);
-      } else {
-        setCurrentlyPlayingMessageId(null);
-        setAnnaState("На связи");
-        return;
-      }
-      const audio = new Audio(audioSrc);
-      annaAudioRef.current = audio;
-      const cleanup = () => {
-        if (audioSrc?.startsWith("blob:")) URL.revokeObjectURL(audioSrc);
-        annaAudioRef.current = null;
-        setCurrentlyPlayingMessageId(null);
-        setAnnaState("На связи");
-      };
-      audio.onended = cleanup;
-      audio.onerror = cleanup;
-      audio.play().catch((e) => {
-        console.warn("playAnnaAudio play() error:", e);
-        cleanup();
-      });
-    } catch (e) {
-      console.warn("playAnnaAudio error:", e);
-      setCurrentlyPlayingMessageId(null);
-      setAnnaState("На связи");
-    }
-  };
-
-  const getAnnaVoice = () => {
-    if (typeof window === "undefined" || !window.speechSynthesis) return null;
-    const voices = window.speechSynthesis.getVoices();
-    const ruVoices = voices.filter(v => v.lang.toLowerCase().includes("ru"));
-    if (ruVoices.length === 0) return null;
-    const femaleKeywords = ["female", "irina", "elena", "tatiana", "google", "microsoft"];
-    for (const kw of femaleKeywords) {
-      const match = ruVoices.find(v => v.name.toLowerCase().includes(kw));
-      if (match) return match;
-    }
-    return ruVoices[0];
-  };
-
-  const speakTextWithAnnaVoice = (text: string, msgId: string) => {
-    if (typeof window === "undefined" || !window.speechSynthesis) return;
-    const cleanSpeechText = text.replace(/[🌱🍏🥗⚖️🌿✨🍲😴🦎🥬🥘🥑🍅🍇🍓🍒🍊🍋🍍🌽🥕🥜🥑🥛🧂🥣🍴🍷🥩🧁🍬🍟🍔🍕🥤❌♥️]/g, "").trim();
-    if (!cleanSpeechText) return;
-    const utterance = new SpeechSynthesisUtterance(cleanSpeechText);
-    utterance.pitch = 1.30;
-    utterance.rate = 1.15;
-    utterance.lang = "ru-RU";
-    const voice = getAnnaVoice();
-    if (voice) utterance.voice = voice;
-    utterance.onstart = () => { setCurrentlyPlayingMessageId(msgId); setAnnaState("Отвечаю"); };
-    utterance.onend = () => { setCurrentlyPlayingMessageId(null); setAnnaState("На связи"); };
-    utterance.onerror = () => { setCurrentlyPlayingMessageId(null); setAnnaState("На связи"); };
-    window.speechSynthesis.speak(utterance);
-  };
-
-  useEffect(() => {
-    return () => {
-      interruptAnnaSpeech();
-    };
-  }, []);
-
-  const speechSessionRef = useRef<SpeechToTextSession | null>(null);
-  const isHoldingMicRef = useRef(false);
-  const voiceTextRef = useRef("");
-  const messagesRef = useRef<Message[]>(messages);
-  messagesRef.current = messages;
-
-  const sendVoiceMessage = (textToSend: string) => {
-    setTypedInput("");
-    const userMsgId = `msg-user-voice-${Date.now()}`;
-    const now = new Date();
-    const timeStr = now.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
-    const newUserMessage: Message = { id: userMsgId, sender: "user", text: textToSend, time: timeStr };
-    const updatedMessages = [...messagesRef.current, newUserMessage];
-    setMessages(updatedMessages);
-    triggerResponse(textToSend, updatedMessages);
-  };
 
   const triggerResponse = async (queryText: string, currentHistory: Message[]) => {
     setAnnaState("Думаю");
@@ -273,23 +156,6 @@ export default function AnnaScreen(props: AnnaScreenProps) {
       const now = new Date();
       const timeStr = now.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
       setAnnaState("Отвечаю");
-      // TTS: Yandex SpeechKit (fast, Russia region)
-      const cleanTtsText = replyText.replace(/[🌱🍏🥗⚖️🌿✨🍲😴🦎🥬🥘🥑🍅🍇🍓🍒🍊🍋🍍🌽🥕🥜🥑🥛🧂🥣🍴🍷🥩🧁🍬🍟🍔🍕🥤❌♥️]/g, "").trim().split(" ").slice(0, 80).join(" ");
-      if (cleanTtsText) {
-        fetch("/api/anna-tts", {
-          method: "POST", headers: { "Content-Type": "application/json", "X-Telegram-Init-Data": getTelegramInitData() },
-          body: JSON.stringify({ text: cleanTtsText })
-        }).then(r => r.json()).then(ttsData => {
-          if (ttsData.audioBase64 || ttsData.audioUrl) {
-            playAnnaAudio(ttsData.audioBase64 || "", ttsData.audioUrl || "");
-          } else {
-            setAnnaState("На связи");
-          }
-        }).catch((err) => {
-          console.warn("TTS failed:", err);
-          setAnnaState("На связи");
-        });
-      }
       let currentText = "";
       const words = replyText.split(" ");
       let wordIndex = 0;
@@ -303,6 +169,8 @@ export default function AnnaScreen(props: AnnaScreenProps) {
           });
           wordIndex++;
           typingTimerRef.current = setTimeout(animateTyping, 40);
+        } else {
+          setAnnaState("На связи");
         }
       };
       animateTyping();
@@ -317,7 +185,6 @@ export default function AnnaScreen(props: AnnaScreenProps) {
 
   const handleSendText = () => {
     if (!typedInput.trim()) return;
-    interruptAnnaSpeech();
     api('/api/achievements/track', { method: 'POST', body: { type: 'anna_chat', payload: {} } });
     setTimeout(() => {
        if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('anna_chat_tracked'));
@@ -333,71 +200,11 @@ export default function AnnaScreen(props: AnnaScreenProps) {
     triggerResponse(userText, updatedMessages);
   };
 
-  // Push-to-talk: browser SpeechRecognition (webkitSpeechRecognition)
-  // Отправка происходит из onTranscript(isFinal=true), чтобы избежать race condition
-  const handleVoicePressStart = async (e: React.PointerEvent<HTMLButtonElement>) => {
-    e.preventDefault();
-    try { e.currentTarget.setPointerCapture(e.pointerId); } catch {}
-    interruptAnnaSpeech();
-
-    const audioCtx = new AudioContext();
-
-    const granted = await ensureMicPermission();
-    if (!granted) {
-      audioCtx.close();
-      setAnnaState("На связи");
-      return;
-    }
-
-    setIsHoldingMic(true);
-    isHoldingMicRef.current = true;
-    setAnnaState("Слушаю");
-    setTypedInput("");
-    voiceTextRef.current = "";
-
-    speechSessionRef.current = new SpeechToTextSession({
-      isHoldingRef: isHoldingMicRef,
-      audioContext: audioCtx,
-      onTranscript: (incomingText, isFinal) => {
-        voiceTextRef.current = incomingText;
-        setTypedInput(incomingText);
-        if (isFinal) {
-          const text = incomingText.trim();
-          if (text) {
-            sendVoiceMessage(text);
-          } else {
-            setAnnaState("На связи");
-          }
-        }
-      },
-      onStateChange: (state) => {
-        if (state === "listening") setAnnaState("Слушаю");
-        if (state === "error") setAnnaState("На связи");
-      },
-      onError: (err) => {
-        console.warn("Speech error:", err);
-      }
-    });
-    speechSessionRef.current.start();
-  };
-
-  const handleVoicePressEnd = (e: React.PointerEvent<HTMLButtonElement>) => {
-    e.preventDefault();
-    try { e.currentTarget.releasePointerCapture(e.pointerId); } catch {}
-    setIsHoldingMic(false);
-    isHoldingMicRef.current = false;
-
-    if (speechSessionRef.current) {
-      speechSessionRef.current.stop();
-      speechSessionRef.current = null;
-    }
-  };
-
   const reactiveAvatarSrc = resolveAvatarByState(annaState, messages.length > 0 ? messages[messages.length - 1].text : undefined).src;
 
   return (
     <div 
-      className="flex-1 flex flex-col justify-between bg-white min-h-[820px] select-none text-text-main"
+      className="flex-1 flex flex-col justify-between bg-[#FFF6F0] min-h-[820px] select-none text-text-main"
       id="anna-screen-root"
     >
       
@@ -408,7 +215,7 @@ export default function AnnaScreen(props: AnnaScreenProps) {
         <button
           type="button"
           onClick={onBack}
-          className="absolute left-4 top-[50px] p-1 px-2 text-gray-500 hover:text-brand-green-dark cursor-pointer transition-all duration-200 active:scale-90 flex items-center gap-0.5 animate-fade-in"
+          className="absolute left-4 top-[50px] p-2 bg-white rounded-full shadow-[0_2px_8px_rgba(0,0,0,0.08)] text-gray-500 hover:text-brand-green-dark cursor-pointer transition-all duration-200 active:scale-90 flex items-center gap-0.5 animate-fade-in"
           aria-label="Назад"
           id="anna-btn-back"
         >
@@ -424,6 +231,12 @@ export default function AnnaScreen(props: AnnaScreenProps) {
           >
             Анна
           </h2>
+          <span 
+            className="text-[15px] font-bold text-gray-500 tracking-wide mt-0.5"
+            style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}
+          >
+            Советник WFPB
+          </span>
           <div className="flex items-center justify-center gap-1.5 mt-0.5 hidden">
             {/* Soft pulsing color-reactive state indicator */}
             <span className={`w-1.5 h-1.5 rounded-full ${
@@ -436,7 +249,7 @@ export default function AnnaScreen(props: AnnaScreenProps) {
                 : "bg-[#16B551]"
             }`} />
             <span 
-              className="text-[11px] font-bold text-gray-400 tracking-widest uppercase transition-all duration-300"
+              className="text-[12px] font-bold text-gray-400 tracking-widest uppercase transition-all duration-300"
               style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}
             >
               {annaState}
@@ -444,16 +257,6 @@ export default function AnnaScreen(props: AnnaScreenProps) {
           </div>
         </div>
 
-        {/* Small transparent adjustments controls icon absolutely aligned to right side */}
-        <button
-          type="button"
-          onClick={() => setShowSettingsModal(true)}
-          className="absolute right-4 top-[48px] p-2 text-gray-400 hover:text-brand-green-dark cursor-pointer active:scale-95 transition-all"
-          aria-label="Настройки разговора"
-          id="anna-btn-settings"
-        >
-          <Settings className="w-[18px] h-[18px] stroke-[1.8]" />
-        </button>
       </div>
 
       {/* BODY CONTEXT VIEW: Scrollable wrapper */}
@@ -474,11 +277,11 @@ export default function AnnaScreen(props: AnnaScreenProps) {
           }`} />
 
           {/* Dynamic Ring Visualizations surrounding the voice orb - Functional indicators */}
-          <div className="w-[110px] h-[110px] relative flex items-center justify-center">
+          <div className="w-[130px] h-[130px] relative flex items-center justify-center">
             
             {/* Concentric pulsation wave 1 */}
             <AnimatePresence>
-              {(isHoldingMic || annaState === "Слушаю" || annaState === "Отвечаю") && (
+              {(annaState === "Слушаю" || annaState === "Отвечаю") && (
                 <motion.div
                   initial={{ scale: 0.85, opacity: 0 }}
                   animate={{ 
@@ -540,7 +343,7 @@ export default function AnnaScreen(props: AnnaScreenProps) {
             </div>
 
             {/* Inner Circular Avatar Portrait / Orb of Anna */}
-            <div className="w-[92px] h-[92px] rounded-full overflow-hidden relative z-10 border-4 border-white shadow-inner">
+            <div className="w-[110px] h-[110px] rounded-full overflow-hidden relative z-10 border-4 border-white shadow-inner">
               <img 
                 src={reactiveAvatarSrc}
                 alt="Анна Коуч" 
@@ -607,7 +410,7 @@ export default function AnnaScreen(props: AnnaScreenProps) {
         {/* DIALOG AREA: Fully scrollable message list so user can scroll back up */}
         <div 
           id="anna-dialog-card-area" 
-          className="flex-1 overflow-y-auto px-4 py-3 flex flex-col gap-3.5 mb-1 bg-[#FCFBF8]/40 border border-gray-150/40 rounded-[28px] shadow-[inset_0_2px_8px_rgba(0,0,0,0.01)] min-h-[220px] max-h-[380px] scroll-smooth"
+          className="anna-chat-scroll flex-1 overflow-y-auto px-4 py-3 flex flex-col gap-3.5 mb-1 min-h-[220px] max-h-[380px] scroll-smooth"
         >
           {messages.map((msg, index) => {
             const isAnna = msg.sender === "anna";
@@ -622,10 +425,10 @@ export default function AnnaScreen(props: AnnaScreenProps) {
               >
                 {/* Bubble styling using high quality color, border, and shadows */}
                 <div 
-                  className={`rounded-[22px] p-4 relative border ${
+                  className={`rounded-[22px] p-4 relative ${
                     isAnna 
-                      ? "bg-[#FCFAF8] text-gray-800 border-[#F4EFEA] shadow-[0_4px_12px_rgba(43,49,55,0.008)]" 
-                      : "bg-[#F3FDF5] text-brand-green-dark border-[#DEEFE1] shadow-[0_4px_12px_rgba(22,181,81,0.012)]"
+                      ? "bg-[#F3FDF5] text-gray-800 shadow-[0_4px_12px_rgba(43,49,55,0.008)]" 
+                      : "bg-white text-brand-green-dark shadow-[0_4px_12px_rgba(22,181,81,0.012)]"
                   }`}
                 >
                   <span className="absolute top-2 right-3 text-[10px] font-bold text-gray-300 tracking-wider font-mono">
@@ -633,22 +436,13 @@ export default function AnnaScreen(props: AnnaScreenProps) {
                   </span>
 
                   {isAnna ? (
-                    <div className="flex items-start gap-3">
-                      <div className="w-10 h-10 rounded-full overflow-hidden border border-emerald-200/60 shadow-sm flex-shrink-0 relative mt-0.5">
-                        <img
-                          src={resolveAvatarByState("Отвечаю", msg.text).src}
-                          alt="Анна"
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                      <p className="text-[14px] sm:text-[15px] leading-relaxed font-normal text-left pr-5 pt-1.5"
-                         style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}
-                      >
-                        {msg.text}
-                      </p>
-                    </div>
+                    <p className="text-[16px] sm:text-[15px] leading-relaxed font-normal text-left pr-5 pt-1.5"
+                       style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}
+                    >
+                      {msg.text}
+                    </p>
                   ) : (
-                    <p className="text-[14px] sm:text-[15px] leading-relaxed font-normal text-left pr-5 pt-1.5"
+                    <p className="text-[16px] sm:text-[15px] leading-relaxed font-normal text-left pr-5 pt-1.5"
                        style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}
                     >
                       Ты: {msg.text}
@@ -712,7 +506,7 @@ export default function AnnaScreen(props: AnnaScreenProps) {
 
         {/* INPUT BOX AREA: Elegant text input field */}
         <div id="anna-text-input-field" className="w-full shrink-0 relative mt-1 select-text">
-          <div className="relative rounded-[22px] bg-[#FAF9F5] border border-gray-150/70 p-1 flex items-center shadow-[inset_0_2px_4px_rgba(0,0,0,0.01),_0_2px_6px_rgba(0,0,0,0.01)] focus-within:border-brand-green-light focus-within:bg-white focus-within:shadow-[0_4px_16px_rgba(22,181,81,0.04)] transition-all">
+          <div className="relative rounded-[22px] bg-[#FAF9F5] p-1 flex items-center shadow-[0_4px_12px_rgba(0,0,0,0.06),_inset_0_1px_2px_rgba(255,255,255,0.8)] focus-within:bg-white focus-within:shadow-[0_6px_20px_rgba(22,181,81,0.12)] transition-all">
             <input 
               type="text"
               value={typedInput}
@@ -743,65 +537,6 @@ export default function AnnaScreen(props: AnnaScreenProps) {
           </div>
         </div>
 
-      </div>
-
-      {/* LOWER VOICE TALK CTA CONTROLS AREA */}
-      <div className="w-full flex flex-col items-center py-4 bg-gradient-to-t from-gray-50/20 to-transparent border-b border-gray-100/50 shrink-0 relative z-20">
-        
-        <div className="relative flex items-center justify-center h-20 w-full">
-          
-          {/* Pulsing light rings while mic is active */}
-          <AnimatePresence>
-            {isHoldingMic && (
-              <>
-                <motion.div 
-                  initial={{ scale: 0.8, opacity: 0.6 }}
-                  animate={{ scale: 1.6, opacity: 0 }}
-                  exit={{ scale: 0.8, opacity: 0 }}
-                  transition={{ repeat: Infinity, duration: 1.4, ease: "easeOut" }}
-                  className="absolute w-20 h-20 rounded-full bg-brand-green-bright/30 border border-brand-green-bright pointer-events-none"
-                />
-                <motion.div 
-                  initial={{ scale: 0.8, opacity: 0.4 }}
-                  animate={{ scale: 2.2, opacity: 0 }}
-                  exit={{ scale: 0.8, opacity: 0 }}
-                  transition={{ repeat: Infinity, duration: 2.0, ease: "easeOut", delay: 0.4 }}
-                  className="absolute w-20 h-20 rounded-full bg-brand-green-mint/20 border border-brand-green-mint pointer-events-none"
-                />
-              </>
-            )}
-          </AnimatePresence>
-
-          {/* Main green speak button (Hold-to-Talk) with PointerEvents */}
-          <button
-            id="anna-voice-cta-btn"
-            type="button"
-            onPointerDown={handleVoicePressStart}
-            onPointerUp={handleVoicePressEnd}
-            onPointerCancel={handleVoicePressEnd}
-            className={`w-[72px] h-[72px] rounded-full flex items-center justify-center transition-all duration-300 relative select-none ${
-              isHoldingMic 
-                ? "scale-[1.12] shadow-[0_12px_24px_rgba(16,181,81,0.4),_inset_0_-3px_8px_rgba(0,0,0,0.1)]" 
-                : "hover:scale-[1.04] hover:shadow-[0_8px_16px_rgba(16,181,81,0.15)] active:scale-95 shadow-[inset_0_4px_6px_rgba(255,255,255,0.4),_inset_0_-4px_8px_rgba(8,91,36,0.35),_0_6px_14px_rgba(16,181,81,0.25)] border border-green-400"
-            } bg-gradient-to-b from-brand-green-light through-brand-green-bright to-brand-green-dark cursor-pointer`}
-            aria-label="Голосовая кнопка"
-          >
-            <div className="absolute top-[4px] left-[15%] right-[15%] h-[24%] rounded-full bg-gradient-to-b from-white/50 to-transparent pointer-events-none" />
-
-            <Mic className={`w-7.5 h-7.5 text-white stroke-[2.2] relative z-10 transition-transform duration-300 ${
-              isHoldingMic ? "scale-110" : "scale-100"
-            }`} />
-          </button>
-        </div>
-
-        <span 
-          className={`text-[12.5px] font-bold tracking-wide mt-1 transition-all duration-300 ${
-            isHoldingMic ? "text-brand-green-dark scale-105" : "text-gray-400"
-          }`}
-          style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}
-        >
-          {isHoldingMic ? "Отпусти — и я отвечу" : "Нажми и удерживай, чтобы говорить"}
-        </span>
       </div>
 
       {/* LOWER FIXED NAVIGATION SCREEN BAR */}

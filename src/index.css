@@ -169,3 +169,14 @@
 .scrollbar-thin::-webkit-scrollbar-thumb:hover {
   background: #a1a1aa;
 }
+
+
+/* Hide scrollbar for Anna chat area */
+.anna-chat-scroll {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.anna-chat-scroll::-webkit-scrollbar {
+  display: none;
+}
