@@ -12,7 +12,8 @@ import {
   RotateCcw
 } from "lucide-react";
 import BottomBar from "./BottomBar";
-import { resolveGeneralAvatar, resolveAvatarByState } from "../utils/annaAvatarResolver";
+import { resolveAvatarByState } from "../utils/annaAvatarResolver";
+import { getNextAnnaLiveAvatar } from "../utils/annaLiveAvatar";
 import { useAppStore } from "../store/useAppStore";
 import { api } from "../utils/api";
 import { clientLogger } from "../utils/clientLogger";
@@ -77,10 +78,11 @@ export default function AnnaScreen(props: AnnaScreenProps) {
   const initialSystolic = props.initialSystolic ?? (p.initialSystolic || 120);
   const initialDiastolic = props.initialDiastolic ?? (p.initialDiastolic || 80);
 
-  const annaAvatarSrc = resolveGeneralAvatar().src;
-
   // Chat dialogue state - clean greeting from Anna
   const [messages, setMessages] = useState<Message[]>([]);
+  const [currentAvatarSrc, setCurrentAvatarSrc] = useState(() =>
+  getNextAnnaLiveAvatar(),
+);
 
   const chatEndRef = useRef<HTMLDivElement | null>(null);
 
@@ -171,6 +173,7 @@ export default function AnnaScreen(props: AnnaScreenProps) {
           typingTimerRef.current = setTimeout(animateTyping, 40);
         } else {
           setAnnaState("На связи");
+          setCurrentAvatarSrc(getNextAnnaLiveAvatar());
         }
       };
       animateTyping();
@@ -183,27 +186,53 @@ export default function AnnaScreen(props: AnnaScreenProps) {
     }
   };
 
-  const handleSendText = () => {
+      const handleSendText = () => {
     if (!typedInput.trim()) return;
-    api('/api/achievements/track', { method: 'POST', body: { type: 'anna_chat', payload: {} } });
+
+    api("/api/achievements/track", {
+      method: "POST",
+      body: { type: "anna_chat", payload: {} },
+    });
+
     setTimeout(() => {
-       if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('anna_chat_tracked'));
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("anna_chat_tracked"));
+      }
     }, 500);
+
     const userText = typedInput.trim();
     setTypedInput("");
+
     const userMsgId = `msg-user-${Date.now()}`;
     const now = new Date();
-    const timeStr = now.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
-    const newUserMessage: Message = { id: userMsgId, sender: "user", text: userText, time: timeStr };
+    const timeStr = now.toLocaleTimeString("ru-RU", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    const newUserMessage: Message = {
+      id: userMsgId,
+      sender: "user",
+      text: userText,
+      time: timeStr,
+    };
     const updatedMessages = [...messages, newUserMessage];
+
     setMessages(updatedMessages);
     triggerResponse(userText, updatedMessages);
   };
 
-  const reactiveAvatarSrc = resolveAvatarByState(annaState, messages.length > 0 ? messages[messages.length - 1].text : undefined).src;
+  const emotionalAvatarSrc = resolveAvatarByState(
+    annaState,
+    messages.length > 0 ? messages[messages.length - 1].text : undefined,
+  ).src;
+
+  const displayedAvatarSrc =
+    annaState === "Отвечаю" || annaState === "Думаю"
+      ? emotionalAvatarSrc
+      : currentAvatarSrc;
 
   return (
-    <div 
+    <div
       className="flex-1 flex flex-col justify-between bg-[#FFF6F0] min-h-[820px] select-none text-text-main"
       id="anna-screen-root"
     >
@@ -345,7 +374,7 @@ export default function AnnaScreen(props: AnnaScreenProps) {
             {/* Inner Circular Avatar Portrait / Orb of Anna */}
             <div className="w-[110px] h-[110px] rounded-full overflow-hidden relative z-10 border-4 border-white shadow-inner">
               <img 
-                src={reactiveAvatarSrc}
+                src={displayedAvatarSrc}
                 alt="Анна Коуч" 
                 className={`w-full h-full object-cover select-none pointer-events-none transition-all duration-700 ${
                   annaState === "Слушаю"
