@@ -13,6 +13,8 @@ import { analyzeFoodImage, transcribeAudio, generateAnnaAudio } from "./src/serv
 import { callLLM } from "./src/services/llmAdapter";
 import { PromptCompiler } from "./src/services/promptCompiler";
 import { routeAnnaContext } from "./src/services/annaContextRouter";
+import { lookupAnnaBookRecipe } from "./src/services/annaRecipeLookup";
+import { buildAnnaRecipePromptBlock } from "./src/services/annaRecipePrompt";
 import { achievementService } from "./src/services/AchievementService";
 import { ANNA_TOOL_DEFINITIONS, executeToolCall } from "./src/services/annaTools";
 import { buildAnnaContextSnapshot } from "./src/services/annaContextSnapshot";
@@ -791,15 +793,25 @@ async function startServer() {
       }
 
       let systemPrompt = promptCompiler.compile({
-        screenId: screenContextDetails?.screen_id || screenContext,
-        userMessage: message,
-        userName: userName || screenContextDetails?.userName,
-        screenContextDetails,
-        bookRecipesDataContext,
-		moduleFiles: annaRouteDecision.moduleFiles,
-        knowledgeFiles: annaRouteDecision.knowledgeFiles,
-        isVoiceChat,
-      }) + (annaToolGuidance ? `\n\n${annaToolGuidance}` : "");
+          screenId: screenContextDetails?.screen_id || screenContext,
+          userMessage: message,
+          userName: userName || screenContextDetails?.userName,
+          screenContextDetails,
+          bookRecipesDataContext,
+          moduleFiles: annaRouteDecision.moduleFiles,
+          knowledgeFiles: annaRouteDecision.knowledgeFiles,
+          isVoiceChat,
+        }) + (annaToolGuidance ? `\n\n${annaToolGuidance}` : "");
+
+        const recipeLookup = await lookupAnnaBookRecipe(message || "");
+        const recipePromptBlock = buildAnnaRecipePromptBlock(
+          message || "",
+          recipeLookup,
+        );
+
+        if (recipePromptBlock) {
+          systemPrompt += `\n\n${recipePromptBlock}`;
+        }
 
       if (req.userId && dayIndex) {
         const shouldInjectRitual = /утро|вчера|ритуал|итог|проснул|спал|привет|добр|чувству|настро/i.test(message);
