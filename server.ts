@@ -4,28 +4,41 @@ import fs from "fs/promises";
 import crypto from "crypto";
 import { Type } from "@google/genai";
 import dotenv from "dotenv";
+
 import { findForbiddenInText } from "./src/data/wfpb_forbidden_ingredients";
 import { normalize, candidateKeys, resolveAgainstIndex, ALIASES } from "./src/utils/ingredientMappingCore";
 import { getIngredientAlias } from "./src/utils/ingredientAliasMapper";
+
 import { analyzeFoodImage, transcribeAudio, generateAnnaAudio } from "./src/services/dashscopeAdapter";
-import { ANNA_REACTION_MATRIX } from "./src/prompts/annaReactionMatrix";
-import { DISH_PHILOSOPHY } from "./src/data/dishPhilosophy";
 import { callLLM } from "./src/services/llmAdapter";
 import { PromptCompiler } from "./src/services/promptCompiler";
+import { routeAnnaContext } from "./src/services/annaContextRouter";
+import { achievementService } from "./src/services/AchievementService";
+import { ANNA_TOOL_DEFINITIONS, executeToolCall } from "./src/services/annaTools";
+import { buildAnnaContextSnapshot } from "./src/services/annaContextSnapshot";
+import { setupTelegramWebhook, getBotUsername, getBot } from "./src/services/telegramBot";
+
+import { ANNA_REACTION_MATRIX } from "./src/prompts/annaReactionMatrix";
+import { DISH_PHILOSOPHY } from "./src/data/dishPhilosophy";
+
 import { safeParseJSON } from "./src/utils/safeParseJSON";
 import { parseAnnaEmotionReply } from "./src/utils/annaEmotionPrefix";
 import { getPlural } from "./src/utils/pluralize";
-import { Prisma } from "@prisma/client";
-import { prisma } from "./src/prisma";
-import { MOVEMENT_DAILY_TARGET_MIN } from "./src/constants/movement";
 import { getWaterContext } from "./src/utils/waterCoaching";
 import { logger } from "./src/utils/logger";
 import { resolveBookRecipeNutrients, BOOK_MACRO_FIELDS } from "./src/utils/bookRecipeNutrients";
-import { DEFAULT_TIMEZONE, addDays, toDateOnly, todayLocalDate, validateIanaTimeZone } from "./src/shared/dates";
-import { achievementService } from "./src/services/AchievementService";
-import { ANNA_TOOL_DEFINITIONS, executeToolCall } from "./src/services/annaTools";
-import { setupTelegramWebhook, getBotUsername, getBot } from "./src/services/telegramBot";
 import { extractTelegramUser } from "./src/utils/telegramInitData";
+
+import { Prisma } from "@prisma/client";
+import { prisma } from "./src/prisma";
+import { MOVEMENT_DAILY_TARGET_MIN } from "./src/constants/movement";
+import {
+  DEFAULT_TIMEZONE,
+  addDays,
+  toDateOnly,
+  todayLocalDate,
+  validateIanaTimeZone,
+} from "./src/shared/dates";
 
 const promptCompiler = new PromptCompiler();
 
@@ -763,12 +776,28 @@ async function startServer() {
 
       const annaToolGuidance = buildAnnaToolGuidance(message);
 
+	  const annaRouteDecision = routeAnnaContext(message || "");
+
+      if (process.env.NODE_ENV !== "production") {
+        console.log("[Anna Context Router]", {
+          message: message || "",
+          topics: annaRouteDecision.topics,
+          needsMedicalSafety: annaRouteDecision.needsMedicalSafety,
+          needsPreviousDayMeals: annaRouteDecision.needsPreviousDayMeals,
+          needsProfile: annaRouteDecision.needsProfile,
+          knowledgeFiles: annaRouteDecision.knowledgeFiles,
+          moduleFiles: annaRouteDecision.moduleFiles,
+        });
+      }
+
       let systemPrompt = promptCompiler.compile({
         screenId: screenContextDetails?.screen_id || screenContext,
         userMessage: message,
         userName: userName || screenContextDetails?.userName,
         screenContextDetails,
         bookRecipesDataContext,
+		moduleFiles: annaRouteDecision.moduleFiles,
+        knowledgeFiles: annaRouteDecision.knowledgeFiles,
         isVoiceChat,
       }) + (annaToolGuidance ? `\n\n${annaToolGuidance}` : "");
 
@@ -812,7 +841,7 @@ async function startServer() {
             const sessionsCount = movementLogRaw.length;
             const activityMinutes = dailyMetric.activityMinutes || 0;
             const normPercentage = Math.min(100, Math.round((activityMinutes / MOVEMENT_DAILY_TARGET_MIN) * 100));
-            
+
             let sessionsListStr = "Нет сессий.";
             if (movementLogRaw.length > 0) {
               sessionsListStr = movementLogRaw.map((log: any) => {
@@ -831,6 +860,187 @@ async function startServer() {
           }
         } catch (e) {
           console.error("Error loading movement for Anna:", e);
+        }
+      }
+
+// ── Anna Context Snapshot (unified daily context) ──
+      if (req.userId) {
+        try {
+          // Load daily metric independently
+          const snapshotMetric = dayIndex
+            ? await prisma.dailyMetric.findFirst({
+                where: { userId: req.userId, dayIndex },
+                orderBy: { date: "desc" },
+              })
+            : await prisma.dailyMetric.findFirst({
+                where: { userId: req.userId },
+                orderBy: { date: "desc" },
+              });
+
+          if (!snapshotMetric) {
+            // No metric available, skip snapshot
+          } else {
+            const user = await prisma.user.findUnique({ where: { id: req.userId } });
+            const timeZone = user?.timeZone || "Europe/Moscow";
+
+            const waterEntriesRaw = snapshotMetric.waterEntries
+              ? safeParseJSON<any[]>(snapshotMetric.waterEntries, []).data || []
+              : [];
+            const sleepLogsRaw = snapshotMetric.sleepLogs
+              ? safeParseJSON<any[]>(snapshotMetric.sleepLogs, []).data || []
+              : [];
+            const digestionLogRaw = snapshotMetric.digestionLog
+              ? safeParseJSON<any[]>(snapshotMetric.digestionLog, []).data || []
+              : [];
+            const movementLogRaw = snapshotMetric.movementLog
+              ? safeParseJSON<any[]>(snapshotMetric.movementLog, []).data || []
+              : [];
+            const measurementsRaw = snapshotMetric.measurements
+              ? safeParseJSON<any[]>(snapshotMetric.measurements, []).data || []
+              : [];
+
+            const metricsForSnapshot = {
+              date: snapshotMetric.date.toISOString().slice(0, 10),
+              dayIndex: snapshotMetric.dayIndex,
+              waterMl: snapshotMetric.waterMl,
+              sleepMinutes: snapshotMetric.sleepMinutes,
+              mealCount: snapshotMetric.mealCount,
+              habitsDone: snapshotMetric.habitsDone,
+              activityMinutes: snapshotMetric.activityMinutes,
+              steps: snapshotMetric.steps,
+              waterEntries: waterEntriesRaw,
+              sleepLogs: sleepLogsRaw,
+              digestionLog: digestionLogRaw,
+              movementLog: movementLogRaw,
+              measurements: measurementsRaw,
+              pulse: snapshotMetric.pulse,
+              weight: snapshotMetric.weight,
+              systolic: snapshotMetric.systolic,
+              diastolic: snapshotMetric.diastolic,
+              tonus: snapshotMetric.tonus,
+              dayMood: snapshotMetric.dayMood,
+              dayBookmark: snapshotMetric.dayBookmark,
+            };
+
+           const snapshot = buildAnnaContextSnapshot(metricsForSnapshot, timeZone);
+
+            // Add previous-day meals only when the router says that meal context is useful.
+            const resolvedDayIndex = snapshotMetric.dayIndex ?? dayIndex ?? 1;
+            const previousDayIndex = resolvedDayIndex - 1;
+
+            if (
+              annaRouteDecision.needsPreviousDayMeals &&
+              previousDayIndex >= 1
+            ) {
+              const previousDishes = await prisma.savedDish.findMany({
+                where: {
+                  userId: req.userId,
+                  dayIndex: previousDayIndex,
+                },
+                select: {
+                  name: true,
+                  ingredients: true,
+                  createdAt: true,
+                },
+                orderBy: {
+                  createdAt: "asc",
+                },
+                take: 12,
+              });
+
+              snapshot.previousDayMeals = {
+                status: previousDishes.length > 0 ? "available" : "no_data",
+                localDate: `day-index-${previousDayIndex}`,
+                meals: previousDishes.map((dish) => ({
+                  // createdAt is the record-save timestamp, not a claimed meal time.
+                  time: dish.createdAt.toLocaleTimeString("ru-RU", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    timeZone,
+                  }),
+                  name: dish.name,
+                  ingredients: dish.ingredients ?? undefined,
+                })),
+              };
+            }
+
+            // Evening ritual is useful for wellbeing, support and ritual-related requests.
+            const ritualRequested =
+              annaRouteDecision.needsProfile ||
+              /ритуал|итог.*дня|как.*прош[её]л.*день|вечер/i.test(
+                message || "",
+              );
+
+            if (ritualRequested) {
+              const ritual = await prisma.eveningRitual.findUnique({
+                where: {
+                  userId_dayIndex: {
+                    userId: req.userId,
+                    dayIndex: resolvedDayIndex,
+                  },
+                },
+                select: {
+                  answerBody: true,
+                  answerPsycho: true,
+                  answerUnexpected: true,
+                },
+              });
+
+              if (ritual) {
+                snapshot.reflection = {
+                  eveningRitual: {
+                    localDate: snapshotMetric.date
+                      .toISOString()
+                      .slice(0, 10),
+                    body: ritual.answerBody,
+                    psychology: ritual.answerPsycho,
+                    insight: ritual.answerUnexpected,
+                  },
+                };
+              }
+            }
+
+            // Load diary entries when router indicates diary context is useful.
+            if (annaRouteDecision.needsDiary) {
+              const diaryEntries = await prisma.diaryEntry.findMany({
+                where: {
+                  userId: req.userId,
+                  dayIndex: resolvedDayIndex,
+                },
+                select: {
+                  note: true,
+                  mood: true,
+                  tags: true,
+                  time: true,
+                  createdAt: true,
+                },
+                orderBy: {
+                  createdAt: "asc",
+                },
+                take: 10,
+              });
+
+              if (diaryEntries.length > 0) {
+                if (!snapshot.reflection) snapshot.reflection = {};
+                snapshot.reflection.diary = diaryEntries.map((entry) => ({
+                  localDate: snapshotMetric.date.toISOString().slice(0, 10),
+                  time: entry.time ?? entry.createdAt.toLocaleTimeString("ru-RU", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    timeZone,
+                  }),
+                  mood: entry.mood ?? undefined,
+                  note: entry.note ?? undefined,
+                  tags: entry.tags ? JSON.parse(entry.tags) : undefined,
+                }));
+              }
+            }
+
+            const snapshotText = `\n\n[Anna Context Snapshot]:\n${JSON.stringify(snapshot, null, 2)}`;
+            systemPrompt += snapshotText;
+          }
+        } catch (e) {
+          console.error("Error building Anna context snapshot:", e);
         }
       }
 
@@ -927,6 +1137,26 @@ async function startServer() {
       let finalReply = "";
 
       for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+        if (process.env.NODE_ENV !== "production") {
+          console.log("[Anna Prompt Debug]", {
+            round: round + 1,
+            promptChars: systemPrompt.length,
+            promptSha256: crypto
+              .createHash("sha256")
+              .update(systemPrompt)
+              .digest("hex"),
+            topics: annaRouteDecision.topics,
+            knowledgeFiles: annaRouteDecision.knowledgeFiles,
+            moduleFiles: annaRouteDecision.moduleFiles,
+            hasToolGuidance: Boolean(annaToolGuidance),
+            hasSnapshot: systemPrompt.includes("[Anna Context Snapshot]:"),
+            hasWaterInjection: systemPrompt.includes(
+              "[Системные данные о Воде пользователя на сегодня:",
+            ),
+            toolCount: availableTools.length,
+          });
+        }
+
         const result = await generateContentWithFallback({
           messages,
           config: {
@@ -1465,7 +1695,7 @@ Only valid JSON, no markdown.`,
       return res.json({ result: { noFoodDetected: false, ingredients: candidates } });
     } catch (error: any) {
       console.log("Real error returned to client to trigger Anna supporting behaviors:", error?.message || error);
-      return res.status(503).json({ 
+      return res.status(503).json({
         error: error?.message || "Service Temporarily Unavailable",
         status: "UNAVAILABLE"
       });
@@ -1476,7 +1706,7 @@ Only valid JSON, no markdown.`,
   app.post("/api/anna-supports", async (req, res) => { // Updated handler for Anna’s support requests
     try {
       const { situation } = req.body;
-      
+
       const prompt = `Ты — системный голос приложения WFPB. Пользователь загрузил фото блюда, идёт распознавание ингредиентов.
 Контекст: ${situation || "временное ожидание повторного анализа блюда"}
 
@@ -1488,7 +1718,7 @@ Only valid JSON, no markdown.`,
           responseMimeType: "text/plain"
         }
       });
-      
+
       const textOutput = result.text?.trim().replace(/^["']|["']$/g, "") || "Система настраивает соединение и выполняет детальный молекулярный анализ тарелки... 🌱";
       return res.json({ message: textOutput });
     } catch (e) {
@@ -1540,7 +1770,7 @@ Only valid JSON, no markdown.`,
       const itemsList = Array.isArray(items) ? items : [];
       let fallbackStr = itemsList.map((x: any) => typeof x === 'object' ? `«${x.shortName || x.fullName || x}»` : `«${x}»`).join(" и ");
       if (!fallbackStr) fallbackStr = "непищевые предметы";
-      
+
       return res.json({
         message: `Ой, какая необычная тарелка! Система распознала здесь ${fallbackStr}. Конечно, в них рекордно мало калорий и полностью отсутствует соль, но боюсь, даже крепкая эмаль зубов и WFPB-философия не справятся со здоровым расщеплением таких инновационных продуктов! Кажется, ты хочешь позавтракать несъедобными предметами. Давай оставим их для украшения быта, а для пользы микробиома выберем чистую растительную пищу: злаки, бобовые, много зелени и фруктов. Пожалуйста, вернись назад и сфотографируй настоящее полезное блюдо! 💚`
       });
@@ -1696,7 +1926,7 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
   });
 
   // ── CRUD: User Profile ──
-  
+
 
 
 // POST /api/user/profile — save or update the user's profile data
@@ -2685,7 +2915,7 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
       } catch (dbErr: any) {
         logger.warn("[Achievements] Failed to fetch historical data:", dbErr.message);
       }
-      
+
       let dbRatings: any[] = [];
       let dbChats: any[] = [];
       try {
@@ -2706,7 +2936,7 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
         _dbDishes: dbDishes,
         _dbEveningRituals: dbEveningRituals,
         _dbRatings: dbRatings,
-        
+
         _dbUserFull: user,
         _dbChats: dbChats,
       };
@@ -2726,7 +2956,7 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
             logger.error(`[Achievements] Failed to upsert achievement ${id}:`, err);
           }
         }
-          
+
         // Append new IDs to pendingAchievementId queue
           let pendingStr = user.pendingAchievementId || "";
           const pendingArr = pendingStr ? pendingStr.split(",") : [];
@@ -2754,7 +2984,7 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
       if (!req.userId) return res.json({ success: false });
       const { type, payload } = req.body;
       let updateData: any = {};
-      
+
       if (type === "constructor") updateData.constructorCount = { increment: 1 };
       else if (type === "scan") updateData.scanCount = { increment: 1 };
       else if (type === "chapter_read") updateData.chapterReadCount = { increment: 1 };
@@ -2776,7 +3006,7 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
         await achievementService.check({ action: "mixer:spin", payload: payload || {} });
         return res.json({ success: true });
       }
-      
+
       if (Object.keys(updateData).length > 0) {
         await prisma.user.update({
           where: { id: req.userId },
@@ -2830,7 +3060,7 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
 
         await prisma.user.update({
           where: { id: req.userId },
-          data: { 
+          data: {
             pendingAchievementId: pendingArr.join(","),
             lastAchievementUnlockedAt: null
           }
@@ -2850,7 +3080,7 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
   app.get("/api/achievements/check-pending", async (req, res) => {
     try {
       if (!req.userId) return res.json({ id: null });
-      
+
       const user = await prisma.user.findUnique({ where: { id: req.userId } });
       if (!user || !user.pendingAchievementId) {
         return res.json({ id: null });
@@ -2881,12 +3111,12 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
     try {
       if (!req.userId) return res.json({ success: false });
       const { id } = req.body;
-      
+
       const user = await prisma.user.findUnique({ where: { id: req.userId } });
       if (user && user.pendingAchievementId) {
         const pendingArr = user.pendingAchievementId.split(",");
         const updatedArr = pendingArr.filter(pid => pid !== id);
-        
+
         await prisma.user.update({
           where: { id: req.userId },
           data: {
@@ -2928,12 +3158,12 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
       appType: "spa",
     });
     app.use(vite.middlewares);
-    
+
     // Fallback for React Router in development
     app.use("*", async (req, res, next) => {
       if (req.originalUrl.startsWith("/api")) return next();
       if (req.method !== "GET" || !req.headers.accept?.includes("text/html")) return next();
-      
+
       try {
         const url = req.originalUrl;
         let template = await fs.readFile(path.join(projectRoot, "index.html"), "utf-8");
