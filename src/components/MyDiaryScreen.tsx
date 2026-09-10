@@ -37,6 +37,7 @@ import {
   LockKeyhole
 } from "lucide-react";
 import BottomBar from "./BottomBar";
+import type { DiaryNote } from "./diary/diary.types";
 import { useAppStore } from "../store/useAppStore";
 import { NoteSpeechInputHelper } from "../utils/speechToText";
 import { api } from "../utils/api";
@@ -47,17 +48,7 @@ import { getUserTimeZone } from "../shared/timeZoneStore";
 // Load all recipe images for random daily photo
 const recipeImages = Object.values(import.meta.glob("/src/assets/images/recipes/*.webp", { eager: true } as any)).map((mod: any) => mod.default as string);
 
-// Compatible with the basic { text: string; time: string } type while supporting premium properties
-export interface DiaryNote {
-  id: string;               // Unique ID
-  text: string;             // Entry text
-  time: string;             // Hours:Minutes formatted string
-  origin?: string;          // Module of origin: "water" | "food" | "movement" | "sleep" | "measurements" | "digestion" | "purchases" | "habits" | "recipes" | "thoughts"
-  isVoice?: boolean;        // Voice dictation indicator
-  isImportant?: boolean;    // Favorites system
-  isPinned?: boolean;       // Anchored to the top
-  sealedUntilDay?: number;  // Time Capsule cycle day (e.g. 15 or 28), 0 or undefined for normal cards
-}
+
 
 interface MyDiaryScreenProps {
   dayNotes: Record<number, { text: string; time: string; [key: string]: any }[]>;
