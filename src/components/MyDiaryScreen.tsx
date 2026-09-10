@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { 
   Calendar, 
-  Search, 
   Heart, 
   Pin, 
   Lock, 
@@ -13,8 +12,6 @@ import {
   MicOff, 
   ChevronLeft, 
   ChevronRight, 
-  X, 
-  User, 
   Plus, 
   Bookmark, 
   BookOpen, 
@@ -27,16 +24,20 @@ import {
   Droplet,
   Apple,
   Activity,
-  Moon,
-  Sun,
   Scale,
   ShoppingBag,
   Info,
   Check,
   CheckCircle2,
-  LockKeyhole
+  LockKeyhole,
+  Moon,
+  Sun,
+  User,
+  X,
+  Search
 } from "lucide-react";
 import BottomBar from "./BottomBar";
+import DiaryHeader from "./diary/DiaryHeader";
 import type { DiaryNote } from "./diary/diary.types";
 import { useAppStore } from "../store/useAppStore";
 import { NoteSpeechInputHelper } from "../utils/speechToText";
@@ -991,120 +992,78 @@ export default function MyDiaryScreen({
         className="absolute inset-0 pointer-events-none z-10"
       />
 
-      {/* Primary Scrollable Scroll container */}
-      <div className="flex-1 flex flex-col overflow-y-auto max-h-[720px] scrollbar-none z-20 px-4 pt-1 pb-24">
-        
-        {/* HEADER AREA */}
-        <div className="flex justify-between items-center mb-4 mt-3">
-          {/* USER NAME BAR (NATIVE PERSONAL MARKER) */}
-          <div className="flex flex-col text-left">
-            <span className={`text-[12px] font-black uppercase tracking-widest ${labelText} font-sans leading-none`}>ЛИЧНЫЙ ДНЕВНИК</span>
-            <button 
-              onClick={() => setShowProfileModal(true)}
-              className="flex items-center gap-1.5 mt-1.5 bg-white/20 backdrop-blur-sm hover:bg-white/40 border border-slate-200/50 hover:border-slate-300 rounded-full px-3 py-1 text-left transition-all active:scale-95 outline-none cursor-pointer"
-            >
-              <User className={`w-4 h-4 ${brandGreen}`} />
-              <span className={`text-[14px] sm:text-[15px] font-black leading-none ${bodyText} font-sans`}>
-                {currentName || "Пользователь"}
-              </span>
-              <span className="text-[10px] text-slate-400">▼</span>
-            </button>
+      {/* Diary Header Component */}
+      <DiaryHeader
+        onBack={onBack}
+        onToggleProfileModal={() => setShowProfileModal(true)}
+        onToggleSearch={() => { setShowSearchBox(!showSearchBox); setSearchQuery(""); }}
+        onToggleNightMode={() => setIsNightMode(!isNightMode)}
+        currentName={currentName || "Пользователь"}
+        isNightMode={isNightMode}
+      />
+
+      {/* SEARCH BOX EXPANSION */}
+      {showSearchBox && (
+        <div
+          className={`p-3.5 rounded-[24px] border ${borderCol} ${cardBg} mb-4 flex flex-col text-left shadow-sm mx-4`}
+        >
+          <span className={`text-[11px] font-black uppercase tracking-wider ${labelText} font-sans`}>ПОИСК ПО ИСТОРИИ</span>
+          <div className="flex gap-2 mt-2">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="энергия, сон, сахар, суп, вес..."
+              className={`flex-1 text-[13.5px] font-bold p-2.5 rounded-xl border ${borderCol} bg-transparent ${bodyText} outline-none focus:ring-1 focus:ring-[#2F6B45]/50 font-sans`}
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="px-3 bg-slate-100 rounded-xl text-slate-500 font-bold text-[12px]"
+              >
+                Сбросить
+              </button>
+            )}
           </div>
 
-          {/* RIGHT ACTION BUTTONS */}
-          <div className="flex gap-2">
-            {/* SEARCH */}
-            <button
-              onClick={() => { setShowSearchBox(!showSearchBox); setSearchQuery(""); }}
-              className={`w-9 h-9 rounded-full ${cardBg} border ${borderCol} flex items-center justify-center ${bodyText} hover:bg-slate-100/10 active:scale-90 transition-transform cursor-pointer outline-none`}
-            >
-              <Search className="w-4.5 h-4.5 stroke-[2.2]" />
-            </button>
-
-            {/* NIGHT MODE ("Выключить свет") */}
-            <button
-              onClick={() => setIsNightMode(!isNightMode)}
-              title="Выключить свет"
-              className={`w-9 h-9 rounded-full ${cardBg} border ${borderCol} flex items-center justify-center ${bodyText} hover:bg-slate-100/10 active:scale-90 transition-transform cursor-pointer outline-none`}
-            >
-              {isNightMode ? (
-                <Sun className="w-4.5 h-4.5 text-amber-400 animate-spin" style={{ animationDuration: '20s' }} />
+          {/* SEARCH RESULTS */}
+          {searchQuery.trim() && (
+            <div className="mt-3.5 max-h-[180px] overflow-y-auto pr-1 flex flex-col gap-2">
+              {getSearchResults().length > 0 ? (
+                getSearchResults().map((res, i) => {
+                  const info = getNoteInfo(res.note.text, res.note.origin);
+                  const IconComponent = info.icon;
+                  return (
+                    <div
+                      key={i}
+                      onClick={() => { setSelectedDayIndex(res.day); setShowSearchBox(false); }}
+                      className={`p-2.5 rounded-xl border ${borderCol} bg-white/40 cursor-pointer hover:bg-white/80 active:scale-98 transition-all text-left flex items-start gap-2.5`}
+                    >
+                      <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-[11px] shrink-0">
+                        {res.day}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex justify-between items-center text-[10px] text-slate-400 font-bold">
+                          <span>ДЕНЬ {res.day} • {res.note.time}</span>
+                          <span>{info.label}</span>
+                        </div>
+                        <p className={`text-[12.5px] font-bold ${bodyText} mt-0.5 truncate font-sans`}>
+                          {info.formattedText}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })
               ) : (
-                <Moon className="w-4.5 h-4.5 text-slate-500" />
-              )}
-            </button>
-
-            {/* EXIT TERMINAL HOME */}
-            <button
-              onClick={onBack}
-              className={`w-9 h-9 rounded-full ${cardBg} border ${borderCol} flex items-center justify-center ${bodyText} hover:bg-emerald-50 active:scale-90 transition-all cursor-pointer font-bold outline-none`}
-            >
-              <X className="w-4.5 h-4.5 stroke-[2.5]" />
-            </button>
-          </div>
-        </div>
-
-        {/* SEARCH BOX EXPANSION */}
-        {showSearchBox && (
-          <motion.div 
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            className={`p-3.5 rounded-[24px] border ${borderCol} ${cardBg} mb-4 flex flex-col text-left shadow-sm`}
-          >
-            <span className={`text-[11px] font-black uppercase tracking-wider ${labelText} font-sans`}>ПОИСК ПО ИСТОРИИ</span>
-            <div className="flex gap-2 mt-2">
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="энергия, сон, сахар, суп, вес..."
-                className={`flex-1 text-[13.5px] font-bold p-2.5 rounded-xl border ${borderCol} bg-transparent ${bodyText} outline-none focus:ring-1 focus:ring-[#2F6B45]/50 font-sans`}
-              />
-              {searchQuery && (
-                <button 
-                  onClick={() => setSearchQuery("")}
-                  className="px-3 bg-slate-100 rounded-xl text-slate-500 font-bold text-[12px]"
-                >
-                  Сбросить
-                </button>
+                <span className={`text-[12px] ${labelText} italic font-medium`}>Ничего не найдено. Попробуйте поискать другие слова!</span>
               )}
             </div>
+          )}
+        </div>
+      )}
 
-            {/* SEARCH RESULTS */}
-            {searchQuery.trim() && (
-              <div className="mt-3.5 max-h-[180px] overflow-y-auto pr-1 flex flex-col gap-2">
-                {getSearchResults().length > 0 ? (
-                  getSearchResults().map((res, i) => {
-                    const info = getNoteInfo(res.note.text, res.note.origin);
-                    const IconComponent = info.icon;
-                    return (
-                      <div 
-                        key={i} 
-                        onClick={() => { setSelectedDayIndex(res.day); setShowSearchBox(false); }}
-                        className={`p-2.5 rounded-xl border ${borderCol} bg-white/40 cursor-pointer hover:bg-white/80 active:scale-98 transition-all text-left flex items-start gap-2.5`}
-                      >
-                        <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-[11px] shrink-0">
-                          {res.day}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex justify-between items-center text-[10px] text-slate-400 font-bold">
-                            <span>ДЕНЬ {res.day} • {res.note.time}</span>
-                            <span>{info.label}</span>
-                          </div>
-                          <p className={`text-[12.5px] font-bold ${bodyText} mt-0.5 truncate font-sans`}>
-                            {info.formattedText}
-                          </p>
-                        </div>
-                      </div>
-                    );
-                  })
-                ) : (
-                  <span className={`text-[12px] ${labelText} italic font-medium`}>Ничего не найдено. Попробуйте поискать другие слова!</span>
-                )}
-              </div>
-            )}
-          </motion.div>
-        )}
+      {/* Primary Scrollable Scroll container */}
+      <div className="flex-1 flex flex-col overflow-y-auto max-h-[720px] scrollbar-none z-20 px-4 pt-1 pb-24">
 
         {/* CYCLE DAYS NAVIGATION COMPONENT (1 to 28) */}
         <div className={`p-3.5 rounded-[28px] border ${borderCol} ${cardBg} mb-4 flex flex-col relative shadow-sm`}>
