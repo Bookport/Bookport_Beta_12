@@ -7,11 +7,7 @@ import {
   Lock, 
   Clock, 
   Smile, 
-  Award, 
-  Mic, 
-  MicOff, 
-  ChevronLeft, 
-  ChevronRight, 
+  Award,  
   Plus, 
   Bookmark, 
   BookOpen, 
@@ -33,21 +29,59 @@ import {
   Moon,
   Sun,
   User,
+  Search,
+  ChevronLeft,
   X,
-  Search
+  MoreHorizontal
 } from "lucide-react";
 import BottomBar from "./BottomBar";
 import DiaryHeader from "./diary/DiaryHeader";
+import DiaryDayNavigator from "./diary/DiaryDayNavigator";
 import type { DiaryNote } from "./diary/diary.types";
 import { useAppStore } from "../store/useAppStore";
-import { NoteSpeechInputHelper } from "../utils/speechToText";
 import { api } from "../utils/api";
 import { ritualMatrix } from "../utils/ritualMatrix";
 import { addDays, formatTimeHM, toLocalDate } from "../shared/dates";
 import { getUserTimeZone } from "../shared/timeZoneStore";
+import { ANNA_RECIPE_METADATA } from "../services/annaRecipeMetadata";
+import { getRecipeImagePath } from "../utils/recipeImageMapper";
 
 // Load all recipe images for random daily photo
 const recipeImages = Object.values(import.meta.glob("/src/assets/images/recipes/*.webp", { eager: true } as any)).map((mod: any) => mod.default as string);
+type DayRecipeAnchor = {
+  title: string;
+  page: number;
+  image: string;
+};
+
+// Список рецептов, у которых есть картинка, читаемое название и точная страница Книги.
+const recipeAnchors: DayRecipeAnchor[] = ANNA_RECIPE_METADATA.reduce<DayRecipeAnchor[]>(
+  (anchors, recipe) => {
+    const image = getRecipeImagePath(recipe.displayName, recipe.technicalName);
+
+    if (!image) {
+      return anchors;
+    }
+
+    anchors.push({
+      title: recipe.technicalName,
+      page: recipe.page,
+      image,
+    });
+
+    return anchors;
+  },
+  []
+);
+
+// Approved module thumbnails
+import waterThumb from "../assets/images/water/stat_record_crown.webp";
+import sleepThumb from "../assets/images/slipping/6.webp";
+import movementThumb from "../assets/images/movement/markers/vsego vremeny.webp";
+import foodThumb from "../assets/images/keysustem/4.webp";
+import measurementsThumb from "../assets/images/measurements/icon_progress.webp";
+import digestionThumb from "../assets/images/icone/gkt.webp";
+import thoughtsThumb from "../assets/images/icone/misli.webp";
 
 
 
@@ -120,16 +154,30 @@ export default function MyDiaryScreen({
 
   // Interactive local states for inputs
   const [newNoteText, setNewNoteText] = useState<string>("");
-  const [isSimulatingSpeech, setIsSimulatingSpeech] = useState<boolean>(false);
-  const [speechIntervalId, setSpeechIntervalId] = useState<any>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>("thoughts");
+  const composerHints: Record<string, string> = {
+    thoughts: "Какая мысль или чувство важно сохранить?",
+    water: "Как сегодня складывается ваш водный баланс?",
+    food: "Что было важного в сегодняшнем питании?",
+    movement: "Как сегодня двигалось ваше тело?",
+    sleep: "Как сон повлиял на ваше самочувствие?",
+    measurements: "Какие изменения вы заметили?",
+    digestion: "Как чувствует себя пищеварение?",
+  };
 
+  const composerHint =
+    composerHints[selectedCategory] ?? composerHints.thoughts;
+  
   // Search State
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [showSearchBox, setShowSearchBox] = useState<boolean>(false);
 
   // Time Capsule selection overlay state
   const [capsuleTimerTargetId, setCapsuleTimerTargetId] = useState<string | null>(null);
+
+  // Timeline event menu state
+  const [menuOpenNoteId, setMenuOpenNoteId] = useState<string | null>(null);
+  const [menuPosition, setMenuPosition] = useState<{ x: number; y: number } | null>(null);
 
   // Day Bookmarks ("Умные закладки дней")
   const [dayBookmarks, setDayBookmarks] = useState<Record<number, string>>({});
@@ -139,6 +187,7 @@ export default function MyDiaryScreen({
 
   // Cross-module derived entries from other tracking modules
   const [crossModuleEntries, setCrossModuleEntries] = useState<Record<number, DiaryNote[]>>({});
+  const [hiddenTimelineEventIds, setHiddenTimelineEventIds] = useState<string[]>([]);
   const [dayDates, setDayDates] = useState<Record<number, string>>({});
 
   // Hook for Anna screen context awareness
@@ -150,8 +199,7 @@ export default function MyDiaryScreen({
       screen_title: "Личный Дневник Осознанности",
       current_day: selectedDayIndex,
       active_tab: selectedCategory,
-      current_status: showProfileModal ? "Сводка здоровья WFPB" : (isSimulatingSpeech ? "Запись аудиозаписи/мысли о рационе..." : "Ведение дневника WFPB-состояния"),
-      active_modal_or_overlay: showProfileModal ? "Панель физиологических замеров" : null,
+      current_status: showProfileModal ? "Сводка здоровья WFPB" : "Ведение дневника WFPB-состояния",      active_modal_or_overlay: showProfileModal ? "Панель физиологических замеров" : null,
       userName: currentName,
       metrics: {
         weight_kg: currentWeight,
@@ -159,8 +207,8 @@ export default function MyDiaryScreen({
       },
       user_input_values: {
         draft_note_text: newNoteText,
-        is_recording_voice: isSimulatingSpeech,
-        search_query: searchQuery
+        is_recording_voice: false,        
+		search_query: searchQuery
       }
     };
 
@@ -169,10 +217,22 @@ export default function MyDiaryScreen({
         delete (window as any).currentScreenContext;
       }
     };
-  }, [selectedDayIndex, selectedCategory, showProfileModal, isSimulatingSpeech, currentName, currentWeight, currentSystolic, currentDiastolic, newNoteText, searchQuery]);
-
+  }, [selectedDayIndex, selectedCategory, showProfileModal, currentName, currentWeight, currentSystolic, currentDiastolic, newNoteText, searchQuery]);
   // Ref to canvas for floating bubble particle effects
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const noteTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  useEffect(() => {
+    const textarea = noteTextareaRef.current;
+
+    if (!textarea) {
+      return;
+    }
+
+    textarea.style.height = "auto";
+    textarea.style.height = `${Math.min(textarea.scrollHeight, 124)}px`;
+  }, [newNoteText]);
+  const categoryScrollRef = useRef<HTMLDivElement | null>(null);
 
   // Simulated Voice dictation quotes for premium coach feel
   const voiceSimulationQuotes = [
@@ -413,6 +473,34 @@ export default function MyDiaryScreen({
     return { origin, label, color, textColors, icon, formattedText, isVoiceDefault };
   };
 
+  // Module metadata mapping for Timeline redesign
+  const getModuleMetadata = (origin: string): {
+    cardBg: string;
+    nodeColor: string;
+    thumbSrc: string;
+  } => {
+    switch (origin) {
+      case "water":
+        return { cardBg: "#EBF5FB", nodeColor: "#159FE5", thumbSrc: waterThumb };
+      case "sleep":
+        return { cardBg: "#F3EEFF", nodeColor: "#8B6FD6", thumbSrc: sleepThumb };
+      case "movement":
+        return { cardBg: "#FFF0E5", nodeColor: "#E68A4A", thumbSrc: movementThumb };
+      case "food":
+        return { cardBg: "#EAF5E1", nodeColor: "#5E9E58", thumbSrc: foodThumb };
+      case "measurements":
+        return { cardBg: "#FDE6E9", nodeColor: "#D9738A", thumbSrc: measurementsThumb };
+      case "digestion":
+        return { cardBg: "#FFF6E5", nodeColor: "#D89A2B", thumbSrc: digestionThumb };
+      case "purchases":
+      case "habits":
+      case "recipes":
+      case "thoughts":
+      default:
+        return { cardBg: "#F4F6F8", nodeColor: "#6F8999", thumbSrc: thoughtsThumb };
+    }
+  };
+
   // Helpers to persist mood and bookmarks
   const handleToggleBookmark = (tag: string) => {
     let newBookmark = tag;
@@ -517,10 +605,12 @@ export default function MyDiaryScreen({
       },
     }).then((res: any) => {
       if (res?.id) {
-        // Update local note id with server UUID for future operations
-        saveSelectedDayNotes(getSelectedDayNotes().map(n =>
-          n.id === newNote.id ? { ...n, id: res.id } : n
-        ));
+        setDayNotes((prev) => ({
+          ...prev,
+          [selectedDayIndex]: (prev[selectedDayIndex] ?? []).map((note) =>
+            note.id === newNote.id ? { ...note, id: res.id } : note
+          ),
+        }));
       }
     }).catch(() => {});
   };
@@ -552,26 +642,80 @@ export default function MyDiaryScreen({
     setCapsuleTimerTargetId(null);
   };
 
-  // Delete note safely
+    // Hide a Timeline card permanently in Diary only.
   const handleDeleteNote = (noteId: string) => {
-    const notes = getSelectedDayNotes();
-    const updated = notes.filter(n => n.id !== noteId);
-    saveSelectedDayNotes(updated);
-    // Sync delete to DB (fire-and-forget) — server IDs are UUIDs stored in note.id
-    api("/api/diary/" + encodeURIComponent(noteId), {
-      method: "DELETE",
-    }).catch(() => {});
+    const confirmed = window.confirm(
+      "Удалить эту плашку из дневника навсегда?\n\nИсходные данные в других модулях не изменятся."
+    );
+
+    if (!confirmed) return;
+
+    setHiddenTimelineEventIds((currentIds) =>
+      currentIds.includes(noteId) ? currentIds : [...currentIds, noteId]
+    );
+
+    api("/api/diary/hidden-events", {
+      method: "POST",
+      body: { eventId: noteId },
+    }).catch(() => {
+      setHiddenTimelineEventIds((currentIds) =>
+        currentIds.filter((id) => id !== noteId)
+      );
+    });
   };
 
-  // Voice Speech-to-Text Setup with Pointer Events
-  const diarySpeechHelperRef = useRef(new NoteSpeechInputHelper());
-  const diaryHoldingMicRef = useRef(false);
+  // Timeline event menu handlers
+  const handleOpenMenu = (noteId: string, event: React.MouseEvent) => {
+    event.stopPropagation();
+    const rect = (event.target as HTMLElement).getBoundingClientRect();
+    setMenuOpenNoteId(noteId);
+    setMenuPosition({ x: rect.right, y: rect.top });
+  };
 
-  useEffect(() => {
+  const handleCloseMenu = () => {
+    setMenuOpenNoteId(null);
+    setMenuPosition(null);
+  };
+
+  const handleMenuAction = (action: string, noteId: string) => {
+    handleCloseMenu();
+    switch (action) {
+      case "pin":
+        handleTogglePinNote(noteId);
+        break;
+      case "favorite":
+        handleToggleFavoriteNote(noteId);
+        break;
+      case "capsule":
+        setCapsuleTimerTargetId(noteId);
+        break;
+      case "delete":
+        handleDeleteNote(noteId);
+        break;
+    }
+  };
+
+    useEffect(() => {
+    let cancelled = false;
+
+    api("/api/diary/hidden-events")
+      .then((data) => {
+        if (cancelled) return;
+
+        const eventIds = Array.isArray(data?.eventIds) ? data.eventIds : [];
+        setHiddenTimelineEventIds(eventIds);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setHiddenTimelineEventIds([]);
+        }
+      });
+
     return () => {
-      diarySpeechHelperRef.current.release();
+      cancelled = true;
     };
   }, []);
+
 
   // Fetch cross-module data for the selected day
   useEffect(() => {
@@ -631,7 +775,7 @@ export default function MyDiaryScreen({
         const ts = w.time || (w.timestamp ? new Date(w.timestamp).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : '');
         entries.push({
           id: `water-${w.timestamp || i}-${selectedDayIndex}`,
-          text: `💧 Выпито ${w.amount} мл воды`,
+          text: `Выпито ${w.amount} мл воды`,
           time: ts,
           origin: 'water',
         });
@@ -650,7 +794,7 @@ export default function MyDiaryScreen({
         const ts = m.timeString || m.time || (m.timestamp ? new Date(m.timestamp).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : '');
         entries.push({
           id: `movement-${m.timestamp || i}-${selectedDayIndex}`,
-          text: `🏃 ${type} — ${mins} мин`,
+          text: `${type} — ${mins} мин`,
           time: ts,
           origin: 'movement',
         });
@@ -669,7 +813,7 @@ export default function MyDiaryScreen({
         const noteText = d.note ? `. ${d.note}` : '';
         entries.push({
           id: `digestion-${d.timestamp || i}-${selectedDayIndex}`,
-          text: `🍃 Пищеварение: тип ${d.bristolType || '?'}${comfortText ? `, ${comfortText}` : ''}${noteText}`,
+          text: `Пищеварение: тип ${d.bristolType || '?'}${comfortText ? `, ${comfortText}` : ''}${noteText}`,
           time: ts,
           origin: 'digestion',
         });
@@ -692,7 +836,7 @@ export default function MyDiaryScreen({
         if (m.wellbeing) parts.push(`Самочувствие: ${m.wellbeing}/5`);
         entries.push({
           id: `measurement-${m.timestamp || i}-${selectedDayIndex}`,
-          text: `⚖️ ${parts.join(', ')}`,
+          text: `${parts.join(', ')}`,
           time: ts,
           origin: 'measurements',
         });
@@ -704,7 +848,7 @@ export default function MyDiaryScreen({
         const m = data.dailyMetric.sleepMinutes % 60;
         entries.push({
           id: `sleep-${selectedDayIndex}`,
-          text: `🌙 Сон: ${h} ч ${m > 0 ? m + ' мин' : ''}`,
+          text: `Сон: ${h} ч ${m > 0 ? m + ' мин' : ''}`,
           time: '',
           origin: 'sleep',
         });
@@ -714,23 +858,9 @@ export default function MyDiaryScreen({
       if (data.dailyMetric?.mealCount > 0) {
         entries.push({
           id: `meals-${selectedDayIndex}`,
-          text: `🥦 Приёмы пищи: ${data.dailyMetric.mealCount}`,
+          text: `Приёмы пищи: ${data.dailyMetric.mealCount}`,
           time: '',
           origin: 'food',
-        });
-      }
-
-      // Saved dishes for this day
-      if (data.savedDishes?.length > 0) {
-        (data.savedDishes as any[]).forEach((d: any, i: number) => {
-          if (d.dayIndex !== selectedDayIndex) return;
-          const calStr = d.calories ? ` (${d.calories} ккал)` : '';
-          entries.push({
-            id: `dish-${d.id || i}-${selectedDayIndex}`,
-            text: `🥦 Приготовлено: ${d.name}${calStr}`,
-            time: d.createdAt ? new Date(d.createdAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : '',
-            origin: 'food',
-          });
         });
       }
 
@@ -740,7 +870,7 @@ export default function MyDiaryScreen({
         if (r.wellbeing && r.energy && r.lightness) {
           entries.push({
             id: `ratings-${selectedDayIndex}`,
-            text: `💭 Самочувствие: ${r.wellbeing}/5 · Энергия: ${r.energy}/5 · Лёгкость: ${r.lightness}/5`,
+            text: `Самочувствие: ${r.wellbeing}/5 · Энергия: ${r.energy}/5 · Лёгкость: ${r.lightness}/5`,
             time: '',
             origin: 'thoughts',
           });
@@ -751,34 +881,6 @@ export default function MyDiaryScreen({
     }).catch(() => {});
     return () => { cancelled = true; };
   }, [selectedDayIndex]);
-
-  const handleDiaryMicStart = (e: React.PointerEvent<HTMLButtonElement>) => {
-    e.preventDefault();
-    try {
-      e.currentTarget.setPointerCapture(e.pointerId);
-    } catch (err) {}
-
-    diaryHoldingMicRef.current = true;
-    setIsSimulatingSpeech(true);
-
-    diarySpeechHelperRef.current.bindSession(
-      diaryHoldingMicRef,
-      newNoteText,
-      (newVal) => setNewNoteText(newVal),
-      (state) => { setIsSimulatingSpeech(state === "listening"); },
-    );
-  };
-
-  const handleDiaryMicEnd = (e: React.PointerEvent<HTMLButtonElement>) => {
-    e.preventDefault();
-    try {
-      e.currentTarget.releasePointerCapture(e.pointerId);
-    } catch (err) {}
-
-    diaryHoldingMicRef.current = false;
-    diarySpeechHelperRef.current.release();
-    setIsSimulatingSpeech(false);
-  };
 
   // Simple search filter implementation across all history (all days)
   const getSearchResults = () => {
@@ -825,7 +927,9 @@ export default function MyDiaryScreen({
   // Timeline entries (diary + cross-module)
   const allCurrentNotes = getSelectedDayNotes();
   const crossNotes = crossModuleEntries[selectedDayIndex] || [];
-  const allTimelineNotes = [...allCurrentNotes, ...crossNotes].sort((a, b) => {
+  const allTimelineNotes = [...allCurrentNotes, ...crossNotes]
+  .filter((note) => !hiddenTimelineEventIds.includes(note.id))
+  .sort((a, b) => {
     if (!a.time && !b.time) return 0;
     if (!a.time) return 1;
     if (!b.time) return -1;
@@ -915,76 +1019,45 @@ export default function MyDiaryScreen({
     }).catch(() => {});
   };
 
-  // Dynamic Photo of the Day state
-  const [dayPhotos, setDayPhotos] = useState<Record<number, string>>({});
+  // Якорь рецепта для текущего дня: название, страница и картинка.
+  const [dayRecipeAnchors, setDayRecipeAnchors] =
+    useState<Record<number, DayRecipeAnchor>>({});
 
   const handlePhotoSelect = () => {
-    const random = recipeImages[Math.floor(Math.random() * recipeImages.length)];
-    setDayPhotos(prev => ({ ...prev, [selectedDayIndex]: random }));
+    if (recipeAnchors.length === 0) return;
+
+    setDayRecipeAnchors((current) => {
+      const currentAnchor = current[selectedDayIndex];
+      const alternatives = recipeAnchors.filter(
+        (anchor) => anchor.image !== currentAnchor?.image
+      );
+      const pool = alternatives.length > 0 ? alternatives : recipeAnchors;
+      const nextAnchor = pool[Math.floor(Math.random() * pool.length)];
+
+      return {
+        ...current,
+        [selectedDayIndex]: nextAnchor,
+      };
+    });
   };
 
-  // Pick a random recipe image on mount or day change
+  // При первом открытии дня выбираем якорь рецепта, если его ещё нет.
   useEffect(() => {
-    if (!dayPhotos[selectedDayIndex] && recipeImages.length > 0) {
-      handlePhotoSelect();
-    }
-  }, [selectedDayIndex]);
-
-  // Dynamically inject custom milestones/achievements in the timeline flow based on day
-  const renderInjectedAchievements = (index: number) => {
-    // Only inject at index 1 to keep timeline natural inside card list
-    if (index !== 1) return null;
-
-    const cards = [];
-    if (selectedDayIndex >= 7) {
-      cards.push(
-        <motion.div 
-          key="achievement-week"
-          initial={{ opacity: 0, scale: 0.97 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className={`p-4 rounded-[24px] border ${borderCol} ${isNightMode ? 'bg-[#3A4B48]' : 'bg-[#CFE8D6]/40'} flex items-start gap-3.5 mb-4 shadow-sm`}
-        >
-          <div className="w-10 h-10 rounded-full bg-[#2F6B45]/15 flex items-center justify-center text-[18px] shrink-0 text-amber-500">
-            🏆
-          </div>
-          <div className="flex-1 flex flex-col items-start text-left">
-            <span className="text-[11px] font-black tracking-wider uppercase text-amber-600 font-sans leading-none">ДОСТИЖЕНИЕ ЦИКЛА</span>
-            <span className={`text-[14px] font-bold ${bodyText} mt-1 font-sans`}>Неделя WFPB завершена!</span>
-            <span className={`text-[12px] ${labelText} leading-normal mt-0.5`}>Ваш организм прошёл первый рубеж мягкой очистки артерий и адаптации рецепторов. Анна гордится вашей стойкостью! 💚</span>
-          </div>
-        </motion.div>
-      );
+    if (dayRecipeAnchors[selectedDayIndex] || recipeAnchors.length === 0) {
+      return;
     }
 
-    if (selectedDayIndex >= 3) {
-      cards.push(
-        <motion.div 
-          key="achievement-water"
-          initial={{ opacity: 0, scale: 0.97 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className={`p-4 rounded-[24px] border ${borderCol} ${isNightMode ? 'bg-[#2E3C3A]' : 'bg-[#CFE3EE]/40'} flex items-start gap-3.5 mb-4 shadow-sm`}
-        >
-          <div className="w-10 h-10 rounded-full bg-[#0288D1]/15 flex items-center justify-center text-[18px] shrink-0 text-[#0288D1]">
-            💧
-          </div>
-          <div className="flex-1 flex flex-col items-start text-left">
-            <span className="text-[11px] font-black tracking-wider uppercase text-[#0288D1] font-sans leading-none">ГИДРАТАЦИЯ</span>
-            <span className={`text-[14px] font-bold ${bodyText} mt-1 font-sans`}>Выполнен питьевой режим</span>
-            <span className={`text-[12px] ${labelText} leading-normal mt-0.5`}>Несколько дней подряд вы выпиваете дневную норму чистой структурированной влаги. Микроциркуляция клеток значительно улучшилась!</span>
-          </div>
-        </motion.div>
-      );
-    }
+    const nextAnchor =
+      recipeAnchors[Math.floor(Math.random() * recipeAnchors.length)];
 
-    return cards.length > 0 ? (
-      <div className="flex flex-col gap-3">
-        {cards}
-      </div>
-    ) : null;
-  };
+    setDayRecipeAnchors((current) => ({
+      ...current,
+      [selectedDayIndex]: nextAnchor,
+    }));
+  }, [selectedDayIndex, dayRecipeAnchors]);
 
   return (
-    <div className={`flex-1 flex flex-col min-h-[828px] ${primaryBg} transition-colors duration-300 relative select-none overflow-hidden pb-4 rounded-[40px]`}>
+    <div className={`flex-1 flex flex-col min-h-[828px] ${isNightMode ? primaryBg : "bg-[linear-gradient(to_bottom,#FFFDFC_0%,#FFF9F4_18%,#FFF4EC_48%,#FDF7F1_100%)]"} transition-colors duration-300 relative select-none overflow-hidden pb-4 rounded-b-[40px] pt-5`}>
       
       {/* Floating Canvas Particles Bubble Layer */}
       <canvas 
@@ -1004,8 +1077,8 @@ export default function MyDiaryScreen({
 
       {/* SEARCH BOX EXPANSION */}
       {showSearchBox && (
-        <div
-          className={`p-3.5 rounded-[24px] border ${borderCol} ${cardBg} mb-4 flex flex-col text-left shadow-sm mx-4`}
+        <div 
+          className={`p-3.5 rounded-[24px] border ${borderCol} ${cardBg} mb-[18px] flex flex-col text-left shadow-sm mx-4`}
         >
           <span className={`text-[11px] font-black uppercase tracking-wider ${labelText} font-sans`}>ПОИСК ПО ИСТОРИИ</span>
           <div className="flex gap-2 mt-2">
@@ -1017,7 +1090,7 @@ export default function MyDiaryScreen({
               className={`flex-1 text-[13.5px] font-bold p-2.5 rounded-xl border ${borderCol} bg-transparent ${bodyText} outline-none focus:ring-1 focus:ring-[#2F6B45]/50 font-sans`}
             />
             {searchQuery && (
-              <button
+              <button 
                 onClick={() => setSearchQuery("")}
                 className="px-3 bg-slate-100 rounded-xl text-slate-500 font-bold text-[12px]"
               >
@@ -1034,8 +1107,8 @@ export default function MyDiaryScreen({
                   const info = getNoteInfo(res.note.text, res.note.origin);
                   const IconComponent = info.icon;
                   return (
-                    <div
-                      key={i}
+                    <div 
+                      key={i} 
                       onClick={() => { setSelectedDayIndex(res.day); setShowSearchBox(false); }}
                       className={`p-2.5 rounded-xl border ${borderCol} bg-white/40 cursor-pointer hover:bg-white/80 active:scale-98 transition-all text-left flex items-start gap-2.5`}
                     >
@@ -1062,185 +1135,29 @@ export default function MyDiaryScreen({
         </div>
       )}
 
+      {!showSearchBox && <div className="h-[18px]" />}
+
       {/* Primary Scrollable Scroll container */}
       <div className="flex-1 flex flex-col overflow-y-auto max-h-[720px] scrollbar-none z-20 px-4 pt-1 pb-24">
 
         {/* CYCLE DAYS NAVIGATION COMPONENT (1 to 28) */}
-        <div className={`p-3.5 rounded-[28px] border ${borderCol} ${cardBg} mb-4 flex flex-col relative shadow-sm`}>
-          <div className="flex justify-between items-center mb-2.5">
-            <span className={`text-[11px] font-black uppercase tracking-wider ${labelText} font-sans`}>ДЕНЬ ЦИКЛА</span>
-            <div className="flex gap-1.5">
-              <button 
-                onClick={() => setSelectedDayIndex(p => Math.max(1, p - 1))}
-                className={`w-7 h-7 rounded-full bg-black/5 hover:bg-black/10 flex items-center justify-center ${bodyText}`}
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <button 
-                onClick={() => setSelectedDayIndex(p => Math.min(28, p + 1))}
-                className={`w-7 h-7 rounded-full bg-black/5 hover:bg-black/10 flex items-center justify-center ${bodyText}`}
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-
-          {/* Horizontal scroll list of days */}
-          <div className="flex gap-2.5 overflow-x-auto pr-1 pb-1.5 scrollbar-none scroll-smooth">
-            {Array.from({ length: 28 }, (_, i) => i + 1).map(day => {
-              const isActive = day === selectedDayIndex;
-              const hasNotesToday = dayNotes[day] && dayNotes[day].length > 0;
-              const bookmark = dayBookmarks[day];
-
-              return (
-                <button
-                  key={day}
-                  onClick={() => setSelectedDayIndex(day)}
-                  className={`w-11 h-11 rounded-2xl flex flex-col items-center justify-center shrink-0 border transition-all active:scale-95 cursor-pointer relative ${
-                    isActive 
-                      ? "bg-[#2F6B45] border-[#2F6B45] text-white shadow-md shadow-[#2F6B45]/15 font-black" 
-                      : `${cardBg} ${borderCol} ${bodyText} font-bold hover:border-slate-400`
-                  }`}
-                >
-                  <span className="text-[11px] uppercase tracking-tighter opacity-70 leading-none">Дн</span>
-                  <span className="text-[14px] leading-tight font-sans mt-0.5">{day}</span>
-                  
-                  {/* Indicator for existing notes */}
-                  {hasNotesToday && !isActive && (
-                    <div className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-[#16B551]" />
-                  )}
-
-                  {/* Bookmark badge */}
-                  {bookmark && (
-                    <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 text-[9px] bg-amber-400 text-slate-950 px-1 rounded-full font-black scale-90 border border-white">
-                      ★
-                    </div>
-                  )}
-                </button>
-              );
-            })}
-          </div>
+        <div className="mb-5">
+          <DiaryDayNavigator
+            selectedDayIndex={selectedDayIndex}
+            minDay={1}
+            maxDay={28}
+            hasNotesByDay={Object.keys(dayNotes).reduce((acc, dayStr) => {
+              const day = Number(dayStr);
+              acc[day] = !!(dayNotes[day] && dayNotes[day].length > 0);
+              return acc;
+            }, {} as Record<number, boolean>)}
+            bookmarkByDay={dayBookmarks}
+            onSelectDay={setSelectedDayIndex}
+            isNightMode={isNightMode}
+          />
         </div>
 
-        {/* SMART DAY BOOKMARKS & MOOD BAR */}
-        <div className={`p-4 rounded-[28px] border ${borderCol} ${cardBg} mb-4 flex flex-col text-left shadow-sm`}>
-          
-          {/* Day Title and Smart Bookmarks */}
-          <div className="flex flex-wrap justify-between items-start gap-2 mb-3.5">
-            <div>
-              <h2 className={`text-[21px] font-black text-slate-800 tracking-tight leading-none ${bodyText} font-sans`}>
-                День {selectedDayIndex}
-                {dayBookmarks[selectedDayIndex] && (
-                  <span className="text-[12px] bg-amber-400/20 text-amber-700 font-bold px-2 py-0.5 rounded-full ml-2 inline-block font-sans lowercase shadow-[inset_0_1px_2px_rgba(0,0,0,0.03)] border border-amber-400/30">
-                    🏷️ {dayBookmarks[selectedDayIndex]}
-                  </span>
-                )}
-              </h2>
-              <span className={`text-[11px] ${labelText} block mt-1.5 font-medium`}>Лента вашего здоровья за этот день цикла</span>
-            </div>
-
-            {/* Smart Day tagger pills */}
-            <div className="flex flex-wrap gap-1">
-              {["Победа", "Инсайт", "Важный", "Прорыв"].map(tag => {
-                const isSelected = dayBookmarks[selectedDayIndex] === tag;
-                return (
-                  <button
-                    key={tag}
-                    onClick={() => handleToggleBookmark(tag)}
-                    className={`text-[10px] sm:text-[10.5px] font-black px-2.5 py-1 rounded-full border cursor-pointer transition-all active:scale-95 ${
-                      isSelected 
-                        ? "bg-amber-400 border-amber-400 text-slate-900 font-black shadow-sm"
-                        : "bg-black/5 border-slate-200 text-slate-600 hover:border-slate-300"
-                    }`}
-                  >
-                    {tag === "Победа" ? "🏆 " : tag === "Инсайт" ? "💡 " : tag === "Важный" ? "⭐ " : "🚀 "}
-                    {tag}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className={`w-full h-px ${borderCol} mb-3.5`} />
-
-          {/* DAY MOOD SELECTOR */}
-          <div className="text-left flex flex-col sm:flex-row justify-between sm:items-center gap-2">
-            <div>
-              <span className={`text-[11px] font-black uppercase tracking-wider ${labelText} font-sans`}>НАСТРОЕНИЕ ДНЯ</span>
-              <span className={`text-[12px] font-medium text-[#16B551] block font-sans`}>
-                Показатель: {dayMoods[selectedDayIndex] || "Не выбрано"}
-              </span>
-            </div>
-            
-            <div className="flex gap-1.5 py-0.5">
-              {[
-                { label: "Отлично", face: "😊" },
-                { label: "Хорошо", face: "🙂" },
-                { label: "Обычно", face: "😐" },
-                { label: "Тяжело", face: "😔" },
-                { label: "Очень тяжело", face: "😫" }
-              ].map(item => {
-                const isSelected = dayMoods[selectedDayIndex] === item.label;
-                return (
-                  <button
-                    key={item.label}
-                    onClick={() => handleSetDayMood(item.label)}
-                    title={item.label}
-                    className={`w-8.5 h-8.5 rounded-full flex items-center justify-center text-[16px] border cursor-pointer transition-all hover:scale-105 active:scale-95 ${
-                      isSelected 
-                        ? "bg-emerald-500 border-emerald-500 text-white shadow-md shadow-emerald-500/12"
-                        : "bg-slate-50 border-slate-200/60"
-                    }`}
-                  >
-                    {item.face}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-        </div>
-
-        {/* EMOTIONAL ANCHOR MEMORIES BLOCK (ВОСПОМИНАНИЯ) */}
-        {(() => {
-          // Find if there is a note from 7 days ago, or else Day 1 note, or show premium generic memory from Anna
-          const daysAgoIndex = selectedDayIndex > 7 ? selectedDayIndex - 7 : 1;
-          const memoryNotesList = dayNotes[daysAgoIndex] || [];
-          const hasMemoryNote = memoryNotesList.length > 0;
-          const memoryText = hasMemoryNote 
-            ? memoryNotesList[0].text 
-            : `«Начали 28-дневный WFPB цикл в полной боевой готовности. Убрали соль и сахар из рациона, заправились энергией зелени.»`;
-
-          return (
-            <motion.div 
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className={`p-4 rounded-[28px] border ${borderCol} bg-gradient-to-tr ${isNightMode ? 'from-amber-950/20 to-[#2A3634]' : 'from-yellow-50/60 to-[#FBFAF7]'} text-left mb-4 shadow-sm relative overflow-hidden`}
-            >
-              {/* Soft decorative golden light */}
-              <div className="absolute -top-12 -right-12 w-28 h-28 bg-yellow-500/5 rounded-full blur-2xl" />
-
-              <span className="text-[11px] font-black tracking-wider uppercase text-amber-600 font-sans leading-none flex items-center gap-1">
-                ⏳ ВОСПОМИНАНИЕ • ДЕНЬ {daysAgoIndex}
-              </span>
-              
-              <div className="flex gap-3.5 mt-2 font-serif select-text mt-2.5">
-                <span className="text-[28px] text-amber-300 leading-none">“</span>
-                <p className={`text-[13.5px] italic font-medium ${bodyText} leading-relaxed font-sans`}>
-                  {memoryText}
-                </p>
-              </div>
-
-              <div className="flex justify-between items-end mt-3 pt-2.5 border-t border-dashed border-slate-200/60">
-                <div className="flex flex-col text-left">
-                  <span className="text-[13.5px] text-amber-600 font-extrabold font-sans leading-none">Анна</span>
-                  <span className="text-[10px] text-amber-500/80 font-bold mt-0.5 leading-none font-sans">Советник WFPB</span>
-                </div>
-                {!hasMemoryNote && <span className="text-[10px] text-slate-400 italic">Справочная запись</span>}
-              </div>
-            </motion.div>
-          );
-        })()}
+       
 
         {/* TIME CAPSULE TIMER COUNTER INFO */}
         {allCurrentNotes.some(n => n.sealedUntilDay > 0) && (
@@ -1322,137 +1239,167 @@ export default function MyDiaryScreen({
             </div>
           )}
 
-          {/* 2. CHRONICS NORMAL CARDS */}
+          {/* 2. CHRONICS NORMAL CARDS - COMPACT TIMELINE */}
           {activeTimelineNotes.map((note, index) => {
             const info = getNoteInfo(note.text, note.origin, note.isVoice);
-            const IconComponent = info.icon;
             const isSealed = note.sealedUntilDay > 0;
+            const moduleMeta = getModuleMetadata(note.origin || "thoughts");
 
             return (
               <React.Fragment key={note.id}>
-                <div className="relative -left-3.5 w-full">
-                  
-                  {/* Timeline point axis icon indicator */}
-                  <div className={`absolute top-4 left-0 w-3 h-3 rounded-full border-2 border-white ${
-                    info.origin === "water" ? "bg-sky-400" :
-                    info.origin === "food" ? "bg-orange-400" :
-                    info.origin === "movement" ? "bg-emerald-400" :
-                    "bg-[#2F6B45]"
-                  }`} />
+                <div className="flex items-start gap-4 mb-4">
+                  {/* Timeline vertical line and node */}
+                  <div className="flex flex-col items-center">
+                    {index === 0 && (
+                      <div 
+                        className="w-[2px] bg-[#D9E1DA]"
+                        style={{ height: "8px" }}
+                      />
+                    )}
+                    <div 
+                      className="w-4 h-4 rounded-full ring-[3px] ring-white flex-shrink-0"
+                      style={{ backgroundColor: moduleMeta.nodeColor }}
+                    />
+                    {index === activeTimelineNotes.length - 1 ? (
+                      <div 
+                        className="w-[2px] bg-[#D9E1DA]"
+                        style={{ height: "8px" }}
+                      />
+                    ) : (
+                      <div 
+                        className="w-[2px] bg-[#D9E1DA] flex-1"
+                        style={{ minHeight: "16px" }}
+                      />
+                    )}
+                  </div>
 
-                  <div className="pl-6">
+                  {/* Event card */}
+                  <div className="flex-1 min-w-0">
                     <motion.div 
                       key={note.id}
                       initial={{ opacity: 0, y: 15 }}
                       animate={{ opacity: 1, y: 0 }}
-                      className={`p-4 rounded-[28px] border ${borderCol} ${cardBg} hover:shadow-md transition-shadow relative flex flex-col text-left`}
+                      className={`py-[6px] px-3 rounded-[22px] relative flex items-center gap-[10px]`}
+                      style={{ 
+                        backgroundColor: moduleMeta.cardBg,
+                        boxShadow: "0 2px 8px rgba(68,83,74,0.06)"
+                      }}
                     >
-                        {/* Note Module Pill Tag Header */}
-                        <div className="flex justify-between items-center mb-2">
-                          <div className="flex items-center gap-1.5">
-                            <div className="px-2 py-0.5 rounded-full flex items-center gap-1" style={{ backgroundColor: info.color }}>
-                              <IconComponent className={`w-3 h-3 ${info.textColors.split(" ")[0]}`} />
-                              <span className={`text-[10px] font-black ${info.textColors} tracking-tight font-sans`}>
-                                {info.label}
-                              </span>
-                            </div>
-                            {note.isVoice && (
-                              <span className="text-[9.5px] bg-slate-100 text-slate-500 font-extrabold px-1.5 py-0.5 rounded-full uppercase tracking-wider font-sans ml-1">
-                                🎤 Голос
-                              </span>
-                            )}
-                          </div>
-                        <span className="text-[11px] text-slate-400 font-extrabold">{note.time}</span>
+                      {/* Thumbnail */}
+                      <img 
+                        src={moduleMeta.thumbSrc}
+                        alt=""
+                        className="w-9 h-9 flex-none shrink-0 object-contain"
+                      />
+                      
+                      {/* Summary text - takes available space */}
+                      <p className="flex-1 min-w-0 break-words whitespace-pre-wrap text-[16px] font-normal leading-snug text-[#243126]">
+                        {info.formattedText}
+                      </p>
+                      
+                      {/* Right column: ⋯ button and timestamp stacked */}
+                      <div className="flex flex-col items-end gap-0.5 flex-none shrink-0">
+                        {/* More menu button at top-right */}
+                        <button
+                          onClick={(e) => handleOpenMenu(note.id, e)}
+                          aria-label="Действия с записью"
+                          className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-black/5 text-[#53625A] transition-colors"
+                        >
+                          <MoreHorizontal className="w-4 h-4" />
+                        </button>
+                        
+                        {/* Timestamp directly under ⋯, aligned to its right edge */}
+                        <span className="text-[12px] font-normal text-[#7A94A4]">
+                          {note.time}
+                        </span>
                       </div>
 
-                      {/* CARD CONTENT BODY WITH CAPSULE TIMING SUPPORT */}
-                      {isSealed ? (
-                        <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100 flex flex-col items-center justify-center py-5 text-center mt-1">
-                          <Lock className="w-7 h-7 text-amber-500 mb-1.5" />
-                          <span className="text-[13px] font-bold text-slate-700 font-sans leading-tight">Запись бережно запечатана</span>
-                          <span className="text-[11px] text-slate-400 mt-1 font-sans">
+                      {/* Sealed overlay */}
+                      {isSealed && (
+                        <div className="absolute inset-0 rounded-[22px] bg-white/90 backdrop-blur-sm flex flex-col items-center justify-center px-3 text-center">
+                          <Lock className="w-5 h-5 text-amber-500 mb-1" />
+                          <span className="text-[12px] font-normal text-slate-700 font-sans leading-tight">
+                            Запись бережно запечатана
+                          </span>
+                          <span className="text-[10px] text-slate-400 mt-0.5 font-sans">
                             Раскроется на {note.sealedUntilDay}-й день цикла WFPB
                           </span>
                         </div>
-                      ) : (
-                        <p className={`text-[13.5px] font-bold ${bodyText} leading-relaxed font-sans whitespace-pre-wrap select-text`}>
-                          {info.formattedText}
-                        </p>
                       )}
-
-                      {/* BOTTOM TOOL ACTIONS AREA */}
-                      <div className={`flex justify-between items-center mt-3 pt-2.5 border-t ${borderCol}`}>
-                        <div className="flex gap-2">
-                          <button 
-                            onClick={() => handleToggleFavoriteNote(note.id)}
-                            className={`p-1.5 rounded-full bg-slate-50/60 flex items-center justify-center hover:bg-slate-100 border ${borderCol}`}
-                          >
-                            <Heart className={`w-3.5 h-3.5 ${note.isImportant ? 'fill-emerald-500 text-emerald-600' : 'text-slate-400'}`} />
-                          </button>
-                          
-                          <button 
-                            onClick={() => handleTogglePinNote(note.id)}
-                            title="Закрепить как главную запись дня"
-                            className={`p-1.5 rounded-full bg-slate-50/60 flex items-center justify-center hover:bg-slate-100 border ${borderCol}`}
-                          >
-                            <Pin className="w-3.5 h-3.5 text-slate-400" />
-                          </button>
-
-                          <button 
-                            onClick={() => setCapsuleTimerTargetId(note.id)}
-                            title="Запечатать в капсулу времени"
-                            className={`p-1.5 rounded-full bg-slate-50/60 flex items-center justify-center hover:bg-slate-100 border ${borderCol}`}
-                          >
-                            <Lock className="w-3.5 h-3.5 text-slate-400" />
-                          </button>
-                        </div>
-
-                        {/* DELETE TRIGGER */}
-                        <button 
-                          onClick={() => handleDeleteNote(note.id)}
-                          className="p-1 px-2.5 rounded-xl border border-rose-100 hover:bg-rose-50 text-[11px] font-bold text-rose-500 flex items-center gap-1 transition-all"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" /> Удалить
-                        </button>
-                      </div>
-
                     </motion.div>
                   </div>
                 </div>
 
-                {/* Dynamically Inject Milestones and Achievements on Timeline path */}
-                {renderInjectedAchievements(index)}
+               
               </React.Fragment>
             );
           })}
 
         </div>
 
-        {/* PHOTO OF THE DAY WIDGET (ФОТО АНКЕР ДНЯ) */}
-        <div className={`p-4 rounded-[28px] border ${borderCol} ${cardBg} text-left mb-4 shadow-sm`}>
-          <div className="flex items-center justify-between mb-3">
-            <span className={`text-[11px] font-black uppercase tracking-wider ${labelText} font-sans leading-none flex items-center gap-1.5`}>
-              📸 ФОТО АНКЕР ДНЯ
-            </span>
+                {/* Timeline event menu dropdown */}
+        {menuOpenNoteId && menuPosition && (
+          <div 
+            className="fixed z-50 bg-white rounded-2xl shadow-lg border border-slate-200 py-2 min-w-[200px]"
+            style={{ 
+              top: menuPosition.y, 
+              left: Math.min(menuPosition.x, window.innerWidth - 220) 
+            }}
+          >
             <button
-              onClick={handlePhotoSelect}
-              className="text-[11px] font-bold text-slate-400 hover:text-slate-600 transition-colors"
+              onClick={() => handleMenuAction("delete", menuOpenNoteId)}
+              className="w-full px-4 py-2.5 text-left text-[14px] font-medium text-rose-600 hover:bg-rose-50 flex items-center gap-2"
             >
-              🔄 Сменить
+              <Trash2 className="w-4 h-4" />
+              Удалить
             </button>
           </div>
-          
-          {dayPhotos[selectedDayIndex] ? (
-            <div className="rounded-2xl overflow-hidden">
-              <img 
-                src={dayPhotos[selectedDayIndex]} 
-                alt="Визуальный анкер дня" 
-                className="w-full h-44 object-cover" 
+        )}
+
+        {/* Click outside to close menu */}
+        {menuOpenNoteId && (
+          <div 
+            className="fixed inset-0 z-40"
+            onClick={handleCloseMenu}
+          />
+        )}
+
+        {/* PHOTO OF THE DAY WIDGET (ФОТО АНКЕР ДНЯ) */}
+        <div className="mb-4">
+          {dayRecipeAnchors[selectedDayIndex] ? (
+            <div className="relative h-52 overflow-hidden rounded-[22px] shadow-sm">
+              <img
+                src={dayRecipeAnchors[selectedDayIndex].image}
+                alt={dayRecipeAnchors[selectedDayIndex].title}
+                className="absolute inset-0 w-full h-full object-cover"
               />
+
+              {/* Нижний градиент и подпись рецепта */}
+              <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
+
+              <div className="absolute inset-x-0 bottom-0 px-4 pb-3.5 text-left">
+                <p className="line-clamp-2 text-[18px] font-semibold leading-snug text-white font-sans">
+                  {dayRecipeAnchors[selectedDayIndex].title}
+                </p>
+                <p className="mt-0.5 text-[15px] font-medium text-white/75 font-sans">
+                  стр. {dayRecipeAnchors[selectedDayIndex].page}
+                </p>
+              </div>
+
+              {/* Кнопка смены фото поверх карточки */}
+              <button
+                type="button"
+                onClick={handlePhotoSelect}
+                className="absolute right-3 top-3 inline-flex items-center gap-1.5 rounded-full border border-white/30 bg-white/20 px-3 py-1.5 text-[12px] font-medium text-white shadow-sm backdrop-blur-md transition-colors hover:bg-white/30 active:scale-95 font-sans"
+              >
+                Сменить
+              </button>
             </div>
           ) : (
-            <div className="h-28 rounded-2xl bg-slate-100 flex items-center justify-center">
-              <span className="text-[12px] text-slate-400 font-medium">Загрузка...</span>
+            <div className="h-52 rounded-[22px] bg-slate-100 flex items-center justify-center shadow-sm">
+              <span className="text-[12px] text-slate-400 font-medium font-sans">
+                Загрузка...
+              </span>
             </div>
           )}
         </div>
@@ -1565,85 +1512,107 @@ export default function MyDiaryScreen({
       </div>
 
       {/* INPUT FIELD CONTAINER - FIXED AREA AT BOTTOM OF SCROLLVIEW */}
-      <div className={`absolute bottom-0 inset-x-0 p-3.5 bg-gradient-to-t ${isNightMode ? 'from-[#1F2A28] via-[#1F2A28]/95 to-transparent' : 'from-[#F7F4EE] via-[#F7F4EE]/95 to-transparent'} z-40 border-t border-dashed ${borderCol} flex flex-col gap-2.5 rounded-b-[40px]`}>
-        
+      <div
+        className={`absolute bottom-4 inset-x-0 px-3.5 pt-3.5 pb-3.9 bg-gradient-to-t ${
+          isNightMode
+            ? "from-[#1F2A28]/98 via-[#1F2A28]/94 to-[#1F2A28]/72"
+            : "from-[#F7F4EE]/98 via-[#F7F4EE]/94 to-[#F7F4EE]/72"
+        } z-40 flex flex-col gap-2.5 rounded-b-[40px] border-t ${borderCol} shadow-[0_-8px_24px_rgba(68,83,74,0.06)] backdrop-blur-md`}
+      >
         {/* Module Category Selection indicators */}
-        <div className="flex gap-2 overflow-x-auto pb-1 items-center scrollbar-thin" style={{ WebkitOverflowScrolling: "touch" }}>
-          <span className={`text-[10px] uppercase font-black tracking-widest ${labelText} mr-1 font-sans leading-none shrink-0`}>Раздел:</span>
+        <div
+          className="flex gap-2.5 overflow-x-auto pb-1 items-center scrollbar-none"
+          style={{ WebkitOverflowScrolling: "touch" }}
+          onWheel={(event) => {
+            const container = event.currentTarget;
+
+            if (container.scrollWidth <= container.clientWidth) {
+              return;
+            }
+
+            const maxScrollLeft =
+              container.scrollWidth - container.clientWidth;
+
+            if (
+              (event.deltaY < 0 && container.scrollLeft <= 0) ||
+              (event.deltaY > 0 && container.scrollLeft >= maxScrollLeft)
+            ) {
+              return;
+            }
+
+            event.preventDefault();
+            container.scrollLeft += event.deltaY;
+          }}
+        >
           {[
-            { id: "thoughts", label: "Мысли", emo: "💭" },
-            { id: "water", label: "Вода", emo: "💧" },
-            { id: "food", label: "Питание", emo: "🥦" },
-            { id: "movement", label: "Движение", emo: "🏃" },
-            { id: "sleep", label: "Сон", emo: "🌙" },
-            { id: "measurements", label: "Замеры", emo: "⚖️" },
-            { id: "digestion", label: "Пищеварение", emo: "🍃" }
-          ].map(cat => {
+            { id: "thoughts", label: "Мысли" },
+            { id: "water", label: "Вода" },
+            { id: "food", label: "Питание" },
+            { id: "movement", label: "Движение" },
+            { id: "sleep", label: "Сон" },
+            { id: "measurements", label: "Замеры" },
+            { id: "digestion", label: "Пищеварение" },
+          ].map((cat) => {
             const isSel = selectedCategory === cat.id;
+
             return (
               <button
                 key={cat.id}
+                type="button"
                 onClick={() => setSelectedCategory(cat.id)}
-                className={`text-[11px] font-bold px-2.5 py-1 rounded-xl flex items-center gap-1 shrink-0 transition-all focus:outline-none ${
-                  isSel 
-                    ? "bg-[#2F6B45] text-white shadow-sm font-black"
-                    : "bg-black/5 text-[#6F786F]"
+                className={`shrink-0 rounded-full border px-4 py-2 text-[13px] font-semibold leading-none transition-all focus:outline-none active:scale-95 ${
+                  isSel
+                    ? "border-[#B9DCC4] bg-[#CFE8D6] text-[#1F5F34] shadow-sm"
+                    : isNightMode
+                      ? "border-[#3D504C] bg-[#2A3634] text-[#C7CEC8] hover:bg-[#34433F]"
+                      : "border-[#E7E1D6] bg-[#FBFAF7] text-[#53625A] hover:bg-white"
                 }`}
               >
-                <span>{cat.emo}</span>
-                <span>{cat.label}</span>
+                {cat.label}
               </button>
             );
           })}
         </div>
 
-        {/* Input Bar Form */}
-        <div className="flex items-center gap-3 relative">
-          
-          {/* Typing/Speech Input field */}
-          <div className="flex-1 relative flex items-center">
-            
-            <textarea
-              value={newNoteText}
-              onChange={(e) => setNewNoteText(e.target.value)}
-              placeholder={isSimulatingSpeech ? "Диктую голосом... 🎙️" : "Напишите, что хочется сохранить"}
-              rows={1}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  handleAddNote(newNoteText);
-                  setNewNoteText("");
-                }
-              }}
-              className={`w-full text-[13.5px] font-bold pr-11 pl-4 py-3 rounded-2xl border ${borderCol} ${cardBg} ${bodyText} outline-none focus:ring-1 focus:ring-[#2F6B45]/60 transition-all placeholder:text-slate-400 max-h-12 overflow-y-auto scrollbar-none shadow-inner font-sans`}
-            />
+                {/* Input Bar Form */}
+        <div className="relative">
+          <textarea
+            ref={noteTextareaRef}
+            value={newNoteText}
+            onChange={(e) => setNewNoteText(e.target.value)}
+            placeholder="Напишите, что хочется сохранить"
+            rows={1}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                handleAddNote(newNoteText);
+                setNewNoteText("");
+              }
+            }}
+            className={`w-full min-h-[44px] max-h-[124px] resize-none overflow-y-auto scrollbar-none rounded-2xl border ${borderCol} ${cardBg} ${bodyText} py-3 pl-4 pr-14 text-[13.5px] font-bold leading-5 outline-none shadow-inner transition-all placeholder:text-slate-400 focus:ring-1 focus:ring-[#2F6B45]/60 font-sans`}
+          />
 
-            {/* Clean Microphone voice button with continuous recognition on hold */}
-            <button
-              onPointerDown={handleDiaryMicStart}
-              onPointerUp={handleDiaryMicEnd}
-              onPointerCancel={handleDiaryMicEnd}
-              className={`absolute right-2.5 w-7.5 h-7.5 rounded-full flex items-center justify-center transition-all select-none touch-none cursor-pointer ${
-                isSimulatingSpeech 
-                  ? "bg-rose-500 text-white animate-pulse shadow-md shadow-rose-500/15 scale-105" 
-                  : "bg-slate-50 hover:bg-slate-100/50 text-slate-400"
-              }`}
-              title="Надиктовать (Удерживайте для записи)"
-            >
-              {isSimulatingSpeech ? <Mic className="w-4 h-4 text-white" /> : <Mic className="w-4 h-4 text-slate-400" />}
-            </button>
-          </div>
-
-          {/* Send text button */}
           <button
-            onClick={() => { handleAddNote(newNoteText); setNewNoteText(""); }}
-            disabled={!newNoteText.trim() && !isSimulatingSpeech}
-            className="w-11 h-11 bg-[#2F6B45] hover:bg-emerald-700 text-white font-black rounded-full shadow-lg shadow-[#2F6B45]/20 flex items-center justify-center transition-transform outline-none cursor-pointer disabled:opacity-40 select-none active:scale-95 shrink-0"
+            type="button"
+            onClick={() => {
+              handleAddNote(newNoteText);
+              setNewNoteText("");
+            }}
+            disabled={!newNoteText.trim()}
+            aria-label="Добавить заметку"
+            className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-[#2F6B45] text-white shadow-md shadow-[#2F6B45]/20 transition-all hover:bg-emerald-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
           >
-            <Plus className="w-5.5 h-5.5 stroke-[2.8]" />
+            <Plus className="h-4 w-4 stroke-[2.8]" />
           </button>
         </div>
 
+        <p
+          className={`-mt-1 px-2 text-center text-[14px] font-medium leading-snug font-sans ${
+            isNightMode ? "text-[#AEBBB5]" : "text-[#7A8A80]"
+          }`}
+        >
+          {composerHint}
+        </p>
       </div>
 
       {/* ========================================================= */}

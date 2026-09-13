@@ -56,6 +56,7 @@ model User {
   recipeProgress      RecipeProgress[]
   savedDishes         SavedDish[]
   diaryEntries        DiaryEntry[]
+  hiddenTimelineEvents DiaryHiddenTimelineEvent[]
   shoppingItems       ShoppingItem[]
   purchases           Purchase[]
   annaChats           AnnaChat[]
@@ -299,6 +300,17 @@ model DiaryEntry {
   photo String?
   tags  String?
   time  String?
+}
+
+model DiaryHiddenTimelineEvent {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  eventId   String
+  createdAt DateTime @default(now())
+
+  @@unique([userId, eventId])
+  @@index([userId])
 }
 
 model ShoppingItem {

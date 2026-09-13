@@ -1,5 +1,5 @@
 import React from "react";
-import { User, Search, Moon, Sun, X } from "lucide-react";
+import { User, Search, Moon, Sun, ChevronLeft } from "lucide-react";
 
 interface DiaryHeaderProps {
   onBack: () => void;
@@ -29,15 +29,16 @@ export default function DiaryHeader({
       {/* LEFT: BACK BUTTON */}
       <button
         onClick={onBack}
+        aria-label="Назад"
         className={`w-9 h-9 rounded-full ${cardBg} border ${borderCol} flex items-center justify-center ${bodyText} hover:bg-emerald-50 active:scale-90 transition-all cursor-pointer font-bold outline-none`}
       >
-        <X className="w-4.5 h-4.5 stroke-[2.5]" />
+        <ChevronLeft className="w-4.5 h-4.5 stroke-[2.5]" />
       </button>
 
       {/* CENTER: TITLE AND USER NAME (truly centered relative to full header) */}
       <div className="absolute left-1/2 -translate-x-1/2 text-center">
-        <span className={`text-[12px] font-black uppercase tracking-widest ${labelText} font-sans leading-none`}>ЛИЧНЫЙ ДНЕВНИК</span>
-        <button
+        <span className={`text-[15px] font-extrabold uppercase tracking-[0.08em] leading-none ${labelText} font-sans`}>ЛИЧНЫЙ ДНЕВНИК</span>
+        <button 
           onClick={onToggleProfileModal}
           className="flex items-center gap-1.5 mt-1.5 bg-white/20 backdrop-blur-sm hover:bg-white/40 border border-slate-200/50 hover:border-slate-300 rounded-full px-3 py-1 text-left transition-all active:scale-95 outline-none cursor-pointer max-w-[200px] mx-auto"
         >

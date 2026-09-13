@@ -2707,6 +2707,60 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
     }
   });
 
+  // ── Diary Timeline hidden events ──
+  app.get("/api/diary/hidden-events", async (req, res) => {
+    if (!req.userId) {
+      return res.status(400).json({ error: "Missing device ID" });
+    }
+
+    try {
+      const hiddenEvents = await prisma.diaryHiddenTimelineEvent.findMany({
+        where: { userId: req.userId },
+        select: { eventId: true },
+      });
+
+      res.json({ eventIds: hiddenEvents.map((event) => event.eventId) });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unknown error";
+      console.error("[Diary hidden events] GET error:", message);
+      res.status(500).json({ error: message });
+    }
+  });
+
+  app.post("/api/diary/hidden-events", async (req, res) => {
+    if (!req.userId) {
+      return res.status(400).json({ error: "Missing device ID" });
+    }
+
+    const { eventId } = req.body;
+    if (typeof eventId !== "string" || !eventId.trim()) {
+      return res.status(400).json({ error: "eventId required" });
+    }
+
+    try {
+      await prisma.diaryHiddenTimelineEvent.upsert({
+        where: {
+          userId_eventId: {
+            userId: req.userId,
+            eventId,
+          },
+        },
+        update: {},
+        create: {
+          userId: req.userId,
+          eventId,
+        },
+      });
+
+      res.json({ ok: true });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unknown error";
+      console.error("[Diary hidden events] POST error:", message);
+      res.status(500).json({ error: message });
+    }
+  });
+
+
   // ── Evening Ritual ──
   // POST /api/evening-ritual — save ritual answers for a day
   app.post("/api/evening-ritual", async (req, res) => {
