@@ -2079,7 +2079,6 @@ export default function BookRecipesScreen({
 
     // Compose events formatted string to log in Calendar DayNotes
     const timeStr = new Date().toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
-    const tagsSlug = finalTags.length > 0 ? `#${finalTags.join(" #")}` : "без тегов";
 
     let logText = "";
     const isMustHave = selectedRecipeType === "must_have";
@@ -2101,34 +2100,36 @@ export default function BookRecipesScreen({
       : isMustHave
       ? "заготовка Must Have"
       : "рецепт";
-    const statusEmoji = statusType === "cooked"
-      ? (isBreakfast ? "🍓🍳" : isLunch ? "🥦🍳" : isDinner ? "🌙🍳" : isRecipeOfDay ? "✨🍳" : isDrinks ? "🐳☕" : isMustHave ? "🌱" : "🍳")
-      : "🧡";
     const statusAction = statusType === "cooked" ? "Приготовлен" : "Выбран";
     const statusPonder = statusType === "cooked" ? "" : ": Подумаю";
     const nameQuote = selectedRecipe.emotionalName ? ` («${selectedRecipe.emotionalName}»)` : "";
 
-    logText = `${statusEmoji} ${statusAction} ${collectionName} «${selectedRecipe.technicalName}»${nameQuote} [стр. ${selectedRecipe.page}]${statusPonder}. Теги: ${tagsSlug}.`;
-
+    logText = `${statusAction} ${collectionName} «${selectedRecipe.technicalName}»${nameQuote} [стр. ${selectedRecipe.page}]${statusPonder}.`;
     if (finalNote.trim()) {
+		
       logText += ` Заметка: "${finalNote}"`;
     }
 
-    // Hydrate existing notes dictionary
-    const updatedNotes = { ...dayNotes };
-    if (!updatedNotes[currentDayIndex]) {
-      updatedNotes[currentDayIndex] = [];
-    }
+        // Для статуса «Приготовлен» запись создаётся только через /api/diary,
+    // чтобы не было локального дубля после серверной синхронизации.
+    if (statusType !== "cooked") {
+      const updatedNotes = { ...dayNotes };
 
-    updatedNotes[currentDayIndex].push({
-      text: logText,
-      time: timeStr
-    });
+      if (!updatedNotes[currentDayIndex]) {
+        updatedNotes[currentDayIndex] = [];
+      }
 
-    if (setDayNotes) {
-      setDayNotes(updatedNotes);
+      updatedNotes[currentDayIndex].push({
+        text: logText,
+        time: timeStr,
+      });
+
+      if (setDayNotes) {
+        setDayNotes(updatedNotes);
+      }
+
+      useAppStore.getState().setCalendarNotes(updatedNotes as any);
     }
-    useAppStore.getState().setCalendarNotes(updatedNotes as any);
 
     // Persist cooking diary entry to DB (fire-and-forget)
     if (statusType === "cooked") {

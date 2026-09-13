@@ -125,7 +125,7 @@ function getAnnaBubbleStyle(currentScreen: string) {
         bg: "bg-slate-50/90 backdrop-blur-md",
         border: "border-slate-350/40 shadow-[0_4px_16px_rgba(100,116,139,0.06)]",
         text: "text-slate-800",
-        title: "Личные данные 📊",
+        title: "Личные данные",
         iconColor: "text-slate-500",
         badgeBg: "bg-slate-100 text-slate-600 border-slate-200"
       };
@@ -134,7 +134,7 @@ function getAnnaBubbleStyle(currentScreen: string) {
         bg: "bg-emerald-50/90 backdrop-blur-md",
         border: "border-[#A7F3D0]/60 shadow-[0_4px_16px_rgba(16,185,129,0.06)]",
         text: "text-emerald-900",
-        title: "Цели здоровья 🎯",
+        title: "Цели здоровья",
         iconColor: "text-emerald-650",
         badgeBg: "bg-emerald-100 text-emerald-800 border-emerald-200"
       };
@@ -143,7 +143,7 @@ function getAnnaBubbleStyle(currentScreen: string) {
         bg: "bg-slate-50/95 backdrop-blur-md",
         border: "border-slate-300/40 shadow-[0_4px_16px_rgba(100,116,139,0.06)]",
         text: "text-slate-800",
-        title: "Мой аккаунт 👤",
+        title: "Мой аккаунт",
         iconColor: "text-slate-500",
         badgeBg: "bg-slate-100 text-slate-600 border-slate-200"
       };
@@ -152,7 +152,7 @@ function getAnnaBubbleStyle(currentScreen: string) {
         bg: "bg-orange-50/90 backdrop-blur-md",
         border: "border-[#FED7AA]/60 shadow-[0_4px_16px_rgba(249,115,22,0.06)]",
         text: "text-orange-950",
-        title: "Пищеварение 🍏",
+        title: "Пищеварение",
         iconColor: "text-orange-500",
         badgeBg: "bg-orange-100 text-orange-850 border-orange-200"
       };
@@ -161,7 +161,7 @@ function getAnnaBubbleStyle(currentScreen: string) {
         bg: "bg-teal-50/90 backdrop-blur-md",
         border: "border-[#99F6E4]/60 shadow-[0_4px_16px_rgba(13,148,136,0.06)]",
         text: "text-teal-950",
-        title: "Полезная 20-ка 🌿",
+        title: "Полезная 20-ка",
         iconColor: "text-teal-600",
         badgeBg: "bg-teal-100 text-teal-850 border-teal-200"
       };
@@ -170,7 +170,7 @@ function getAnnaBubbleStyle(currentScreen: string) {
         bg: "bg-amber-50/90 backdrop-blur-md",
         border: "border-[#FDE68A]/60 shadow-[0_4px_16px_rgba(245,158,11,0.06)]",
         text: "text-amber-950",
-        title: "Дневник тарелки 🥗",
+        title: "Дневник тарелки",
         iconColor: "text-amber-600",
         badgeBg: "bg-amber-100 text-amber-800 border-amber-200"
       };
@@ -179,7 +179,7 @@ function getAnnaBubbleStyle(currentScreen: string) {
         bg: "bg-indigo-50/90 backdrop-blur-md",
         border: "border-[#C7D2FE]/60 shadow-[0_4px_16px_rgba(99,102,241,0.06)]",
         text: "text-indigo-950",
-        title: "Проверка состава 🔬",
+        title: "Проверка состава",
         iconColor: "text-indigo-600",
         badgeBg: "bg-indigo-100 text-indigo-850 border-indigo-200"
       };
@@ -188,7 +188,7 @@ function getAnnaBubbleStyle(currentScreen: string) {
         bg: "bg-lime-50/90 backdrop-blur-md",
         border: "border-[#D9F99D]/60 shadow-[0_4px_16px_rgba(132,204,22,0.06)]",
         text: "text-lime-950",
-        title: "Анализатор блюда 🔍",
+        title: "Анализатор блюда",
         iconColor: "text-lime-700",
         badgeBg: "bg-lime-100 text-lime-850 border-lime-200"
       };
@@ -197,7 +197,7 @@ function getAnnaBubbleStyle(currentScreen: string) {
         bg: "bg-rose-50/90 backdrop-blur-md",
         border: "border-[#FECDD3]/60 shadow-[0_4px_16px_rgba(244,63,94,0.06)]",
         text: "text-rose-950",
-        title: "Мои рецепты 🍲",
+        title: "Мои рецепты",
         iconColor: "text-rose-600",
         badgeBg: "bg-rose-100 text-rose-850 border-rose-200"
       };
@@ -206,7 +206,7 @@ function getAnnaBubbleStyle(currentScreen: string) {
         bg: "bg-yellow-50/90 backdrop-blur-md",
         border: "border-[#FDE047]/60 shadow-[0_4px_16px_rgba(234,179,8,0.06)]",
         text: "text-yellow-950",
-        title: "Готовим из холодильника 🍅",
+        title: "Готовим из холодильника",
         iconColor: "text-yellow-600",
         badgeBg: "bg-yellow-100 text-yellow-850 border-yellow-200"
       };
@@ -215,7 +215,7 @@ function getAnnaBubbleStyle(currentScreen: string) {
         bg: "bg-sky-50/90 backdrop-blur-md",
         border: "border-[#BAE6FD]/60 shadow-[0_4px_16px_rgba(14,165,233,0.06)]",
         text: "text-sky-950",
-        title: "Рецепты долголетия 📖",
+        title: "Рецепты долголетия",
         iconColor: "text-sky-600",
         badgeBg: "bg-sky-100 text-sky-850 border-sky-200"
       };
@@ -224,7 +224,7 @@ function getAnnaBubbleStyle(currentScreen: string) {
         bg: "bg-purple-50/90 backdrop-blur-md",
         border: "border-[#E9D5FF]/60 shadow-[0_4px_16px_rgba(168,85,247,0.06)]",
         text: "text-purple-950",
-        title: "Список покупок 🛒",
+        title: "Список покупок",
         iconColor: "text-purple-650",
         badgeBg: "bg-purple-100 text-purple-850 border-purple-200"
       };
@@ -233,7 +233,7 @@ function getAnnaBubbleStyle(currentScreen: string) {
         bg: "bg-rose-50/90 backdrop-blur-md",
         border: "border-[#FECDD3]/60 shadow-[0_4px_16px_rgba(244,63,94,0.06)]",
         text: "text-rose-950",
-        title: "Дневник замеров 📈",
+        title: "Дневник замеров",
         iconColor: "text-rose-600",
         badgeBg: "bg-rose-100 text-rose-850 border-[#FECDD3]"
       };
@@ -242,7 +242,7 @@ function getAnnaBubbleStyle(currentScreen: string) {
         bg: "bg-[#FAFAF9]/95 backdrop-blur-md",
         border: "border-stone-250 shadow-[0_4px_16px_rgba(120,113,108,0.06)]",
         text: "text-stone-800",
-        title: "Куратор Анна 💚",
+        title: "Куратор Анна",
         iconColor: "text-brand-green-dark",
         badgeBg: "bg-stone-100 text-stone-700 border-stone-200"
       };
@@ -1394,7 +1394,7 @@ export default function App() {
                       method: "POST",
                       body: {
                         dayIndex: currentDayIndex,
-                        note: `🍳 Приготовлено блюдо: ${dishName}. Ингредиенты: ${ingredientNames}`,
+                        note: `Приготовлено блюдо: ${dishName}. Ингредиенты: ${ingredientNames}`,
                         time: formatTimeHM(new Date().toISOString(), getUserTimeZone()),
                         tags: ["food"],
                       },
