@@ -813,23 +813,6 @@ async function startServer() {
           systemPrompt += `\n\n${recipePromptBlock}`;
         }
 
-      if (req.userId && dayIndex) {
-        const shouldInjectRitual = /утро|вчера|ритуал|итог|проснул|спал|привет|добр|чувству|настро/i.test(message);
-        if (shouldInjectRitual) {
-          try {
-            const ritual = await prisma.eveningRitual.findUnique({
-              where: { userId_dayIndex: { userId: req.userId, dayIndex } }
-            });
-            if (ritual) {
-              systemPrompt += `\n\n[Системные данные: Пользователь завершил вечерний ритуал (День ${dayIndex}). Его ответы.\nТело: ${ritual.answerBody}\nПсихология: ${ritual.answerPsycho}\nИнсайт: ${ritual.answerUnexpected}\nИспользуй эти данные для персонализации ответов].`;
-
-            }
-          } catch (e) {
-            console.error("Error loading ritual for Anna:", e);
-          }
-        }
-      }
-
       // Inject movement module data
       if (req.userId) {
         try {
@@ -974,42 +957,6 @@ async function startServer() {
                   ingredients: dish.ingredients ?? undefined,
                 })),
               };
-            }
-
-            // Evening ritual is useful for wellbeing, support and ritual-related requests.
-            const ritualRequested =
-              annaRouteDecision.needsProfile ||
-              /ритуал|итог.*дня|как.*прош[её]л.*день|вечер/i.test(
-                message || "",
-              );
-
-            if (ritualRequested) {
-              const ritual = await prisma.eveningRitual.findUnique({
-                where: {
-                  userId_dayIndex: {
-                    userId: req.userId,
-                    dayIndex: resolvedDayIndex,
-                  },
-                },
-                select: {
-                  answerBody: true,
-                  answerPsycho: true,
-                  answerUnexpected: true,
-                },
-              });
-
-              if (ritual) {
-                snapshot.reflection = {
-                  eveningRitual: {
-                    localDate: snapshotMetric.date
-                      .toISOString()
-                      .slice(0, 10),
-                    body: ritual.answerBody,
-                    psychology: ritual.answerPsycho,
-                    insight: ritual.answerUnexpected,
-                  },
-                };
-              }
             }
 
             // Load diary entries when router indicates diary context is useful.
@@ -1974,7 +1921,6 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
           initialSystolic: data.initialSystolic ?? undefined,
           initialDiastolic: data.initialDiastolic ?? undefined,
           hasSavedSettings: data.hasSavedSettings === true && data.chronicConditions && data.healthGoals ? true : undefined,
-          ritualTime: data.ritualTime ?? undefined,
           timeZone,
           chronicConditions: data.chronicConditions ? JSON.stringify(data.chronicConditions) : undefined,
           healthGoals: data.healthGoals ? JSON.stringify(data.healthGoals) : undefined,
@@ -2008,7 +1954,6 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
         initialSystolic: user.initialSystolic,
         initialDiastolic: user.initialDiastolic,
         hasSavedSettings: user.hasSavedSettings,
-        ritualTime: user.ritualTime,
         timeZone: user.timeZone || DEFAULT_TIMEZONE,
         chronicConditions: user.chronicConditions ? JSON.parse(user.chronicConditions) : [],
         healthGoals: user.healthGoals ? JSON.parse(user.healthGoals) : [],
@@ -2094,7 +2039,6 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
           initialSystolic: user.initialSystolic,
           initialDiastolic: user.initialDiastolic,
           hasSavedSettings: user.hasSavedSettings,
-          ritualTime: user.ritualTime,
           timeZone: user.timeZone || DEFAULT_TIMEZONE,
           chronicConditions: user.chronicConditions ? JSON.parse(user.chronicConditions) : [],
           healthGoals: user.healthGoals ? JSON.parse(user.healthGoals) : [],
@@ -2761,48 +2705,6 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
   });
 
 
-  // ── Evening Ritual ──
-  // POST /api/evening-ritual — save ritual answers for a day
-  app.post("/api/evening-ritual", async (req, res) => {
-    if (!req.userId) return res.status(400).json({ error: "Missing device ID" });
-    try {
-      const { dayIndex, answerBody, answerPsycho, answerUnexpected } = req.body;
-      if (dayIndex == null) return res.status(400).json({ error: "dayIndex required" });
-      const ritual = await prisma.eveningRitual.upsert({
-        where: { userId_dayIndex: { userId: req.userId, dayIndex } },
-        update: { answerBody, answerPsycho, answerUnexpected },
-        create: { userId: req.userId, dayIndex, answerBody, answerPsycho, answerUnexpected },
-      });
-      res.json({ ok: true, id: ritual.id });
-    } catch (err: any) {
-      console.error("[EveningRitual] POST error:", err.message);
-      res.status(500).json({ error: err.message });
-    }
-  });
-
-  // GET /api/evening-ritual?dayIndex=X — get ritual answers for a day
-  app.get("/api/evening-ritual", async (req, res) => {
-    if (!req.userId) return res.status(400).json({ error: "Missing device ID" });
-    try {
-      const dayIndex = parseInt(req.query.dayIndex as string);
-      if (isNaN(dayIndex)) return res.json(null);
-      const ritual = await prisma.eveningRitual.findUnique({
-        where: { userId_dayIndex: { userId: req.userId, dayIndex } },
-      });
-      res.json(ritual ? {
-        id: ritual.id,
-        dayIndex: ritual.dayIndex,
-        answerBody: ritual.answerBody,
-        answerPsycho: ritual.answerPsycho,
-        answerUnexpected: ritual.answerUnexpected,
-        createdAt: ritual.createdAt.toISOString(),
-      } : null);
-    } catch (err: any) {
-      console.error("[EveningRitual] GET error:", err.message);
-      res.status(500).json({ error: err.message });
-    }
-  });
-
   // ── CRUD: Shopping List ──
   app.get("/api/shopping-list", async (req, res) => {
     if (!req.userId) return res.status(400).json({ error: "Missing device ID" });
@@ -2962,7 +2864,6 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
       // Fetch historical data for multi-day achievement checks (non-blocking)
       let dbMetrics: any[] = [];
       let dbDishes: any[] = [];
-      let dbEveningRituals: any[] = [];
       try {
         const maxDay = Math.max(user.currentDayIndex || 1, 30);
         dbMetrics = await prisma.dailyMetric.findMany({
@@ -2973,10 +2874,6 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
           where: { userId: req.userId },
           orderBy: { createdAt: 'desc' },
           take: 500,
-        });
-        dbEveningRituals = await prisma.eveningRitual.findMany({
-          where: { userId: req.userId, dayIndex: { gte: Math.max(1, maxDay - 30) } },
-          orderBy: { dayIndex: 'asc' },
         });
       } catch (dbErr: any) {
         logger.warn("[Achievements] Failed to fetch historical data:", dbErr.message);
@@ -3000,7 +2897,6 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
         _dbUser: { weight: user.weight, initialWeight: user.initialWeight, currentDayIndex: user.currentDayIndex },
         _dbMetrics: dbMetrics,
         _dbDishes: dbDishes,
-        _dbEveningRituals: dbEveningRituals,
         _dbRatings: dbRatings,
 
         _dbUserFull: user,

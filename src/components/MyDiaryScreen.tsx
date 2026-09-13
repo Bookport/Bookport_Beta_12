@@ -24,7 +24,6 @@ import {
   ShoppingBag,
   Info,
   Check,
-  CheckCircle2,
   LockKeyhole,
   Moon,
   Sun,
@@ -40,7 +39,6 @@ import DiaryDayNavigator from "./diary/DiaryDayNavigator";
 import type { DiaryNote } from "./diary/diary.types";
 import { useAppStore } from "../store/useAppStore";
 import { api } from "../utils/api";
-import { ritualMatrix } from "../utils/ritualMatrix";
 import { addDays, formatTimeHM, toLocalDate } from "../shared/dates";
 import { getUserTimeZone } from "../shared/timeZoneStore";
 import { ANNA_RECIPE_METADATA } from "../services/annaRecipeMetadata";
@@ -944,81 +942,6 @@ export default function MyDiaryScreen({
     ? normalNotes.filter(n => n.isImportant) 
     : normalNotes;
 
-  // Evening Ritual Logic
-  const ritualTimeStr = profile?.ritualTime || "21:00";
-  const [ritualStatus, setRitualStatus] = useState<"waiting" | "active" | "completed">("waiting");
-  const [annaResponses, setAnnaResponses] = useState({ qBody: "", qPsycho: "", qUnexpected: "" });
-  const [ritualTimeLeft, setRitualTimeLeft] = useState<string>("");
-  const [ritualAvatarImg, setRitualAvatarImg] = useState<string>("");
-  const [showAnnaRitual, setShowAnnaRitual] = useState<boolean>(true);
-
-  useEffect(() => {
-    // Generate a stable random avatar for the waiting state from specific folders
-    const allowedFolders = ["affirmation", "joy_and_support", "important_affirmation"];
-    const folder = allowedFolders[Math.floor(Math.random() * allowedFolders.length)];
-    const num = Math.floor(Math.random() * 6) + 1; // 1-6
-    setRitualAvatarImg(`/anna/${folder}/${num}.webp`);
-  }, [selectedDayIndex]);
-
-  useEffect(() => {
-    let cancelled = false;
-    // Check if already completed
-    api<any>(`/api/evening-ritual?dayIndex=${selectedDayIndex}`).then(data => {
-      if (cancelled) return;
-      if (data && data.id) {
-        setRitualStatus("completed");
-        setAnnaResponses({
-          qBody: data.answerBody || "",
-          qPsycho: data.answerPsycho || "",
-          qUnexpected: data.answerUnexpected || "",
-        });
-      } else {
-        // Evaluate time if not completed
-        const [hr, min] = ritualTimeStr.split(":").map(Number);
-        
-        const interval = setInterval(() => {
-          if (cancelled) return;
-          const now = new Date();
-          const target = new Date();
-          target.setHours(hr, min, 0, 0);
-
-          if (now.getTime() >= target.getTime()) {
-            setRitualStatus("active");
-            setRitualTimeLeft("");
-            clearInterval(interval);
-          } else {
-            setRitualStatus("waiting");
-            const diffMs = target.getTime() - now.getTime();
-            const h = Math.floor(diffMs / 3600000);
-            const m = Math.floor((diffMs % 3600000) / 60000);
-            const s = Math.floor((diffMs % 60000) / 1000);
-            setRitualTimeLeft(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`);
-          }
-        }, 1000);
-        return () => clearInterval(interval);
-      }
-    }).catch(() => {});
-    return () => { cancelled = true; };
-  }, [selectedDayIndex, ritualTimeStr]);
-
-  const currentRitualQuestions = ritualMatrix[selectedDayIndex] || ritualMatrix[1];
-
-  const handleSaveAnnaRitual = () => {
-    if (!annaResponses.qBody.trim() && !annaResponses.qPsycho.trim() && !annaResponses.qUnexpected.trim()) return;
-
-    api("/api/evening-ritual", {
-      method: "POST",
-      body: {
-        dayIndex: selectedDayIndex,
-        answerBody: annaResponses.qBody.trim(),
-        answerPsycho: annaResponses.qPsycho.trim(),
-        answerUnexpected: annaResponses.qUnexpected.trim(),
-      },
-    }).then(() => {
-      setRitualStatus("completed");
-    }).catch(() => {});
-  };
-
   // Якорь рецепта для текущего дня: название, страница и картинка.
   const [dayRecipeAnchors, setDayRecipeAnchors] =
     useState<Record<number, DayRecipeAnchor>>({});
@@ -1403,111 +1326,6 @@ export default function MyDiaryScreen({
             </div>
           )}
         </div>
-
-        {/* ANNA'S EVENING RITUAL (ВЕЧЕРНИЙ РИТУАЛ АННЫ) */}
-        {showAnnaRitual && (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className={`p-4 rounded-[32px] border ${borderCol} ${cardBg} text-left mb-6 shadow-md relative`}
-          >
-            <div className="flex justify-between items-center mb-3">
-              <span className="text-[11px] font-black tracking-wider uppercase text-emerald-600 font-sans leading-none flex items-center gap-1">
-                ⭐ ВЕЧЕРНИЙ РИТУАЛ С АННОЙ
-              </span>
-              <button 
-                onClick={() => setShowAnnaRitual(false)}
-                className="text-[11px] font-bold text-slate-400 hover:text-slate-600 font-sans"
-              >
-                Закрыть
-              </button>
-            </div>
-
-            {ritualStatus === "waiting" && (
-              <div className="flex flex-col items-center justify-center py-4">
-                {ritualAvatarImg && (
-                  <img src={ritualAvatarImg} className="w-16 h-16 rounded-full mb-3 shadow-md" alt="Анна" />
-                )}
-                <span className={`text-[14px] font-bold ${bodyText} font-sans mb-1`}>Ритуал откроется в {ritualTimeStr}</span>
-                <span className="text-[24px] font-black text-emerald-600 font-sans tracking-widest">{ritualTimeLeft}</span>
-                <span className={`text-[11px] text-slate-400 mt-2 text-center max-w-[200px] leading-tight`}>Анна готовит персональные вопросы для {selectedDayIndex}-го дня</span>
-              </div>
-            )}
-
-            {ritualStatus === "active" && (
-              <div className="flex flex-col gap-4">
-                <div className="flex flex-col text-left">
-                  <label className={`text-[12px] font-bold ${brandGreen} mb-1.5 font-sans leading-tight`}>Тело: {currentRitualQuestions.q_body}</label>
-                  <textarea 
-                    value={annaResponses.qBody} 
-                    onChange={(e) => setAnnaResponses(p => ({ ...p, qBody: e.target.value }))}
-                    placeholder="Напишите ответ..."
-                    rows={2}
-                    className={`text-[13px] font-bold p-3 rounded-xl border ${borderCol} bg-transparent ${bodyText} outline-none placeholder:text-slate-300 font-sans resize-none`}
-                  />
-                </div>
-
-                <div className="flex flex-col text-left">
-                  <label className={`text-[12px] font-bold ${brandGreen} mb-1.5 font-sans leading-tight`}>Психология: {currentRitualQuestions.q_psycho}</label>
-                  <textarea 
-                    value={annaResponses.qPsycho} 
-                    onChange={(e) => setAnnaResponses(p => ({ ...p, qPsycho: e.target.value }))}
-                    placeholder="Напишите ответ..."
-                    rows={2}
-                    className={`text-[13px] font-bold p-3 rounded-xl border ${borderCol} bg-transparent ${bodyText} outline-none placeholder:text-slate-300 font-sans resize-none`}
-                  />
-                </div>
-
-                <div className="flex flex-col text-left">
-                  <label className={`text-[12px] font-bold ${brandGreen} mb-1.5 font-sans leading-tight`}>Инсайт: {currentRitualQuestions.q_unexpected}</label>
-                  <textarea 
-                    value={annaResponses.qUnexpected} 
-                    onChange={(e) => setAnnaResponses(p => ({ ...p, qUnexpected: e.target.value }))}
-                    placeholder="Напишите ответ..."
-                    rows={2}
-                    className={`text-[13px] font-bold p-3 rounded-xl border ${borderCol} bg-transparent ${bodyText} outline-none placeholder:text-slate-300 font-sans resize-none`}
-                  />
-                </div>
-
-                <button 
-                  onClick={handleSaveAnnaRitual}
-                  disabled={!annaResponses.qBody.trim() && !annaResponses.qPsycho.trim() && !annaResponses.qUnexpected.trim()}
-                  className="w-full py-3 bg-[#2F6B45] text-white rounded-2xl text-[13px] font-black hover:bg-emerald-700 transition-all font-sans tracking-tight disabled:opacity-50 disabled:cursor-not-allowed mt-1"
-                >
-                  Записать ответы в Дневник
-                </button>
-              </div>
-            )}
-
-            {ritualStatus === "completed" && (
-              <div className="flex flex-col py-2">
-                <div className="flex items-center gap-2 mb-4 text-emerald-600">
-                  <CheckCircle2 className="w-5 h-5" />
-                  <span className="text-[13px] font-black font-sans">Ритуал успешно завершён</span>
-                </div>
-                
-                {annaResponses.qBody && (
-                  <div className="mb-3">
-                    <span className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Тело</span>
-                    <p className={`text-[12.5px] ${bodyText} font-medium leading-tight`}>{annaResponses.qBody}</p>
-                  </div>
-                )}
-                {annaResponses.qPsycho && (
-                  <div className="mb-3">
-                    <span className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Психология</span>
-                    <p className={`text-[12.5px] ${bodyText} font-medium leading-tight`}>{annaResponses.qPsycho}</p>
-                  </div>
-                )}
-                {annaResponses.qUnexpected && (
-                  <div>
-                    <span className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Инсайт</span>
-                    <p className={`text-[12.5px] ${bodyText} font-medium leading-tight`}>{annaResponses.qUnexpected}</p>
-                  </div>
-                )}
-              </div>
-            )}
-          </motion.div>
-        )}
 
       </div>
 

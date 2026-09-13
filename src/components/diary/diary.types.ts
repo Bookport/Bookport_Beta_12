@@ -81,23 +81,6 @@ export type DiaryComposerCategory =
   | "recipes";
 
 /**
- * Status of the evening ritual
- */
-export type DiaryRitualStatus =
-  | "waiting"      // Before ritual time
-  | "active"       // Available for completion
-  | "completed";   // Already completed
-
-/**
- * Answers to the evening ritual questions
- */
-export interface DiaryRitualAnswers {
-  qBody: string;                        // Answer to body question
-  qPsycho: string;                      // Answer to psychology question
-  qUnexpected: string;                  // Answer to unexpected insight question
-}
-
-/**
  * Thumbnail metadata for diary entries
  */
 export interface DiaryThumbnail {

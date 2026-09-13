@@ -38,7 +38,6 @@ export interface UserProfile {
   initialSystolic?: number;
   initialDiastolic?: number;
   hasSavedSettings?: boolean;
-  ritualTime?: string;
   currentDayIndex?: number;
   timeZone?: string;
   chronicConditions?: string[];

@@ -152,12 +152,6 @@ export type AnnaReflectionSnapshot = {
     mood?: string;
     note?: string;
   }>;
-  eveningRitual?: {
-    localDate: string;
-    body?: string;
-    psychology?: string;
-    insight?: string;
-  };
 };
 
 export type AnnaContextSnapshot = {

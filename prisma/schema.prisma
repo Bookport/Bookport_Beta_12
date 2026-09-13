@@ -30,7 +30,6 @@ model User {
   courseStartDate           DateTime?
   currentDayIndex           Int       @default(1)
   lastActiveDate            DateTime?
-  ritualTime                String?   @default("21:00")
   lastAchievementUnlockedAt DateTime?
 
   /// Contract: day boundaries for this user are resolved in this IANA time zone.
@@ -62,7 +61,6 @@ model User {
   annaChats           AnnaChat[]
   annaOverlayMessages AnnaOverlayMessage[]
   userAchievements    UserAchievement[]
-  eveningRituals      EveningRitual[]
 
   telegramId       String?   @unique
   telegramName     String?
@@ -477,18 +475,4 @@ model FoodItem {
 
   @@index([nameRu])
   @@index([nameEn])
-}
-
-model EveningRitual {
-  id               String   @id @default(uuid())
-  userId           String
-  user             User     @relation(fields: [userId], references: [id])
-  dayIndex         Int
-  answerBody       String
-  answerPsycho     String
-  answerUnexpected String
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-
-  @@unique([userId, dayIndex])
 }

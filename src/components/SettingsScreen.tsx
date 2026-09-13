@@ -208,7 +208,6 @@ export default function SettingsScreen({
   const [draftWeight, setDraftWeight] = useState(weight);
   const [draftSystolic, setDraftSystolic] = useState(systolic);
   const [draftDiastolic, setDraftDiastolic] = useState(diastolic);
-  const [draftRitualTime, setDraftRitualTime] = useState(profile?.ritualTime || "21:00");
   const [draftTimeZone, setDraftTimeZone] = useState<string>(() => profile?.timeZone || getUserTimeZone());
   const [timeZoneError, setTimeZoneError] = useState<string | null>(null);
   const [draftChronic, setDraftChronic] = useState<string[]>(() => [...selectedChronic]);
@@ -314,7 +313,7 @@ export default function SettingsScreen({
     setWeight(draftWeight);
     setSystolic(draftSystolic);
     setDiastolic(draftDiastolic);
-    const data = { name: draftName, gender: draftGender, age: draftAge, height: draftHeight, weight: draftWeight, systolic: draftSystolic, diastolic: draftDiastolic, ritualTime: draftRitualTime, timeZone: tz ?? undefined };
+    const data = { name: draftName, gender: draftGender, age: draftAge, height: draftHeight, weight: draftWeight, systolic: draftSystolic, diastolic: draftDiastolic, timeZone: tz ?? undefined };
     setUserProfile({ ...profile, ...data });
     if (tz) setUserTimeZone(tz);
     api("/api/user/profile", { method: "POST", body: data }).catch(() => {});
@@ -348,9 +347,6 @@ export default function SettingsScreen({
 
   const handleSaveNotifications = () => {
     UserPreferencesStore.save(prefs);
-    const data = { ritualTime: draftRitualTime };
-    setUserProfile({ ...profile, ...data });
-    api("/api/user/profile", { method: "POST", body: data }).catch(() => {});
     setShowSavedToast(true);
     setTimeout(() => setShowSavedToast(false), 2000);
     completeSection("notifications");
@@ -372,7 +368,6 @@ export default function SettingsScreen({
       weight: draftWeight, systolic: draftSystolic, diastolic: draftDiastolic,
       chronicConditions: draftChronic, healthGoals: draftGoals,
       hasSavedSettings: true,
-      ritualTime: draftRitualTime,
     };
     setUserProfile({ ...profile, ...data });
     api("/api/user/profile", { method: "POST", body: data }).catch(() => {});
@@ -1054,31 +1049,6 @@ export default function SettingsScreen({
                     </div>
                   );
                 })}
-              </div>
-
-              {/* Ritual Time Setting */}
-              <div className="mt-4 bg-white border border-gray-100 shadow-[0_2px_10px_rgba(0,0,0,0.02)] rounded-[24px] p-4 flex flex-col gap-2 text-left">
-                <div className="flex items-center justify-between">
-                  <span className="text-[14px] font-bold text-text-dark">Вечерний Ритуал</span>
-                  <select 
-                    value={draftRitualTime} 
-                    onChange={(e) => setDraftRitualTime(e.target.value)}
-                    className="text-[13px] font-bold text-brand-green-dark bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-100 focus:outline-none"
-                  >
-                    <option value="19:00">19:00</option>
-                    <option value="19:30">19:30</option>
-                    <option value="20:00">20:00</option>
-                    <option value="20:30">20:30</option>
-                    <option value="21:00">21:00</option>
-                    <option value="21:30">21:30</option>
-                    <option value="22:00">22:00</option>
-                    <option value="22:30">22:30</option>
-                    <option value="23:00">23:00</option>
-                  </select>
-                </div>
-                <p className="text-[12px] text-text-muted leading-snug">
-                  Укажите комфортное время для подведения итогов дня с Анной. Ритуал будет открываться ежедневно в назначенное время.
-                </p>
               </div>
 
               {/* Save button for Notifications */}

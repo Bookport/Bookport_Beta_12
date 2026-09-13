@@ -56,7 +56,6 @@ const ACHIEVEMENT_DEFS: Record<string, { id: string; name: string; category: str
   "ach-082": { id: "ach-082", name: "Первое чистое блюдо", category: "Первые шаги", type: "positive", rarity: "Обычная", xp: 15 },
   "ach-083": { id: "ach-083", name: "Первая неделя", category: "Первые шаги", type: "positive", rarity: "Редкая", xp: 50 },
 
-  "ach-033": { id: "ach-033", name: "Вечерний ритуал", category: "Сон", type: "positive", rarity: "Необычная", xp: 25 },
   "ach-034": { id: "ach-034", name: "Жаворонок", category: "Сон", type: "positive", rarity: "Необычная", xp: 25 },
   "ach-035": { id: "ach-035", name: "Медвежья берлога", category: "Сон", type: "positive", rarity: "Редкая", xp: 50 },
   "ach-038": { id: "ach-038", name: "Сова крайности", category: "Сон", type: "negative", rarity: "Необычная", xp: 25 },
@@ -510,7 +509,7 @@ export class AchievementService {
         // B L O C K   2   —   Activity, Sleep, Metrics, Rituals
         // ══════════════════════════════════════════════════════════════
         const sortedMetrics = [..._dbMetrics].sort((a: any, b: any) => a.dayIndex - b.dayIndex);
-        const { localHour = new Date().getHours(), localTime = "", _dbEveningRituals = [] } = payload;
+        const { localHour = new Date().getHours(), localTime = "" } = payload;
         
         // --- ACTIVITY (Движение) ---
         // ach-080: Первый шаг (First step in movementEntries or _dbMetrics)
@@ -633,18 +632,6 @@ export class AchievementService {
         // ach-040: Солнечный старт (currentDayIndex >= 8. Today before 12:00 -> sleep, water, >=1 meal)
         if (currentDayIndex >= 8 && localHour < 12) {
             this.tryUnlock("ach-040", sleep > 0 && water > 0 && mealCount >= 1, newlyUnlocked);
-        }
-
-        // ach-033: Вечерний ритуал (10 days in a row)
-        if (_dbEveningRituals && _dbEveningRituals.length > 0) {
-            let ritualDays = 0;
-            const sortedRituals = [..._dbEveningRituals].sort((a: any, b: any) => a.dayIndex - b.dayIndex);
-            const ritualDayIndexes = new Set<number>(sortedRituals.map((r: any) => r.dayIndex));
-            for (let day = currentDayIndex; day >= Math.max(1, currentDayIndex - 9); day--) {
-                if (ritualDayIndexes.has(day)) ritualDays++;
-                else break;
-            }
-            this.tryUnlock("ach-033", ritualDays >= 10, newlyUnlocked);
         }
 
         // ══════════════════════════════════════════════════════════════
