@@ -693,22 +693,6 @@ export default function App() {
     }
   }, [storeGender])
 
-  // Persist daily ratings to DB whenever they change (debounced)
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      api("/api/metrics/ratings", {
-        method: "POST",
-        body: {
-          date: todayLocalDate(getUserTimeZone()),
-          dayIndex: currentDayIndex,
-          wellbeing: ratingWellbeing,
-          energy: ratingEnergy,
-          lightness: ratingLightness,
-        },
-      }).catch(() => {});
-    }, 2000);
-    return () => clearTimeout(timer);
-  }, [ratingWellbeing, ratingEnergy, ratingLightness, currentDayIndex]);
 
   const [savedDishes, setSavedDishes] = useState<SavedDish[]>([]);
   const [deletingDishId, setDeletingDishId] = useState<string | null>(null);
