@@ -154,7 +154,7 @@ export default function MyDiaryScreen({
   const [newNoteText, setNewNoteText] = useState<string>("");
   const [selectedCategory, setSelectedCategory] = useState<string>("thoughts");
   const composerHints: Record<string, string> = {
-    thoughts: "Какая мысль или чувство важно сохранить?",
+    thoughts: "Какую мысль или чувство важно сохранить?",
     water: "Как сегодня складывается ваш водный баланс?",
     food: "Что было важного в сегодняшнем питании?",
     movement: "Как сегодня двигалось ваше тело?",
@@ -841,9 +841,22 @@ export default function MyDiaryScreen({
       });
 
       // Sleep entry
-      if (data.dailyMetric?.sleepMinutes > 0) {
-        const h = Math.floor(data.dailyMetric.sleepMinutes / 60);
-        const m = data.dailyMetric.sleepMinutes % 60;
+      let sleepMinutesForDay = 0;
+      try {
+        const rawSleepLogs = (data.dailyMetric as any)?.sleepLogs;
+        const sleepLogsArr: any[] = typeof rawSleepLogs === "string" ? JSON.parse(rawSleepLogs) : Array.isArray(rawSleepLogs) ? rawSleepLogs : [];
+        const perDayCompletedSleep = sleepLogsArr.filter((e: any) => e && e.status !== "draft" && Number(e.dayIndex) === selectedDayIndex);
+        if (perDayCompletedSleep.length > 0) {
+          sleepMinutesForDay = perDayCompletedSleep.reduce((sum: number, e: any) => sum + (Number(e?.duration) || 0), 0);
+        }
+      } catch {}
+      if (sleepMinutesForDay <= 0) {
+        const fallback = Number((data.dailyMetric as any)?.sleepMinutes);
+        if (Number.isFinite(fallback) && fallback > 0) sleepMinutesForDay = fallback;
+      }
+      if (sleepMinutesForDay > 0) {
+        const h = Math.floor(sleepMinutesForDay / 60);
+        const m = sleepMinutesForDay % 60;
         entries.push({
           id: `sleep-${selectedDayIndex}`,
           text: `Сон: ${h} ч ${m > 0 ? m + ' мин' : ''}`,
@@ -980,7 +993,7 @@ export default function MyDiaryScreen({
   }, [selectedDayIndex, dayRecipeAnchors]);
 
   return (
-    <div className={`flex-1 flex flex-col min-h-[828px] ${isNightMode ? primaryBg : "bg-[linear-gradient(to_bottom,#FFFDFC_0%,#FFF9F4_18%,#FFF4EC_48%,#FDF7F1_100%)]"} transition-colors duration-300 relative select-none overflow-hidden pb-4 rounded-b-[40px] pt-5`}>
+    <div className={`flex-1 flex flex-col min-h-[828px] ${isNightMode ? primaryBg : "bg-[linear-gradient(to_bottom,#FFFDFC_0%,#FFF9F4_18%,#FFF4EC_48%,#FDF7F1_100%)]"} transition-colors duration-300 relative select-none overflow-hidden pb-4 pt-5`}>
       
       {/* Floating Canvas Particles Bubble Layer */}
       <canvas 
@@ -1061,7 +1074,7 @@ export default function MyDiaryScreen({
       {!showSearchBox && <div className="h-[18px]" />}
 
       {/* Primary Scrollable Scroll container */}
-      <div className="flex-1 flex flex-col overflow-y-auto max-h-[720px] scrollbar-none z-20 px-4 pt-1 pb-24">
+      <div className="flex-1 flex flex-col overflow-y-auto max-h-[720px] scrollbar-none z-20 px-4 pt-1 pb-40">
 
         {/* CYCLE DAYS NAVIGATION COMPONENT (1 to 28) */}
         <div className="mb-5">

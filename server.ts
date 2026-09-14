@@ -2199,9 +2199,8 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
           if (mergedSleep.length > 0) {
             // Canonical journal present: sleepMinutes is the sum of completed entries.
             const completedSleep = mergedSleep.filter((e: any) => e && e.status !== "draft");
-            if (completedSleep.length > 0) {
-              newSleepMinutes = completedSleep.reduce((sum, e: any) => sum + (Number(e?.duration) || 0), 0);
-            }
+            const perDaySleep = completedSleep.filter((e: any) => Number(e?.dayIndex) === normDayIndex);
+            newSleepMinutes = perDaySleep.reduce((sum, e: any) => sum + (Number(e?.duration) || 0), 0);
           } else if (typeof sleepMinutes === "number" && Number.isFinite(sleepMinutes) && sleepMinutes >= 0) {
             // Empty journal with an explicit scalar (legacy protection).
             newSleepMinutes = Math.round(sleepMinutes);

@@ -1580,14 +1580,15 @@ export default function MyDayScreen({
 
     const updatedJournal = mergeSleepEntries(sleepJournal, [entry]);
     setSleepJournal(updatedJournal);
+    const daySleepEntries = updatedJournal.filter((e) => e.dayIndex === currentDayIndex);
 
     api("/api/metrics/daily", {
       method: "POST",
       body: {
         date: todayLocalDate(tz),
         dayIndex: currentDayIndex,
-        sleepMinutes: sumCompletedSleepMinutes(updatedJournal),
-        sleepLogs: updatedJournal,
+        sleepMinutes: sumCompletedSleepMinutes(daySleepEntries),
+        sleepLogs: daySleepEntries,
       },
     }).catch(() => {});
 
@@ -1612,13 +1613,14 @@ export default function MyDayScreen({
     const updatedJournal = mergeSleepEntries(sleepJournal, [entry]);
     setSleepJournal(updatedJournal);
     const tz = getUserTimeZone();
+    const daySleepEntries = updatedJournal.filter((e) => e.dayIndex === entry.dayIndex);
     api("/api/metrics/daily", {
       method: "POST",
       body: {
         date: entry.sleepDate || todayLocalDate(tz),
         dayIndex: entry.dayIndex,
-        sleepMinutes: sumCompletedSleepMinutes(updatedJournal),
-        sleepLogs: updatedJournal,
+        sleepMinutes: sumCompletedSleepMinutes(daySleepEntries),
+        sleepLogs: daySleepEntries,
       },
     }).catch(() => {});
     setActiveNotification({
