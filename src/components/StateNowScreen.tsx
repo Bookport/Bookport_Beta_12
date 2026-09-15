@@ -31,6 +31,7 @@ import { getRecipeImagePath } from "../utils/recipeImageMapper";
 import { getPlural } from "../utils/pluralize";
 import { formatTimeHM, todayLocalDate, toLocalDate } from "../shared/dates";
 import { getUserTimeZone } from "../shared/timeZoneStore";
+import { buildAnnaBalanceAnalysis, buildAnnaTabAnalysis } from "../utils/annaAdvisorEngine";
 
 interface StateNowScreenProps {
   dayNotes: Record<number, { text: string; time: string }[]>;
@@ -599,245 +600,89 @@ export default function StateNowScreen({
 
   const statusObj = getStatusInfo(integralScore);
 
-  // Dynamic holistic synthesis from AI Expert curator Anna
+  // Anna analysis via dedicated engine — delegates to annaAdvisorEngine for varied, non-repetitive phrasing
   function getAnnaAnalysis() {
-    const greeting = effUserName ? `${effUserName}, ` : "Приветствую! ";
-    const totalDishes = cookedBookDishes.length + todayCustomDishes.length;
-    
-    let foodParagraph = "";
-    if (totalDishes > 0) {
-      const topIngredients = aggregatedIngredients.slice(0, 3).map(i => i.name.toLowerCase()).join(", ");
-      const ingredientsAddon = topIngredients ? ` на базе биоактивных компонентов: ${topIngredients}` : "";
-      foodParagraph = `Сегодня в архив вашего рациона занесено ${totalDishes} ${getPlural(totalDishes, ['блюдо', 'блюда', 'блюд'])}${ingredientsAddon}. Мы обеспечили клетки питательным объемом в ${totalCalories} ккал, ${totalProtein} г целевого белка и ${totalFiber} г терапевтической растительной клетчатки. `;
-    } else {
-      foodParagraph = `В архиве питания пока нет подтвержденных блюд за сегодня. Постарайтесь записать приготовленный завтрак или обед из книги курса либо отсканировать состав в модуле «Сделай сам». `;
-    }
-
-    let progressParagraph = "";
-    const bookCookedToday = cookedBookDishes.length;
-    if (bookCookedToday > 0) {
-      progressParagraph = `Ваш прогресс по курсу книги сегодня: ${bookCookedToday} ${getPlural(bookCookedToday, ['шаг', 'шага', 'шагов'])} дневного меню выполнено на текущем Дне ${currentDayIndex}. Каждое такое попадание формирует правильный состав кишечной микробиоты, поддерживая тонкий баланс иммунных клеток. Всего по курсу вами приготовлено уже ${totalCookedBookRecipesCount} ${getPlural(totalCookedBookRecipesCount, ['рецепт', 'рецепта', 'рецептов'])}. `;
-    } else {
-      progressParagraph = `Сегодня отличный момент, чтобы свериться со страницей Дня ${currentDayIndex} в книге рецептов и сделать первый шаг. Приготовление даже одного цельного блюда дня — мощная поддержка ваших сосудов. `;
-    }
-
-    let microsParagraph = "";
-    if (totalDishes > 0) {
-      const highestCovered = [
-        { name: "Витамина C", value: dayVitC },
-        { name: "Витамина A", value: dayVitA },
-        { name: "Калия", value: dayPotassium },
-        { name: "Магния", value: dayMagnesium },
-        { name: "Железа", value: dayIron }
-      ].sort((a, b) => b.value - a.value)[0];
-
-      if (highestCovered && highestCovered.value > 15) {
-        microsParagraph = `Ваше сегодняшнее меню создало мощный клеточный щит — особенно выделяется высокий уровень накопления ${highestCovered.name} (около ${Math.min(150, highestCovered.value)}% суточной нормы), что способствует мгновенному расслаблению гладкой мускулатуры почек и выводу застойной жидкости. `;
-      }
-    }
-
-    let chronicParagraph = "";
-    if (effSelectedChronic && effSelectedChronic.length > 0) {
-      const mainChr = effSelectedChronic[0].toLowerCase();
-      if (mainChr.includes("давлен") || mainChr.includes("гипертония") || mainChr.includes("сосуд")) {
-        chronicParagraph = `Учитывая вашу склонность к колебаниям давления, отсутствие поваренной соли и минимизация насыщенных жиров в сегодняшних блюдах — критически важная непревентивная мера: кровоток свободен от сопротивления, почки дышат легко. `;
-      } else if (mainChr.includes("вес") || mainChr.includes("ожирение") || mainChr.includes("метабол")) {
-        chronicParagraph = `Для снижения веса и нормализации липидного профиля клетчатка весом ${totalFiber} г выступает природным адсорбентом и задерживает усвоение простых сахаров, исключая гликемические инсулиновые качели. `;
-      } else {
-        chronicParagraph = `Гармоничное WFPB-сочетание снижает системное воспаление, поддерживая органы-мишени от оксидативного стресса. `;
-      }
-    }
-
-    let measurementParagraph = "";
-    if (effWeight > 0) {
-      let weightTrend = "";
-      
-      if (latestMeas?.weight && prevMeas?.weight && Math.abs(latestMeas.weight - prevMeas.weight) >= 0.1) {
-        const diff = latestMeas.weight - prevMeas.weight;
-        weightTrend = diff < 0
-          ? `Со времени прошлого замера ваш вес снизился на ${Math.abs(diff).toFixed(1)} кг! `
-          : `Со времени прошлого замера ваш вес увеличился на ${diff.toFixed(1)} кг. `;
-      } else if (effInitialWeight && effInitialWeight > 0 && Math.abs(effWeight - effInitialWeight) > 0.5) {
-        const diff = effWeight - effInitialWeight;
-        weightTrend = diff < 0
-          ? `Отлично, вы снизили вес на ${Math.abs(diff).toFixed(1)} кг относительно стартовой отметки. `
-          : `Ваш вес вырос на ${diff.toFixed(1)} кг относительно стартовой отметки. `;
-      }
-      
-      const bpInfo = (effSystolic && effDiastolic)
-        ? `Артериальное давление держится в пределах ${effSystolic}/${effDiastolic} мм рт. ст. `
-        : "";
-      measurementParagraph = `По замерам сегодня: масса тела составляет ${effWeight} кг. ${bpInfo}${weightTrend}`;
-    }
-
-    let contextParagraph = "";
-    const notesArr = dayNotes[currentDayIndex] || [];
-    if (notesArr.length > 0) {
-      const lastNoteText = notesArr[notesArr.length - 1].text.toLowerCase();
-      if (lastNoteText.includes("тяжесть") || lastNoteText.includes("дискомфорт")) {
-        contextParagraph = `Заметила вашу отметку о легком дискомфорте в заметках. Помните, что адаптация ЖКТ к высоким дозам клетчатки требует времени и обильного питья. Не перегружайте желудок, делайте теплые глотки. `;
-      } else {
-        contextParagraph = `Судя по вашим заметкам и настроению дня, дзен-состояние находится на стабильной отметке ${effRatingWellbeing}/5 — психосоматический контур полностью синхронизирован с балансом питания. `;
-      }
-    }
-
-    let waterAdvice = "";
-    if (hydrationState === 'success') {
-      waterAdvice = `Дневная норма воды выполнена (${effWater} мл). Водно-солевой баланс идеален. `;
-    } else if (hydrationState === 'warning') {
-      waterAdvice = `Обращаю внимание: клеточная гидратация требует внимания (${effWater} мл). Прошло больше 2 часов с последнего стакана — выпейте 250 мл чистой воды прямо сейчас. `;
-    } else {
-      waterAdvice = `Ваш водный баланс в безупречном тонусе (${effWater} мл), лимфоток и детоксикация идут полным ходом! `;
-    }
-
-    return `${greeting}рада подвести для вас целостный биоэнергетический итог дня.\n\n${foodParagraph}${progressParagraph}${microsParagraph}${chronicParagraph}${measurementParagraph}${contextParagraph}${waterAdvice}Желаю вам прекрасного самочувствия. Какой наш индивидуальный следующий шаг?`;
+    const deficitNow = Math.max(0, expectedWaterByNow - effWater);
+    const paceNeeded = Math.ceil(Math.max(0, waterTarget - effWater) / Math.max(1, remainingMinutes / 60));
+    const topIngredients = (aggregatedIngredients || []).slice(0, 4).map((i: any) => i.name);
+    const leaderCandidates = [
+      { name: "Витамина C", val: dayVitC },
+      { name: "Витамина A", val: dayVitA },
+      { name: "Калия", val: dayPotassium },
+      { name: "Магния", val: dayMagnesium },
+      { name: "Железа", val: dayIron },
+      { name: "Витамина B9", val: dayVitB9 },
+      { name: "Витамина E", val: dayVitE },
+      { name: "Витамина K", val: dayVitK },
+      { name: "Цинка", val: dayZinc },
+      { name: "Селена", val: daySelenium },
+    ].sort((a, b) => b.val - a.val);
+    const leaderNutrient = leaderCandidates[0]?.val > 0 ? leaderCandidates[0] : undefined;
+    const input = {
+      userName: effUserName,
+      totalCalories,
+      totalProtein,
+      totalFat,
+      totalCarbohydrates,
+      totalFiber,
+      topIngredients,
+      effWater,
+      waterTarget,
+      expectedWaterByNow,
+      deficitNow,
+      remainingMinutes,
+      paceNeeded,
+      effSleep,
+      effWeight,
+      effSystolic,
+      effDiastolic,
+      leaderName: leaderNutrient?.name,
+      leaderPct: leaderNutrient?.val,
+    };
+    return buildAnnaBalanceAnalysis(input, currentDayIndex || 1);
   }
 
   const getAnnaAnalysisForTab = (tabId: string) => {
-    const greeting = effUserName ? `${effUserName}, ` : "";
-
-    if (tabId === "balance") {
-      const hasRed = aggregatedIngredients.some(i => i.status === "red");
-      const hasGreenNeutralizer = aggregatedIngredients.some(i =>
-        i.status === "green" && ["шпинат","брокколи","яблоко","лён","льнян","чиа","зелень","салат","капуст","сельдерей","петруш","укроп","кинз"].some(kw => i.name.toLowerCase().includes(kw))
-      );
-      const analysis = getAnnaAnalysis();
-      if (hasRed && !hasGreenNeutralizer) {
-        const badNames = aggregatedIngredients.filter(i => i.status === "red").slice(0, 2).map(i => i.name.toLowerCase()).join(" и ");
-        return `⚠️ Внимание! В рационе обнаружены нежелательные компоненты: ${badNames}. Рекомендуется нейтрализовать их зелёными волокнами (шпинат, брокколи, лён).\n\n` + analysis;
-      }
-      if (hasRed && hasGreenNeutralizer && !neutralizationNoted.current) {
-        neutralizationNoted.current = true;
-        return "Отлично! Нейтрализация вредного ингредиента произведена. Баланс восстановлен.\n\n" + analysis;
-      }
-      return analysis;
-    }
-
-    if (tabId === "scales") {
-      let waterText = "";
-      if (isAheadOnWater) {
-        if (remainingMinutes < 120 && effWater < waterTarget) {
-          waterText = `выпито ${effWater} мл из ${waterTarget} мл. До сна осталось меньше 2 часов, постарайся уложиться в норму, но не пей за час до отхода ко сну.`;
-        } else {
-          waterText = `водный баланс в отличном состоянии (${effWater} мл). Ты опережаешь график — к этому часу ожидалось ${expectedWaterByNow} мл.`;
-        }
-      } else {
-        if (remainingMinutes < 120) {
-          const need = waterTarget - effWater;
-          waterText = `выпито ${effWater} мл из ${waterTarget} мл, осталось ${need} мл. До сна меньше 2 часов — постарайся уложиться, но без фанатизма перед сном.`;
-        } else {
-          const deficitNow = expectedWaterByNow - effWater;
-          const paceNeeded = Math.ceil((waterTarget - effWater) / Math.max(1, remainingMinutes / 60));
-          waterText = `заметен дефицит гидратации клеток: выпито ${effWater} мл при ожидаемых ${expectedWaterByNow} мл к этому часу (отставание ${deficitNow} мл). Чтобы уложиться в норму ${waterTarget} мл, рекомендуется темп ~${paceNeeded} мл/ч.`;
-        }
-      }
-
-      let sleepText = "";
-      if (sleepPct < 60) {
-        sleepText = `продолжительность сна (${Math.round(effSleep / 60)} ч) ниже восстановительного оптимума. Постарайся сегодня лечь пораньше, чтобы нервная система успела завершить глимфатическую очистку мозга.`;
-      } else {
-        sleepText = `сон составил прекрасные ${Math.round(effSleep / 60)} ч. Твой сосудистый тонус восстановился благодаря активности мелатонина.`;
-      }
-
-      let habitsText = "";
-      if (habitsPct < 50) {
-        habitsText = `клеточный импульс (активность) пока на невысоком уровне (${effHabitsDone}/${habitsTarget}). Добавь немного шагов, чтобы раскачать лимфодренаж и снабдить ткани свежим кислородом.`;
-      } else {
-        habitsText = `отличный показатель по привычкам активности (${effHabitsDone}/${habitsTarget})! Мы активировали жиросжигающий потенциал и поддержали чувствительность к инсулину.`;
-      }
-
-      return `${greeting}давай взглянем на главные шкалы твоего состояния.\n\nУ нас сложилась следующая картина: по воде ${waterText} По сну ${sleepText} А по активности — ${habitsText}\n\nС учётом этого система подобрала рекомендованный шаг: **${recommendedAction.title}** (${recommendedAction.desc}). Это лучшее точечное действие, чтобы подтянуть проседающие зоны.`;
-    }
-
-    if (tabId === "kbju") {
-      const kcalText = totalCalories > 0 
-        ? `сегодня рацион обеспечил ${totalCalories} ккал.` 
-        : `питание за сегодня пока не зафиксировано. Помни, что регулярный WFPB рацион уберегает твой организм от метаболической просадки.`;
-
-      let fiberAdvice = "";
-      if (totalFiber === 0) {
-        fiberAdvice = `клетчатка сегодня на нуле. Это критично! Кишечная микробиота ждёт пищевых волокон для синтеза короткоцепочечных жирных кислот, защищающих сосуды от воспаления.`;
-      } else if (totalFiber < 25) {
-        fiberAdvice = `у нас накоплено ${totalFiber} г клетчатки при целевой норме от 35 г. Чтобы поддержать гладкую мускулатуру ЖКТ и очистить сосуды от холестерина, постарайся добавить бобовые или зелень.`;
-      } else {
-        fiberAdvice = `супер-результат по клетчатке: ${totalFiber} г! Твой ЖКТ работает безупречно, а уровень инсулина будет оставаться ровным и стабильным.`;
-      }
-
-      let macroPower = "";
-      if (totalProtein > 0 || totalFat > 0) {
-        macroPower = `Белки высокой чистоты (${totalProtein} г) и растительные липиды (${totalFat} г) дают клеткам прочную строительную базу без создания оксидативного стресса для сосудов.`;
-      }
-
-      return `${greeting}анализ твоего КБЖУ на сегодня:\n\nПо энергетическому наполнению: ${kcalText} По волокнам: ${fiberAdvice} ${macroPower}\n\nРекомендованное действие **${recommendedAction.title}** идеально вписывается в твой план питания.`;
-    }
-
-    if (tabId === "micro") {
-      const highestVit = [
-        { name: "витамину C", value: dayVitC },
-        { name: "витамину A", value: dayVitA },
-        { name: "фолиевой кислоте (B9)", value: dayVitB9 },
-        { name: "витамину E", value: dayVitE },
-        { name: "витамину K", value: dayVitK }
-      ].sort((a, b) => b.value - a.value)[0];
-
-      const highestMin = [
-        { name: "калию (K)", value: dayPotassium },
-        { name: "магнию (Mg)", value: dayMagnesium },
-        { name: "железу (Fe)", value: dayIron },
-        { name: "цинку (Zn)", value: dayZinc },
-        { name: "селену (Se)", value: daySelenium }
-      ].sort((a, b) => b.value - a.value)[0];
-
-      let vitLeaderText = (highestVit && highestVit.value > 10) 
-        ? `Лидером среди витаминов является вклад по ${highestVit.name} (${Math.round(highestVit.value)}%).`
-        : `Витаминная активность пока в процессе накопления.`;
-
-      let minLeaderText = (highestMin && highestMin.value > 10)
-        ? `Среди минералов лидирует насыщение по ${highestMin.name} (оно достигло ${Math.round(highestMin.value)}% суточной нормы), что способствует мгновенному расслаблению гладкой мускулатуры сосудов.`
-        : `Показатели минералов отражают начальный этап фиксации рациона.`;
-
-      let emptyWarn = "";
-      if (dayVitC === 0 || dayPotassium === 0 || dayMagnesium === 0) {
-        emptyWarn = ` Не переживай, если по некоторым показателям (например, калию или селену) видишь 0%. Это лишь значит, что мы пока не успели подтвердить все блюда. Твоему телу нужно время на кумулятивный накопительный эффект.`;
-      }
-
-      return `${greeting}твоя микронутриентная карта — это тончайший оркестр здоровья.\n\n${vitLeaderText} ${minLeaderText}${emptyWarn}\n\nЧтобы мягко напитать клетки и усилить минеральный щит, наш рекомендованный следующий шаг — **${recommendedAction.title}** — сработает безупречно!`;
-    }
-
-    if (tabId === "composition") {
-      if (aggregatedIngredients.length === 0) {
-        return `${greeting}в сырьевой базе твоего дня пока пусто. Растительное разнообразие измеряется десятками цельных продуктов. Как только мы занесём первое приготовленное блюдо, я смогу разобрать его молекулярные преимущества.\n\nДавай начнем с выполнения шага — **${recommendedAction.title}**!`;
-      }
-
-      const topIngredientsText = aggregatedIngredients.slice(0, 4).map(i => i.name.toLowerCase()).join(", ");
-      const hasLeafyGreen = aggregatedIngredients.some(i => i.name.toLowerCase().includes("шпинат") || i.name.toLowerCase().includes("зелень") || i.name.toLowerCase().includes("салат"));
-
-      let microBioText = hasLeafyGreen 
-        ? "Особенно ценно присутствие зелёных листьев — они поставляют оксид азота для защиты эндотелия сосудов."
-        : "Постарайся добавить в течение дня больше тёмно-зелёных листьев, чтобы поддержать тонус капилляров.";
-
-      return `${greeting}анализирую сырьевой состав твоего рациона.\n\nСегодня в основе твоей тарелки: ${topIngredientsText}. Это прекрасный биоактивный спектр, поставляющий клетчатке нужный объём. ${microBioText}\n\nНаш рекомендованный шаг **${recommendedAction.title}** гармонично дополнит этот сырьевой профиль.`;
-    }
-
-    if (tabId === "dynamics") {
-      let zenMood = "";
-      if (effRatingWellbeing >= 4) {
-        zenMood = "Твоё дзен-состояние на высоте, психосоматический контур полностью стабилен.";
-      } else {
-        zenMood = "Фиксируется легкое напряжение в дзен-состоянии. Тёплое питье и исключение раздражителей помогут восстановить баланс.";
-      }
-
-      let energyMood = "";
-      if (effRatingEnergy >= 4) {
-        energyMood = "Запас физической энергии на отличном уровне, клетки заряжены митохондриальным кислородом.";
-      } else {
-        energyMood = "Уровень энергии умеренный. Не перегружай сегодня рецепторы, дай организму мягкий отдых.";
-      }
-
-      return `${greeting}давай проследим динамику твоего биоритма.\n\n${zenMood} ${energyMood} Все показатели текущего дня формируют плавную синусоиду активности без резких перепадов.\n\nВыполнение шага **${recommendedAction.title}** прямо сейчас поможет закрепить результат и подготовить нервную систему к благотворному восстановлению.`;
-    }
-
-    return getAnnaAnalysis();
+    const deficitNow = Math.max(0, expectedWaterByNow - effWater);
+    const paceNeeded = Math.ceil(Math.max(0, waterTarget - effWater) / Math.max(1, remainingMinutes / 60));
+    const topIngredients = (aggregatedIngredients || []).slice(0, 4).map((i: any) => i.name);
+    const leaderCandidates = [
+      { name: "Витамина C", val: dayVitC },
+      { name: "Витамина A", val: dayVitA },
+      { name: "Калия", val: dayPotassium },
+      { name: "Магния", val: dayMagnesium },
+      { name: "Железа", val: dayIron },
+      { name: "Витамина B9", val: dayVitB9 },
+      { name: "Витамина E", val: dayVitE },
+      { name: "Витамина K", val: dayVitK },
+      { name: "Цинка", val: dayZinc },
+      { name: "Селена", val: daySelenium },
+    ].sort((a, b) => b.val - a.val);
+    const leaderNutrient = leaderCandidates[0]?.val > 0 ? leaderCandidates[0] : undefined;
+    const input = {
+      userName: effUserName,
+      totalCalories,
+      totalProtein,
+      totalFat,
+      totalCarbohydrates,
+      totalFiber,
+      topIngredients,
+      effWater,
+      waterTarget,
+      expectedWaterByNow,
+      deficitNow,
+      remainingMinutes,
+      paceNeeded,
+      effSleep,
+      effWeight,
+      effSystolic,
+      effDiastolic,
+      leaderName: leaderNutrient?.name,
+      leaderPct: leaderNutrient?.val,
+    };
+    const tabOrder = ["balance", "scales", "kbju", "micro", "composition", "dynamics"];
+    const tabIndexOffset = Math.max(0, tabOrder.indexOf(tabId));
+    return buildAnnaTabAnalysis(tabId, input, (currentDayIndex || 1) + tabIndexOffset);
   };
 
   const getDisplayedAnalysis = (tabId: string) => {
