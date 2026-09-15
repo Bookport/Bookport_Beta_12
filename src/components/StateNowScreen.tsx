@@ -170,8 +170,8 @@ export default function StateNowScreen({
   }, [currentDayIndex]);
 
   // ── Effective values: props take precedence, API data is fallback ──
-  const effWater = apiStateNowData?.dailyMetric?.waterMl ?? water;
-  const effSleep = apiStateNowData?.dailyMetric?.sleepMinutes ?? sleep;
+  const effWater = apiStateNowData?.dailyMetric?.waterMl != null ? apiStateNowData.dailyMetric.waterMl : (isReadOnly ? 0 : water);
+  const effSleep = apiStateNowData?.dailyMetric?.sleepMinutes != null ? apiStateNowData.dailyMetric.sleepMinutes : (isReadOnly ? 0 : sleep);
   const effUserName = apiStateNowData?.profile?.name || userName;
   const effUserGender = apiStateNowData?.profile?.gender || userGender;
   const effSelectedChronic: string[] = (apiStateNowData?.profile?.chronicConditions?.length ? apiStateNowData.profile.chronicConditions : selectedChronic) || [];
@@ -181,18 +181,24 @@ export default function StateNowScreen({
   const effInitialWeight = apiStateNowData?.profile?.initialWeight;
   const effInitialSystolic = apiStateNowData?.profile?.initialSystolic;
   
-  // Extract all valid measurements from history, sorted by timestamp
-  const allMeasurements = measurementHistory
-    .flatMap(d => d.measurements || [])
-    .filter(m => m && m.timestamp)
-    .sort((a: any, b: any) => a.timestamp - b.timestamp);
-
-  const latestMeas = allMeasurements.length > 0 ? allMeasurements[allMeasurements.length - 1] : null;
-  const prevMeas = allMeasurements.length > 1 ? allMeasurements[allMeasurements.length - 2] : null;
+  // Day-isolated biometrics: only measurements for currentDayIndex
+  const rawDayMeasurements = apiStateNowData?.dailyMetric?.measurements;
+  const dayMeasurements: any[] = (() => {
+    if (!rawDayMeasurements) return [];
+    try {
+      const parsed = typeof rawDayMeasurements === "string" ? JSON.parse(rawDayMeasurements) : rawDayMeasurements;
+      return Array.isArray(parsed) ? parsed : parsed ? [parsed] : [];
+    } catch {
+      return Array.isArray(rawDayMeasurements) ? rawDayMeasurements : [];
+    }
+  })();
+  const sortedDayMeasurements = [...dayMeasurements].filter((m: any) => m && m.timestamp).sort((a: any, b: any) => a.timestamp - b.timestamp);
+  const latestMeas = sortedDayMeasurements.length > 0 ? sortedDayMeasurements[sortedDayMeasurements.length - 1] : null;
+  const prevMeas = sortedDayMeasurements.length > 1 ? sortedDayMeasurements[sortedDayMeasurements.length - 2] : null;
 
   const effWeight = latestMeas?.weight ?? apiStateNowData?.profile?.weight ?? weight;
-  const effSystolic = latestMeas?.systolic ?? apiStateNowData?.profile?.systolic;
-  const effDiastolic = latestMeas?.diastolic ?? apiStateNowData?.profile?.diastolic;
+  const effSystolic = latestMeas?.systolic ?? undefined;
+  const effDiastolic = latestMeas?.diastolic ?? undefined;
   
   const wellbeingLog = apiStateNowData?.dailyRating?.wellbeingLog || [];
   const energyLog = apiStateNowData?.dailyRating?.energyLog || [];
@@ -901,6 +907,7 @@ export default function StateNowScreen({
   };
 
   const handleRatingChange = (type: "zen" | "energy" | "lightness", val: number) => {
+    if (isReadOnly) return;
     const time = formatTimeHM(new Date().toISOString(), getUserTimeZone());
     const logEntry = { type, time, value: val };
     
