@@ -117,19 +117,19 @@ export default function CompositionTab({
         )}
       </div>
 
-      {/* Cooked dishes archive or history list */}
+      {/* Cooked dishes — scoped to currentDayIndex */}
       <div className="bg-white rounded-[32px] border border-gray-100 shadow-[0_8px_24px_rgba(43,49,55,0.02)] p-5 text-left">
         <h2 className="text-[14px] font-black text-slate-850 tracking-tight mb-4 uppercase flex items-center gap-1.5 select-none font-sans">
-          <span className="text-emerald-500">📖</span> Приготовлено сегодня / Архив дня
+          <span className="text-emerald-500">📖</span> Блюда этого дня
         </h2>
 
         <div className="grid grid-cols-2 gap-3">
           {cookedBookDishes.length === 0 && todayCustomDishes.length === 0 ? (
-            <div className="col-span-2 border border-dashed border-slate-200 p-6 rounded-2xl text-center flex flex-col items-center justify-center">
-              <Utensils className="w-8 h-8 text-slate-350 mb-2" />
-              <span className="text-[13px] font-extrabold text-slate-400 font-sans">Архив блюд пуст</span>
-              <p className="text-[11.5px] text-slate-400 max-w-[200px] mt-1 leading-snug font-sans">
-                Приготовьте блюда из Книги или создайте рецепт в меню «Сделай сам»
+            <div className="col-span-2 border border-dashed border-slate-200 p-5 rounded-2xl text-center flex flex-col items-center justify-center">
+              <Utensils className="w-7 h-7 text-slate-300 mb-2" />
+              <span className="text-[12.5px] font-bold text-slate-500 font-sans">В этот день блюда не фиксировались</span>
+              <p className="text-[11px] text-slate-400 max-w-[220px] mt-1 leading-snug font-sans">
+                Приготовьте блюдо из Книги или создайте его в «Сделай сам»
               </p>
             </div>
           ) : (

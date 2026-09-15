@@ -384,13 +384,20 @@ export default function StateNowScreen({
     }
   }
 
-  // Custom Dishes from DIY / From What Is modules
+  // Custom Dishes from DIY / From What Is modules — strictly scoped to currentDayIndex
   const todayCustomDishes = (effSavedDishes || [])
     .filter(dish => {
       if (dish.isBookRecipe) return false;
       if (dish.sourceType === "mixer") return false;
       if (dish.category === "Миксер") return false;
-      return true;
+      // Strict day scoping: only dishes cooked on currentDayIndex
+      if (dish.dayIndex === currentDayIndex || (dish as any).current_day === currentDayIndex) return true;
+      // Legacy fallback — only for day 1: dishes without dayIndex that match today's local date
+      if (!dish.dayIndex && currentDayIndex === 1) {
+        const dishDate = dish.createdAt ? toLocalDate(new Date(dish.createdAt), getUserTimeZone()) : null;
+        return dishDate === todayStr;
+      }
+      return false;
     })
     .map(dish => {
       return {
