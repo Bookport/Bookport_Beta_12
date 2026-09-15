@@ -126,7 +126,12 @@ export default function StateNowScreen({
   }, [currentDayIndex, isReadOnly]);
 
   useEffect(() => {
+    savedAnnaDayRef.current = null;
+  }, [currentDayIndex]);
+
+  useEffect(() => {
     if (isReadOnly || !currentDayIndex) return;
+    if (!apiStateNowData) return;
     if (savedAnnaDayRef.current === currentDayIndex) return;
     const timer = setTimeout(() => {
       const text = getAnnaAnalysis();
@@ -137,7 +142,7 @@ export default function StateNowScreen({
       }).catch(() => {});
     }, 4000);
     return () => clearTimeout(timer);
-  }, [currentDayIndex]);
+  }, [currentDayIndex, isReadOnly, apiStateNowData]);
 
   useEffect(() => {
     const dayIdx = currentDayIndex || 1;
