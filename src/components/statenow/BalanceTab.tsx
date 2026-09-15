@@ -14,13 +14,11 @@ interface BalanceTabProps {
   hydrationState: 'success' | 'normal' | 'warning';
   mealsPct: number;
   habitsPct: number;
-  ratingWellbeing: number;
-  ratingEnergy: number;
-  ratingLightness: number;
   recommendedAction: NextStepRecommendation;
   triggerNotification: (msg: string) => void;
   onBack: () => void;
   setScreen?: (screen: any) => void;
+  [key: string]: any;
 }
 
 export default function BalanceTab({
@@ -32,9 +30,6 @@ export default function BalanceTab({
   hydrationState,
   mealsPct,
   habitsPct,
-  ratingWellbeing,
-  ratingEnergy,
-  ratingLightness,
   recommendedAction,
   triggerNotification,
   onBack,
@@ -178,13 +173,10 @@ export default function BalanceTab({
         
         <div className="space-y-3">
           {[
-            { name: "Сон восстановительный", contribution: "20%", pct: sleepPct, status: sleepPct >= 70 ? "Цель близка" : "Рекомендуется отдых", color: "bg-indigo-500", badge: "text-indigo-600 bg-indigo-50" },
-            { name: "Клеточная гидратация (Вода)", contribution: "20%", pct: waterPct, status: hydrationState === 'warning' ? "Дефицит влаги" : hydrationState === 'success' ? "Цель выполнена" : "Норма", color: "bg-sky-500", badge: "text-sky-600 bg-sky-50" },
-            { name: "Цельный WFPB-рацион", contribution: "20%", pct: mealsPct, status: mealsPct >= 50 ? "Оптимально" : "Мало клетчатки", color: "bg-emerald-500", badge: "text-emerald-700 bg-emerald-50" },
-            { name: "Клеточный импульс", contribution: "15%", pct: habitsPct, status: habitsPct >= 50 ? "Активно" : "Низкий ритм", color: "bg-purple-500", badge: "text-purple-600 bg-purple-50" },
-            { name: "Психологический дзен", contribution: "10%", pct: ratingWellbeing * 20, status: ratingWellbeing >= 3 ? "Стабильно" : "Нужна пауза", color: "bg-rose-500", badge: "text-rose-600 bg-rose-50" },
-            { name: "Физический тонус и сила", contribution: "10%", pct: ratingEnergy * 20, status: ratingEnergy >= 3 ? "Бодрость" : "Запрос энергии", color: "bg-amber-500", badge: "text-amber-700 bg-amber-50" },
-            { name: "Ощущение лёгкости в ЖКТ", contribution: "5%", pct: ratingLightness * 20, status: ratingLightness >= 3 ? "Легко" : "Нагрузка", color: "bg-teal-500", badge: "text-teal-700 bg-teal-50" }
+            { name: "Сон восстановительный", contribution: "25%", pct: sleepPct, status: sleepPct >= 70 ? "Цель близка" : "Рекомендуется отдых", color: "bg-indigo-500", badge: "text-indigo-600 bg-indigo-50" },
+            { name: "Клеточная гидратация (Вода)", contribution: "25%", pct: waterPct, status: hydrationState === 'warning' ? "Дефицит влаги" : hydrationState === 'success' ? "Цель выполнена" : "Норма", color: "bg-sky-500", badge: "text-sky-600 bg-sky-50" },
+            { name: "Цельный WFPB-рацион", contribution: "25%", pct: mealsPct, status: mealsPct >= 50 ? "Оптимально" : "Мало клетчатки", color: "bg-emerald-500", badge: "text-emerald-700 bg-emerald-50" },
+            { name: "Движение и активность / Клеточный импульс", contribution: "25%", pct: habitsPct, status: habitsPct >= 50 ? "Активно" : "Низкий ритм", color: "bg-purple-500", badge: "text-purple-600 bg-purple-50" }
           ].map((factor) => (
             <div key={factor.name} className="p-3 rounded-2xl border border-slate-100 bg-slate-50/20 hover:bg-slate-50/50 transition-colors">
               <div className="flex items-start justify-between gap-3">
