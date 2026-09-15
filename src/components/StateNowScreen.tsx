@@ -898,6 +898,7 @@ export default function StateNowScreen({
     activityMinutes,
     ...waterLogData,
     aggregatedIngredients,
+    timeZone: getUserTimeZone(),
   });
 
   const triggerNotification = (msg: string) => {
