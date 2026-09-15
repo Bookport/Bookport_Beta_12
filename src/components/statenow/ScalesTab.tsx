@@ -1,4 +1,3 @@
-import React from "react";
 import { Moon, Droplet, Apple, Activity, Zap, Award } from "lucide-react";
 import { motion } from "motion/react";
 import AnnaTabSpoiler from "./AnnaTabSpoiler";
@@ -20,8 +19,8 @@ interface ScalesTabProps {
   habitsTarget: number;
   ratingEnergy: number;
   energyPct: number;
-  ratingWellbeing: number;
-  ratingLightness: number;
+  ratingWellbeing?: number;
+  ratingLightness?: number;
   wellbeingLog?: {time: string, val: number}[];
   energyLog?: {time: string, val: number}[];
   lightnessLog?: {time: string, val: number}[];
@@ -31,13 +30,12 @@ interface ScalesTabProps {
   todayCookedBookCount: number;
   todayTotalBookMenuCount: number;
   totalCookedBookRecipesCount: number;
-  handleRatingChange: (type: "zen" | "energy" | "lightness", val: number) => void;
+  handleRatingChange?: (type: "zen" | "energy" | "lightness", val: number) => void;
   annaAnalysisText?: string;
   recommendedAction?: NextStepRecommendation;
 }
 
 export default function ScalesTab({
-
   sleep,
   sleepPct,
   water,
@@ -51,22 +49,15 @@ export default function ScalesTab({
   habitsTarget,
   ratingEnergy,
   energyPct,
-  ratingWellbeing,
-  ratingLightness,
-  wellbeingLog = [],
-  energyLog = [],
-  lightnessLog = [],
   activityLogs = [],
   todayWaterEntries = [],
   currentDayIndex,
   todayCookedBookCount,
   todayTotalBookMenuCount,
   totalCookedBookRecipesCount,
-  handleRatingChange,
   annaAnalysisText,
   recommendedAction,
 }: ScalesTabProps) {
-  const [activeRating, setActiveRating] = React.useState<Record<string, number>>({});
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
@@ -281,106 +272,6 @@ export default function ScalesTab({
               </div>
             )}
           </div>
-        </div>
-      </div>
-
-      {/* Direct Health Adjustment Sliders */}
-      <div className="bg-gradient-to-r from-emerald-50/50 via-teal-50/10 to-sky-50/30 rounded-3xl p-5 border border-emerald-100/45 shadow-sm text-left">
-        <div className="flex items-center gap-2 mb-4">
-          <span className="text-[18px]">✨</span>
-          <span className="text-[13px] font-extrabold text-emerald-800 uppercase tracking-wider font-sans">
-            Настроить самооценку прямо сейчас
-          </span>
-        </div>
-
-        {/* Slider 1: Психологический дзен */}
-        <div className="mb-4">
-          <div className="flex justify-between items-center mb-1.5 text-[12.5px] font-bold text-slate-700 font-sans">
-            <span>🕊️ Психологический дзен</span>
-            <span className="font-mono text-[13px] text-emerald-650 font-extrabold">{ratingWellbeing} из 5</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            {[1, 2, 3, 4, 5].map((val) => (
-              <button
-                key={val}
-                type="button"
-                onClick={() => { setActiveRating(p => ({...p, zen: val})); handleRatingChange("zen", val); }}
-                className={`flex-1 py-1.5 font-sans font-bold text-[13px] rounded-xl border transition-all cursor-pointer ${
-                  activeRating["zen"] === val
-                    ? "bg-slate-850 border-slate-850 text-white shadow-xs font-extrabold"
-                    : "bg-white text-slate-600 border-slate-200/60 hover:bg-slate-50"
-                }`}
-              >
-                {val}
-              </button>
-            ))}
-          </div>
-          {wellbeingLog && wellbeingLog.length > 0 && (
-            <div className="mt-3 bg-white border border-slate-100 rounded-xl p-3 shadow-sm">
-              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">График состояния (Психологический дзен)</span>
-              <div className="flex items-end gap-2.5 h-16 overflow-x-auto no-scrollbar">
-                {wellbeingLog.map((log, i) => (
-                  <div key={i} className="flex flex-col items-center justify-end h-full gap-1 min-w-[28px]">
-                    <span className="text-[10px] font-black text-slate-700 leading-none">{log.val}</span>
-                    <div className="w-5 bg-slate-100 rounded-t-md relative flex items-end overflow-hidden" style={{ height: '40px' }}>
-                      <motion.div 
-                        initial={{ height: 0 }} 
-                        animate={{ height: `${(log.val / 5) * 100}%` }} 
-                        transition={{ duration: 0.6, ease: "easeOut" }}
-                        className="w-full bg-emerald-400 rounded-t-md" 
-                      />
-                    </div>
-                    <span className="text-[8px] text-slate-400 font-mono leading-none">{log.time}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Slider 3: Ощущение легкости */}
-        <div>
-          <div className="flex justify-between items-center mb-1.5 text-[12.5px] font-bold text-slate-700 font-sans">
-            <span>🍃 Ощущение лёгкости</span>
-            <span className="font-mono text-[13px] text-blue-650 font-extrabold">{ratingLightness} из 5</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            {[1, 2, 3, 4, 5].map((val) => (
-              <button
-                key={val}
-                type="button"
-                onClick={() => { setActiveRating(p => ({...p, lightness: val})); handleRatingChange("lightness", val); }}
-                className={`flex-1 py-1.5 font-sans font-bold text-[13px] rounded-xl border transition-all cursor-pointer ${
-                  activeRating["lightness"] === val
-                    ? "bg-teal-600 border-teal-650 text-white shadow-xs font-extrabold"
-                    : "bg-white text-slate-600 border-slate-200/60 hover:bg-slate-50"
-                }`}
-              >
-                {val}
-              </button>
-            ))}
-          </div>
-          {lightnessLog && lightnessLog.length > 0 && (
-            <div className="mt-3 bg-white border border-teal-50/50 rounded-xl p-3 shadow-sm">
-              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">График состояния (Ощущение лёгкости)</span>
-              <div className="flex items-end gap-2.5 h-16 overflow-x-auto no-scrollbar">
-                {lightnessLog.map((log, i) => (
-                  <div key={i} className="flex flex-col items-center justify-end h-full gap-1 min-w-[28px]">
-                    <span className="text-[10px] font-black text-teal-600 leading-none">{log.val}</span>
-                    <div className="w-5 bg-teal-50 rounded-t-md relative flex items-end overflow-hidden" style={{ height: '40px' }}>
-                      <motion.div 
-                        initial={{ height: 0 }} 
-                        animate={{ height: `${(log.val / 5) * 100}%` }} 
-                        transition={{ duration: 0.6, ease: "easeOut" }}
-                        className="w-full bg-teal-400 rounded-t-md" 
-                      />
-                    </div>
-                    <span className="text-[8px] text-slate-400 font-mono leading-none">{log.time}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       </div>
 
