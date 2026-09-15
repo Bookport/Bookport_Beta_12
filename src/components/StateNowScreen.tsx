@@ -25,7 +25,6 @@ import KbjuTab from "./statenow/KbjuTab";
 import MicroTab from "./statenow/MicroTab";
 import CompositionTab from "./statenow/CompositionTab";
 import DynamicsTab from "./statenow/DynamicsTab";
-import { resolveAvatarForTab, resolveGeneralAvatar } from "../utils/annaAvatarResolver";
 import { api } from "../utils/api";
 import { getBookMacros } from "../utils/bookMacros";
 import { getRecipeImagePath } from "../utils/recipeImageMapper";
@@ -96,12 +95,6 @@ export default function StateNowScreen({
   const [showNotification, setShowNotification] = useState(false);
   const [notificationMsg, setNotificationMsg] = useState("");
   const [activeTab, setActiveTab] = useState<"balance" | "scales" | "kbju" | "micro" | "composition" | "dynamics">("balance");
-
-  // Anna Assistant Dialog Overlay states
-  const [showAnnaOverlay, setShowAnnaOverlay] = useState(false);
-  const [annaSelectedQuestion, setAnnaSelectedQuestion] = useState<string | null>(null);
-  const [annaOverlayAnswer, setAnnaOverlayAnswer] = useState<string>("");
-  const [isAnnaThinking, setIsAnnaThinking] = useState(false);
 
   const neutralizationNoted = useRef(false);
 
@@ -436,7 +429,6 @@ export default function StateNowScreen({
     (todayDrink ? 1 : 0);
 
   const todayCookedBookCount = cookedBookDishes.length;
-
 
   // Perform daily macro and micro aggregation via the central unified DailyNutritionStore
   const dbData = DailyNutritionStore.getDailyNutrition(
@@ -833,163 +825,6 @@ export default function StateNowScreen({
   const getDisplayedAnalysis = (tabId: string) => {
     if (savedAnnaText && isReadOnly) return savedAnnaText;
     return getAnnaAnalysisForTab(tabId);
-  };
-
-  const getTabRussianName = (tabId: string) => {
-    switch (tabId) {
-      case "balance": return "Баланс";
-      case "scales": return "Шкалы";
-      case "kbju": return "КБЖУ";
-      case "micro": return "Микро";
-      case "composition": return "Состав";
-      case "dynamics": return "Динамика";
-      default: return "";
-    }
-  };
-
-  const getAnnaQuestionsForTab = (tabId: string) => {
-    const defaultQ = [
-      { key: "why_next_step", label: "Почему выбран этот следующий шаг?" },
-      { key: "general_analysis", label: "О чем говорят показатели этой вкладки?" },
-    ];
-    switch (tabId) {
-      case "balance":
-        return [
-          { key: "balance_why", label: "Почему у меня именно такой баланс?" },
-          { key: "why_next_step", label: "Почему рекомендован этот следующий шаг?" },
-          { key: "balance_water_zen", label: "Как связаны вода и мой психосоматический дзен?" }
-        ];
-      case "scales":
-        return [
-          { key: "scales_trouble", label: "Что у меня здесь сильнее всего проседает?" },
-          { key: "scales_pulse", label: "Что означает процент клеточного импульса?" },
-          { key: "why_next_step", label: "Зачем мне этот рекомендуемый следующий шаг?" }
-        ];
-      case "kbju":
-        return [
-          { key: "kbju_fiber", label: "Хватает ли мне сейчас клетчатки?" },
-          { key: "kbju_macros", label: "Сбалансированы ли мои белки и жиры?" },
-          { key: "why_next_step", label: "Как следующий шаг повлияет на КБЖУ?" }
-        ];
-      case "micro":
-        return [
-          { key: "micro_leaders", label: "Какие микроэлементы у меня сегодня в лидерах?" },
-          { key: "micro_zeros", label: "Что делать с нулевыми показателями на шкале?" },
-          { key: "micro_vaso", label: "Как калий и магний укрепляют сосуды?" }
-        ];
-      case "composition":
-        return [
-          { key: "comp_factors", label: "Какие ингредиенты больше всего формируют мой день?" },
-          { key: "comp_microbiome", label: "Как этот сырьевой состав кормит микробиоту?" },
-          { key: "comp_diversity", label: "Как мне повысить сортовое WFPB-разнообразие завтра?" }
-        ];
-      case "dynamics":
-        return [
-          { key: "dyn_rhythm", label: "О чем говорит динамика моих действий?" },
-          { key: "dyn_energy", label: "Как связан уровень энергии и съеденные блюда?" },
-          { key: "dyn_future", label: "Как закрепить стабильный результат на будущее?" }
-        ];
-      default:
-        return defaultQ;
-    }
-  };
-
-  const handleSelectQuestion = (qKey: string) => {
-    setAnnaSelectedQuestion(qKey);
-    setIsAnnaThinking(true);
-    
-    setTimeout(() => {
-      setIsAnnaThinking(false);
-      let answer = "";
-      
-      const greeting = effUserName ? `${effUserName}, ` : "";
-      
-      if (qKey === "why_next_step") {
-        answer = `${greeting}система предложила тебе шаг **«${recommendedAction.title}»** (${recommendedAction.desc}) по очень конкретной причине:\n\n${recommendedAction.reasoning}\n\nЯ абсолютно поддерживаю этот выбор, так как он точечно закрывает дефицит ресурсов твоего организма прямо сейчас!`;
-      } else if (qKey === "general_analysis") {
-        answer = getDisplayedAnalysis(activeTab);
-      }
-      
-      // Balance tab detailed
-      else if (qKey === "balance_why") {
-        answer = `${greeting}твой интегральный баланс равен **${integralScore}%**. Этот показатель отражает общую картину дня. Он складывается на 20% из воды (${waterPct}%), на 20% из сна (${sleepPct}%), на 20% из питания (${mealsPct}%), на 15% из активности (${habitsPct}%) и 25% из твоего ментального и физического самочувствия.\n\nКаждая из этих зон важна, поэтому высокий индекс — это показатель твоей бережной заботы о здоровье.`;
-      } else if (qKey === "balance_water_zen") {
-        answer = `Связь воды и психосоматики огромна. Когда гидратация клеток падает (${waterPct}%), кровь сгущается, снижается доставка кислорода в структуры мозга, что воспринимается корой как сигнал тревоги. Стабильный водный баланс убирает этот базовый тканевый стресс, помогая твоему дзень-состоянию зафиксироваться на отметке ${effRatingWellbeing}/5!`;
-      }
-      
-      // Scales tab detailed
-      else if (qKey === "scales_trouble") {
-        const items = [
-          { name: "Водный баланс", val: waterPct, d: "выпить 250 мл чистой теплой воды" },
-          { name: "Восстановительный сон", val: sleepPct, d: "постараться уснуть до 23:00" },
-          { name: "Растительный рацион", val: mealsPct, d: "записать ужин или перекус" },
-          { name: "Клеточный импульс (активность)", val: habitsPct, d: "сделать легкую разминку или прогулку" }
-        ].sort((a, b) => a.val - b.val);
-        
-        const lowest = items[0];
-        if (lowest.val === 100) {
-          answer = `${greeting}у тебя идеальные шкалы! Все показатели на 100%. Ты сегодня настоящий WFPB-чемпион, продолжай в том же духе!`;
-        } else {
-          answer = `Сейчас сильнее всего провисает **${lowest.name}** (${lowest.val}%). Я рекомендую сосредоточиться на этом дефиците — например, ${lowest.d}, чтобы мгновенно выровнять интегральный индекс здоровья.`;
-        }
-      } else if (qKey === "scales_pulse") {
-        answer = `Клеточный импульс равен **${habitsPct}%**. Это уровень выполнения твоих намеченных привычек за сегодня (${effHabitsDone}/${habitsTarget}). В WFPB-программе физическая активность — это не просто калории, а способ активировать лимфодренаж и тонус сосудистого русла. Каждый пройденный шаг бережет твои вены!`;
-      }
-      
-      // KBJU tab detailed
-      else if (qKey === "kbju_fiber") {
-        if (totalFiber === 0) {
-          answer = `Сегодня клетчатка равна 0 г. Это серьезный сигнал! Пищевые волокна — единственная пища для симбионтной микробиоты кишечника. Постарайся добавить в ближайший приём пищи немного бобовых, шпината или ягод.`;
-        } else if (totalFiber < 25) {
-          answer = `Сейчас у нас зафиксировано **${totalFiber} г клетчатки** (при целевой норме 35 г). Это хорошая база, но её можно улучшить. Волокна — это естественный фильтр, который замедляет всасывание сахаров и не допускает инсулиновых скачков. Предлагаю добавить горсть миндаля или порцию брокколи!`;
-        } else {
-          answer = `У тебя блестящий уровень клетчатки — **${totalFiber} г**! Это прекрасный терапевтический объём. Твоя микрофлора ликует, а сосуды и кишечник работают на полную мощность. Горжусь тобой!`;
-        }
-      } else if (qKey === "kbju_macros") {
-        answer = `Твои белки составляют **${totalProtein} г**, а жиры — **${totalFat} г**. В цельном растительном питании мы избегаем тяжелых насыщенных жиров и концентрированных белков, чтобы уберечь сосуды от холестериновых бляшек. То точечное количество липидов и аминокислот, которое есть сегодня, является идеальным строительным материалом.`;
-      }
-      
-      // Micro tab detailed
-      else if (qKey === "micro_leaders") {
-        const items = [
-          { name: "Витамин C", val: dayVitC },
-          { name: "Витамин A", val: dayVitA },
-          { name: "Калий", val: dayPotassium },
-          { name: "Магний", val: dayMagnesium }
-        ].sort((a, b) => b.val - a.val);
-        const leader = items[0];
-        answer = `Сегодняшним абсолютным лидером выступает **${leader.name}** — его уровень составляет **${Math.round(leader.val)}%** от суточной нормы! Это создает мощный антиоксидантный барьер для твоих сосудов и снимает микровоспаления.`;
-      } else if (qKey === "micro_zeros") {
-        answer = `Видеть 0% по отдельным витаминам — это нормально, особенно если мы пока не подтвердили все блюда. Накопление нутриентов имеет накопительный эффект. Главное ловить кумулятивный результат по курсу, а система своевременно подскажет, что добавить в тарелку. Нулевой показатель — это не диагноз, а точка роста!`;
-      } else if (qKey === "micro_vaso") {
-        answer = `Калий (${dayPotassium}%) и магний (${dayMagnesium}%) — это главные защитники твоих почек и сердца. Калий регулирует водно-солевой баланс клеток, выводя лишнюю поваренную соль, а магний защищает сосудистую стенку от спазмов. С ними твоё давление будет оставаться абсолютно стабильным.`;
-      }
-      
-      // Composition tab detailed
-      else if (qKey === "comp_factors") {
-        if (aggregatedIngredients.length === 0) {
-          answer = `Сейчас сырьевых данных пока нет. Добавь приготовленные блюда из нашей книги курса, и мы сразу увидим твоих растительных фаворитов!`;
-        } else {
-          const names = aggregatedIngredients.slice(0, 3).map(i => i.name.toLowerCase()).join(", ");
-          answer = `Твой день сегодня больше всего формируют: **${names}**. Эти сырые цельные продукты богаты полифенолами и флавоноидами, которые защищают кровеносные капилляры от микровоспалений и улучшают венозный отток.`;
-        }
-      } else if (qKey === "comp_microbiome") {
-        answer = `Наша микробиота питается сырыми сложными углеводами. Чем шире твое сортовое разнообразие растительного сырья, тем сильнее популяция лакто- и бифидобактерий, подавляющих гнилостную флору. Это напрямую укрепляет кишечный барьер и гасит системный психосоматический стресс.`;
-      } else if (qKey === "comp_diversity") {
-        answer = `Чтобы завтра расширить видовое разнообразие, сыграй в игру «Радуга в тарелке». Попробуй добавить хотя бы 2 новых цвета: например, фиолетовую капусту или горсть оранжевой моркови, либо добавь столовую ложку семян чиа!`;
-      }
-      
-      // Dynamics tab detailed
-      else if (qKey === "dyn_rhythm") {
-        answer = `Твой день выстроен отлично! Ритмичный подъем в 08:00, правильная гидратация по графику и порционные приёмы пищи создают для тела комфортную предсказуемую среду. Это исключает выработку кортизола, поддерживая твои сосуды расслабленными.`;
-      } else if (qKey === "dyn_energy") {
-        answer = `Твой уровень энергии находится на уровне **${effRatingEnergy}/5**. Это прямое следствие употребления сложных углеводов, которые расщепляются медленно и плавно под занавесом клетчатки. Никаких «гликемических качелей» и слабости после еды, только чистая митохондриальная энергия!`;
-      } else if (qKey === "dyn_future") {
-        answer = `Секрет стабильности — в мелких шагах без героизма и насилия над собой. Приготовь одно вкусное блюдо, сделай несколько теплых глотков воды, пройдись 10 минут перед сном. Именно эти приятные ритуалы формируют долговечный биологический фундамент твоего здоровья.`;
-      }
-      
-      setAnnaOverlayAnswer(answer);
-    }, 1200);
   };
 
   const waterLogData = (() => {
@@ -1472,30 +1307,6 @@ export default function StateNowScreen({
 
       </div>
 
-      {/* Interactive Floating Anna Trigger button */}
-      <div className="absolute bottom-24 right-5 z-[50] font-sans">
-        <motion.button
-          whileHover={{ scale: 1.08 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={() => {
-            setShowAnnaOverlay(true);
-            setAnnaSelectedQuestion(null);
-            setAnnaOverlayAnswer(`Привет! Я рада помочь тебе разобраться во вкладке "${getTabRussianName(activeTab)}". Выбери вопрос ниже, чтобы я провела глубокий анализ твоих показателей...`);
-          }}
-          className="w-14 h-14 rounded-full bg-gradient-to-tr from-[#10B981] to-[#34D399] text-white flex items-center justify-center shadow-[0_8px_32px_rgba(16,185,129,0.35)] border-2 border-white/80 cursor-pointer relative group transition-all"
-        >
-          <img 
-            src={resolveGeneralAvatar().src}
-            alt="Куратор Анна" 
-            className="w-12 h-12 rounded-full object-cover border border-transparent"
-            referrerPolicy="no-referrer"
-          />
-          <span className="absolute -top-1 -right-1 w-5 h-5 bg-emerald-500 rounded-full border border-white flex items-center justify-center text-[10px] animate-pulse">
-            💬
-          </span>
-        </motion.button>
-      </div>
-
       {/* FIXED FOOTER NAV PANEL - Remains part of screen layout and moves with the app */}
       <div className="absolute bottom-0 left-0 right-0 z-30 font-sans">
         <BottomBar 
@@ -1506,124 +1317,6 @@ export default function StateNowScreen({
           activeTab="my-day"
         />
       </div>
-
-      {/* 6. COZY REAL-TIME INTERACTIVE ANNA DIALOG OVERLAY / BOTTOM SHEET */}
-      <AnimatePresence>
-        {showAnnaOverlay && (
-          <div className="fixed inset-0 z-[100] font-sans flex items-end justify-center">
-            {/* Backdrop opacity */}
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 0.5 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowAnnaOverlay(false)}
-              className="absolute inset-0 bg-slate-900/45 backdrop-blur-[2px]"
-            />
-
-            {/* Content card sliding up */}
-            <motion.div 
-              initial={{ y: "100%" }}
-              animate={{ y: 0 }}
-              exit={{ y: "100%" }}
-              transition={{ type: "spring", damping: 25, stiffness: 220 }}
-              className="relative w-full max-w-lg bg-white rounded-t-[36px] shadow-[0_-16px_36px_rgba(15,23,42,0.15)] border-t border-slate-100 p-6 flex flex-col text-left max-h-[85vh] overflow-y-auto z-50"
-            >
-              {/* Handle bar decoration */}
-              <div className="w-12 h-1.5 bg-slate-250 rounded-full mx-auto mb-4 shrink-0" />
-
-              {/* Header block info */}
-              <div className="flex items-center justify-between mb-5 select-none pb-3 border-b border-fold slate-100 shrink-0">
-                <div className="flex items-center gap-3 text-left">
-                  <div className="relative">
-                    <div className="w-[48px] h-[48px] rounded-full p-[2.5px] bg-gradient-to-tr from-[#34D399] to-[#10B981] shadow-sm">
-                      <img 
-                        src={resolveGeneralAvatar().src}
-                        alt="Куратор Анна" 
-                        className="w-full h-full rounded-full object-cover border border-white"
-                        referrerPolicy="no-referrer"
-                      />
-                    </div>
-                    <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-emerald-500 border-2 border-white" />
-                  </div>
-                  <div className="text-left font-sans flex flex-col justify-center">
-                    <h4 className="text-[16px] font-black text-slate-800 leading-none">Анна</h4>
-                    <span className="text-[11px] font-bold text-slate-400 block mt-0.5 leading-none">
-                      Советник WFPB
-                    </span>
-                  </div>
-                </div>
-
-                <button 
-                  onClick={() => setShowAnnaOverlay(false)}
-                  className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 transition-colors flex items-center justify-center text-slate-500 hover:text-slate-800 font-extrabold cursor-pointer border-none"
-                >
-                  ✕
-                </button>
-              </div>
-
-              {/* Conversation Area */}
-              <div className="flex-1 space-y-4 mb-6">
-                
-                {/* Recommended Next Step Sticky Label */}
-                <div className="p-3.5 bg-amber-50/70 border border-amber-100/80 rounded-2xl flex items-center gap-2.5 text-left text-[12px] text-amber-950 font-bold leading-normal">
-                  <div className="w-7 h-7 rounded-lg bg-white shadow-sm flex items-center justify-center text-[15px] border border-amber-100 shrink-0">
-                    {recommendedAction.icon}
-                  </div>
-                  <div>
-                    <span className="text-[9px] font-extrabold text-amber-800 tracking-wider block uppercase font-mono mb-0.5">РЕКОМЕНДОВАННЫЙ ШАГ СИСТЕМЫ</span>
-                    {recommendedAction.title}
-                  </div>
-                </div>
-
-                {/* Speech container */}
-                <div className="bg-[#FAFBFB] border border-slate-100 rounded-3xl p-5 min-h-[140px] relative">
-                  {isAnnaThinking ? (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
-                      <div className="flex gap-1.5 justify-center items-center">
-                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-bounce [animation-delay:-0.3s]" />
-                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-bounce [animation-delay:-0.15s]" />
-                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-bounce" />
-                      </div>
-                      <span className="text-[10.5px] font-bold text-slate-400 uppercase tracking-widest font-mono">Анна анализирует показатели...</span>
-                    </div>
-                  ) : (
-                    <p className="text-[13px] text-slate-700 font-medium leading-relaxed whitespace-pre-wrap text-left">
-                      {annaOverlayAnswer}
-                    </p>
-                  )}
-                </div>
-
-              </div>
-
-              {/* Question list drawer bottom */}
-              <div className="shrink-0 mb-2">
-                <h5 className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mb-3 text-left leading-none">
-                  ЗАДАТЬ ВОПРОС ОБ ЭТОЙ ВКЛАДКЕ:
-                </h5>
-                
-                <div className="flex flex-col gap-2">
-                  {getAnnaQuestionsForTab(activeTab).map((q) => (
-                    <button
-                      key={q.key}
-                      onClick={() => handleSelectQuestion(q.key)}
-                      disabled={isAnnaThinking}
-                      className={`w-full text-left p-3.5 rounded-2xl text-[12.5px] font-bold border transition-all flex items-center justify-between text-slate-700 hover:text-slate-900 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
-                        annaSelectedQuestion === q.key 
-                          ? "bg-emerald-50/50 border-emerald-300 text-emerald-950 font-black scale-[1.01]"
-                          : "bg-white border-slate-100 hover:border-slate-200 hover:bg-slate-50/30"
-                      }`}
-                    >
-                      <span className="flex-1 pr-2">{q.label}</span>
-                      <span className="text-emerald-500 text-[10px] shrink-0 font-extrabold select-none">💬</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
 
     </div>
   );
