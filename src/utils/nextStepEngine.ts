@@ -25,6 +25,7 @@ export interface NextStepInput {
   lastWaterTimestamp?: number;
   todayWaterEntries?: { amount: number; timestamp: number }[];
   activityMinutes?: number;
+  timeZone?: string;
 }
 
 export interface NextStepRecommendation {
@@ -89,10 +90,28 @@ export function getRecommendedNextStep(input: NextStepInput): NextStepRecommenda
   const activeWindowMin = WATER_ACTIVE_WINDOW_MIN    // 840 мин (08:00–22:00)
   const activeEndMin = activeStartMin + activeWindowMin
 
-  const currentHour = new Date().getHours()
-  const currentMinute = new Date().getMinutes()
-  const nowMinutes = currentHour * 60 + currentMinute
-  const awakeMinutesToday = Math.max(1, Math.min(nowMinutes - activeStartMin, activeWindowMin))
+  let currentHour = new Date().getHours();
+  let currentMinute = new Date().getMinutes();
+  if (input.timeZone) {
+    try {
+      const timeParts = new Intl.DateTimeFormat("en-US", {
+        timeZone: input.timeZone,
+        hour: "numeric",
+        minute: "numeric",
+        hour12: false,
+      }).formatToParts(new Date());
+      const h = Number(timeParts.find(p => p.type === "hour")?.value);
+      const m = Number(timeParts.find(p => p.type === "minute")?.value);
+      if (!Number.isNaN(h) && !Number.isNaN(m)) {
+        currentHour = h === 24 ? 0 : h;
+        currentMinute = m;
+      }
+    } catch {
+      // fallback to local browser time
+    }
+  }
+  const nowMinutes = currentHour * 60 + currentMinute;
+  const awakeMinutesToday = Math.max(0, Math.min(nowMinutes - activeStartMin, activeWindowMin))
   const remainingMinutes = Math.max(0, activeEndMin - nowMinutes)
 
   const hoursSinceLastDrink = (() => {
