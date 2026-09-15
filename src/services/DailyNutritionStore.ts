@@ -341,19 +341,18 @@ function parseStrictWeightGrams(weightStr: unknown): number | null {
     return out;
   };
 
-  // 1) Граммы: число + "г", НО не "кг" и не "мг" (перед 'г' идёт другая буква единицы).
-  //    \s* допускает пробел между числом и единицей. Ведущий минус отсекается toNum (n > 0).
-  const gramValues = collect(/(-?\d+(?:[.,]\d+)?)\s*г/g);
+  // 1) Килограммы: число + "кг"/"kg" — проверяем ДО граммов, чтобы "кг" не захватилось как "г".
+  const kgValues = collect(/(-?\d+[\d.,]*)\s*(?:кг|kg)/gi);
+  if (kgValues.length === 1) return kgValues[0] * 1000;
+  if (kgValues.length > 1) return null;
+
+  // 2) Граммы: число + "г", но не "кг"/"мг" — защита от ложного захвата "г" из "кг" (negative lookahead).
+  const gramValues = collect(/(-?\d+[\d.,]*)\s*г(?![а-яa-z])/gi);
   if (gramValues.length === 1) return gramValues[0];
   if (gramValues.length > 1) {
     // Несколько граммовых значений — однозначно определить вес ингредиента нельзя.
     return null;
   }
-
-  // 2) Килограммы: число + "кг"/"kg".
-  const kgValues = collect(/(-?\d+(?:[.,]\d+)?)\s*(?:кг|kg)/g);
-  if (kgValues.length === 1) return kgValues[0] * 1000;
-  if (kgValues.length > 1) return null;
 
   // 3) Любая другая единица без явных граммов/килограммов — веса не даёт.
   return null;
