@@ -1213,7 +1213,6 @@ export default function StateNowScreen({
               recommendedAction={recommendedAction}
               triggerNotification={triggerNotification}
               onBack={onBack}
-              setWater={setWater}
               setScreen={setScreenFn}
             />
           )}
