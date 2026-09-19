@@ -1842,18 +1842,31 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
         }
       } else {
         // Rollover: advance +1 only on the first server-confirmed entry into a new
-        // local day (no catch-up of skipped days).
-        const desired = (user.currentDayIndex || 1) + 1;
-        const applied = await prisma.user.updateMany({
-          where: { id: req.userId, OR: [{ lastActiveDate: null }, { lastActiveDate: { lt: todayDate } }] },
-          data: { currentDayIndex: desired, lastActiveDate: todayDate },
-        });
-        if (applied.count === 0) {
-          // Same local day or a concurrent init already advanced the day — re-read
-          // the authoritative stored values, never increment twice.
-          user = (await prisma.user.findUnique({ where: { id: req.userId } }))!;
+        // local day (no catch-up of skipped days). Clamp at 29 (graduation).
+        const currentIdx = user.currentDayIndex || 1;
+        if (currentIdx >= 29) {
+          const applied = await prisma.user.updateMany({
+            where: { id: req.userId, OR: [{ lastActiveDate: null }, { lastActiveDate: { lt: todayDate } }] },
+            data: { lastActiveDate: todayDate },
+          });
+          if (applied.count === 0) {
+            user = (await prisma.user.findUnique({ where: { id: req.userId } }))!;
+          } else {
+            user = { ...user, lastActiveDate: todayDate } as typeof user;
+          }
         } else {
-          user = { ...user, currentDayIndex: desired, lastActiveDate: todayDate } as typeof user;
+          const desired = Math.min(currentIdx + 1, 29);
+          const applied = await prisma.user.updateMany({
+            where: { id: req.userId, OR: [{ lastActiveDate: null }, { lastActiveDate: { lt: todayDate } }] },
+            data: { currentDayIndex: desired, lastActiveDate: todayDate },
+          });
+          if (applied.count === 0) {
+            // Same local day or a concurrent init already advanced the day — re-read
+            // the authoritative stored values, never increment twice.
+            user = (await prisma.user.findUnique({ where: { id: req.userId } }))!;
+          } else {
+            user = { ...user, currentDayIndex: desired, lastActiveDate: todayDate } as typeof user;
+          }
         }
       }
 
@@ -1884,6 +1897,103 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
       });
     } catch (err: any) {
       console.error("[Init] error:", err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ── Graduation: GET /api/user/graduation ──
+  app.get("/api/user/graduation", async (req, res) => {
+    if (!req.userId) return res.status(400).json({ error: "Missing device ID" });
+    try {
+      const user = await prisma.user.findUnique({ where: { id: req.userId } });
+      if (!user) return res.status(404).json({ error: "User not found" });
+
+      const rawCycle = req.query.cycleNumber as string | undefined;
+      const parsedCycle = rawCycle ? parseInt(rawCycle, 10) : NaN;
+      const courseCycle = Number.isFinite(parsedCycle) && parsedCycle > 0 ? parsedCycle : ((user as any).cycleNumber || 1);
+
+      const [dailyMetrics, recipeProgress, savedDishes] = await Promise.all([
+        prisma.dailyMetric.findMany({ where: { userId: req.userId, cycleNumber: courseCycle } }),
+        prisma.recipeProgress.findMany({ where: { userId: req.userId, cycleNumber: courseCycle, status: "cooked" } }),
+        prisma.savedDish.findMany({ where: { userId: req.userId, cycleNumber: courseCycle } }),
+      ]);
+
+      const totalWaterLiters = dailyMetrics.reduce((sum, m) => sum + (m.waterMl || 0), 0) / 1000;
+
+      const cookedOutOf166 = recipeProgress.length;
+
+      const totalFiberKg =
+        savedDishes.reduce((sum, d: any) => {
+          const raw = d.fiber;
+          if (raw == null || raw === "") return sum;
+          const val = typeof raw === "number" ? raw : parseFloat(String(raw).replace(",", "."));
+          return sum + (Number.isFinite(val) ? val : 0);
+        }, 0) / 1000;
+
+      const sortedAsc = [...dailyMetrics].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      const sortedDesc = [...sortedAsc].reverse();
+
+      const lastWeight = sortedDesc.find((m) => typeof m.weight === "number" && m.weight != null)?.weight ?? (user.weight as number | null) ?? null;
+      const firstWeight = (user.initialWeight as number | null) ?? sortedAsc.find((m) => typeof m.weight === "number" && m.weight != null)?.weight ?? null;
+      const weightDelta = lastWeight != null && firstWeight != null ? lastWeight - firstWeight : null;
+
+      const lastSystolic = sortedDesc.find((m) => typeof m.systolic === "number" && m.systolic != null)?.systolic ?? (user.systolic as number | null) ?? null;
+      const firstSystolic = (user.initialSystolic as number | null) ?? sortedAsc.find((m) => typeof m.systolic === "number" && m.systolic != null)?.systolic ?? null;
+      const systolicDelta = lastSystolic != null && firstSystolic != null ? lastSystolic - firstSystolic : null;
+
+      res.json({
+        courseCycle,
+        totalWaterLiters,
+        cookedOutOf166,
+        totalFiberKg,
+        weightDelta,
+        systolicDelta,
+      });
+    } catch (err: any) {
+      console.error("[Graduation] error:", err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ── Restart Course: POST /api/user/restart-course ──
+  app.post("/api/user/restart-course", async (req, res) => {
+    if (!req.userId) return res.status(400).json({ error: "Missing device ID" });
+    try {
+      // withAI is optional, currently no AI side-effects, kept for forward compatibility
+      const { withAI } = req.body || {};
+
+      let user = await prisma.user.findUnique({ where: { id: req.userId } });
+      if (!user) return res.status(404).json({ error: "User not found" });
+
+      const tz = user.timeZone || DEFAULT_TIMEZONE;
+      const todayStr = todayLocalDate(tz);
+      const todayDate = toDateOnly(todayStr);
+
+      const updated = await prisma.$transaction(async (tx) => {
+        const currentCycle = ((user as any).cycleNumber || 1) as number;
+        const newCycle = currentCycle + 1;
+        return tx.user.update({
+          where: { id: req.userId! },
+          data: {
+            cycleNumber: newCycle,
+            currentDayIndex: 1,
+            courseStartDate: todayDate,
+            lastActiveDate: todayDate,
+          },
+        });
+      });
+
+      // withAI flag currently does not trigger extra logic; keep deterministic response
+      void withAI;
+
+      res.json({
+        success: true,
+        currentDayIndex: 1,
+        courseCycle: (updated as any).cycleNumber,
+        courseStartDate: todayDate.toISOString(),
+      });
+    } catch (err: any) {
+      console.error("[RestartCourse] error:", err.message);
       res.status(500).json({ error: err.message });
     }
   });

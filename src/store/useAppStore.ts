@@ -22,7 +22,7 @@ export type Screen =
   | "digestion" | "my-day" | "habits-twenty" | "what-i-eat"
   | "check-composition" | "dish-analysis" | "my-dishes"
   | "from-what-is" | "book-recipes" | "purchases" | "diary"
-  | "anna" | "state-now" | "settings" | "rewards" | "club";
+  | "anna" | "state-now" | "settings" | "rewards" | "club" | "graduation";
 
 export interface UserProfile {
   name?: string;

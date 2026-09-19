@@ -29,6 +29,7 @@ model User {
   healthGoals               String?
   courseStartDate           DateTime?
   currentDayIndex           Int       @default(1)
+  cycleNumber               Int       @default(1)
   lastActiveDate            DateTime?
   lastAchievementUnlockedAt DateTime?
 
@@ -96,8 +97,9 @@ model DailyMetric {
   id       String   @id @default(uuid())
   userId   String
   user     User     @relation(fields: [userId], references: [id])
-  date     DateTime @default(now())
-  dayIndex Int
+  date        DateTime @default(now())
+  dayIndex    Int
+  cycleNumber Int      @default(1)
 
   waterMl         Int     @default(0)
   sleepMinutes    Int     @default(0)
@@ -121,6 +123,7 @@ model DailyMetric {
   digestionLogs DigestionLog[]
 
   @@unique([userId, date])
+  @@index([userId, cycleNumber])
 }
 
 model DigestionLog {
@@ -153,6 +156,7 @@ model DailyRating {
   /// Contract: local course day index within 1..28 (see `dayIndexBetween` in src/shared/dates.ts).
   /// Day-only `DateTime` values MUST be written via the shared helper `toDateOnly()`.
   dayIndex     Int?
+  cycleNumber  Int      @default(1)
   wellbeing    Int
   energy       Int
   lightness    Int
@@ -161,6 +165,7 @@ model DailyRating {
   lightnessLog String?
 
   @@unique([userId, date])
+  @@index([userId, cycleNumber])
 }
 
 model BookRecipe {
@@ -190,10 +195,12 @@ model RecipeProgress {
   note           String?
   tags           String?
   dayIndex       Int?
-  createdAt      DateTime   @default(now())
-  updatedAt      DateTime   @updatedAt
+  cycleNumber    Int      @default(1)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   @@unique([userId, bookRecipeType, bookRecipeId])
+  @@index([userId, cycleNumber])
 }
 
 model SavedDish {
@@ -207,6 +214,7 @@ model SavedDish {
   createdAt  DateTime @default(now())
   isFavorite Boolean  @default(false)
   dayIndex   Int?
+  cycleNumber Int      @default(1)
 
   isBookRecipe   Boolean @default(false)
   bookRecipeType String?
@@ -284,20 +292,25 @@ model SavedDish {
   glycine           Float  @default(0)
   proline           Float  @default(0)
   serine            Float  @default(0)
+
+  @@index([userId, cycleNumber])
 }
 
 model DiaryEntry {
   id        String   @id @default(uuid())
   userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  dayIndex  Int
-  createdAt DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id])
+  dayIndex    Int
+  cycleNumber Int      @default(1)
+  createdAt   DateTime @default(now())
 
   note  String?
   mood  String?
   photo String?
   tags  String?
   time  String?
+
+  @@index([userId, cycleNumber])
 }
 
 model DiaryHiddenTimelineEvent {
@@ -336,14 +349,17 @@ model Purchase {
 }
 
 model AnnaChat {
-  id        String   @id @default(uuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  message   String
-  reply     String?
-  screen    String?
-  dayIndex  Int?
-  createdAt DateTime @default(now())
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  message     String
+  reply       String?
+  screen      String?
+  dayIndex    Int?
+  cycleNumber Int      @default(1)
+  createdAt   DateTime @default(now())
+
+  @@index([userId, cycleNumber])
 }
 
 model AnnaOverlayMessage {

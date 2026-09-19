@@ -44,6 +44,7 @@ import FromWhatIsScreen from "./components/FromWhatIsScreen";
 import BookRecipesScreen from "./components/BookRecipesScreen";
 import MyPurchasesScreen from "./components/MyPurchasesScreen";
 import MyDiaryScreen from "./components/MyDiaryScreen";
+import GraduationScreen from "./components/GraduationScreen";
 import { HabitsState } from "./types";
 import AnnaScreen from "./components/AnnaScreen";
 import StateNowScreen from "./components/StateNowScreen";
@@ -489,9 +490,32 @@ export default function App() {
 
   const [currentDayIndex, setCurrentDayIndex] = useState<number>(1);
   const [viewingDayIndex, setViewingDayIndex] = useState<number | null>(null);
+  const [graduationData, setGraduationData] = useState<{
+    totalWaterLiters: number;
+    cookedOutOf166: number;
+    totalFiberKg: number;
+    weightDelta: number | null;
+    systolicDelta: number | null;
+  } | null>(null);
 
   const activeDayIndex = viewingDayIndex ?? Math.min(currentDayIndex, 28);
   const isReadOnly = (viewingDayIndex !== null && viewingDayIndex < currentDayIndex) || currentDayIndex >= 29;
+
+  const handleRestartCourse = async (withAI: boolean) => {
+    try {
+      const res = await api<any>("/api/user/restart-course", {
+        method: "POST",
+        body: { withAI },
+      });
+      setCurrentDayIndex(1);
+      setViewingDayIndex(null);
+      initFromISOString(res.courseStartDate);
+      setGraduationData(null);
+      useAppStore.getState().setScreen("my-day");
+    } catch (err) {
+      console.error("[RestartCourse] error:", err);
+    }
+  };
 
   const [dayNotes, setDayNotes] = useState<Record<number, { text: string; time: string; [key: string]: any }[]>>({});
   const isCalendarOpen = useAppStore((s) => s.isCalendarOpen);
@@ -539,6 +563,16 @@ export default function App() {
         setCurrentDayIndex(initData.currentDayIndex);
         initFromISOString(initData.courseStartDate);
 
+        if (initData.isCourseCompleted || initData.currentDayIndex >= 29) {
+          try {
+            const grad = await api<any>("/api/user/graduation");
+            setGraduationData(grad);
+          } catch (e) {
+            console.warn("[Init] graduation load failed:", e);
+          }
+          useAppStore.getState().setScreen("graduation");
+        }
+
         const data = await api<any>("/api/user/data");
         setUserTimeZone(data.profile?.timeZone);
         console.log("[Init] profile:", data.profile?.name || "—", "dishes:", data.savedDishes?.length, "diary:", data.diary?.length, "progress:", data.recipeProgress?.length);
@@ -548,7 +582,7 @@ export default function App() {
           achievementEngine.setUnlockedIds(data.unlockedAchievementIds)
         }
 
-        if (data.profile?.hasSavedSettings) {
+        if (data.profile?.hasSavedSettings && !(initData.isCourseCompleted || initData.currentDayIndex >= 29)) {
           useAppStore.getState().setScreen("my-day");
         }
 
@@ -1538,6 +1572,26 @@ export default function App() {
               className="flex-1 flex flex-col"
             >
               <ClubScreen onBack={() => setScreen("my-day")} />
+            </motion.div>
+          ) : screen === "graduation" ? (
+            <motion.div
+              key="graduation-view"
+              initial={{ opacity: 0, x: 10 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -10 }}
+              transition={{ duration: 0.4 }}
+              className="flex-1 flex flex-col"
+            >
+              <GraduationScreen
+                userName={userName || (useAppStore.getState().userProfile.name as string) || "Полковник Санчес"}
+                totalWaterLiters={graduationData?.totalWaterLiters ?? 64.5}
+                cookedOutOf166={graduationData?.cookedOutOf166 ?? 14}
+                totalFiberKg={graduationData?.totalFiberKg ?? 1.2}
+                weightDelta={graduationData?.weightDelta ?? null}
+                systolicDelta={graduationData?.systolicDelta ?? null}
+                onSelectPro={() => handleRestartCourse(true)}
+                onSelectFree={() => handleRestartCourse(false)}
+              />
             </motion.div>
           ) : (
             <motion.div
