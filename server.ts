@@ -1842,8 +1842,8 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
         }
       } else {
         // Rollover: advance +1 only on the first server-confirmed entry into a new
-        // local day (no catch-up of skipped days), clamp 1..28.
-        const desired = Math.min((user.currentDayIndex || 1) + 1, 28);
+        // local day (no catch-up of skipped days).
+        const desired = (user.currentDayIndex || 1) + 1;
         const applied = await prisma.user.updateMany({
           where: { id: req.userId, OR: [{ lastActiveDate: null }, { lastActiveDate: { lt: todayDate } }] },
           data: { currentDayIndex: desired, lastActiveDate: todayDate },
@@ -1859,10 +1859,14 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
 
       const courseStartDate = user.courseStartDate;
       const currentDayIndex = user.currentDayIndex || 1;
+      const isCourseCompleted = currentDayIndex >= 29;
       const lastActiveDate = user.lastActiveDate;
 
       res.json({
         currentDayIndex,
+        isCourseCompleted,
+        graduationReady: isCourseCompleted,
+        courseCycle: (user as any).cycleNumber || 1,
         courseStartDate: courseStartDate?.toISOString() || null,
         lastActiveDate: lastActiveDate?.toISOString() || null,
         profile: {
