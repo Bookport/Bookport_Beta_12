@@ -1,4 +1,4 @@
-import { Moon, Droplet, Apple, Activity, Zap, Award } from "lucide-react";
+import { Moon, Droplet, Apple, Activity, Zap, Award, Heart, Battery, Leaf } from "lucide-react";
 import { motion } from "motion/react";
 import AnnaTabSpoiler from "./AnnaTabSpoiler";
 import { NextStepRecommendation } from "../../utils/nextStepEngine";
@@ -17,16 +17,22 @@ interface ScalesTabProps {
   habitsDone: number;
   habitsPct: number;
   habitsTarget: number;
+  ratingEnergy: number;
   energyPct: number;
+  ratingWellbeing?: number;
+  ratingLightness?: number;
+  wellbeingLog?: {time: string, val: number}[];
+  energyLog?: {time: string, val: number}[];
+  lightnessLog?: {time: string, val: number}[];
   activityLogs?: any[];
   todayWaterEntries?: { amount: number; time?: string; timestamp: number }[];
   currentDayIndex: number;
   todayCookedBookCount: number;
   todayTotalBookMenuCount: number;
   totalCookedBookRecipesCount: number;
+  handleRatingChange?: (type: "zen" | "energy" | "lightness", val: number) => void;
   annaAnalysisText?: string;
   recommendedAction?: NextStepRecommendation;
-  [key: string]: any;
 }
 
 export default function ScalesTab({
@@ -41,7 +47,10 @@ export default function ScalesTab({
   habitsDone,
   habitsPct,
   habitsTarget,
+  ratingEnergy,
   energyPct,
+  ratingWellbeing,
+  ratingLightness,
   activityLogs = [],
   todayWaterEntries = [],
   currentDayIndex,
@@ -51,6 +60,13 @@ export default function ScalesTab({
   annaAnalysisText,
   recommendedAction,
 }: ScalesTabProps) {
+  const zenValue = ratingWellbeing || 5;
+  const toneValue = ratingEnergy || 4;
+  const lightnessValue = ratingLightness || 4;
+
+  const zenStatus = zenValue >= 4 ? "Стабильно" : "Внимание";
+  const toneStatus = toneValue >= 4 ? "Бодрость" : "Усталость";
+  const lightnessStatus = lightnessValue >= 4 ? "Легко" : "Тяжесть";
 
   return (
     <motion.div
@@ -212,6 +228,48 @@ export default function ScalesTab({
                 ))}
               </div>
             )}
+          </div>
+        </div>
+      </div>
+
+      {/* Самооценка и тонус — read-only */}
+      <div className="bg-white rounded-[32px] border border-gray-100 shadow-[0_8px_24px_rgba(43,49,55,0.02)] p-5 text-left">
+        <h2 className="text-[14px] font-black text-slate-800 tracking-tight mb-4 uppercase flex items-center gap-1.5 select-none font-sans">
+          <span className="text-amber-500">✨</span> САМООЦЕНКА И ТОНУС
+        </h2>
+        <div className="grid grid-cols-3 gap-3">
+          {/* Психологический дзен */}
+          <div className="bg-slate-50 border border-slate-100 rounded-2xl p-3 flex flex-col items-center text-center gap-1.5">
+            <span className="w-8 h-8 rounded-full bg-violet-100 border border-violet-200 flex items-center justify-center shrink-0">
+              <Heart className="w-4 h-4 text-violet-600" />
+            </span>
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider leading-tight">Психологический дзен</span>
+            <span className="text-lg font-black text-slate-900 leading-none">{zenValue}/5</span>
+            <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full border ${zenValue >= 4 ? "bg-emerald-50 text-emerald-700 border-emerald-100" : "bg-amber-50 text-amber-700 border-amber-100"}`}>
+              {zenStatus}
+            </span>
+          </div>
+          {/* Физический тонус */}
+          <div className="bg-slate-50 border border-slate-100 rounded-2xl p-3 flex flex-col items-center text-center gap-1.5">
+            <span className="w-8 h-8 rounded-full bg-amber-100 border border-amber-200 flex items-center justify-center shrink-0">
+              <Battery className="w-4 h-4 text-amber-600" />
+            </span>
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider leading-tight">Физический тонус</span>
+            <span className="text-lg font-black text-slate-900 leading-none">{toneValue}/5</span>
+            <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full border ${toneValue >= 4 ? "bg-emerald-50 text-emerald-700 border-emerald-100" : "bg-amber-50 text-amber-700 border-amber-100"}`}>
+              {toneStatus}
+            </span>
+          </div>
+          {/* Лёгкость в ЖКТ */}
+          <div className="bg-slate-50 border border-slate-100 rounded-2xl p-3 flex flex-col items-center text-center gap-1.5">
+            <span className="w-8 h-8 rounded-full bg-emerald-100 border border-emerald-200 flex items-center justify-center shrink-0">
+              <Leaf className="w-4 h-4 text-emerald-600" />
+            </span>
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider leading-tight">Лёгкость в ЖКТ</span>
+            <span className="text-lg font-black text-slate-900 leading-none">{lightnessValue}/5</span>
+            <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full border ${lightnessValue >= 4 ? "bg-emerald-50 text-emerald-700 border-emerald-100" : "bg-amber-50 text-amber-700 border-amber-100"}`}>
+              {lightnessStatus}
+            </span>
           </div>
         </div>
       </div>

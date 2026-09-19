@@ -3,7 +3,9 @@ import { motion, AnimatePresence } from "motion/react";
 import { ChevronLeft, Sparkles, Droplet, Moon, Apple, Zap, Activity, Compass, Heart, Brain, Info, CheckCircle, TrendingUp, TrendingDown, BarChart3, Scale, Flame, Utensils } from "lucide-react";
 import { useAppStore } from "../store/useAppStore";
 import BottomBar from "./BottomBar";
-import { MOVEMENT_DAILY_TARGET_MIN } from "../constants/movement";
+import { MOVEMENT_DAILY_TARGET_MIN, ACTIVITY_CONFIGS } from "../constants/movement";
+import type { SleepEntry, SleepDaySummary } from "../shared/sleep";
+import { aggregateSleepPerDay } from "../shared/sleep";
 import { 
   BREAKFAST_RECIPES, 
   LUNCH_RECIPES, 
@@ -25,6 +27,8 @@ import KbjuTab from "./statenow/KbjuTab";
 import MicroTab from "./statenow/MicroTab";
 import CompositionTab from "./statenow/CompositionTab";
 import DynamicsTab from "./statenow/DynamicsTab";
+import BiometricDialWidget from "./statenow/BiometricDialWidget";
+import { calculateBioDialAdvice } from "../utils/bioDialAdvisorEngine";
 import { api } from "../utils/api";
 import { getBookMacros } from "../utils/bookMacros";
 import { getRecipeImagePath } from "../utils/recipeImageMapper";
@@ -32,8 +36,12 @@ import { getPlural } from "../utils/pluralize";
 import { formatTimeHM, todayLocalDate, toLocalDate } from "../shared/dates";
 import { getUserTimeZone } from "../shared/timeZoneStore";
 import { buildAnnaBalanceAnalysis, buildAnnaTabAnalysis } from "../utils/annaAdvisorEngine";
-import { calculateBioDialAdvice } from "../utils/bioDialAdvisorEngine";
-import BiometricDialWidget from "./statenow/BiometricDialWidget";
+import sostBalance from "../assets/images/SOST/1.webp";
+import sostScales from "../assets/images/SOST/2.webp";
+import sostKbju from "../assets/images/SOST/3.webp";
+import sostMicro from "../assets/images/SOST/4.webp";
+import sostComposition from "../assets/images/SOST/5.webp";
+import sostDynamics from "../assets/images/SOST/6.webp";
 
 interface StateNowScreenProps {
   dayNotes: Record<number, { text: string; time: string }[]>;
@@ -98,6 +106,15 @@ export default function StateNowScreen({
   const [showNotification, setShowNotification] = useState(false);
   const [notificationMsg, setNotificationMsg] = useState("");
   const [activeTab, setActiveTab] = useState<"balance" | "scales" | "kbju" | "micro" | "composition" | "dynamics">("balance");
+
+  const SOST_TABS = [
+    { id: "balance" as const,     title: "Баланс",   subtitle: "Итог дня", img: sostBalance,     active: "bg-emerald-50 border-emerald-300 text-emerald-800", dot: "bg-emerald-500" },
+    { id: "scales" as const,      title: "Шкалы",    subtitle: "Приборы",  img: sostScales,      active: "bg-indigo-50 border-indigo-300 text-indigo-800", dot: "bg-indigo-500" },
+    { id: "kbju" as const,        title: "КБЖУ",     subtitle: "Питание",  img: sostKbju,        active: "bg-amber-50 border-amber-300 text-amber-900", dot: "bg-amber-500" },
+    { id: "micro" as const,       title: "Микро",    subtitle: "Витамины", img: sostMicro,       active: "bg-rose-50 border-rose-300 text-rose-800", dot: "bg-rose-500" },
+    { id: "composition" as const, title: "Состав",   subtitle: "Сырьё",    img: sostComposition, active: "bg-emerald-50 border-emerald-300 text-emerald-900", dot: "bg-[#10B981]" },
+    { id: "dynamics" as const,    title: "Динамика", subtitle: "Ход дня",  img: sostDynamics,    active: "bg-sky-50 border-sky-300 text-sky-800", dot: "bg-sky-500" },
+  ] as const;
 
   const neutralizationNoted = useRef(false);
 
@@ -211,6 +228,53 @@ export default function StateNowScreen({
   const effSavedDishes = savedDishes.length ? savedDishes : (apiStateNowData?.savedDishes || []);
   const effHabitsDone = SystemKeysStore.calculateKeysForDay(currentDayIndex || 1, effSavedDishes, effWater).closedCount;
   const todayStr = todayLocalDate(getUserTimeZone());
+  
+  // ── Живые данные для 7 станций Вкладки «Динамика» ──
+  // 1. Сон: парсинг журнала сна и расчет точного времени пробуждения
+  const rawSleepLogs: SleepEntry[] = apiStateNowData?.dailyMetric?.sleepLogs
+    ? (typeof apiStateNowData.dailyMetric.sleepLogs === "string"
+        ? JSON.parse(apiStateNowData.dailyMetric.sleepLogs)
+        : apiStateNowData.dailyMetric.sleepLogs)
+    : [];
+  const sleepPerDay = aggregateSleepPerDay(rawSleepLogs);
+  const todaySleepEntry: SleepDaySummary | null = sleepPerDay[currentDayIndex] || null;
+  const sleepWakeTime: string | null = todaySleepEntry?.wakeTime || null;
+  const sleepBedtime: string | null = todaySleepEntry?.bedtime || null;
+
+  // 2. Блюда по категориям с реальным временем приготовления
+  const filterMealsByCategory = (categoryKeywords: string[]) => {
+    return effSavedDishes
+      .filter((dish: any) => {
+        const isDay = dish.dayIndex === currentDayIndex || (dish as any).current_day === currentDayIndex;
+        if (!isDay && currentDayIndex !== 1) return false;
+        const cat = (dish.category || "").toLowerCase();
+        const name = (dish.name || "").toLowerCase();
+        return categoryKeywords.some((kw) => cat.includes(kw) || name.includes(kw));
+      })
+      .map((d: any) => ({
+        id: d.id,
+        name: d.name,
+        category: d.category,
+        time: d.time || (d.createdAt ? formatTimeHM(d.createdAt, getUserTimeZone()) : ""),
+        createdAt: d.createdAt,
+      }));
+  };
+
+  // 3. Движение с расшифровкой названий тренировок и длительности
+  const dynamicsMovementLogs = (activityLogs || []).map((e: any) => {
+    const durationMin = Math.round((e.durationSeconds || e.duration || 0) / 60);
+    const cfg = ACTIVITY_CONFIGS[e.type as keyof typeof ACTIVITY_CONFIGS];
+    return {
+      id: e.id || String(e.timestamp),
+      type: e.type,
+      displayName: cfg?.name || e.activityType || "Движение",
+      durationMin,
+      timestamp: e.timestamp,
+      timeString:
+        e.timeString ||
+        (e.timestamp ? formatTimeHM(new Date(e.timestamp).toISOString(), getUserTimeZone()) : ""),
+    };
+  });
 
   // Set up cooked book recipes
   const cookedBookDishes: any[] = [];
@@ -398,33 +462,36 @@ export default function StateNowScreen({
     }
   }
 
-  // R1/R2: helpers for hub aggregation — protect against strict gate drops
-  const parseFiniteOrZero = (v: unknown): number => {
-    if (typeof v === "number") return Number.isFinite(v) ? v : 0;
-    if (typeof v === "string") {
-      const clean = v.replace(",", ".").replace(/[^\d.-]/g, "").trim();
-      const n = parseFloat(clean);
+  // Custom Dishes from DIY / From What Is modules — strictly scoped to currentDayIndex
+  // R1/R2 (READ-ONLY хаб): исключаем ТОЛЬКО игровой Миксер (sourceType/category),
+  // пользовательские блюда и Сборки с calories>0 учитываем обязательно, фолбэча макросы в 0.
+  const parseFiniteOrZero = (value: unknown): number => {
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+    if (typeof value === "string") {
+      const cleaned = value.replace(",", ".").replace(/[^\d.\-]/g, "");
+      if (cleaned.trim() === "") return 0;
+      const n = parseFloat(cleaned);
       return Number.isFinite(n) ? n : 0;
     }
     return 0;
   };
-  const parseFiniteOrNull = (v: unknown): number | null => {
-    if (typeof v === "number") return Number.isFinite(v) ? v : null;
-    if (typeof v === "string") {
-      const clean = v.replace(",", ".").replace(/[^\d.-]/g, "").trim();
-      const n = parseFloat(clean);
+  const parseFiniteOrNull = (value: unknown): number | null => {
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+    if (typeof value === "string") {
+      const cleaned = value.replace(",", ".").replace(/[^\d.\-]/g, "");
+      if (cleaned.trim() === "") return null;
+      const n = parseFloat(cleaned);
       return Number.isFinite(n) ? n : null;
     }
     return null;
   };
-  const isRealMixerDish = (d: any) => d?.sourceType === "mixer" || d?.category === "Миксер";
-
-  // Custom Dishes from DIY / From What Is modules — strictly scoped to currentDayIndex, R1 protection
+  const isRealMixerDish = (dish: any): boolean => dish?.sourceType === "mixer" || dish?.category === "Миксер";
   const todayCustomDishes = (effSavedDishes || [])
     .filter(dish => {
       if (dish.isBookRecipe) return false;
       if (isRealMixerDish(dish)) return false;
-      if (parseFiniteOrZero(dish.calories) <= 0) return false;
+      const cal = parseFiniteOrNull(dish.calories);
+      if (cal === null || cal <= 0) return false;
       // Strict day scoping: only dishes cooked on currentDayIndex
       if (dish.dayIndex === currentDayIndex || (dish as any).current_day === currentDayIndex) return true;
       // Legacy fallback — only for day 1: dishes without dayIndex that match today's local date
@@ -442,15 +509,109 @@ export default function StateNowScreen({
         image: dish.image,
         ingredients: typeof dish.ingredients === 'string' ? JSON.parse(dish.ingredients) : dish.ingredients,
         calories: parseFiniteOrZero(dish.calories),
-        protein: dish.protein != null ? String(dish.protein) : "0",
-        fat: dish.fat != null ? String(dish.fat) : "0",
-        fiber: dish.fiber != null ? String(dish.fiber) : "0",
-        carbohydrates: (dish as any).carbohydrates,
+        protein: String(parseFiniteOrZero(dish.protein)),
+        fat: String(parseFiniteOrZero(dish.fat)),
+        fiber: String(parseFiniteOrZero(dish.fiber)),
+        carbohydrates: parseFiniteOrNull(dish.carbohydrates) ?? 0,
         time: dish.time || (dish.createdAt
           ? formatTimeHM(dish.createdAt, getUserTimeZone())
           : "")
       };
     });
+	
+	// ── Живой сбор блюд дня для Вкладки «Динамика» (Книга + Свои блюда / Архив) ──
+  const allTodayDishes = [
+    ...cookedBookDishes,
+    ...todayCustomDishes,
+    ...(effSavedDishes || [])
+      .filter((dish: any) => {
+        const isDay = dish.dayIndex === currentDayIndex || (dish as any).current_day === currentDayIndex;
+        if (!isDay && currentDayIndex !== 1) return false;
+        return true;
+      })
+      .map((d: any) => ({
+        id: d.id,
+        name: d.name,
+        category: d.category || "",
+        time: d.time || (d.createdAt ? formatTimeHM(d.createdAt, getUserTimeZone()) : ""),
+        createdAt: d.createdAt,
+      })),
+  ];
+
+  // Убираем возможные дубликаты по id / названию
+  const uniqueTodayDishes = Array.from(
+    new Map(allTodayDishes.map((d: any) => [d.id || d.name, d])).values()
+  );
+
+  // R6: каноническое локальное время без UTC-смещения
+  const getDishHour = (d: any): number => {
+    const tz = getUserTimeZone();
+    if (d.time && typeof d.time === "string" && d.time.includes(":")) {
+      const h = Number(d.time.split(":")[0]);
+      if (Number.isFinite(h)) return h;
+    }
+    if (d.createdAt) {
+      try {
+        const hm = formatTimeHM(d.createdAt, tz);
+        return Number(hm.split(":")[0]) || 0;
+      } catch {}
+    }
+    return 0;
+  };
+
+  // Завтрак: по слову "завтрак" либо блюдо до 12:00
+  const dynamicsBreakfastLogs = uniqueTodayDishes.filter((d: any) => {
+    const cat = (d.category || "").toLowerCase();
+    const name = (d.name || "").toLowerCase();
+    const hour = getDishHour(d);
+    return cat.includes("завтрак") || name.includes("завтрак") || (hour > 0 && hour < 12);
+  });
+
+  // Обед: супы, салаты, вторые блюда либо блюда с 12:00 до 17:00
+  const dynamicsLunchLogs = uniqueTodayDishes.filter((d: any) => {
+    if (dynamicsBreakfastLogs.some((b: any) => (b.id && b.id === d.id) || b.name === d.name)) return false;
+    const cat = (d.category || "").toLowerCase();
+    const name = (d.name || "").toLowerCase();
+    const hour = getDishHour(d);
+    return (
+      cat.includes("обед") ||
+      cat.includes("суп") ||
+      cat.includes("салат") ||
+      cat.includes("втор") ||
+      (hour >= 12 && hour < 17)
+    );
+  });
+
+  // Ужин: всё, что помечено как ужин/основное, либо создано после 17:00
+  const dynamicsDinnerLogs = uniqueTodayDishes.filter((d: any) => {
+    if (dynamicsBreakfastLogs.some((b: any) => (b.id && b.id === d.id) || b.name === d.name)) return false;
+    if (dynamicsLunchLogs.some((l: any) => (l.id && l.id === d.id) || l.name === d.name)) return false;
+    const cat = (d.category || "").toLowerCase();
+    const name = (d.name || "").toLowerCase();
+    const hour = getDishHour(d);
+    return (
+      cat.includes("ужин") ||
+      cat.includes("основн") ||
+      name.includes("ужин") ||
+      hour >= 17 ||
+      hour === 0
+    );
+  });
+
+  // R6: единая станция хаба (синхронизирована с локальной TZ, без UTC-смещения)
+  // В 11:15 при зафиксированном завтраке следующая станция — Обед WFPB.
+  const hubTz = getUserTimeZone();
+  const hubNowHM = formatTimeHM(new Date().toISOString(), hubTz);
+  const hubHour = Number(hubNowHM.split(":")[0]) || 0;
+  const hubHasBreakfast = dynamicsBreakfastLogs.length > 0;
+  const hubHasLunch = dynamicsLunchLogs.length > 0;
+  const hubHasDinner = dynamicsDinnerLogs.length > 0;
+  const hubNextStation: { stationName: string; timeRemainingText: string } = (() => {
+    if (!hubHasBreakfast && hubHour < 12) return { stationName: "Завтрак WFPB", timeRemainingText: "до 11:30" };
+    if (!hubHasLunch && hubHour < 16) return { stationName: "Обед WFPB", timeRemainingText: "13:00 – 15:00" };
+    if (!hubHasDinner && hubHour < 21) return { stationName: "Ужин WFPB", timeRemainingText: "18:30 – 20:00" };
+    return { stationName: "Отдых ЖКТ и сон", timeRemainingText: "после 21:30" };
+  })();
 
   // Calculate overall course stats from Book module
   const totalCookedBookRecipesCount = 
@@ -497,27 +658,51 @@ export default function StateNowScreen({
     }
   );
 
-  // R2: корректор КБЖУ — компенсация строгого гейта DailyNutritionStore для todayCustomDishes
-  const dbLoggedIds = new Set(dbData.logs.map(l => l.dishId));
-  let r1ExtraCalories = 0, r1ExtraProtein = 0, r1ExtraFat = 0, r1ExtraCarb = 0, r1ExtraFiber = 0;
+  // R1/R2: фолбэч строгой агрегации DailyNutritionStore — блюда с calories>0 но без полного набора макросов
+  // добавляем к totals с недостающими макросами = 0 (без touching внешних сторов).
+  const dbLoggedIds = new Set((dbData.logs as any[]).map((l: any) => l.dishId));
+  let r1ExtraCalories = 0;
+  let r1ExtraProtein = 0;
+  let r1ExtraFat = 0;
+  let r1ExtraCarbohydrates = 0;
+  let r1ExtraFiber = 0;
+  const r1ExtraIngredients: { name: string; weight: number; status: "green" | "yellow" | "red"}[] = [];
   for (const d of todayCustomDishes) {
-    if (!dbLoggedIds.has(d.id)) {
-      r1ExtraCalories += parseFiniteOrZero(d.calories);
-      r1ExtraProtein += parseFiniteOrZero(d.protein);
-      r1ExtraFat += parseFiniteOrZero(d.fat);
-      r1ExtraCarb += parseFiniteOrZero((d as any).carbohydrates);
-      r1ExtraFiber += parseFiniteOrZero(d.fiber);
+    if (dbLoggedIds.has((d as any).id)) continue;
+    const cal = typeof (d as any).calories === "number" ? (d as any).calories : parseFiniteOrZero((d as any).calories);
+    r1ExtraCalories += cal;
+    r1ExtraProtein += parseFiniteOrZero((d as any).protein);
+    r1ExtraFat += parseFiniteOrZero((d as any).fat);
+    r1ExtraFiber += parseFiniteOrZero((d as any).fiber);
+    r1ExtraCarbohydrates += parseFiniteOrZero((d as any).carbohydrates);
+    const rawIngs: any[] = Array.isArray((d as any).ingredients) ? (d as any).ingredients : [];
+    for (const ing of rawIngs) {
+      if (!ing?.name) continue;
+      let w = 0;
+      const ws = ing.weight;
+      if (typeof ws === "number" && Number.isFinite(ws) && ws > 0) w = ws;
+      else if (typeof ws === "string") {
+        const s = ws.trim().toLowerCase();
+        const kgM = s.match(/(-?\d+[\d.,]*)\s*(?:кг|kg)/);
+        if (kgM) {
+          const n = parseFloat(kgM[1].replace(",", "."));
+          if (Number.isFinite(n) && n > 0) w = n * 1000;
+        } else {
+          const gM = s.match(/(-?\d+[\d.,]*)\s*г(?![а-яa-z])/);
+          if (gM) {
+            const n = parseFloat(gM[1].replace(",", "."));
+            if (Number.isFinite(n) && n > 0) w = n;
+          }
+        }
+      }
+      if (w > 0) r1ExtraIngredients.push({ name: String(ing.name), weight: Math.round(w), status: ing.status || "green" });
     }
   }
-  // debug hint for R1/R2 (visible in console when extra macros applied)
-  if (r1ExtraCalories > 0) {
-    try { console.debug("[StateNow:R2] r1Extra", { r1ExtraCalories, r1ExtraProtein, r1ExtraFat, r1ExtraCarb, r1ExtraFiber }); } catch {}
-  }
   const totalCalories = dbData.totalCalories + Math.round(r1ExtraCalories);
-  const totalProtein = +(dbData.totalProtein + r1ExtraProtein).toFixed(1);
-  const totalFat = +(dbData.totalFat + r1ExtraFat).toFixed(1);
-  const totalCarbohydrates = +(dbData.totalCarbohydrates + r1ExtraCarb).toFixed(1);
-  const totalFiber = +(dbData.totalFiber + r1ExtraFiber).toFixed(1);
+  const totalProtein = parseFloat((dbData.totalProtein + r1ExtraProtein).toFixed(1));
+  const totalFat = parseFloat((dbData.totalFat + r1ExtraFat).toFixed(1));
+  const totalCarbohydrates = parseFloat((dbData.totalCarbohydrates + r1ExtraCarbohydrates).toFixed(1));
+  const totalFiber = parseFloat((dbData.totalFiber + r1ExtraFiber).toFixed(1));
 
   const dayVitA = dbData.vitamins.vitA;
   const dayVitC = dbData.vitamins.vitC;
@@ -536,7 +721,7 @@ export default function StateNowScreen({
   const realProfileCount = dbData.realProfileCount;
   const hasAnyRealMicronutrientProfile = dbData.hasAnyRealMicronutrientProfile;
 
-  const aggregatedIngredients = dbData.aggregatedIngredients;
+  const aggregatedIngredients = [...dbData.aggregatedIngredients, ...r1ExtraIngredients].sort((a,b)=> b.weight - a.weight);
 
   // Core target definitions
   const waterTarget = getWaterGoal(effWeight || WATER_GOAL_FALLBACK_KG);
@@ -786,35 +971,6 @@ export default function StateNowScreen({
     timeZone: getUserTimeZone(),
   });
 
-  // Hub-derived meal flags for bioDial contract (read-only hub)
-  const hubHasBreakfast = effMealCount > 0;
-  const hubHasLunch = effMealCount > 1;
-  const hubHasDinner = effMealCount > 2;
-  const hubNextStation = (() => {
-    const h = currentHour;
-    if (!hubHasBreakfast && h < 12) return { stationName: "Завтрак WFPB", timeRemainingText: "до 11:30" };
-    if (!hubHasLunch && h < 16) return { stationName: "Обед WFPB", timeRemainingText: "13:00 – 15:00" };
-    if (!hubHasDinner && h < 21) return { stationName: "Ужин WFPB", timeRemainingText: "18:30 – 20:00" };
-    return { stationName: "Отдых ЖКТ и сон", timeRemainingText: "после 21:30" };
-  })();
-
-  // Correct bioDial contract — uses hub-computed stations and timeZone
-  const bioDialAdvice = calculateBioDialAdvice({
-    waterMl: effWater,
-    waterTarget,
-    sleepMinutes: effSleep,
-    cookedDishesCount: effMealCount,
-    activityMinutes,
-    hasBreakfast: hubHasBreakfast,
-    hasLunch: hubHasLunch,
-    hasDinner: hubHasDinner,
-    lastWaterTimestamp: waterLogData.lastWaterTimestamp,
-    timeZone: getUserTimeZone(),
-    nextStationName: hubNextStation.stationName,
-    nextStationTime: hubNextStation.timeRemainingText,
-    recommendedActionText: (recommendedAction as any)?.title,
-  });
-
   const triggerNotification = (msg: string) => {
     setNotificationMsg(msg);
     setShowNotification(true);
@@ -848,7 +1004,7 @@ export default function StateNowScreen({
       triggerNotification(`Ощущение лёгкости обновлено: ${val}/5 🍃`);
     }
 
-    // Save automatic diary trace if required
+// Save automatic diary trace if required
     if (onSaveWellbeingComment) {
       const timeStr = formatTimeHM(new Date().toISOString(), getUserTimeZone());
       onSaveWellbeingComment(
@@ -856,6 +1012,24 @@ export default function StateNowScreen({
       );
     }
   };
+
+  // ── Расчёт адаптивного циферблата био-метрик и смарт-трио (R3/R4: строгий контракт BioDialInput) ──
+  const bioDialAdvice = calculateBioDialAdvice({
+    waterMl: effWater,
+    waterTarget,
+    sleepMinutes: effSleep,
+    cookedDishesCount: effMealCount,
+    activityMinutes,
+    hasBreakfast: hubHasBreakfast,
+    hasLunch: hubHasLunch,
+    hasDinner: hubHasDinner,
+    lastWaterTimestamp: waterLogData.lastWaterTimestamp,
+    timeZone: getUserTimeZone(),
+    nextStationName: hubNextStation.stationName,
+    nextStationTime: hubNextStation.timeRemainingText,
+    recommendedActionText: recommendedAction?.title,
+    // совместимость: единая станция уже вычислена хабом — дублируем как primary input
+  });
 
   return (
     <div className="flex-1 flex flex-col justify-between bg-[#FAFBFB] relative min-h-screen">
@@ -905,7 +1079,7 @@ export default function StateNowScreen({
             </h1>
           </div>
 
-          <div className="w-10 h-10 rounded-full bg-[#E8F8EE] border border-emerald-100/60 shadow-sm" />
+          <div className="w-10 h-10 shrink-0" aria-hidden="true" />
         </div>
 
         {isReadOnly && (
@@ -917,193 +1091,60 @@ export default function StateNowScreen({
           </div>
         )}
 
-        {/* Short timestamp tag */}
-        <div className="flex items-center justify-center gap-1.5 mb-5 select-none font-mono">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-          <span className="text-[11px] font-extrabold text-gray-400 uppercase tracking-widest">
+        {/* Short timestamp tag — строгая одна строка */}
+        <div className="flex items-center justify-center gap-1.5 mb-3 select-none font-mono">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-tight whitespace-nowrap">
             данные обновлены на {formatTimeHM(new Date().toISOString(), getUserTimeZone())} • экспертная оценка
           </span>
         </div>
 
-        {/* 2. MAIN INTEGRAL SCORE CONTAINER (Visible on all tabs) */}
-        <div className="bg-gradient-to-b from-white to-[#F8FAFC] rounded-[32px] border border-slate-100 shadow-[0_10px_32px_rgba(15,23,42,0.02)] p-6 mb-5 text-center relative overflow-hidden">
-          <div className={`absolute left-1/2 -top-12 -translate-x-1/2 w-48 h-48 rounded-full blur-[48px] pointer-events-none opacity-40 transition-all duration-700 ${
-            integralScore >= 75 ? "bg-emerald-400" : (integralScore >= 50 ? "bg-sky-400" : "bg-orange-300")
-          }`} />
+        {/* 2. БИОМЕТРИЧЕСКИЙ ЦИФЕРБЛАТ И СМАРТ-КАСКАД */}
+        <BiometricDialWidget
+          advice={bioDialAdvice}
+          onFocusClick={() => {
+            if (bioDialAdvice.focusAction.actionType === "water") setActiveTab("scales");
+            else if (bioDialAdvice.focusAction.actionType === "meal") setActiveTab("composition");
+            else setActiveTab("dynamics");
+          }}
+          onGrowthClick={() => setActiveTab("scales")}
+          onStationClick={() => setActiveTab("dynamics")}
+        />
 
-          <div className="relative z-10 flex flex-col items-center animate-fade-in">
-            <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest font-sans">
-              ИНТЕГРАЛЬНЫЙ ИНДЕКС WFPB-ЗДОРОВЬЯ
-            </span>
-
-            {/* Giant stylish circular progress ring */}
-            <div className="relative w-40 h-40 flex items-center justify-center mt-4 mb-4">
-              <svg className="w-full h-full transform -rotate-90" viewBox="0 0 120 120">
-                <circle 
-                  cx="60" 
-                  cy="60" 
-                  r="52" 
-                  fill="none" 
-                  stroke="#E2E8F0" 
-                  strokeWidth="8"
-                  className="opacity-75"
-                />
-                <motion.circle 
-                  cx="60" 
-                  cy="60" 
-                  r="52" 
-                  fill="none" 
-                  stroke="url(#integralScoreGradient)" 
-                  strokeWidth="9"
-                  strokeDasharray={`${2 * Math.PI * 52}`}
-                  initial={{ strokeDashoffset: `${2 * Math.PI * 52}` }}
-                  animate={{ strokeDashoffset: `${2 * Math.PI * 52 * (1 - integralScore / 100)}` }}
-                  transition={{ duration: 1.2, ease: "easeOut" }}
-                  strokeLinecap="round"
-                />
-                <defs>
-                  <linearGradient id="integralScoreGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor="#10B981" />
-                    <stop offset="50%" stopColor="#0EA5E9" />
-                    <stop offset="100%" stopColor="#6366F1" />
-                  </linearGradient>
-                </defs>
-              </svg>
-
-              <div className="absolute inset-0 flex flex-col items-center justify-center select-none font-sans">
-                <span className="text-[44px] font-black text-slate-800 tracking-tight leading-none">
-                  {integralScore}%
-                </span>
-                <span className="text-[9px] font-extrabold text-[#758478] tracking-widest uppercase mt-1">
-                  БАЛАНС ДНЯ
-                </span>
-              </div>
-            </div>
-
-            <div className={`mt-2.5 border px-[18px] py-3 rounded-[20px] flex items-center justify-center gap-3 shadow-[0_4px_16px_rgba(0,0,0,0.03)] transition-all duration-500 max-w-[310px] w-full ${statusObj.style}`}>
-              {/* Dynamic Glowing LED-style core signal light */}
-              <div className="relative flex h-3 w-3 shrink-0">
-                <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${statusObj.dotColor}`} />
-                <span className={`relative inline-flex rounded-full h-3 w-3 ${statusObj.dotColor} border border-white/20`} />
-              </div>
-              
-              <div className="flex flex-col text-left">
-                <span className="text-[13px] font-bold tracking-tight leading-tight">
-                  {statusObj.label}
-                </span>
-                <span className="text-[10.5px] opacity-85 font-medium mt-0.5 leading-snug">
-                  {statusObj.desc}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* 3. NEW TAB NAVIGATION (6 big tactile card buttons) */}
+        {/* 3. TAB NAVIGATION (6 tactile 3D miniature card buttons) */}
         <div className="grid grid-cols-3 gap-2.5 mb-6 font-sans">
-          
-          {/* TAB 1: БАЛАНС */}
-          <button
-            onClick={() => setActiveTab("balance")}
-            className={`relative p-3 rounded-2xl border flex flex-col items-center justify-center text-center transition-all duration-300 min-h-[82px] cursor-pointer ${
-              activeTab === "balance"
-                ? "bg-emerald-50/50 border-emerald-200 shadow-sm text-emerald-800 scale-[1.02] font-black"
-                : "bg-white border-slate-100 hover:border-slate-200 text-slate-500 hover:text-slate-850"
-            }`}
-          >
-            {activeTab === "balance" && (
-              <span className="absolute top-2.5 right-2.5 w-1.5 h-1.5 rounded-full bg-emerald-500" />
-            )}
-            <Scale className={`w-5 h-5 mb-1 ${activeTab === "balance" ? "text-emerald-600" : "text-slate-400"}`} />
-            <span className="text-[11.5px] font-bold tracking-tight">Баланс</span>
-            <span className="text-[7.5px] font-extrabold text-slate-400 uppercase tracking-wider mt-0.5">Итог дня</span>
-          </button>
-
-          {/* TAB 2: ШКАЛЫ */}
-          <button
-            onClick={() => setActiveTab("scales")}
-            className={`relative p-3 rounded-2xl border flex flex-col items-center justify-center text-center transition-all duration-300 min-h-[82px] cursor-pointer ${
-              activeTab === "scales"
-                ? "bg-indigo-50/50 border-indigo-200 shadow-sm text-indigo-800 scale-[1.02] font-black"
-                : "bg-white border-slate-100 hover:border-slate-200 text-slate-500 hover:text-slate-850"
-            }`}
-          >
-            {activeTab === "scales" && (
-              <span className="absolute top-2.5 right-2.5 w-1.5 h-1.5 rounded-full bg-indigo-500" />
-            )}
-            <Activity className={`w-5 h-5 mb-1 ${activeTab === "scales" ? "text-indigo-600" : "text-slate-400"}`} />
-            <span className="text-[11.5px] font-bold tracking-tight">Шкалы</span>
-            <span className="text-[7.5px] font-extrabold text-slate-400 uppercase tracking-wider mt-0.5">Приборы</span>
-          </button>
-
-          {/* TAB 3: КБЖУ */}
-          <button
-            onClick={() => setActiveTab("kbju")}
-            className={`relative p-3 rounded-2xl border flex flex-col items-center justify-center text-center transition-all duration-300 min-h-[82px] cursor-pointer ${
-              activeTab === "kbju"
-                ? "bg-amber-50/50 border-amber-200 shadow-sm text-amber-900 scale-[1.02] font-black"
-                : "bg-white border-slate-100 hover:border-slate-200 text-slate-500 hover:text-slate-850"
-            }`}
-          >
-            {activeTab === "kbju" && (
-              <span className="absolute top-2.5 right-2.5 w-1.5 h-1.5 rounded-full bg-amber-550" />
-            )}
-            <Flame className={`w-5 h-5 mb-1 ${activeTab === "kbju" ? "text-amber-600" : "text-slate-400"}`} />
-            <span className="text-[11.5px] font-bold tracking-tight">КБЖУ</span>
-            <span className="text-[7.5px] font-extrabold text-slate-400 uppercase tracking-wider mt-0.5">Питание</span>
-          </button>
-
-          {/* TAB 4: МИКРО */}
-          <button
-            onClick={() => setActiveTab("micro")}
-            className={`relative p-3 rounded-2xl border flex flex-col items-center justify-center text-center transition-all duration-300 min-h-[82px] cursor-pointer ${
-              activeTab === "micro"
-                ? "bg-rose-50/50 border-rose-200 shadow-sm text-rose-850 scale-[1.02] font-black"
-                : "bg-white border-slate-100 hover:border-slate-200 text-slate-500 hover:text-slate-850"
-            }`}
-          >
-            {activeTab === "micro" && (
-              <span className="absolute top-2.5 right-2.5 w-1.5 h-1.5 rounded-full bg-rose-500" />
-            )}
-            <Sparkles className={`w-5 h-5 mb-1 ${activeTab === "micro" ? "text-rose-600" : "text-slate-400"}`} />
-            <span className="text-[11.5px] font-bold tracking-tight">Микро</span>
-            <span className="text-[7.5px] font-extrabold text-slate-400 uppercase tracking-wider mt-0.5">Витамины</span>
-          </button>
-
-          {/* TAB 5: СОСТАВ */}
-          <button
-            onClick={() => setActiveTab("composition")}
-            className={`relative p-3 rounded-2xl border flex flex-col items-center justify-center text-center transition-all duration-300 min-h-[82px] cursor-pointer ${
-              activeTab === "composition"
-                ? "bg-emerald-50/50 border-emerald-250 shadow-sm text-emerald-950 scale-[1.02] font-black"
-                : "bg-white border-slate-100 hover:border-slate-200 text-slate-500 hover:text-slate-850"
-            }`}
-          >
-            {activeTab === "composition" && (
-              <span className="absolute top-2.5 right-2.5 w-1.5 h-1.5 rounded-full bg-[#10B981]" />
-            )}
-            <Utensils className={`w-5 h-5 mb-1 ${activeTab === "composition" ? "text-[#10B981]" : "text-slate-400"}`} />
-            <span className="text-[11.5px] font-bold tracking-tight">Состав</span>
-            <span className="text-[7.5px] font-extrabold text-slate-400 uppercase tracking-wider mt-0.5">Сырьё</span>
-          </button>
-
-          {/* TAB 6: ДИНАМИКА */}
-          <button
-            onClick={() => setActiveTab("dynamics")}
-            className={`relative p-3 rounded-2xl border flex flex-col items-center justify-center text-center transition-all duration-300 min-h-[82px] cursor-pointer ${
-              activeTab === "dynamics"
-                ? "bg-sky-50/50 border-sky-200 shadow-sm text-sky-850 scale-[1.02] font-black"
-                : "bg-white border-slate-100 hover:border-slate-200 text-slate-500 hover:text-slate-850"
-            }`}
-          >
-            {activeTab === "dynamics" && (
-              <span className="absolute top-2.5 right-2.5 w-1.5 h-1.5 rounded-full bg-sky-500" />
-            )}
-            <TrendingUp className={`w-5 h-5 mb-1 ${activeTab === "dynamics" ? "text-sky-600" : "text-slate-400"}`} />
-            <span className="text-[11.5px] font-bold tracking-tight">Динамика</span>
-            <span className="text-[7.5px] font-extrabold text-slate-400 uppercase tracking-wider mt-0.5">Ход дня</span>
-          </button>
-
+          {SOST_TABS.map((tab) => {
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                aria-selected={isActive}
+                aria-label={tab.title}
+                onClick={() => setActiveTab(tab.id)}
+                className={`relative flex flex-col items-center justify-center text-center rounded-2xl border transition-all duration-200 cursor-pointer py-1.5 px-1 min-h-[76px] ${
+                  isActive
+                    ? `${tab.active} shadow-[0_4px_14px_rgba(15,23,42,0.06)] -translate-y-0.5 font-black border-2`
+                    : "bg-white border-slate-100 hover:border-slate-200 text-slate-600 hover:text-slate-800 shadow-[0_2px_8px_rgba(15,23,42,0.04)] hover:shadow-[0_4px_12px_rgba(15,23,42,0.06)]"
+                }`}
+              >
+                {isActive && (
+                  <span className={`absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full ${tab.dot} shadow-sm`} />
+                )}
+                <img
+                  src={tab.img}
+                  alt={tab.title}
+                  loading="eager"
+                  draggable={false}
+                  className={`w-[54px] h-[54px] object-contain select-none pointer-events-none drop-shadow-[0_2px_5px_rgba(0,0,0,0.10)] ${
+                    isActive ? "drop-shadow-[0_3px_7px_rgba(0,0,0,0.14)] scale-105" : "opacity-95"
+                  }`}
+                />
+                <span className="text-[11.5px] font-bold tracking-tight leading-none mt-0.5">{tab.title}</span>
+                <span className="text-[7.5px] font-extrabold text-slate-400 uppercase tracking-wider mt-0.5 leading-none">{tab.subtitle}</span>
+              </button>
+            );
+          })}
         </div>
 
         {/* 4. ACTIVE SECTION CONTAINER */}
@@ -1212,10 +1253,22 @@ export default function StateNowScreen({
             <DynamicsTab
               key="dynamics"
               sleep={effSleep}
+              wakeTime={sleepWakeTime}
+              bedtime={sleepBedtime}
+              sleepLogs={rawSleepLogs}
               water={effWater}
+              waterTarget={waterTarget}
+              todayWaterEntries={waterLogData.todayWaterEntries || []}
+              breakfastLogs={dynamicsBreakfastLogs}
+              lunchLogs={dynamicsLunchLogs}
+              dinnerLogs={dynamicsDinnerLogs}
+              activityLogs={dynamicsMovementLogs}
               ratingEnergy={effRatingEnergy}
               ratingWellbeing={effRatingWellbeing}
               ratingLightness={effRatingLightness}
+              wellbeingLog={wellbeingLog}
+              energyLog={energyLog}
+              lightnessLog={lightnessLog}
               habitsDone={effHabitsDone}
               habitsTarget={habitsTarget}
               cookedBookDishes={cookedBookDishes}
@@ -1223,7 +1276,6 @@ export default function StateNowScreen({
               recommendedAction={recommendedAction}
               currentDayIndex={currentDayIndex}
               savedDishes={effSavedDishes}
-              activityLogs={activityLogs}
             />
           )}
         </AnimatePresence>
