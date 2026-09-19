@@ -1,3 +1,5 @@
+export const WATER_REFRACTORY_MIN = 45;
+
 export interface BioDialInput {
   waterMl: number;
   waterTarget: number;
@@ -15,6 +17,14 @@ export interface BioDialInput {
   hasDinner?: boolean;
   lastWaterTimestamp?: number;
   recommendedActionText?: string;
+  nextStationName?: string;
+  nextStationTime?: string;
+  // Поля обратной совместимости
+  nowMinutes?: number;
+  waterTargetMl?: number;
+  mealsLoggedCount?: number;
+  movementMinutes?: number;
+  schedule?: any;
 }
 
 export interface RingData {
@@ -47,6 +57,7 @@ export interface BioDialOutput {
     title: string;
     text: string;
     gainPct: number;
+    actionType?: string;
   };
   nextStation: {
     title: string;
@@ -69,6 +80,8 @@ export function calculateBioDialAdvice(input: BioDialInput): BioDialOutput {
     hasDinner = false,
     lastWaterTimestamp,
     recommendedActionText,
+    nextStationName: passedStationName,
+    nextStationTime: passedStationTime,
   } = input;
 
   // 1. Сон: 8 сегментов (каждый по 1 часу)
@@ -81,7 +94,10 @@ export function calculateBioDialAdvice(input: BioDialInput): BioDialOutput {
   // При наличии >= 180 мл зажигаем минимум 1 сегмент
   const waterGlassSize = Math.max(250, Math.round(waterTarget / 8));
   const waterTotalSeg = 8;
-  const waterLitSeg = waterMl <= 0 ? 0 : Math.min(waterTotalSeg, Math.max(1, Math.floor(waterMl / (waterGlassSize * 0.75))));
+  const waterLitSeg =
+    waterMl <= 0
+      ? 0
+      : Math.min(waterTotalSeg, Math.max(1, Math.floor(waterMl / (waterGlassSize * 0.75))));
   const waterPct = Math.min(100, Math.round((waterMl / waterTarget) * 100));
 
   // 3. Рацион: 4 сегмента (Завтрак, Обед, Ужин, Перекус/комплимент)
@@ -91,7 +107,10 @@ export function calculateBioDialAdvice(input: BioDialInput): BioDialOutput {
 
   // 4. Движение: 6 сегментов (по 5 минут)
   const toneTotalSeg = 6;
-  const toneLitSeg = activityMinutes > 0 ? Math.min(toneTotalSeg, Math.max(1, Math.round(activityMinutes / 5))) : 0;
+  const toneLitSeg =
+    activityMinutes > 0
+      ? Math.min(toneTotalSeg, Math.max(1, Math.round(activityMinutes / 5)))
+      : 0;
   const tonePct = Math.min(100, Math.round((activityMinutes / activityTarget) * 100));
 
   // Честный интегральный баланс суток: сумма 4 осей (каждая до 25%)
@@ -99,9 +118,9 @@ export function calculateBioDialAdvice(input: BioDialInput): BioDialOutput {
     100,
     Math.round(
       (sleepLitSeg / sleepTotalSeg) * 25 +
-      (waterLitSeg / waterTotalSeg) * 25 +
-      (nutritionLitSeg / nutritionTotalSeg) * 25 +
-      (toneLitSeg / toneTotalSeg) * 25
+        (waterLitSeg / waterTotalSeg) * 25 +
+        (nutritionLitSeg / nutritionTotalSeg) * 25 +
+        (toneLitSeg / toneTotalSeg) * 25
     )
   );
 
@@ -145,36 +164,50 @@ export function calculateBioDialAdvice(input: BioDialInput): BioDialOutput {
   // Умный фокус дня (не пинаем пить воду, если стакан был недавно)
   let focusText = "Выпить 250 мл воды";
   let focusGain = 3;
+  let focusActionType: string = "water";
 
   const msSinceLastWater = lastWaterTimestamp ? Date.now() - lastWaterTimestamp : Infinity;
-  const recentWaterDrink = msSinceLastWater < 45 * 60 * 1000; // меньше 45 минут назад
+  const recentWaterDrink = msSinceLastWater < WATER_REFRACTORY_MIN * 60 * 1000;
 
   if (recentWaterDrink && !hasBreakfast && hours < 12) {
     focusText = "Приготовить WFPB-завтрак";
     focusGain = 6;
+    focusActionType = "meal";
   } else if (recentWaterDrink && activityMinutes === 0) {
     focusText = "Утренняя разминка (10 мин)";
     focusGain = 4;
+    focusActionType = "activity";
   } else if (recommendedActionText) {
     focusText = recommendedActionText.replace(/\(\+\d+\%.*?\)/, "").trim();
+    if (/вод|250\s*мл/i.test(focusText)) {
+      focusActionType = "water";
+    } else if (/завтрак|обед|ужин|блюд|рецепт|питани|рацион/i.test(focusText)) {
+      focusActionType = "meal";
+    } else if (/активн|разминк|движен|ходьб/i.test(focusText)) {
+      focusActionType = "activity";
+    } else {
+      focusActionType = "other";
+    }
   }
 
-  // Умная следующая станция (опираемся на реальные приёмы пищи)
-  let nextStationName = "Завтрак WFPB";
-  let nextStationTime = "по графику";
+  // Умная следующая станция (с приоритетом переданной из хаба)
+  let nextStationName = passedStationName || "Завтрак WFPB";
+  let nextStationTime = passedStationTime || "по графику";
 
-  if (!hasBreakfast && hours < 12) {
-    nextStationName = "Завтрак WFPB";
-    nextStationTime = "до 11:30";
-  } else if (!hasLunch && hours < 16) {
-    nextStationName = "Обед WFPB";
-    nextStationTime = "13:00 – 15:00";
-  } else if (!hasDinner && hours < 21) {
-    nextStationName = "Ужин WFPB";
-    nextStationTime = "18:30 – 20:00";
-  } else {
-    nextStationName = "Отдых ЖКТ и сон";
-    nextStationTime = "после 21:30";
+  if (!passedStationName) {
+    if (!hasBreakfast && hours < 12) {
+      nextStationName = "Завтрак WFPB";
+      nextStationTime = "до 11:30";
+    } else if (!hasLunch && hours < 16) {
+      nextStationName = "Обед WFPB";
+      nextStationTime = "13:00 – 15:00";
+    } else if (!hasDinner && hours < 21) {
+      nextStationName = "Ужин WFPB";
+      nextStationTime = "18:30 – 20:00";
+    } else {
+      nextStationName = "Отдых ЖКТ и сон";
+      nextStationTime = "после 21:30";
+    }
   }
 
   return {
@@ -220,6 +253,7 @@ export function calculateBioDialAdvice(input: BioDialInput): BioDialOutput {
       title: "ФОКУС",
       text: focusText,
       gainPct: focusGain,
+      actionType: focusActionType,
     },
     nextStation: {
       title: "СЛЕДУЮЩАЯ СТАНЦИЯ",

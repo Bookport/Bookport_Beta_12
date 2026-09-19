@@ -6,23 +6,30 @@ import { NextStepRecommendation } from "../../utils/nextStepEngine";
 
 interface DynamicsTabProps {
   key?: any;
-  sleep: number;
-  water: number;
-  ratingEnergy: number;
-  ratingWellbeing: number;
-  ratingLightness: number;
-  habitsDone: number;
-  habitsTarget: number;
-  cookedBookDishes: {
-    id: string;
-    name: string;
-    category: string;
-  }[];
+  sleep?: any;
+  wakeTime?: string | null;
+  bedtime?: string | null;
+  sleepLogs?: any[];
+  water?: any;
+  waterTarget?: number;
+  todayWaterEntries?: any[];
+  breakfastLogs?: any[];
+  lunchLogs?: any[];
+  dinnerLogs?: any[];
+  ratingEnergy?: number;
+  ratingWellbeing?: number;
+  ratingLightness?: number;
+  wellbeingLog?: any[];
+  energyLog?: any[];
+  lightnessLog?: any[];
+  habitsDone?: number;
+  habitsTarget?: number;
+  cookedBookDishes?: any[];
   annaAnalysisText?: string;
   recommendedAction?: NextStepRecommendation;
   currentDayIndex?: number;
   savedDishes?: any[];
-  activityLogs?: { timestamp: number; durationSeconds: number }[];
+  activityLogs?: any[];
 }
 
 export default function DynamicsTab({
