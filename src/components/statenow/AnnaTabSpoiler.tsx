@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Sparkles, ChevronDown, ChevronUp, Brain } from "lucide-react";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { NextStepRecommendation } from "../../utils/nextStepEngine";
 import { resolveAvatarForTab, type StateNowTabId } from "../../utils/annaAvatarResolver";
@@ -8,8 +8,60 @@ interface AnnaTabSpoilerProps {
   tabId: StateNowTabId;
   tabName: string;
   analysisText: string;
-  recommendedAction: NextStepRecommendation;
+  recommendedAction?: NextStepRecommendation;
 }
+
+// Маппинг пастельных тем под каждую вкладку
+const TAB_THEMES: Record<StateNowTabId, {
+  containerBg: string;
+  badgeBg: string;
+  badgeText: string;
+  badgeBorder: string;
+  actionText: string;
+}> = {
+  balance: {
+    containerBg: "bg-[#F4FBF7]",
+    badgeBg: "bg-emerald-100/80",
+    badgeText: "text-emerald-800",
+    badgeBorder: "border-emerald-200/60",
+    actionText: "text-emerald-700 hover:text-emerald-800",
+  },
+  scales: {
+    containerBg: "bg-[#FFFDF5]",
+    badgeBg: "bg-amber-100/80",
+    badgeText: "text-amber-800",
+    badgeBorder: "border-amber-200/60",
+    actionText: "text-amber-700 hover:text-amber-800",
+  },
+  kbju: {
+    containerBg: "bg-[#FFF9F2]",
+    badgeBg: "bg-orange-100/80",
+    badgeText: "text-orange-800",
+    badgeBorder: "border-orange-200/60",
+    actionText: "text-orange-700 hover:text-orange-800",
+  },
+  micro: {
+    containerBg: "bg-[#FFF5F7]",
+    badgeBg: "bg-rose-100/80",
+    badgeText: "text-rose-800",
+    badgeBorder: "border-rose-200/60",
+    actionText: "text-rose-700 hover:text-rose-800",
+  },
+  composition: {
+    containerBg: "bg-[#F2FAF6]",
+    badgeBg: "bg-teal-100/80",
+    badgeText: "text-teal-800",
+    badgeBorder: "border-teal-200/60",
+    actionText: "text-teal-700 hover:text-teal-800",
+  },
+  dynamics: {
+    containerBg: "bg-[#F0F7FF]",
+    badgeBg: "bg-sky-100/80",
+    badgeText: "text-sky-800",
+    badgeBorder: "border-sky-200/60",
+    actionText: "text-sky-700 hover:text-sky-800",
+  },
+};
 
 export default function AnnaTabSpoiler({
   tabId,
@@ -20,14 +72,16 @@ export default function AnnaTabSpoiler({
   const [isExpanded, setIsExpanded] = useState(false);
 
   const annaAvatar = resolveAvatarForTab(tabId);
+  const theme = TAB_THEMES[tabId] ?? TAB_THEMES.balance;
 
   return (
-    <div className="bg-white rounded-[28px] shadow-[0_8px_24px_rgba(43,49,55,0.02)] p-5 border border-gray-100/50 text-left relative overflow-hidden transition-all duration-300">
+    <div className={`${theme.containerBg} border border-white shadow-[0_4px_20px_rgba(15,23,42,0.05)] rounded-[28px] p-3.5 sm:p-4 relative overflow-hidden font-sans antialiased text-slate-800 transition-colors duration-200`}>
       <div className="absolute -top-10 -right-10 w-28 h-28 bg-[#16B551]/3 rounded-full blur-[20px] pointer-events-none" />
       
-      <div className="flex items-start gap-4 relative z-10">
-        <div className="relative shrink-0">
-          <div className="w-11 h-11 rounded-full overflow-hidden border border-slate-100/80 shadow-xs">
+      {/* Шапка карточки */}
+      <div className="flex items-center justify-between gap-3 relative z-10 w-full mb-3">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="w-10 h-10 rounded-full overflow-hidden border border-white shadow-xs shrink-0">
             <img 
               src={annaAvatar.src}
               alt="Анна советует" 
@@ -35,82 +89,74 @@ export default function AnnaTabSpoiler({
               referrerPolicy="no-referrer"
             />
           </div>
-          <div className="absolute -bottom-1 -right-1 w-4.5 h-4.5 rounded-full bg-emerald-600 border border-white flex items-center justify-center text-[9px] shadow-sm select-none">
-            🧘
+          <div className="flex flex-col min-w-0">
+            <span className="text-[14px] font-bold text-slate-800 leading-tight">Анна</span>
+            <span className="text-[11px] text-slate-500 font-medium leading-tight">Советник WFPB</span>
           </div>
         </div>
 
-        <div className="flex-1 text-left font-sans">
-          <div className="flex items-center justify-between mb-0.5">
-            <div className="flex flex-col">
-              <span className="text-[15px] font-black text-slate-900 leading-none">Анна</span>
-              <span className="text-[11px] font-bold text-slate-400 mt-1 leading-none">Советник WFPB</span>
-            </div>
-            <span className="text-[9px] font-extrabold text-emerald-600 bg-emerald-50/70 border border-emerald-100/60 px-2.5 py-0.5 rounded-full uppercase tracking-wider font-mono shrink-0">
-              Анализ • {tabName}
-            </span>
-          </div>
+        <span className={`whitespace-nowrap px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${theme.badgeBg} ${theme.badgeText} border ${theme.badgeBorder} select-none shrink-0`}>
+          {tabName}
+        </span>
+      </div>
 
-          <div className="mt-2.5">
-            <AnimatePresence mode="wait">
-              {!isExpanded ? (
-                <motion.div 
-                  key="collapsed"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  onClick={() => setIsExpanded(true)} 
-                  className="cursor-pointer group text-left"
+      {/* Текстовый блок на всю ширину плашки */}
+      <div className="w-full relative z-10 text-left">
+        <AnimatePresence mode="wait">
+          {!isExpanded ? (
+            <motion.div 
+              key="collapsed"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsExpanded(true)} 
+              className="cursor-pointer group text-left"
+            >
+              <div className="bg-white rounded-2xl p-3.5 shadow-xs border border-slate-100/80 w-full">
+                <p className="text-[12.5px] sm:text-[13px] text-slate-700 leading-relaxed font-normal line-clamp-2">
+                  {analysisText}
+                </p>
+              </div>
+              <div className="flex justify-end mt-2.5">
+                <button 
+                  type="button"
+                  className={`flex items-center gap-1 text-[11.5px] font-extrabold ${theme.actionText} transition-colors bg-transparent border-none p-0 cursor-pointer`}
                 >
-                  <p className="text-[13px] sm:text-[13.5px] text-slate-650 leading-relaxed font-semibold hover:text-slate-850 transition-colors">
-                    «Твои показатели за сегодня по вкладке "{tabName}" имеют важные взаимосвязи. Давай разберем, о чем говорят эти цифры...»
-                  </p>
-                  <button 
-                    type="button"
-                    className="mt-2 flex items-center gap-1 text-[11.5px] font-extrabold text-[#10B981] hover:text-[#0c9063] transition-colors bg-transparent border-none p-0 cursor-pointer"
-                  >
-                    <span>Читать полный разбор</span>
-                    <ChevronDown className="w-3.5 h-3.5" />
-                  </button>
-                </motion.div>
-              ) : (
-                <motion.div 
-                  key="expanded"
-                  initial={{ opacity: 0-0.1, y: 4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 4 }}
-                  className="space-y-4 text-left"
+                  <span>Читать полный разбор</span>
+                  <ChevronDown className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </motion.div>
+          ) : (
+            <motion.div 
+              key="expanded"
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 4 }}
+              className="space-y-3 text-left w-full"
+            >
+              <div className="bg-white rounded-2xl p-4 shadow-xs border border-slate-100/80 w-full">
+                <p className="text-[12.5px] sm:text-[13px] text-slate-700 leading-relaxed font-normal whitespace-pre-line">
+                  {analysisText}
+                </p>
+              </div>
+
+              <div className="flex justify-end mt-2.5">
+                <button 
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsExpanded(false);
+                  }}
+                  className="flex items-center gap-1 text-[11.5px] font-extrabold text-slate-400 hover:text-slate-600 transition-colors bg-transparent border-none p-0 cursor-pointer"
                 >
-                  <p className="text-[13px] sm:text-[13.5px] text-slate-750 leading-relaxed font-semibold whitespace-pre-line">
-                    {analysisText}
-                  </p>
-
-                  <div className="p-3.5 bg-slate-50 border border-slate-100/50 rounded-2xl text-[12.5px] text-slate-650 font-medium">
-                    <div className="flex items-center gap-1.5 font-bold text-slate-800 mb-1 select-none">
-                      <Sparkles className="w-3.5 h-3.5 text-[#10B981] animate-pulse" />
-                      <span>Взаимосвязь систем дня:</span>
-                    </div>
-                    <p className="leading-relaxed opacity-95">
-                      {recommendedAction.reasoning}
-                    </p>
-                  </div>
-
-                  <button 
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setIsExpanded(false);
-                    }}
-                    className="flex items-center gap-1 text-[11.5px] font-extrabold text-slate-400 hover:text-slate-600 transition-colors bg-transparent border-none p-0 cursor-pointer"
-                  >
-                    <span>Скрыть аналитический разбор</span>
-                    <ChevronUp className="w-3.5 h-3.5" />
-                  </button>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-        </div>
+                  <span>Скрыть аналитический разбор</span>
+                  <ChevronUp className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );
