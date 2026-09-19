@@ -470,7 +470,7 @@ const ProductCardShell: React.FC<ProductCardProps> = ({
           {/* Header with title and info button */}
           <div className="flex items-start justify-between mb-2">
             <div className="flex flex-col min-w-0 flex-1">
-              <h4 className="text-[17px] sm:text-[18px] font-extrabold text-slate-800 leading-tight truncate">
+              <h4 className="text-[15px] sm:text-[17px] font-extrabold text-slate-800 leading-snug break-words whitespace-normal line-clamp-2">
                 {cardNumber}. {title}
               </h4>
               <p className="text-[12px] sm:text-[12.5px] text-slate-500 font-medium leading-normal mt-0.5 break-words">

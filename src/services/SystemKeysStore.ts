@@ -284,20 +284,22 @@ export class SystemKeysStore {
     // must NEVER be auto-filled by cooked recipes or auto-detected ingredients.
     const manualOnlyKeys = new Set(["sprouts", "must_have"]);
 
-    // Calculate healthy_drinks auto progress from ALL cooked DRINKS_RECIPES (any day)
-    // User can cook any drink recipe from the Book, not limited to current day's assignment
+    // Isolated day-bound savedDishes: only dishes explicitly bound to currentDayIndex count
+    // Strictly no global cooked scan — fixes false "Выполнено" on Day 28 with empty menu
+    const todaySavedDishes = (savedDishes || []).filter((d: any) => {
+      const dDay = d?.dayIndex ?? (d as any)?.current_day;
+      if (dDay === undefined || dDay === null) return false;
+      return Number(dDay) === Number(currentDayIndex);
+    });
+
+    // Calculate healthy_drinks auto progress ONLY for current day (isolated consumer)
     let cookedDrinksMl = 0;
-    if (drinksState && Array.isArray(DRINKS_RECIPES)) {
-      Object.entries(drinksState).forEach(([recipeId, state]: [string, any]) => {
-        if (state?.status === "cooked") {
-          const recipe = DRINKS_RECIPES.find(r => r.id === parseInt(recipeId));
-          // Count ANY cooked drink recipe, regardless of its assigned day in the Book
-          if (recipe) {
-            cookedDrinksMl += 200;
-          }
-        }
-      });
-    }
+    todaySavedDishes.forEach((d: any) => {
+      const t = d?.bookRecipeRef?.type || (d as any)?.bookRecipeType || (d as any)?.sourceType;
+      const tag = d?.tag || d?.category;
+      const isDrink = t === "drinks" || tag === "Напитки" || tag === "Напиток" || tag === "Напиток дня";
+      if (isDrink) cookedDrinksMl += 200;
+    });
     autoGramsMap["healthy_drinks"] = cookedDrinksMl;
 
     // 4. Load manual inputs / toggle overrides for this day
@@ -325,9 +327,18 @@ export class SystemKeysStore {
       }
     });
 
-    const isRecipeOfDayCooked = Object.keys(recipeOfDayState).some(k => recipeOfDayState[k]?.status === "cooked");
+    // Day-bound checks via todaySavedDishes only — no global Object.keys(...cooked) scan
+    const isRecipeOfDayCooked = todaySavedDishes.some((d: any) => {
+      const t = d?.bookRecipeRef?.type || (d as any)?.bookRecipeType || (d as any)?.sourceType;
+      const tag = d?.tag;
+      return t === "recipe_of_day" || tag === "Рецепт дня";
+    });
 
-    const isComplimentGiven = Object.keys(complimentsState).some(k => complimentsState[k]?.status === "cooked");
+    const isComplimentGiven = todaySavedDishes.some((d: any) => {
+      const t = d?.bookRecipeRef?.type || (d as any)?.bookRecipeType || (d as any)?.sourceType;
+      const tag = d?.tag || d?.category;
+      return t === "compliment" || tag === "Комплименты" || tag === "Комплимент дня" || tag === "Комплимент";
+    });
 
     const keys: SystemKeyProgress[] = SYSTEM_KEY_DEFS.map(def => {
       let autoGrams = 0;
@@ -342,14 +353,22 @@ export class SystemKeysStore {
         }
         manualGrams = manualInputs[def.id]?.manualGrams || 0;
       } else {
-        checked = manualInputs[def.id]?.checked || false;
-
-        // Auto overrides for actions to make application fully integrated and smart
-        if (def.id === "recipe" && isRecipeOfDayCooked) {
+        // Manual override has absolute priority: explicit checked:false must NOT be overwritten by auto
+        const manualEntry: any = (manualInputs as any)[def.id];
+        const hasManualChecked = manualEntry && typeof manualEntry.checked === "boolean";
+        if (hasManualChecked && manualEntry.checked === false) {
+          checked = false;
+        } else if (hasManualChecked && manualEntry.checked === true) {
           checked = true;
-        }
-        if (def.id === "compliment" && isComplimentGiven) {
-          checked = true;
+        } else {
+          checked = false;
+          // Auto only when no explicit manual choice exists
+          if (def.id === "recipe" && isRecipeOfDayCooked) {
+            checked = true;
+          }
+          if (def.id === "compliment" && isComplimentGiven) {
+            checked = true;
+          }
         }
       }
 
