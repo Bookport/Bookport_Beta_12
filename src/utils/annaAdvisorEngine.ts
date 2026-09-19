@@ -474,7 +474,7 @@ export const HYDRATION_SUCCESS: string[] = [
 
 export function buildAnnaBalanceAnalysis(input: AnnaAnalysisInput, daySeed: number = 0): string {
   const intro = pickVariant(BALANCE_P1_INTRO, daySeed);
-  const foodTemplate = pickVariant(BALANCE_FOOD_VARIANTS, daySeed + 1);
+  const foodTemplate = pickVariant(BALANCE_P2_FOOD, daySeed + 1);
   const microTemplate = pickVariant(BALANCE_P3_MICROS, daySeed + 2);
   const bioTemplate = pickVariant(BALANCE_P4_BIO, daySeed + 3);
 
