@@ -32,6 +32,8 @@ import { getPlural } from "../utils/pluralize";
 import { formatTimeHM, todayLocalDate, toLocalDate } from "../shared/dates";
 import { getUserTimeZone } from "../shared/timeZoneStore";
 import { buildAnnaBalanceAnalysis, buildAnnaTabAnalysis } from "../utils/annaAdvisorEngine";
+import { calculateBioDialAdvice } from "../utils/bioDialAdvisorEngine";
+import BiometricDialWidget from "./statenow/BiometricDialWidget";
 
 interface StateNowScreenProps {
   dayNotes: Record<number, { text: string; time: string }[]>;
@@ -396,12 +398,33 @@ export default function StateNowScreen({
     }
   }
 
-  // Custom Dishes from DIY / From What Is modules — strictly scoped to currentDayIndex
+  // R1/R2: helpers for hub aggregation — protect against strict gate drops
+  const parseFiniteOrZero = (v: unknown): number => {
+    if (typeof v === "number") return Number.isFinite(v) ? v : 0;
+    if (typeof v === "string") {
+      const clean = v.replace(",", ".").replace(/[^\d.-]/g, "").trim();
+      const n = parseFloat(clean);
+      return Number.isFinite(n) ? n : 0;
+    }
+    return 0;
+  };
+  const parseFiniteOrNull = (v: unknown): number | null => {
+    if (typeof v === "number") return Number.isFinite(v) ? v : null;
+    if (typeof v === "string") {
+      const clean = v.replace(",", ".").replace(/[^\d.-]/g, "").trim();
+      const n = parseFloat(clean);
+      return Number.isFinite(n) ? n : null;
+    }
+    return null;
+  };
+  const isRealMixerDish = (d: any) => d?.sourceType === "mixer" || d?.category === "Миксер";
+
+  // Custom Dishes from DIY / From What Is modules — strictly scoped to currentDayIndex, R1 protection
   const todayCustomDishes = (effSavedDishes || [])
     .filter(dish => {
       if (dish.isBookRecipe) return false;
-      if (dish.sourceType === "mixer") return false;
-      if (dish.category === "Миксер") return false;
+      if (isRealMixerDish(dish)) return false;
+      if (parseFiniteOrZero(dish.calories) <= 0) return false;
       // Strict day scoping: only dishes cooked on currentDayIndex
       if (dish.dayIndex === currentDayIndex || (dish as any).current_day === currentDayIndex) return true;
       // Legacy fallback — only for day 1: dishes without dayIndex that match today's local date
@@ -418,10 +441,11 @@ export default function StateNowScreen({
         category: dish.category,
         image: dish.image,
         ingredients: typeof dish.ingredients === 'string' ? JSON.parse(dish.ingredients) : dish.ingredients,
-        calories: dish.calories,
-        protein: dish.protein,
-        fat: dish.fat,
-        fiber: dish.fiber,
+        calories: parseFiniteOrZero(dish.calories),
+        protein: dish.protein != null ? String(dish.protein) : "0",
+        fat: dish.fat != null ? String(dish.fat) : "0",
+        fiber: dish.fiber != null ? String(dish.fiber) : "0",
+        carbohydrates: (dish as any).carbohydrates,
         time: dish.time || (dish.createdAt
           ? formatTimeHM(dish.createdAt, getUserTimeZone())
           : "")
@@ -473,11 +497,27 @@ export default function StateNowScreen({
     }
   );
 
-  const totalCalories = dbData.totalCalories;
-  const totalProtein = dbData.totalProtein;
-  const totalFat = dbData.totalFat;
-  const totalCarbohydrates = dbData.totalCarbohydrates;
-  const totalFiber = dbData.totalFiber;
+  // R2: корректор КБЖУ — компенсация строгого гейта DailyNutritionStore для todayCustomDishes
+  const dbLoggedIds = new Set(dbData.logs.map(l => l.dishId));
+  let r1ExtraCalories = 0, r1ExtraProtein = 0, r1ExtraFat = 0, r1ExtraCarb = 0, r1ExtraFiber = 0;
+  for (const d of todayCustomDishes) {
+    if (!dbLoggedIds.has(d.id)) {
+      r1ExtraCalories += parseFiniteOrZero(d.calories);
+      r1ExtraProtein += parseFiniteOrZero(d.protein);
+      r1ExtraFat += parseFiniteOrZero(d.fat);
+      r1ExtraCarb += parseFiniteOrZero((d as any).carbohydrates);
+      r1ExtraFiber += parseFiniteOrZero(d.fiber);
+    }
+  }
+  // debug hint for R1/R2 (visible in console when extra macros applied)
+  if (r1ExtraCalories > 0) {
+    try { console.debug("[StateNow:R2] r1Extra", { r1ExtraCalories, r1ExtraProtein, r1ExtraFat, r1ExtraCarb, r1ExtraFiber }); } catch {}
+  }
+  const totalCalories = dbData.totalCalories + Math.round(r1ExtraCalories);
+  const totalProtein = +(dbData.totalProtein + r1ExtraProtein).toFixed(1);
+  const totalFat = +(dbData.totalFat + r1ExtraFat).toFixed(1);
+  const totalCarbohydrates = +(dbData.totalCarbohydrates + r1ExtraCarb).toFixed(1);
+  const totalFiber = +(dbData.totalFiber + r1ExtraFiber).toFixed(1);
 
   const dayVitA = dbData.vitamins.vitA;
   const dayVitC = dbData.vitamins.vitC;
@@ -746,6 +786,35 @@ export default function StateNowScreen({
     timeZone: getUserTimeZone(),
   });
 
+  // Hub-derived meal flags for bioDial contract (read-only hub)
+  const hubHasBreakfast = effMealCount > 0;
+  const hubHasLunch = effMealCount > 1;
+  const hubHasDinner = effMealCount > 2;
+  const hubNextStation = (() => {
+    const h = currentHour;
+    if (!hubHasBreakfast && h < 12) return { stationName: "Завтрак WFPB", timeRemainingText: "до 11:30" };
+    if (!hubHasLunch && h < 16) return { stationName: "Обед WFPB", timeRemainingText: "13:00 – 15:00" };
+    if (!hubHasDinner && h < 21) return { stationName: "Ужин WFPB", timeRemainingText: "18:30 – 20:00" };
+    return { stationName: "Отдых ЖКТ и сон", timeRemainingText: "после 21:30" };
+  })();
+
+  // Correct bioDial contract — uses hub-computed stations and timeZone
+  const bioDialAdvice = calculateBioDialAdvice({
+    waterMl: effWater,
+    waterTarget,
+    sleepMinutes: effSleep,
+    cookedDishesCount: effMealCount,
+    activityMinutes,
+    hasBreakfast: hubHasBreakfast,
+    hasLunch: hubHasLunch,
+    hasDinner: hubHasDinner,
+    lastWaterTimestamp: waterLogData.lastWaterTimestamp,
+    timeZone: getUserTimeZone(),
+    nextStationName: hubNextStation.stationName,
+    nextStationTime: hubNextStation.timeRemainingText,
+    recommendedActionText: (recommendedAction as any)?.title,
+  });
+
   const triggerNotification = (msg: string) => {
     setNotificationMsg(msg);
     setShowNotification(true);
@@ -836,9 +905,7 @@ export default function StateNowScreen({
             </h1>
           </div>
 
-          <div className="w-10 h-10 rounded-full bg-[#E8F8EE] flex items-center justify-center text-[18px]">
-            🧘
-          </div>
+          <div className="w-10 h-10 rounded-full bg-[#E8F8EE] border border-emerald-100/60 shadow-sm" />
         </div>
 
         {isReadOnly && (
@@ -1160,14 +1227,6 @@ export default function StateNowScreen({
             />
           )}
         </AnimatePresence>
-
-        {/* 5. EVENING SIGNATURE / NOTICES block */}
-        <div className="px-4 py-3 border border-slate-100 bg-slate-50/50 rounded-2xl mt-6 flex items-center gap-3 text-left font-sans">
-          <Info className="text-slate-400 w-4 h-4 shrink-0 animate-pulse" />
-          <p className="text-[11px] md:text-[11.5px] text-slate-400 leading-relaxed font-semibold">
-            Ближе к вечеру этот экран трансформируется в сессию итогового подведения итогов дня и подготовки нервной системы ко входу в глубокие фазы мелатонинового сна.
-          </p>
-        </div>
 
       </div>
 
