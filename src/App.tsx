@@ -490,8 +490,8 @@ export default function App() {
   const [currentDayIndex, setCurrentDayIndex] = useState<number>(1);
   const [viewingDayIndex, setViewingDayIndex] = useState<number | null>(null);
 
-  const activeDayIndex = viewingDayIndex ?? currentDayIndex;
-  const isReadOnly = viewingDayIndex !== null && viewingDayIndex < currentDayIndex;
+  const activeDayIndex = viewingDayIndex ?? Math.min(currentDayIndex, 28);
+  const isReadOnly = (viewingDayIndex !== null && viewingDayIndex < currentDayIndex) || currentDayIndex >= 29;
 
   const [dayNotes, setDayNotes] = useState<Record<number, { text: string; time: string; [key: string]: any }[]>>({});
   const isCalendarOpen = useAppStore((s) => s.isCalendarOpen);

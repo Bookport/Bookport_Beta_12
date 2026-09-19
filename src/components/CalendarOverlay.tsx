@@ -123,10 +123,10 @@ export default function CalendarOverlay({
 
             {/* Days Grid — only past and current days */}
             <div className="grid grid-cols-7 gap-1.5 mb-4">
-              {Array.from({ length: currentDayIndex }).map((_, i) => {
+              {Array.from({ length: Math.min(currentDayIndex, 28) }).map((_, i) => {
                 const dayNum = i + 1;
                 const hasNote = dayNotes[dayNum]?.length > 0;
-                const isCurrent = dayNum === currentDayIndex;
+                const isCurrent = dayNum === currentDayIndex && currentDayIndex <= 28;
                 const isViewing = viewingDayIndex === dayNum;
                 const noteColors = hasNote ? getNoteDayColor(dayNum) : null;
                 
