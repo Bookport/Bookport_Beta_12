@@ -1032,7 +1032,7 @@ export default function StateNowScreen({
   });
 
   return (
-    <div className="flex-1 flex flex-col justify-between bg-[#FAFBFB] relative min-h-screen">
+    <div className="flex-1 flex flex-col justify-between bg-[#FAFBFB] relative min-h-[100dvh]">
       
       {/* Toast Notification Container */}
       <AnimatePresence>
@@ -1058,7 +1058,7 @@ export default function StateNowScreen({
       </AnimatePresence>
 
       {/* Main scrollable workspace */}
-      <div className="flex-1 overflow-y-auto px-5 pb-32 scrollbar-none">
+      <div className="flex-1 overflow-y-auto px-2.5 pb-32 scrollbar-none">
         
         {/* Header Block */}
         <div className="flex items-center justify-between pt-5 pb-4 mb-2">

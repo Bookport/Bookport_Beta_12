@@ -1088,28 +1088,16 @@ export default function App() {
       <GlobalNotificationOverlay />
       <DigestionModal />
       <div 
-        className={[
-          "text-text-main transition-colors duration-300 pointer-events-auto",
-          isTelegram ? "bg-white" : "min-h-screen bg-[#F0F3F5] flex items-center justify-center py-6 px-4 md:py-10",
-        ].join(" ")}
+        className="w-full min-h-[100dvh] bg-[#F0F3F5] flex justify-center items-stretch text-text-main transition-colors duration-300 pointer-events-auto relative overflow-x-hidden"
         style={{ fontFamily: '"Calibri", "Candara", "Segoe UI", system-ui, sans-serif' }}
       >
-      {!isTelegram && (
-        <>
-      <div className="absolute top-10 left-10 w-96 h-96 bg-brand-green-bright/3 rounded-full blur-[100px] pointer-events-none" />
-      <div className="absolute bottom-10 right-10 w-96 h-96 bg-brand-green-mint/3 rounded-full blur-[100px] pointer-events-none" />
-        </>
-      )}
+        <div className="absolute top-10 left-10 w-96 h-96 bg-brand-green-bright/3 rounded-full blur-[100px] pointer-events-none" />
+        <div className="absolute bottom-10 right-10 w-96 h-96 bg-brand-green-mint/3 rounded-full blur-[100px] pointer-events-none" />
 
-      {/* Main viewport Container (No device notched borders or system status overlays, purely the screen UI content) */}
-      <motion.div 
-        className={
-          isTelegram
-            ? "w-full min-h-screen bg-white flex flex-col"
-            : "w-full max-w-[420px] bg-white rounded-[40px] shadow-[0_24px_54px_-10px_rgba(43,49,55,0.08),_0_12px_24px_-12px_rgba(0,0,0,0.03)] border border-gray-100/50 flex flex-col justify-between overflow-hidden relative"
-        }
-        style={isTelegram ? {} : { minHeight: "844px" }}
-      >
+        {/* Main viewport Container: адаптивная высота 100dvh и капсула max-w-[440px] */}
+        <motion.div 
+          className="w-full max-w-[440px] min-h-[100dvh] bg-white flex flex-col justify-between relative shadow-[0_0_40px_rgba(15,23,42,0.06)] sm:border-x sm:border-slate-200/70"
+        >
         
         {/* Top Spacer element representing the status bar region - completely clean empty area of the interface itself */}
         <div className="h-4 w-full" />
