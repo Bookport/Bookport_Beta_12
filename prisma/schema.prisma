@@ -122,7 +122,7 @@ model DailyMetric {
 
   digestionLogs DigestionLog[]
 
-  @@unique([userId, date])
+  @@unique([userId, cycleNumber, date])
   @@index([userId, cycleNumber])
 }
 
@@ -164,7 +164,7 @@ model DailyRating {
   energyLog    String?
   lightnessLog String?
 
-  @@unique([userId, date])
+  @@unique([userId, cycleNumber, date])
   @@index([userId, cycleNumber])
 }
 
@@ -199,7 +199,7 @@ model RecipeProgress {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  @@unique([userId, bookRecipeType, bookRecipeId])
+  @@unique([userId, cycleNumber, bookRecipeType, bookRecipeId])
   @@index([userId, cycleNumber])
 }
 

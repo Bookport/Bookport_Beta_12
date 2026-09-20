@@ -2130,11 +2130,11 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
   app.get("/api/user/data", async (req, res) => {
     if (!req.userId) return res.status(400).json({ error: "Missing device ID" });
     try {
-      const [user, dishes, diary, recipeProgress, userAchievements] = await Promise.all([
-        prisma.user.findUnique({ where: { id: req.userId } }),
-        prisma.savedDish.findMany({ where: { userId: req.userId }, orderBy: { createdAt: "desc" }, take: 50 }),
-        prisma.diaryEntry.findMany({ where: { userId: req.userId }, orderBy: { createdAt: "desc" }, take: 50 }),
-        prisma.recipeProgress.findMany({ where: { userId: req.userId } }),
+      const user = await prisma.user.findUnique({ where: { id: req.userId } });
+      const [dishes, diary, recipeProgress, userAchievements] = await Promise.all([
+        prisma.savedDish.findMany({ where: { userId: req.userId, cycleNumber: user!.cycleNumber }, orderBy: { createdAt: "desc" }, take: 50 }),
+        prisma.diaryEntry.findMany({ where: { userId: req.userId, cycleNumber: user!.cycleNumber }, orderBy: { createdAt: "desc" }, take: 50 }),
+        prisma.recipeProgress.findMany({ where: { userId: req.userId, cycleNumber: user!.cycleNumber } }),
         prisma.userAchievement.findMany({ where: { userId: req.userId, unlocked: true }, select: { achievementId: true } }),
       ]);
 
@@ -2185,25 +2185,26 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
     try {
       const dayIndex = parseInt(req.query.dayIndex as string) || 1;
 
-      const [user, dishes, diary, recipeProgress, dailyMetric] = await Promise.all([
-        prisma.user.findUnique({ where: { id: req.userId } }),
-        prisma.savedDish.findMany({ where: { userId: req.userId }, orderBy: { createdAt: "desc" }, take: 50 }),
-        prisma.diaryEntry.findMany({ where: { userId: req.userId, dayIndex }, orderBy: { createdAt: "desc" } }),
-        prisma.recipeProgress.findMany({ where: { userId: req.userId } }),
-        prisma.dailyMetric.findFirst({ where: { userId: req.userId, dayIndex }, orderBy: { date: "desc" } }),
+      const user = await prisma.user.findUnique({ where: { id: req.userId } });
+      const [dishes, diary, recipeProgress, dailyMetric] = await Promise.all([
+        prisma.savedDish.findMany({ where: { userId: req.userId, cycleNumber: user!.cycleNumber }, orderBy: { createdAt: "desc" }, take: 50 }),
+        prisma.diaryEntry.findMany({ where: { userId: req.userId, cycleNumber: user!.cycleNumber, dayIndex }, orderBy: { createdAt: "desc" } }),
+        prisma.recipeProgress.findMany({ where: { userId: req.userId, cycleNumber: user!.cycleNumber } }),
+        prisma.dailyMetric.findFirst({ where: { userId: req.userId, cycleNumber: user!.cycleNumber, dayIndex }, orderBy: { date: "desc" } }),
       ]);
 
       // Rating: exact (userId + dayIndex) lookup first, then legacy fallback for
       // rows with dayIndex IS NULL scoped to the correct local day range.
       const todayLocal = todayLocalDate(user?.timeZone || DEFAULT_TIMEZONE);
       let dailyRating = await prisma.dailyRating.findFirst({
-        where: { userId: req.userId, dayIndex },
+        where: { userId: req.userId, cycleNumber: user!.cycleNumber, dayIndex },
         orderBy: { date: "desc" },
       });
       if (!dailyRating) {
         dailyRating = await prisma.dailyRating.findFirst({
           where: {
             userId: req.userId,
+            cycleNumber: user!.cycleNumber,
             dayIndex: null,
             date: { gte: toDateOnly(todayLocal), lt: addDays(todayLocal, 1) },
           },
@@ -2277,11 +2278,12 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
         return res.status(400).json({ error: "Invalid dayIndex: expected integer 1..28" });
       }
       const dateValue = toDateOnly(date);
+      const user = await prisma.user.findUnique({ where: { id: req.userId } });
 
       const runTransaction = async (): Promise<any> => {
         return prisma.$transaction(async (tx) => {
           const existing = await tx.dailyMetric.findUnique({
-            where: { userId_date: { userId: req.userId!, date: dateValue } },
+            where: { userId_cycleNumber_date: { userId: req.userId!, cycleNumber: user!.cycleNumber, date: dateValue } },
           });
 
           // Deterministic union + dedupe + canonical sort for every journal.
@@ -2348,7 +2350,7 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
           }
 
           const record = await tx.dailyMetric.upsert({
-            where: { userId_date: { userId: req.userId!, date: dateValue } },
+            where: { userId_cycleNumber_date: { userId: req.userId!, cycleNumber: user!.cycleNumber, date: dateValue } },
             update: {
               dayIndex: normDayIndex ?? existing?.dayIndex,
               waterMl: newWaterMl,
@@ -2368,6 +2370,7 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
             },
             create: {
               userId: req.userId!,
+              cycleNumber: user!.cycleNumber,
               date: dateValue,
               dayIndex: normDayIndex ?? 1,
               waterMl: newWaterMl,
@@ -2451,8 +2454,9 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
   app.get("/api/metrics/daily", async (req, res) => {
     if (!req.userId) return res.status(400).json({ error: "Missing device ID" });
     try {
+      const user = await prisma.user.findUnique({ where: { id: req.userId } });
       const records = await prisma.dailyMetric.findMany({
-        where: { userId: req.userId },
+        where: { userId: req.userId, cycleNumber: user!.cycleNumber },
         orderBy: { date: "desc" },
         take: 30,
       });
@@ -2483,11 +2487,12 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
         return res.status(400).json({ error: "Invalid dayIndex: expected integer 1..28" });
       }
       const dateValue = toDateOnly(date);
+      const user = await prisma.user.findUnique({ where: { id: req.userId } });
 
       // Atomic merge of rating log entries inside a transaction.
       const record = await prisma.$transaction(async (tx) => {
         const existing = await tx.dailyRating.findUnique({
-          where: { userId_date: { userId: req.userId!, date: dateValue } },
+          where: { userId_cycleNumber_date: { userId: req.userId!, cycleNumber: user!.cycleNumber, date: dateValue } },
         });
 
         const pushLogEntry = (log: any[], item: any): any[] => {
@@ -2524,10 +2529,11 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
         };
 
         return tx.dailyRating.upsert({
-          where: { userId_date: { userId: req.userId!, date: dateValue } },
+          where: { userId_cycleNumber_date: { userId: req.userId!, cycleNumber: user!.cycleNumber, date: dateValue } },
           update: { ...updateData, dayIndex: normDayIndex ?? undefined },
           create: {
             userId: req.userId!,
+            cycleNumber: user!.cycleNumber,
             date: dateValue,
             dayIndex: normDayIndex ?? null,
             ...updateData,
@@ -2547,16 +2553,18 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
     if (!req.userId) return res.status(400).json({ error: "Missing device ID" });
     try {
       const { bookRecipeType, bookRecipeId, status, note, tags, dayIndex } = req.body;
+      const user = await prisma.user.findUnique({ where: { id: req.userId } });
       const record = await prisma.recipeProgress.upsert({
         where: {
-          userId_bookRecipeType_bookRecipeId: {
+          userId_cycleNumber_bookRecipeType_bookRecipeId: {
             userId: req.userId,
+            cycleNumber: user!.cycleNumber,
             bookRecipeType,
             bookRecipeId,
           },
         },
-        update: { status, note, tags: tags ? JSON.stringify(tags) : undefined, dayIndex },
-        create: { userId: req.userId, bookRecipeType, bookRecipeId, status, note, tags: tags ? JSON.stringify(tags) : undefined, dayIndex },
+        update: { status, note, tags: tags ? JSON.stringify(tags) : undefined, dayIndex, cycleNumber: user!.cycleNumber },
+        create: { userId: req.userId, cycleNumber: user!.cycleNumber, bookRecipeType, bookRecipeId, status, note, tags: tags ? JSON.stringify(tags) : undefined, dayIndex },
       });
       res.json({ ok: true, id: record.id });
     } catch (err: any) {
@@ -2568,7 +2576,8 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
   app.get("/api/recipe/progress", async (req, res) => {
     if (!req.userId) return res.status(400).json({ error: "Missing device ID" });
     try {
-      const records = await prisma.recipeProgress.findMany({ where: { userId: req.userId } });
+      const user = await prisma.user.findUnique({ where: { id: req.userId } });
+      const records = await prisma.recipeProgress.findMany({ where: { userId: req.userId, cycleNumber: user!.cycleNumber } });
       res.json(records.map(r => ({ ...r, tags: r.tags ? JSON.parse(r.tags) : [] })));
     } catch (err: any) {
       console.error("[RecipeProgress] GET error:", err.message);
@@ -2625,9 +2634,11 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
         }
       }
 
+      const user = await prisma.user.findUnique({ where: { id: req.userId } });
       const dish = await prisma.savedDish.create({
         data: {
           userId: req.userId,
+          cycleNumber: user!.cycleNumber,
           name: data.name,
           image: data.image ?? null,
           category: data.category ?? "Основные блюда",
@@ -2657,10 +2668,11 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
   app.get("/api/saved-dishes", async (req, res) => {
     if (!req.userId) return res.status(400).json({ error: "Missing device ID" });
     try {
+      const user = await prisma.user.findUnique({ where: { id: req.userId } });
       const take = Math.min(parseInt(req.query.take as string) || 50, 200);
       const skip = parseInt(req.query.skip as string) || 0;
       const dishes = await prisma.savedDish.findMany({
-        where: { userId: req.userId },
+        where: { userId: req.userId, cycleNumber: user!.cycleNumber },
         orderBy: { createdAt: "desc" },
         take,
         skip,
@@ -2715,9 +2727,11 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
     if (!req.userId) return res.status(400).json({ error: "Missing device ID" });
     try {
       const { dayIndex, note, mood, photo, tags, time } = req.body;
+      const user = await prisma.user.findUnique({ where: { id: req.userId } });
       const entry = await prisma.diaryEntry.create({
         data: {
           userId: req.userId,
+          cycleNumber: user!.cycleNumber,
           dayIndex,
           note: note ?? null,
           mood: mood ?? null,
@@ -2736,8 +2750,9 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
   app.get("/api/diary", async (req, res) => {
     if (!req.userId) return res.status(400).json({ error: "Missing device ID" });
     try {
+      const user = await prisma.user.findUnique({ where: { id: req.userId } });
       const dayIndex = req.query.dayIndex ? parseInt(req.query.dayIndex as string) : undefined;
-      const where: any = { userId: req.userId };
+      const where: any = { userId: req.userId, cycleNumber: user!.cycleNumber };
       if (dayIndex !== undefined) where.dayIndex = dayIndex;
       const entries = await prisma.diaryEntry.findMany({
         where,
@@ -2879,8 +2894,9 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
     if (!req.userId) return res.status(400).json({ error: "Missing device ID" });
     try {
       const { message, reply, screen, dayIndex } = req.body;
+      const user = await prisma.user.findUnique({ where: { id: req.userId } });
       const chat = await prisma.annaChat.create({
-        data: { userId: req.userId, message, reply: reply ?? null, screen: screen ?? null, dayIndex: dayIndex ?? null },
+        data: { userId: req.userId, cycleNumber: user!.cycleNumber, message, reply: reply ?? null, screen: screen ?? null, dayIndex: dayIndex ?? null },
       });
       res.json({ ok: true, id: chat.id });
     } catch (err: any) {

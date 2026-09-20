@@ -507,10 +507,41 @@ export default function App() {
         method: "POST",
         body: { withAI },
       });
+      // Бесшовный старт 2-го круга: очистка старых данных
+      setSavedDishes([]);
+      setDayNotes({});
+      if (setHabitsTwentyData) setHabitsTwentyData(undefined);
+      useAppStore.setState({
+        waterEntries: [],
+        movementEntries: [],
+        digestionEntries: [],
+        recipeStates: {},
+        calendarNotes: {}
+      });
+      // Очистка суточных ключей localStorage, не затрагивая профиль
+      try {
+        localStorage.removeItem("wfpb_daily_water_entries_v3");
+        localStorage.removeItem("wfpb_daily_water_entries");
+        const keysToRemove: string[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && (k.startsWith("wfpb_daily_") || k.startsWith("wfpb_system_keys_"))) {
+            keysToRemove.push(k);
+          }
+        }
+        ["wfpb_daily_water_entries_v3", "wfpb_daily_water_entries", "wfpb_daily_sleep_logs_v1"].forEach((k) => {
+          if (!keysToRemove.includes(k)) keysToRemove.push(k);
+        });
+        keysToRemove.forEach((k) => localStorage.removeItem(k));
+      } catch {}
       setCurrentDayIndex(1);
       setViewingDayIndex(null);
-      initFromISOString(res.courseStartDate);
       setGraduationData(null);
+      initFromISOString(res.courseStartDate);
+      try {
+        await api<any>("/api/user/data");
+      } catch {}
+      await useAppStore.getState().initApp();
       useAppStore.getState().setScreen("my-day");
     } catch (err) {
       console.error("[RestartCourse] error:", err);
@@ -582,7 +613,15 @@ export default function App() {
           achievementEngine.setUnlockedIds(data.unlockedAchievementIds)
         }
 
-        if (data.profile?.hasSavedSettings && !(initData.isCourseCompleted || initData.currentDayIndex >= 29)) {
+        const hasSavedSettings = !!(data.profile?.hasSavedSettings || useAppStore.getState().userProfile?.hasSavedSettings);
+        // welcome никогда для сохранённого профиля; при <=28 всегда my-day
+        if (hasSavedSettings && !(initData.isCourseCompleted || initData.currentDayIndex >= 29)) {
+          useAppStore.getState().setScreen("my-day");
+        }
+        if (hasSavedSettings && initData.currentDayIndex <= 28) {
+          useAppStore.getState().setScreen("my-day");
+        }
+        if (hasSavedSettings && useAppStore.getState().screen === "welcome") {
           useAppStore.getState().setScreen("my-day");
         }
 

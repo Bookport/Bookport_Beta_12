@@ -158,15 +158,17 @@ export default function WaterDetailsScreen({
       const dayNum = idx + 1;
       const dWeight = dayWeights[dayNum] || getResolvedWeightForDay(dayNum);
       const dGoal = getWaterGoal(dWeight);
-      const dEntries = waterLogs[dayNum] || [];
+      const dEntries = dayNum <= currentDayIndex ? (waterLogs[dayNum] || []) : [];
       const dSum = dEntries.reduce((sum, e) => sum + e.amount, 0);
       return { day: dayNum, sum: dSum, goal: dGoal, isFuture: dayNum > currentDayIndex };
     });
   }, [waterLogs, dayWeights, currentDayIndex]);
 
   const totals = React.useMemo(() => {
-    const allEntries = Object.values(waterLogs).flat();
-    const totalVolume = allEntries.reduce((acc, e) => acc + (e.amount || 0), 0);
+    const filteredEntries = Object.entries(waterLogs)
+      .filter(([day]) => Number(day) <= currentDayIndex)
+      .flatMap(([, entries]) => entries as WaterLogEntry[]);
+    const totalVolume = filteredEntries.reduce((acc, e) => acc + (e.amount || 0), 0);
     const average = Math.round(totalVolume / currentDayIndex);
     
     let complCount = 0;
@@ -177,7 +179,7 @@ export default function WaterDetailsScreen({
     let bestStreak = 0;
     let tempStreak = 0;
 
-    for (let d = 1; d <= 28; d++) {
+    for (let d = 1; d <= currentDayIndex; d++) {
       const dWeight = dayWeights[d] || getResolvedWeightForDay(d);
       const dGoal = getWaterGoal(dWeight);
       const dEntries = waterLogs[d] || [];
