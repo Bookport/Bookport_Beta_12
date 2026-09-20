@@ -169,20 +169,20 @@ export const SCALES_P1_SLEEP: string[] = [
 
 export const SCALES_P2_WATER: string[] = [
   "По водному балансу: зафиксировано {effWater} мл из суточной цели {waterTarget} мл ({waterPct}%). К этому часу ожидалось {expectedWaterByNow} мл (отставание {deficitNow} мл). Чтобы комфортно закрыть норму дня без вечерней перегрузки почек, рекомендуется выдерживать темп ~{paceNeeded} мл/ч. Дополнительный стакан чистой воды прямо сейчас вернет оптимальную текучесть крови и ускорит транспорт питательных веществ.",
-  "Водный баланс клетки отражает объем {effWater} мл при целевой норме {waterTarget} мл ({waterPct}%). Разница с графиком составляет {deficitNow} мл при рекомендуемой скорости питья ~{paceNeeded} мл/ч. Своевременный прием влаги поможет клеткам эффективно усвоить поступившие макронутриенты и поддержит эластичность капиллярной сети.",
-  "Показатель гидратации ({effWater} из {waterTarget} мл, {waterPct}%) согласуется с дневным графиком. Оставшийся объем {waterRemaining} мл распределяется с ориентиром ~{paceNeeded} мл/ч, что обеспечивает мягкий почечный дренаж и защищает ткани от ложного чувства голода.",
-  "Водный трек ({effWater} мл из {waterTarget} мл, {waterPct}%) надежно страхует организм от дневной усталости. Темп ~{paceNeeded} мл/ч позволит без спешки закрыть дефицит в {deficitNow} мл, сохраняя высокую реологию крови и тонус сосудов.",
-  "Уровень гидратации ({effWater} из {waterTarget} мл, {waterPct}%) способствует плавному выведению метаболитов. Выдерживая скорость ~{paceNeeded} мл/ч до вечера, ты поддерживаешь идеальное осмотическое давление в тканях и легкую бодрость.",
-  "Поступление влаги зафиксировано на отметке {effWater} мл ({waterPct}% от нормы {waterTarget} мл). Отставание от расчетного графика ({deficitNow} мл) легко компенсируется стаканом воды, восстанавливая комфортный гидробаланс слизистых.",
+  "Водный баланс клетки отражает объем {effWater} мл при целевой норме {waterTarget} мл ({waterPct}%). Разница с расчетным графиком составляет {deficitNow} мл при рекомендуемой скорости питья ~{paceNeeded} мл/ч. Своевременный прием влаги поможет клеткам эффективно усвоить поступившие макронутриенты и поддержит эластичность капиллярной сети.",
+  "Показатель гидратации ({effWater} из {waterTarget} мл, {waterPct}%) планомерно накапливается. Оставшийся объем {waterRemaining} мл распределяется с физиологическим ориентиром ~{paceNeeded} мл/ч, что обеспечивает мягкий почечный дренаж и защищает ткани от ложного чувства голода.",
+  "Водный трек ({effWater} мл из {waterTarget} мл, {waterPct}%) формирует базовую гидратацию суток. Комфортный темп ~{paceNeeded} мл/ч позволит без спешки и стресса для сосудов восполнить оставшийся объем, сохраняя высокую реологию крови.",
+  "Уровень гидратации ({effWater} из {waterTarget} мл, {waterPct}%) запускает выведение метаболитов. Выдерживая мягкую скорость ~{paceNeeded} мл/ч, ты поддерживаешь стабильное осмотическое давление в тканях и легкую бодрость без перегрузки мочевыделительной системы.",
+  "Поступление влаги зафиксировано на отметке {effWater} мл ({waterPct}% от нормы {waterTarget} мл). Разница с графиком ({deficitNow} мл) комфортно компенсируется стаканом воды, восстанавливая естественный гидробаланс слизистых.",
   "Водная шкала дня ({effWater} из {waterTarget} мл, {waterPct}%) отражает текущую динамику. Ориентир ~{paceNeeded} мл/ч помогает избежать вечерней перегрузки выделительной системы и сохраняет чистоту внутренней среды.",
-  "Гидратация клеток достигла {effWater} мл ({waterPct}% нормы). Плавное питье небольшими порциями со скоростью ~{paceNeeded} мл/ч обеспечивает качественное растворение минералов и стабильный тонус миокарда.",
-  "Показатель водного баланса ({effWater} мл из {waterTarget} мл, {waterPct}%) требует внимания: комфортный темп ~{paceNeeded} мл/ч позволит закрыть дефицит {deficitNow} мл и защитит от сгущения межклеточной жидкости.",
-  "Водный контур дня ({effWater} из {waterTarget} мл, {waterPct}%) находится в управляемой зоне. Регулярная порция воды прямо сейчас активирует микроциркуляцию и поддержит высокий уровень ментальной ясности.",
-  "Текущий объем гидратации ({effWater} мл, {waterPct}%) поставляет клеткам необходимую среду для обменных реакций. Выдерживая темп ~{paceNeeded} мл/ч, ты помогаешь организму легко усваивать плотную клетчатку.",
-  "Шкала гидратации ({effWater} из {waterTarget} мл, {waterPct}%) указывает на необходимость выравнивания темпа до ~{paceNeeded} мл/ч, что обеспечит бесперебойную фильтрацию и легкое самочувствие.",
-  "Водный статус ({effWater} мл, {waterPct}% от цели {waterTarget} мл) закрывается в плановом режиме. Небольшая водная пауза прямо сейчас устранит дневную сонливость и снимет нагрузку с сосудистого русла.",
-  "Показатель влаги в тканях ({effWater} из {waterTarget} мл, {waterPct}%) планомерно растет. Темп ~{paceNeeded} мл/ч гарантирует идеальное завершение водного дня без ночных пробуждений.",
-  "Водный баланс организма ({effWater} мл, {waterPct}%) надежно поддерживает эластичность тканей при соблюдении комфортной скорости питья ~{paceNeeded} мл/ч."
+  "Гидратация клеток зафиксирована на уровне {effWater} мл ({waterPct}% нормы). Плавное питье небольшими порциями со скоростью ~{paceNeeded} мл/ч обеспечивает качественное растворение минералов и стабильный тонус миокарда.",
+  "Показатель водного баланса ({effWater} мл из {waterTarget} мл, {waterPct}%) требует внимания: комфортный темп ~{paceNeeded} мл/ч позволит планомерно восполнить дефицит {deficitNow} мл и защитит от сгущения межклеточной жидкости.",
+  "Водный контур дня ({effWater} из {waterTarget} мл, {waterPct}%) находится под контролем. Регулярная порция чистой воды прямо сейчас активирует микроциркуляцию и поддержит высокий уровень ментальной ясности.",
+  "Текущий объем гидратации ({effWater} мл, {waterPct}%) поставляет клеткам необходимую среду для биохимических реакций. Выдерживая темп ~{paceNeeded} мл/ч, ты помогаешь организму легче усваивать плотную растительную клетчатку.",
+  "Шкала гидратации ({effWater} из {waterTarget} мл, {waterPct}%) указывает на ориентир темпа ~{paceNeeded} мл/ч: дробное поступление воды обеспечивает бесперебойную фильтрацию и легкое самочувствие.",
+  "Водный статус ({effWater} мл, {waterPct}% от цели {waterTarget} мл) формируется в течение дня. Небольшая порция чистой воды прямо сейчас устранит усталость и снимет лишнюю вязкость с сосудистого русла.",
+  "Показатель влаги в тканях ({effWater} из {waterTarget} мл, {waterPct}%) постепенно приближается к цели. Умеренный темп ~{paceNeeded} мл/ч гарантирует ровное завершение водного дня без риска ночных отеков.",
+  "Водный баланс организма ({effWater} мл, {waterPct}%) поддерживает физиологическую эластичность тканей при соблюдении умеренной скорости питья ~{paceNeeded} мл/ч порциями по 150–250 мл."
 ];
 
 export const SCALES_P3_MEALS_ACTIVITY: string[] = [
@@ -487,7 +487,7 @@ export function buildAnnaBalanceAnalysis(input: AnnaAnalysisInput, daySeed: numb
 
   // Абзац 2: Еда и макросы (при 0 калорий не подставляем пустые нули)
   const p2 = isZeroFood
-    ? "Приёмы пищи пока не внесены в дневник: пищеварительная система находится в состоянии комфортной метаболической паузы. Блюда цельного растительного протокола WFPB обеспечат клетки чистой энергией и качественной клетчаткой по мере фиксации рациона."
+    ? "Приёмы пищи пока не внесены в Систему: пищеварительная система находится в состоянии комфортной метаболической паузы. Блюда цельного растительного протокола WFPB обеспечат клетки чистой энергией и качественной клетчаткой по мере фиксации рациона."
     : pickVariant(BALANCE_P2_FOOD, daySeed + 1)
         .replace(/{totalCalories}/g, String(input.totalCalories))
         .replace(/{totalProtein}/g, String(input.totalProtein))
@@ -528,7 +528,8 @@ export function buildAnnaTabAnalysis(tabId: string, input: AnnaAnalysisInput, da
   const waterPct = Math.min(100, Math.round((input.effWater / waterTarget) * 100));
   const waterRemaining = Math.max(0, waterTarget - input.effWater);
   const deficitNow = input.deficitNow > 0 ? input.deficitNow : Math.max(0, (input.expectedWaterByNow || 0) - input.effWater);
-  const paceNeeded = input.paceNeeded > 0 ? input.paceNeeded : Math.ceil(waterRemaining / 8);
+  const rawPace = input.paceNeeded > 0 ? input.paceNeeded : Math.ceil(waterRemaining / 8);
+  const paceNeeded = waterRemaining > 0 ? Math.min(250, rawPace) : 0;
   const expectedWater = input.expectedWaterByNow > 0 ? input.expectedWaterByNow : 0;
 
   switch (tabId) {
@@ -537,7 +538,7 @@ export function buildAnnaTabAnalysis(tabId: string, input: AnnaAnalysisInput, da
         ? pickVariant(SCALES_P1_SLEEP, daySeed)
             .replace(/{sleepHours}/g, sleepHours)
             .replace(/{sleepPct}/g, String(sleepPct))
-        : "По ночному сну: данные пока не внесены в журнал. Шкала сна зафиксирует восстановление сердечно-сосудистого русла и нервной системы сразу после записи времени отдыха.";
+        : "По ночному сну: данные пока не зафиксированы Системой. Шкала сна зафиксирует восстановление сердечно-сосудистого русла и нервной системы сразу после записи времени отдыха.";
 
       const p2 = pickVariant(SCALES_P2_WATER, daySeed + 1)
         .replace(/{effWater}/g, String(input.effWater))
@@ -553,7 +554,7 @@ export function buildAnnaTabAnalysis(tabId: string, input: AnnaAnalysisInput, da
             .replace(/{cookedDishCount}/g, String(cookedDishCount))
             .replace(/{totalDishCount}/g, String(totalDishCount))
             .replace(/{mealsPct}/g, String(mealsPct))
-        : "По рациону и активности: блюда курса WFPB пока не зафиксированы в дневнике. По мере внесения приёмов пищи шкала начнёт отражать клеточный импульс и динамику дневного энергозаряда.";
+        : "По рациону и активности: блюда курса WFPB пока не зафиксированы Системой. По мере внесения приёмов пищи шкала начнёт отражать клеточный импульс и динамику дневного энергозаряда.";
 
       return [p1, p2, p3].join("\n\n");
     }
@@ -656,9 +657,9 @@ export function buildHydrationReasoning(input: AnnaAnalysisInput, daySeed: numbe
   }
 
   const remaining = Math.max(0, input.waterTarget - input.effWater);
-  const expectedWater = input.expectedWaterByNow > 0 ? input.expectedWaterByNow : 850;
-  const deficitNow = input.deficitNow > 0 ? input.deficitNow : 600;
-  const paceNeeded = input.paceNeeded > 0 ? input.paceNeeded : 238;
+  const expectedWater = Number.isFinite(input.expectedWaterByNow) ? input.expectedWaterByNow : 0;
+  const deficitNow = Math.max(0, expectedWater - input.effWater);
+  const paceNeeded = remaining > 0 ? Math.min(250, input.paceNeeded > 0 ? input.paceNeeded : 200) : 0;
 
   return pickVariant(HYDRATION_DAY_DEFICIT, daySeed)
     .replace(/{effWater}/g, String(input.effWater))
