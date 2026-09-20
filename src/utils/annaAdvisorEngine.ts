@@ -512,44 +512,60 @@ export function buildAnnaBalanceAnalysis(input: AnnaAnalysisInput, daySeed: numb
 }
 
 export function buildAnnaTabAnalysis(tabId: string, input: AnnaAnalysisInput, daySeed: number = 0): string {
-  const rawHours = (input.effSleep / 60);
-  const sleepHours = Number.isFinite(rawHours) && rawHours > 0 ? rawHours.toFixed(1).replace(/\.0$/, "") : "9";
-  const sleepPct = Math.min(100, Math.round((Number(sleepHours) / (input.sleepTarget || 8)) * 100)) || 100;
+  const isZeroFood = !input.totalCalories || input.totalCalories === 0;
+  const hasSleep = typeof input.effSleep === "number" && input.effSleep > 0;
+  const rawHours = hasSleep ? input.effSleep / 60 : 0;
+  const sleepHours = hasSleep ? rawHours.toFixed(1).replace(/\.0$/, "") : "0";
+  const sleepPct = hasSleep ? Math.min(100, Math.round((Number(sleepHours) / (input.sleepTarget || 8)) * 100)) : 0;
+
   const topIngText = formatTopIngredients(input.topIngredients);
-  const totalMass = input.totalMass || Math.round(input.totalCalories * 0.75) || 902;
-  const cookedDishCount = input.cookedDishCount || (input.totalCalories > 0 ? 2 : 1);
+  const totalMass = input.totalMass ?? (input.totalCalories > 0 ? Math.round(input.totalCalories * 0.75) : 0);
+  const cookedDishCount = input.cookedDishCount ?? (input.totalCalories > 0 ? 1 : 0);
   const totalDishCount = input.totalDishCount || 4;
-  const mealsPct = Math.round((cookedDishCount / totalDishCount) * 100) || 50;
-  const waterPct = Math.min(100, Math.round((input.effWater / (input.waterTarget || 2397)) * 100)) || 10;
-  const waterRemaining = Math.max(0, input.waterTarget - input.effWater);
-  const deficitNow = input.deficitNow > 0 ? input.deficitNow : 600;
-  const paceNeeded = input.paceNeeded > 0 ? input.paceNeeded : 238;
-  const expectedWater = input.expectedWaterByNow > 0 ? input.expectedWaterByNow : 850;
+  const mealsPct = Math.round((cookedDishCount / totalDishCount) * 100);
+
+  const waterTarget = input.waterTarget || 2397;
+  const waterPct = Math.min(100, Math.round((input.effWater / waterTarget) * 100));
+  const waterRemaining = Math.max(0, waterTarget - input.effWater);
+  const deficitNow = input.deficitNow > 0 ? input.deficitNow : Math.max(0, (input.expectedWaterByNow || 0) - input.effWater);
+  const paceNeeded = input.paceNeeded > 0 ? input.paceNeeded : Math.ceil(waterRemaining / 8);
+  const expectedWater = input.expectedWaterByNow > 0 ? input.expectedWaterByNow : 0;
 
   switch (tabId) {
     case "scales": {
-      const p1 = pickVariant(SCALES_P1_SLEEP, daySeed)
-        .replace(/{sleepHours}/g, sleepHours)
-        .replace(/{sleepPct}/g, String(sleepPct));
+      const p1 = hasSleep
+        ? pickVariant(SCALES_P1_SLEEP, daySeed)
+            .replace(/{sleepHours}/g, sleepHours)
+            .replace(/{sleepPct}/g, String(sleepPct))
+        : "По ночному сну: данные пока не внесены в журнал. Шкала сна зафиксирует восстановление сердечно-сосудистого русла и нервной системы сразу после записи времени отдыха.";
 
       const p2 = pickVariant(SCALES_P2_WATER, daySeed + 1)
         .replace(/{effWater}/g, String(input.effWater))
-        .replace(/{waterTarget}/g, String(input.waterTarget || 2397))
+        .replace(/{waterTarget}/g, String(waterTarget))
         .replace(/{waterPct}/g, String(waterPct))
         .replace(/{expectedWaterByNow}/g, String(expectedWater))
         .replace(/{deficitNow}/g, String(deficitNow))
         .replace(/{waterRemaining}/g, String(waterRemaining))
         .replace(/{paceNeeded}/g, String(paceNeeded));
 
-      const p3 = pickVariant(SCALES_P3_MEALS_ACTIVITY, daySeed + 2)
-        .replace(/{cookedDishCount}/g, String(cookedDishCount))
-        .replace(/{totalDishCount}/g, String(totalDishCount))
-        .replace(/{mealsPct}/g, String(mealsPct));
+      const p3 = !isZeroFood
+        ? pickVariant(SCALES_P3_MEALS_ACTIVITY, daySeed + 2)
+            .replace(/{cookedDishCount}/g, String(cookedDishCount))
+            .replace(/{totalDishCount}/g, String(totalDishCount))
+            .replace(/{mealsPct}/g, String(mealsPct))
+        : "По рациону и активности: блюда курса WFPB пока не зафиксированы в дневнике. По мере внесения приёмов пищи шкала начнёт отражать клеточный импульс и динамику дневного энергозаряда.";
 
       return [p1, p2, p3].join("\n\n");
     }
 
     case "kbju": {
+      if (isZeroFood) {
+        const p1 = "Энергетический баланс пока находится на стартовой отметке: калораж не зафиксирован. Блюда на базе медленных углеводов обеспечат ровный поток глюкозы для мозга и мышц без гликемических колебаний.";
+        const p2 = "Пластический материал (белки высокой чистоты и полезные липиды) будет сформирован цельными растительными источниками: бобовыми, семенами, злаками и орехами.";
+        const p3 = "Шкала клетчатки ожидает первых цельных растительных компонентов. Пищевые волокна возьмут под контроль гликемическую кривую и дадут пребиотический субстрат микробиому с первого приёма пищи.";
+        return [p1, p2, p3].join("\n\n");
+      }
+
       const p1 = pickVariant(KBJU_P1_ENERGY, daySeed)
         .replace(/{totalCalories}/g, String(input.totalCalories))
         .replace(/{totalCarbohydrates}/g, String(input.totalCarbohydrates));
@@ -565,8 +581,15 @@ export function buildAnnaTabAnalysis(tabId: string, input: AnnaAnalysisInput, da
     }
 
     case "micro": {
-      const leaderName = input.leaderName || "Витамина K";
-      const leaderPct = input.leaderPct || 250;
+      if (isZeroFood || !input.leaderName) {
+        const p1 = "Микронутриентная карта дня активируется при фиксации первого приёма пищи. Растительные антиоксиданты и витаминные комплексы из цельного меню сразу же возьмут под защиту клеточные мембраны.";
+        const p2 = "Минералы и электролиты (калий, магний, железо и цинк) поступят из свежих продуктов, создавая условия для расслабления сосудистой стенки и баланса водно-солевого обмена.";
+        const p3 = "Природные фитонутриенты, полифенолы и каротиноиды включатся в работу в синергии с первой порцией WFPB-рациона, обеспечивая тканям надёжный антиоксидантный купол.";
+        return [p1, p2, p3].join("\n\n");
+      }
+
+      const leaderName = input.leaderName;
+      const leaderPct = input.leaderPct || 0;
 
       const p1 = pickVariant(MICRO_P1_VITAMINS, daySeed)
         .replace(/{leaderName}/g, leaderName)
@@ -579,6 +602,13 @@ export function buildAnnaTabAnalysis(tabId: string, input: AnnaAnalysisInput, da
     }
 
     case "composition": {
+      if (isZeroFood || totalMass === 0 || !input.topIngredients || input.topIngredients.length === 0) {
+        const p1 = "Сырьевая база дня пока формируется: в тарелке ещё не зафиксированы цельные растительные культуры. Полноценное WFPB-меню поставляет натуральные ингредиенты в первозданной природной матрице.";
+        const p2 = "Сортовое разнообразие раскроется с добавлением блюд: объединение различных семейств растений (злаки, бобовые, зелень, овощи) создаст надёжный биохимический барьер для сосудов.";
+        const p3 = "Пребиотический субстрат для микробиома толстого кишечника поступит вместе с непереработанными растительными волокнами, стимулируя синтез короткоцепочечных жирных кислот.";
+        return [p1, p2, p3].join("\n\n");
+      }
+
       const p1 = pickVariant(COMPOSITION_P1_MASS, daySeed)
         .replace(/{totalMass}/g, String(totalMass))
         .replace(/{topIngredients}/g, topIngText);
@@ -590,8 +620,14 @@ export function buildAnnaTabAnalysis(tabId: string, input: AnnaAnalysisInput, da
     }
 
     case "dynamics": {
-      const p1 = pickVariant(DYNAMICS_P1_CIRCADIAN, daySeed).replace(/{sleepHours}/g, sleepHours);
-      const p2 = pickVariant(DYNAMICS_P2_TIMING, daySeed + 1);
+      const p1 = hasSleep
+        ? pickVariant(DYNAMICS_P1_CIRCADIAN, daySeed).replace(/{sleepHours}/g, sleepHours)
+        : "Суточный биоритм дня отслеживается в реальном времени: данные о ночном сне пока не внесены, шкала синхронизируется после фиксации времени отдыха.";
+
+      const p2 = !isZeroFood
+        ? pickVariant(DYNAMICS_P2_TIMING, daySeed + 1)
+        : "Хронология дневных событий фиксирует метаболическую паузу. Окна приёма пищи будут выстроены в согласии с естественными пиками ферментативной активности ЖКТ.";
+
       const p3 = pickVariant(DYNAMICS_P3_EVENING, daySeed + 2);
 
       return [p1, p2, p3].join("\n\n");
