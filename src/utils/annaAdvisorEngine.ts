@@ -473,31 +473,38 @@ export const HYDRATION_SUCCESS: string[] = [
 // =========================================================================
 
 export function buildAnnaBalanceAnalysis(input: AnnaAnalysisInput, daySeed: number = 0): string {
-  const intro = pickVariant(BALANCE_P1_INTRO, daySeed);
-  const foodTemplate = pickVariant(BALANCE_P2_FOOD, daySeed + 1);
-  const microTemplate = pickVariant(BALANCE_P3_MICROS, daySeed + 2);
-  const bioTemplate = pickVariant(BALANCE_P4_BIO, daySeed + 3);
+  const isZeroFood = !input.totalCalories || input.totalCalories === 0;
+
+  const intro = isZeroFood
+    ? "Текущий профиль дня формируется: организм находится в режиме физиологической разгрузки и сохранения базового ресурса."
+    : pickVariant(BALANCE_P1_INTRO, daySeed);
 
   const topIngText = formatTopIngredients(input.topIngredients);
-  const leaderName = input.leaderName || "Витамина K";
-  const leaderPct = input.leaderPct || 250;
   const bpStr = input.effSystolic && input.effDiastolic ? `, давление ${input.effSystolic}/${input.effDiastolic} мм рт. ст.` : "";
   const effWeightStr = input.effWeight && input.effWeight > 0 ? `${input.effWeight}` : "79.9";
 
   const p1 = intro;
-  const p2 = foodTemplate
-    .replace(/{totalCalories}/g, String(input.totalCalories))
-    .replace(/{totalProtein}/g, String(input.totalProtein))
-    .replace(/{totalFat}/g, String(input.totalFat))
-    .replace(/{totalCarbohydrates}/g, String(input.totalCarbohydrates))
-    .replace(/{totalFiber}/g, String(input.totalFiber))
-    .replace(/{topIngredients}/g, topIngText);
 
-  const p3 = microTemplate
-    .replace(/{leaderName}/g, leaderName)
-    .replace(/{leaderPct}/g, String(Math.round(leaderPct)));
+  // Абзац 2: Еда и макросы (при 0 калорий не подставляем пустые нули)
+  const p2 = isZeroFood
+    ? "Приёмы пищи пока не внесены в дневник: пищеварительная система находится в состоянии комфортной метаболической паузы. Блюда цельного растительного протокола WFPB обеспечат клетки чистой энергией и качественной клетчаткой по мере фиксации рациона."
+    : pickVariant(BALANCE_P2_FOOD, daySeed + 1)
+        .replace(/{totalCalories}/g, String(input.totalCalories))
+        .replace(/{totalProtein}/g, String(input.totalProtein))
+        .replace(/{totalFat}/g, String(input.totalFat))
+        .replace(/{totalCarbohydrates}/g, String(input.totalCarbohydrates))
+        .replace(/{totalFiber}/g, String(input.totalFiber))
+        .replace(/{topIngredients}/g, topIngText);
 
-  const p4 = bioTemplate
+  // Абзац 3: Витамины и микроэлементы (при 0 калорий не генерируем фантомный Витамин K)
+  const p3 = isZeroFood || !input.leaderName
+    ? "Микронутриентный контур включится по мере добавления блюд и напитков. Природные антиоксиданты и электролиты из цельного сырья возьмут под защиту сосудистый эндотелий с первой съеденной тарелкой."
+    : pickVariant(BALANCE_P3_MICROS, daySeed + 2)
+        .replace(/{leaderName}/g, input.leaderName)
+        .replace(/{leaderPct}/g, String(Math.round(input.leaderPct || 0)));
+
+  // Абзац 4: Биометрия
+  const p4 = pickVariant(BALANCE_P4_BIO, daySeed + 3)
     .replace(/{effWeight}/g, effWeightStr)
     .replace(/{effBP}/g, bpStr);
 
