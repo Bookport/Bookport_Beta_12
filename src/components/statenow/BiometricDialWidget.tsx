@@ -68,7 +68,13 @@ export const BiometricDialWidget: React.FC<BiometricDialWidgetProps> = ({ advice
     return segments;
   };
 
-  const focusDisplayText = focusAction.text.replace(/ \(\+\d+\% к балансу\)/i, "");
+  const focusDisplayText = focusAction.text
+    .replace(/ \(\+\d+\% к балансу\)/i, "")
+    .replace(/Физиологический питьевой интервал/i, "Питьевой интервал")
+    .replace(/Плановый гидратационный шаг/i, "Питьевой шаг")
+    .replace(/Физиологический\s*/i, "")
+    .replace(/Плановый\s*/i, "")
+    .trim();
 
   // Подбор иконки для фокуса
   const getFocusIcon = () => {
