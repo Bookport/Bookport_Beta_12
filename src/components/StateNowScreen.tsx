@@ -751,8 +751,7 @@ export default function StateNowScreen({
   const habitsPct = Math.min(100, Math.round((effHabitsDone / habitsTarget) * 100));
   const activityPercent = Math.min(100, Math.round(((activityLogs || []).reduce((acc: number, log: any) => acc + (log.durationSeconds || 0), 0) / 60 / MOVEMENT_DAILY_TARGET_MIN) * 100)); // % of target mins
   const activityMinutes = Math.round((activityPercent / 100) * MOVEMENT_DAILY_TARGET_MIN);
-  const subjectiveEnergyPercent = (effRatingEnergy ?? 3) * 20; // 1–5 → 20–100%, default 3 = 60%
-  const energyPct = Math.min(100, Math.round((activityPercent + subjectiveEnergyPercent) / 2));
+  const energyPct = activityPercent;
   const zenPct = effRatingWellbeing * 20;
   const lightnessPct = effRatingLightness * 20;
 
