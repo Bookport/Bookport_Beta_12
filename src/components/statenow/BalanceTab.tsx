@@ -137,7 +137,7 @@ return (
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -12 }}
       transition={{ duration: 0.3, ease: "easeOut" }}
-      className="space-y-5 pb-36 w-full max-w-[360px] mx-auto"
+      className="space-y-5 pb-36 w-full"
     >
       {/* 1. Карточка куратора Анны (единый компонент AnnaTabSpoiler) */}
       <AnnaTabSpoiler
