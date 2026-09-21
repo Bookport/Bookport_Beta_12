@@ -42,6 +42,12 @@ export interface AnnaAnalysisInput {
   hasLunch?: boolean;
   hasDinner?: boolean;
   activeTab?: string;
+  digestionCount?: number;
+  latestBristolType?: number;
+  latestBristolLabel?: string;
+  digestionScorePct?: number;
+  activityTypesList?: string[];
+  activityMinutesTotal?: number;
 }
 
 export function pickVariant(variants: string[], seed: number = 0): string {
@@ -205,6 +211,17 @@ export const SCALES_P2_WATER: string[] = [
   "Водный баланс организма ({effWater} мл, {waterPct}%) поддерживает физиологическую эластичность тканей при соблюдении умеренной скорости питья ~{paceNeeded} мл/ч порциями по 150–250 мл."
 ];
 
+// Хелпер корректного склонения слова "блюдо"
+export function formatDishCountRu(count: number): string {
+  const rem10 = count % 10;
+  const rem100 = count % 100;
+  if (rem100 >= 11 && rem100 <= 19) return `${count} блюд`;
+  if (rem10 === 1) return `${count} блюдо`;
+  if (rem10 >= 2 && rem10 <= 4) return `${count} блюда`;
+  return `${count} блюд`;
+}
+
+// Старый словарь сохранен для полной обратной совместимости
 export const SCALES_P3_MEALS_ACTIVITY: string[] = [
   "По рациону и активности: зафиксировано {cookedDishCount} из {totalDishCount} блюд курса WFPB ({mealsPct}%). Клеточный импульс и двигательная активность гармонично поддерживают общий энергозаряд организма, обеспечивая тканям свежий приток кислорода и активный лимфодренаж.",
   "Накопленный WFPB-рацион ({cookedDishCount} блюд, {mealsPct}%) поставляет чистый субстрат для выработки митохондриальной энергии, позволяя физиологическому энергозаряду держаться на стабильной высоте без дневных спадов.",
@@ -221,6 +238,53 @@ export const SCALES_P3_MEALS_ACTIVITY: string[] = [
   "Параметры активности и питания ({cookedDishCount} блюд, {mealsPct}%) подтверждают системный подход: тело находится в режиме непрерывного и гармоничного обновления.",
   "Шкалы питания и бодрости ({cookedDishCount} блюд, {mealsPct}%) фиксируют отличное усвоение макросов, предотвращая накопление оксидативного стресса в тканях.",
   "Все приборы состояния работают в едином слаженном ансамбле ({cookedDishCount} блюд, {mealsPct}%), формируя крепкий биологический фундамент на завтрашний день."
+];
+
+// Абзац 3: Рацион (с правильным склонением) и Ключи системы (формируем привычки) — 15 вариантов
+export const SCALES_P3_NUTRITION_HABITS: string[] = [
+  "По рациону и дисциплине дня: Системой зафиксировано {dishCountStr} из {totalDishCount} ({mealsPct}%), а выполнение ключей привычек составляет {habitsDone} из {habitsTarget} ({habitsPct}%). Формирование устойчивого метаболического контура опирается на регулярность: планомерное внедрение ежедневных микродействий снижает сопротивление нервной системы и закрепляет здоровые автоматизмы.",
+  "Пищевой трек и рутина дня: отмечено {dishCountStr} целевого меню ({mealsPct}%) при выполнении {habitsDone} из {habitsTarget} ключей Системы ({habitsPct}%). Синхронное накопление нутриентной базы и поведенческих паттернов обеспечивает организму стабильную опору без волевого перенапряжения.",
+  "Наполнение дня: рацион закрыт на {mealsPct}% ({dishCountStr} из {totalDishCount}), прогресс по ключам привычек достиг {habitsDone} из {habitsTarget} ({habitsPct}%). Пошаговая фиксация привычек перестраивает дофаминовые пути, превращая здоровый образ жизни в естественную норму.",
+  "Сводка по питанию и ключам курса: зафиксировано {dishCountStr} ({mealsPct}%) и закрыто {habitsDone} из {habitsTarget} системных привычек ({habitsPct}%). Тандем качественного питания и базовых ежедневных ритуалов ускоряет адаптацию клеток к метаболической чистоте.",
+  "Дисциплинарный статус дня: выполнено {dishCountStr} из {totalDishCount} по рациону ({mealsPct}%) и {habitsDone} из {habitsTarget} ключей Системы ({habitsPct}%). Последовательное выполнение ключей формирует прочный нейронный каркас, защищающий от срывов и эмоциональных качелей.",
+  "Шкалы питания и дисциплины согласованы: закрыто {dishCountStr} ({mealsPct}%) при выполнении {habitsDone} из {habitsTarget} ключей привычек ({habitsPct}%). Постоянство малых шагов создает крепкий накопительный эффект для регуляторных систем.",
+  "Профиль дня по привычкам и рациону: отмечено {dishCountStr} цельного меню ({mealsPct}%) и {habitsDone} из {habitsTarget} ключей Системы ({habitsPct}%). Тело получает полноценное питание, а психика — комфортную предсказуемость рутины.",
+  "Поведенческий и нутриентный трек: зафиксировано {dishCountStr} ({mealsPct}%), закрыто {habitsDone} из {habitsTarget} ключей курса ({habitsPct}%). Баланс пищевых пауз и микроритуалов удерживает нервную систему в спокойном тонусе.",
+  "Системный прогресс дня: выполнено {dishCountStr} из {totalDishCount} блюд ({mealsPct}%) и {habitsDone} из {habitsTarget} ключей ({habitsPct}%). Постепенное внедрение привычек исключает стрессовую перегрузку организма.",
+  "Статус курса: рацион закрыт на {mealsPct}% ({dishCountStr}), ключи привычек выполнены на {habitsPct}% ({habitsDone} из {habitsTarget}). Формируется устойчивая физиологическая платформа для стабильной дневной энергии.",
+  "Сводка приборов: рацион составляет {dishCountStr} ({mealsPct}%), шкала ключей Системы фиксирует {habitsDone} из {habitsTarget} ({habitsPct}%). Регулярные действия закрепляют автоматизм здорового выбора.",
+  "Контур дисциплины и питания: зафиксировано {dishCountStr} ({mealsPct}%) и {habitsDone} из {habitsTarget} ключей привычек ({habitsPct}%). Организм адаптируется к упорядоченному метаболическому ритму.",
+  "Показатели шкал 3 и 4: отмечено {dishCountStr} ({mealsPct}%) при реализации {habitsDone} из {habitsTarget} ключевых привычек ({habitsPct}%). Надежный фундамент здоровья закладывается именно в таких ежедневных повторениях.",
+  "Ритм дня: пищевой трек закрыт на {mealsPct}% ({dishCountStr} из {totalDishCount}), ключи привычек Системы выполнены на {habitsPct}% ({habitsDone} из {habitsTarget}). Внутренние системы работают согласованно и спокойно.",
+  "Интеграция привычек и рациона: зафиксировано {dishCountStr} ({mealsPct}%) и {habitsDone} из {habitsTarget} ключей Системы ({habitsPct}%). Это защищает метаболизм от хаотичных сбоев и удерживает высокий жизненный тонус."
+];
+
+// Абзац 3 (при наличии не-WFPB компонентов) — 5 вариантов
+export const SCALES_P3_NUTRITION_HABITS_NON_WFPB: string[] = [
+  "По рациону и дисциплине дня: зафиксировано {dishCountStr} ({mealsPct}%), однако рацион содержит не-WFPB компоненты ({nonWfpbList}), снижающие клеточную чистоту. Выполнение ключей привычек составляет {habitsDone} из {habitsTarget} ({habitsPct}%). Для сохранения высокой эффективности курса важно смещать фокус в сторону цельной растительной тарелки и добирать запланированные привычки.",
+  "Статус рациона и привычек: отмечено {dishCountStr} ({mealsPct}%), но присутствие продуктов вне протокола ({nonWfpbList}) создаёт дополнительную метаболическую нагрузку. Освоение ключей Системы ({habitsDone} из {habitsTarget}, {habitsPct}%) помогает компенсировать отклонение за счёт выравнивания режима.",
+  "Анализ питания и поведенческих ключей: зафиксировано {dishCountStr} ({mealsPct}%) при выполнении {habitsDone}/{habitsTarget} привычек ({habitsPct}%). Наличие не-WFPB позиций ({nonWfpbList}) требует внимания: возвращение к строгим растительным стандартам позволит ЖКТ восстановить оптимальный ритм.",
+  "Показатели питания и рутины: зафиксировано {dishCountStr} ({mealsPct}%), но отмечены компоненты вне стандартов WFPB ({nonWfpbList}). Ключи привычек закрыты на {habitsPct}% ({habitsDone} из {habitsTarget}). Усиление внимания к растительным источникам вернет организму эталонную легкость.",
+  "Сводка дня: выполнено {dishCountStr} ({mealsPct}%) с наличием не-WFPB продуктов ({nonWfpbList}), выполнение ключей — {habitsDone} из {habitsTarget} ({habitsPct}%). Фокус на питьевом режиме и цельных растительных блюдах разгрузит выделительную систему."
+];
+
+// Абзац 4: Движение + Моторика ЖКТ (Бристоль) — 15 вариантов
+export const SCALES_P4_MOVEMENT_DIGESTION: string[] = [
+  "Активность и моторика ЖКТ: двигательный импульс ({activityPct}%, {activitySummary}) активировал микроциркуляцию и лимфодренаж. Эвакуаторная функция кишечника демонстрирует отличную слаженность: {digestionSummary}. Регулярная перистальтика в сочетании с миокинами от тренировок служит надёжной защитой от застойных явлений.",
+  "Двигательный контур и очищение: мышечная активность ({activityPct}%, {activitySummary}) дала мягкий толчок пропульсивной моторике толстого кишечника. По ЖКТ зафиксировано: {digestionSummary}. Это подтверждает высокую биодоступность нутриентов и отсутствие спастических задержек стула.",
+  "Связка движения и пищеварения: суммарная активность ({activityPct}%, {activitySummary}) стимулировала венозный возврат и внутрибрюшное давление, что прямо отразилось на качестве очищения ({digestionSummary}). Организм работает как слаженный механизм без задержки метаболитов.",
+  "Физиологический отклик: зафиксированные сессии активности ({activitySummary}) на уровне {activityPct}% обеспечили тканям приток кислорода. Моторика ЖКТ находится в физиологическом оптимуме ({digestionSummary}), подтверждая достаточное поступление влаги и клетчатки.",
+  "Итог по активности и дренажу: динамический импульс ({activityPct}%, {activitySummary}) поддержал тонус гладкой мускулатуры. Очищение ЖКТ ({digestionSummary}) указывает на гармоничную работу вегетативной нервной системы и здоровую микробиомную среду.",
+  "Мышечный тонус и эвакуация ЖКТ: зафиксировано {activityPct}% движения ({activitySummary}). Кишечный пассаж протекает комфортно: {digestionSummary}. Механическая стимуляция брюшного пресса ускоряет естественный детокс тканей.",
+  "Дренажные контуры дня: сессии активности ({activitySummary}) закрыли {activityPct}% целевого движения. Моторика ЖКТ ({digestionSummary}) подтверждает качественное гидратирование калового болюса и пребиотическую силу рациона.",
+  "Синхронизация движения и перистальтики: динамический импульс {activityPct}% ({activitySummary}) гармонизирует блуждающий нерв. Показатели очищения ({digestionSummary}) отражают устойчивый пищеварительный баланс.",
+  "Двигательная активность и кишечный тракт: нагрузка ({activityPct}%, {activitySummary}) активирует выработку тканевых ферментов. По эвакуаторной функции ЖКТ отмечено: {digestionSummary}.",
+  "Физическая форма и моторика: сессии ({activitySummary}) обеспечили {activityPct}% суточного движения, сняв мышечные зажимы. Очищение кишечника ({digestionSummary}) происходит мягко и своевременно.",
+  "Взаимодействие движения и ЖКТ: двигательный импульс ({activityPct}%, {activitySummary}) стимулирует кишечный эпителий. Зафиксированный статус ({digestionSummary}) говорит о балансе симбиотной микрофлоры.",
+  "Дневная бодрость и очищение: активность ({activityPct}%, {activitySummary}) разогнала застойную лимфу, а моторика толстого кишечника ({digestionSummary}) подтверждает отсутствие бродильных задержек.",
+  "Динамика тела и перистальтика: выполнение {activityPct}% активности ({activitySummary}) поддерживает ровный тонус тазового дна. Результат по очищению ({digestionSummary}) свидетельствует о чистом метаболизме.",
+  "Сводка движения и пищеварения: зафиксированные нагрузки ({activitySummary}, {activityPct}%) стимулируют рецепторы толстой кишки. По ЖКТ зафиксировано: {digestionSummary}.",
+  "Комплексный дренаж систем: активность ({activityPct}%, {activitySummary}) и естественная моторика кишечника ({digestionSummary}) работают в синергии, сохраняя ощущение абсолютной внутренней легкости."
 ];
 
 // =========================================================================
@@ -734,14 +798,57 @@ export function buildAnnaTabAnalysis(tabId: string, input: AnnaAnalysisInput, da
         .replace(/{waterRemaining}/g, String(waterRemaining))
         .replace(/{paceNeeded}/g, String(paceNeeded));
 
-      const p3 = !isZeroFood
-        ? pickVariant(SCALES_P3_MEALS_ACTIVITY, daySeed + 2)
-            .replace(/{cookedDishCount}/g, String(cookedDishCount))
-            .replace(/{totalDishCount}/g, String(totalDishCount))
-            .replace(/{mealsPct}/g, String(mealsPct))
-        : "По рациону и активности: блюда курса WFPB пока не зафиксированы Системой. По мере внесения приёмов пищи шкала начнёт отражать клеточный импульс и динамику дневного энергозаряда.";
+      // Абзац 3: Рацион (со склонением) + Ключи привычек + WFPB-проверка
+      const dishCountStr = formatDishCountRu(cookedDishCount);
+      const habitsDone = input.habitDoneCount ?? 0;
+      const habitsTarget = 20;
+      const habitsPct = Math.round((habitsDone / habitsTarget) * 100);
+      const hasViolations = Boolean(input.hasNonWfpb || (input.nonWfpbIngredients && input.nonWfpbIngredients.length > 0));
 
-      return [p1, p2, p3].join("\n\n");
+      let p3: string;
+      if (isZeroFood) {
+        p3 = `По рациону и дисциплине: блюда курса WFPB пока не зафиксированы Системой, выполнение ключей привычек составляет ${habitsDone} из ${habitsTarget} (${habitsPct}%). По мере внесения приёмов пищи шкала начнёт отражать клеточный импульс и динамику дневного энергозаряда.`;
+      } else if (hasViolations) {
+        const nonWfpbList = formatNonWfpbList(input.nonWfpbIngredients);
+        p3 = pickVariant(SCALES_P3_NUTRITION_HABITS_NON_WFPB, daySeed + 2)
+          .replace(/{dishCountStr}/g, dishCountStr)
+          .replace(/{mealsPct}/g, String(mealsPct))
+          .replace(/{habitsDone}/g, String(habitsDone))
+          .replace(/{habitsTarget}/g, String(habitsTarget))
+          .replace(/{habitsPct}/g, String(habitsPct))
+          .replace(/{nonWfpbList}/g, nonWfpbList);
+      } else {
+        p3 = pickVariant(SCALES_P3_NUTRITION_HABITS, daySeed + 2)
+          .replace(/{dishCountStr}/g, dishCountStr)
+          .replace(/{totalDishCount}/g, String(totalDishCount))
+          .replace(/{mealsPct}/g, String(mealsPct))
+          .replace(/{habitsDone}/g, String(habitsDone))
+          .replace(/{habitsTarget}/g, String(habitsTarget))
+          .replace(/{habitsPct}/g, String(habitsPct));
+      }
+
+      // Абзац 4: Движение + Моторика ЖКТ
+      const actSummary = (input.activityTypesList && input.activityTypesList.length > 0)
+        ? input.activityTypesList.join(", ")
+        : "базовая разминка";
+
+      let digestionSummary = "ожидание фиксации Системой";
+      if (input.digestionCount && input.digestionCount > 0) {
+        const typeStr = input.latestBristolType ? `Бристоль ${input.latestBristolType}` : "в норме";
+        const labelStr = input.latestBristolLabel ? ` (${input.latestBristolLabel})` : "";
+        digestionSummary = `${input.digestionCount} фикс. • ${typeStr}${labelStr}`;
+      }
+
+      const activityPctVal = input.activityMinutesTotal !== undefined 
+        ? input.activityMinutesTotal 
+        : (input.activityMinutes ? Math.min(100, Math.round((input.activityMinutes / 30) * 100)) : 0);
+
+      const p4 = pickVariant(SCALES_P4_MOVEMENT_DIGESTION, daySeed + 3)
+        .replace(/{activityPct}/g, String(activityPctVal))
+        .replace(/{activitySummary}/g, actSummary)
+        .replace(/{digestionSummary}/g, digestionSummary);
+
+      return [p1, p2, p3, p4].join("\n\n");
     }
 
     case "kbju": {

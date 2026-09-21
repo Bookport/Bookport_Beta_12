@@ -205,6 +205,31 @@ export default function StateNowScreen({
   
   const activityLogs = apiStateNowData?.dailyMetric?.movementLog ? (typeof apiStateNowData.dailyMetric.movementLog === 'string' ? JSON.parse(apiStateNowData.dailyMetric.movementLog) : apiStateNowData.dailyMetric.movementLog) : [];
   const effSavedDishes = savedDishes.length ? savedDishes : (apiStateNowData?.savedDishes || []);
+
+  // Записи ЖКТ (Бристольская шкала) текущего дня: стор -> API фолбэк
+  const digestionEntries = useAppStore((s) => s.digestionEntries);
+  const dayDigestionLogs = React.useMemo(() => {
+    const fromStore = (digestionEntries || []).filter(
+      (e) => Number(e.dayIndex) === Number(currentDayIndex)
+    );
+    if (fromStore.length > 0) {
+      return [...fromStore].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+    }
+    if (apiStateNowData?.dailyMetric?.digestionLog) {
+      try {
+        const raw = typeof apiStateNowData.dailyMetric.digestionLog === "string"
+          ? JSON.parse(apiStateNowData.dailyMetric.digestionLog)
+          : apiStateNowData.dailyMetric.digestionLog;
+        if (Array.isArray(raw)) {
+          return [...raw]
+            .filter((e) => Number(e.dayIndex) === Number(currentDayIndex))
+            .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+        }
+      } catch {}
+    }
+    return [];
+  }, [digestionEntries, apiStateNowData, currentDayIndex]);
+
   const effHabitsDone = SystemKeysStore.calculateKeysForDay(currentDayIndex || 1, effSavedDishes, effWater).closedCount;
   const todayStr = todayLocalDate(getUserTimeZone());
   
@@ -785,6 +810,13 @@ export default function StateNowScreen({
       leaderPct: leaderNutrient?.val,
       cookedDishCount: effMealCount,
       totalDishCount: mealsTarget,
+      habitDoneCount: effHabitsDone,
+      activityMinutes: activityMinutes,
+      activityMinutesTotal: activityPercent,
+      activityTypesList: dynamicsMovementLogs.map((l: any) => l.displayName),
+      digestionCount: dayDigestionLogs.length,
+      latestBristolType: dayDigestionLogs[0]?.bristolType ?? dayDigestionLogs[0]?.type,
+      latestBristolLabel: dayDigestionLogs[0]?.label || (dayDigestionLogs[0]?.bristolType === 4 ? "Идеал" : undefined),
     };
   };
 
@@ -1099,6 +1131,7 @@ export default function StateNowScreen({
               handleRatingChange={handleRatingChange}
               annaAnalysisText={getDisplayedAnalysis("scales")}
               recommendedAction={recommendedAction}
+              digestionLogs={dayDigestionLogs}
             />
           )}
 
@@ -1118,6 +1151,8 @@ export default function StateNowScreen({
           {activeTab === "micro" && (
             <MicroTab
               key="micro"
+              dishes={effSavedDishes}
+              currentDayIndex={currentDayIndex}
               dayVitA={dayVitA}
               dayVitC={dayVitC}
               dayVitB9={dayVitB9}
