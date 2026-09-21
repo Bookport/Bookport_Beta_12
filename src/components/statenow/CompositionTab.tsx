@@ -95,7 +95,7 @@ export default function CompositionTab({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -12 }}
       transition={{ duration: 0.3, ease: "easeOut" }}
-      className="space-y-5 pb-36 w-full overflow-x-hidden"
+      className="space-y-5 pb-5 w-full overflow-x-hidden"
     >
       {/* 0. Anna's Tab Spoiler Analysis */}
       {annaAnalysisText && recommendedAction && (
