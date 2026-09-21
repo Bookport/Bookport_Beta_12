@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { ChevronLeft, Sparkles, Droplet, Moon, Apple, Zap, Activity, Compass, Heart, Brain, Info, CheckCircle, TrendingUp, TrendingDown, BarChart3, Scale, Flame, Utensils } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 import { useAppStore } from "../store/useAppStore";
 import BottomBar from "./BottomBar";
 import { MOVEMENT_DAILY_TARGET_MIN, ACTIVITY_CONFIGS } from "../constants/movement";
-import type { SleepEntry, SleepDaySummary } from "../shared/sleep";
+import type { SleepEntry } from "../shared/sleep";
 import { aggregateSleepPerDay } from "../shared/sleep";
 import { 
   BREAKFAST_RECIPES, 
@@ -32,10 +32,9 @@ import { calculateBioDialAdvice } from "../utils/bioDialAdvisorEngine";
 import { api } from "../utils/api";
 import { getBookMacros } from "../utils/bookMacros";
 import { getRecipeImagePath } from "../utils/recipeImageMapper";
-import { getPlural } from "../utils/pluralize";
 import { formatTimeHM, todayLocalDate, toLocalDate } from "../shared/dates";
 import { getUserTimeZone } from "../shared/timeZoneStore";
-import { buildAnnaBalanceAnalysis, buildAnnaTabAnalysis } from "../utils/annaAdvisorEngine";
+import { buildAnnaBalanceAnalysis, buildAnnaTabAnalysis, type AnnaAnalysisInput } from "../utils/annaAdvisorEngine";
 import sostBalance from "../assets/images/SOST/1.webp";
 import sostScales from "../assets/images/SOST/2.webp";
 import sostKbju from "../assets/images/SOST/3.webp";
@@ -44,7 +43,7 @@ import sostComposition from "../assets/images/SOST/5.webp";
 import sostDynamics from "../assets/images/SOST/6.webp";
 
 interface StateNowScreenProps {
-  dayNotes: Record<number, { text: string; time: string }[]>;
+  dayNotes?: Record<number, { text: string; time: string }[]>;
   setDayNotes?: React.Dispatch<React.SetStateAction<Record<number, { text: string; time: string }[]>>>;
   currentDayIndex: number;
   onBack?: () => void;
@@ -70,16 +69,19 @@ interface StateNowScreenProps {
   isReadOnly?: boolean;
 }
 
+const NON_WFPB_KEYWORDS = [
+  "баранин", "говядин", "свинин", "куриц", "цыпленок", "индейк", "мясо", "фарш",
+  "сало", "бекон", "колбас", "ветчин", "сосиск", "рыб", "лосос", "тунец", "креветк",
+  "морепродукт", "творог", "сливочное масло", "сметан", "сыр", "яйц", "яйцо"
+];
+
 export default function StateNowScreen({
   dayNotes = {},
-  setDayNotes: propsSetDayNotes,
   currentDayIndex,
   onBack: propsOnBack,
   selectedChronic: propsSelectedChronic,
   water = 0,
   sleep = 0,
-  mealCount = 0,
-  habitsDone = 0,
   userName = "",
   userGender = "female",
   ratingWellbeing = 5,
@@ -91,7 +93,6 @@ export default function StateNowScreen({
   setRatingLightness: propsSetRatingLightness,
   onSaveWellbeingComment,
   savedDishes = [],
-  setWater,
   setScreen: propsSetScreen,
   isReadOnly = false,
 }: StateNowScreenProps) {
@@ -100,9 +101,9 @@ export default function StateNowScreen({
   const setScreenFn = propsSetScreen || storeScreen;
   const profile = useAppStore((s) => s.userProfile);
   const selectedChronic = (propsSelectedChronic as string[]) || profile.chronicConditions || [];
-  const setRatingWellbeing = propsSetRatingWellbeing || ((v: number) => {});
-  const setRatingEnergy = propsSetRatingEnergy || ((v: number) => {});
-  const setRatingLightness = propsSetRatingLightness || ((v: number) => {});
+  const setRatingWellbeing = propsSetRatingWellbeing || ((_v: number) => {});
+  const setRatingEnergy = propsSetRatingEnergy || ((_v: number) => {});
+  const setRatingLightness = propsSetRatingLightness || ((_v: number) => {});
   const [showNotification, setShowNotification] = useState(false);
   const [notificationMsg, setNotificationMsg] = useState("");
   const [activeTab, setActiveTab] = useState<"balance" | "scales" | "kbju" | "micro" | "composition" | "dynamics">("balance");
@@ -116,11 +117,8 @@ export default function StateNowScreen({
     { id: "dynamics" as const,    title: "Динамика", subtitle: "Ход дня",  img: sostDynamics,    active: "bg-sky-50 border-sky-300 text-sky-800", dot: "bg-sky-500" },
   ] as const;
 
-  const neutralizationNoted = useRef(false);
-
-  // ── API data fetch for StateNow ──
   const [apiStateNowData, setApiStateNowData] = useState<any>(null);
-  const [measurementHistory, setMeasurementHistory] = useState<any[]>([]);
+  const [, setMeasurementHistory] = useState<any[]>([]);
   const [breakfastState, setBreakfastState] = useState<Record<number, any>>({});
   const [lunchState, setLunchState] = useState<Record<number, any>>({});
   const [dinnerState, setDinnerState] = useState<Record<number, any>>({});
@@ -129,7 +127,6 @@ export default function StateNowScreen({
   const [recipeOfDayState, setRecipeOfDayState] = useState<Record<number, any>>({});
   const [drinksState, setDrinksState] = useState<Record<number, any>>({});
 
-  // ── Saved Anna analysis snapshot (load from DB for past days, save for current day) ──
   const [savedAnnaText, setSavedAnnaText] = useState<string | null>(null);
   const savedAnnaDayRef = useRef<number | null>(null);
 
@@ -148,21 +145,6 @@ export default function StateNowScreen({
   useEffect(() => {
     savedAnnaDayRef.current = null;
   }, [currentDayIndex]);
-
-  useEffect(() => {
-    if (isReadOnly || !currentDayIndex) return;
-    if (!apiStateNowData) return;
-    if (savedAnnaDayRef.current === currentDayIndex) return;
-    const timer = setTimeout(() => {
-      const text = getAnnaAnalysis();
-      savedAnnaDayRef.current = currentDayIndex;
-      api("/api/anna-analysis/save", {
-        method: "POST",
-        body: { dayIndex: currentDayIndex, analysisText: text },
-      }).catch(() => {});
-    }, 4000);
-    return () => clearTimeout(timer);
-  }, [currentDayIndex, isReadOnly, apiStateNowData]);
 
   useEffect(() => {
     const dayIdx = currentDayIndex || 1;
@@ -189,19 +171,16 @@ export default function StateNowScreen({
       .catch(() => {});
   }, [currentDayIndex]);
 
-  // ── Effective values: props take precedence, API data is fallback ──
+  // Эффективные показатели
   const effWater = apiStateNowData?.dailyMetric?.waterMl != null ? apiStateNowData.dailyMetric.waterMl : (isReadOnly ? 0 : water);
   const effSleep = apiStateNowData?.dailyMetric?.sleepMinutes != null ? apiStateNowData.dailyMetric.sleepMinutes : (isReadOnly ? 0 : sleep);
   const effUserName = apiStateNowData?.profile?.name || userName;
-  const effUserGender = apiStateNowData?.profile?.gender || userGender;
   const effSelectedChronic: string[] = (apiStateNowData?.profile?.chronicConditions?.length ? apiStateNowData.profile.chronicConditions : selectedChronic) || [];
   const effRatingWellbeing = apiStateNowData?.dailyRating?.wellbeing ?? ratingWellbeing;
   const effRatingEnergy = apiStateNowData?.dailyRating?.energy ?? ratingEnergy;
   const effRatingLightness = apiStateNowData?.dailyRating?.lightness ?? ratingLightness;
-  const effInitialWeight = apiStateNowData?.profile?.initialWeight;
-  const effInitialSystolic = apiStateNowData?.profile?.initialSystolic;
   
-  // Day-isolated biometrics: only measurements for currentDayIndex
+  // Биометрия
   const rawDayMeasurements = apiStateNowData?.dailyMetric?.measurements;
   const dayMeasurements: any[] = (() => {
     if (!rawDayMeasurements) return [];
@@ -214,11 +193,11 @@ export default function StateNowScreen({
   })();
   const sortedDayMeasurements = [...dayMeasurements].filter((m: any) => m && m.timestamp).sort((a: any, b: any) => a.timestamp - b.timestamp);
   const latestMeas = sortedDayMeasurements.length > 0 ? sortedDayMeasurements[sortedDayMeasurements.length - 1] : null;
-  const prevMeas = sortedDayMeasurements.length > 1 ? sortedDayMeasurements[sortedDayMeasurements.length - 2] : null;
 
   const effWeight = latestMeas?.weight ?? apiStateNowData?.profile?.weight ?? weight;
   const effSystolic = latestMeas?.systolic ?? undefined;
   const effDiastolic = latestMeas?.diastolic ?? undefined;
+  const effPulse = latestMeas?.pulse ?? latestMeas?.heartRate ?? undefined;
   
   const wellbeingLog = apiStateNowData?.dailyRating?.wellbeingLog || [];
   const energyLog = apiStateNowData?.dailyRating?.energyLog || [];
@@ -229,38 +208,63 @@ export default function StateNowScreen({
   const effHabitsDone = SystemKeysStore.calculateKeysForDay(currentDayIndex || 1, effSavedDishes, effWater).closedCount;
   const todayStr = todayLocalDate(getUserTimeZone());
   
-  // ── Живые данные для 7 станций Вкладки «Динамика» ──
-  // 1. Сон: парсинг журнала сна и расчет точного времени пробуждения
-  const rawSleepLogs: SleepEntry[] = apiStateNowData?.dailyMetric?.sleepLogs
-    ? (typeof apiStateNowData.dailyMetric.sleepLogs === "string"
-        ? JSON.parse(apiStateNowData.dailyMetric.sleepLogs)
-        : apiStateNowData.dailyMetric.sleepLogs)
-    : [];
-  const sleepPerDay = aggregateSleepPerDay(rawSleepLogs);
-  const todaySleepEntry: SleepDaySummary | null = sleepPerDay[currentDayIndex] || null;
-  const sleepWakeTime: string | null = todaySleepEntry?.wakeTime || null;
-  const sleepBedtime: string | null = todaySleepEntry?.bedtime || null;
+  // ── Надежный сбор данных сна: API -> localStorage -> fallback ──
+  const sleepSummary = (() => {
+    // 1. Из API
+    if (apiStateNowData?.dailyMetric?.sleepLogs) {
+      try {
+        const parsed = typeof apiStateNowData.dailyMetric.sleepLogs === "string"
+          ? JSON.parse(apiStateNowData.dailyMetric.sleepLogs)
+          : apiStateNowData.dailyMetric.sleepLogs;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const perDay = aggregateSleepPerDay(parsed);
+          const dayData = perDay[currentDayIndex];
+          if (dayData && dayData.wakeTime) {
+            return {
+              wakeTime: dayData.wakeTime,
+              quality: dayData.quality || null,
+              duration: dayData.duration || effSleep,
+            };
+          }
+        }
+      } catch {}
+    }
+    // 2. Фолбэк на localStorage['wfpb_daily_sleep_logs_v1']
+    try {
+      const raw = localStorage.getItem("wfpb_daily_sleep_logs_v1");
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        const dayData = parsed[currentDayIndex];
+        if (dayData && dayData.wakeTime) {
+          return {
+            wakeTime: dayData.wakeTime,
+            quality: dayData.quality || null,
+            duration: dayData.duration || effSleep,
+          };
+        }
+      }
+    } catch {}
+    return { wakeTime: null, quality: null, duration: effSleep };
+  })();
 
-  // 2. Блюда по категориям с реальным временем приготовления
-  const filterMealsByCategory = (categoryKeywords: string[]) => {
-    return effSavedDishes
-      .filter((dish: any) => {
-        const isDay = dish.dayIndex === currentDayIndex || (dish as any).current_day === currentDayIndex;
-        if (!isDay && currentDayIndex !== 1) return false;
-        const cat = (dish.category || "").toLowerCase();
-        const name = (dish.name || "").toLowerCase();
-        return categoryKeywords.some((kw) => cat.includes(kw) || name.includes(kw));
-      })
-      .map((d: any) => ({
-        id: d.id,
-        name: d.name,
-        category: d.category,
-        time: d.time || (d.createdAt ? formatTimeHM(d.createdAt, getUserTimeZone()) : ""),
-        createdAt: d.createdAt,
-      }));
-  };
+  const sleepWakeTime: string | null = sleepSummary.wakeTime;
+  const sleepQuality: "good" | "fair" | "poor" | null = sleepSummary.quality;
 
-  // 3. Движение с расшифровкой названий тренировок и длительности
+  // Отбой текущего вечера (только если сегодня вечером активирован ночной режим)
+  const tonightBedtime: string | null = (() => {
+    try {
+      const rawSession = localStorage.getItem("wfpb_sleep_session");
+      if (rawSession) {
+        const sess = JSON.parse(rawSession);
+        if (sess?.active && sess?.bedTime) {
+          return sess.bedTime;
+        }
+      }
+    } catch {}
+    return null;
+  })();
+
+  // Движение
   const dynamicsMovementLogs = (activityLogs || []).map((e: any) => {
     const durationMin = Math.round((e.durationSeconds || e.duration || 0) / 60);
     const cfg = ACTIVITY_CONFIGS[e.type as keyof typeof ACTIVITY_CONFIGS];
@@ -276,9 +280,8 @@ export default function StateNowScreen({
     };
   });
 
-  // Set up cooked book recipes
+  // Cooked book recipes
   const cookedBookDishes: any[] = [];
-  // Core macro calculation algorithms
   const getExactMacros = (type: string, id: number) => {
     const macros = getBookMacros(type, id);
     if (type === "drinks") {
@@ -293,140 +296,132 @@ export default function StateNowScreen({
     };
   };
 
-  // Breakfast Check
-   const todayBreakfastRecipe = BREAKFAST_RECIPES.find(r => r.id === currentDayIndex);
-    if (todayBreakfastRecipe && breakfastState[todayBreakfastRecipe.id]?.status === "cooked") {
-      const macros = getExactMacros("breakfast", todayBreakfastRecipe.id);
-      cookedBookDishes.push({
-        id: `book-breakfast-${todayBreakfastRecipe.id}`,
-        name: todayBreakfastRecipe.technicalName,
-        source: "Книга",
-        category: "Завтраки",
-        page: todayBreakfastRecipe.page || 0,
-        time: "08:30",
-        image: getRecipeImagePath(todayBreakfastRecipe.emotionalName || todayBreakfastRecipe.technicalName),
-        calories: Math.round(macros.cal),
-        protein: macros.pro.toFixed(1),
-        fat: macros.fpt.toFixed(1),
-        fiber: macros.fib.toFixed(1)
-      });
-    }
+  const todayBreakfastRecipe = BREAKFAST_RECIPES.find(r => r.id === currentDayIndex);
+  if (todayBreakfastRecipe && breakfastState[todayBreakfastRecipe.id]?.status === "cooked") {
+    const macros = getExactMacros("breakfast", todayBreakfastRecipe.id);
+    cookedBookDishes.push({
+      id: `book-breakfast-${todayBreakfastRecipe.id}`,
+      name: todayBreakfastRecipe.technicalName,
+      source: "Книга",
+      category: "Завтраки",
+      page: todayBreakfastRecipe.page || 0,
+      time: "08:30",
+      image: getRecipeImagePath(todayBreakfastRecipe.emotionalName || todayBreakfastRecipe.technicalName),
+      calories: Math.round(macros.cal),
+      protein: macros.pro.toFixed(1),
+      fat: macros.fpt.toFixed(1),
+      fiber: macros.fib.toFixed(1)
+    });
+  }
 
-  // Lunch Check
-   const todayLunchRecipe = LUNCH_RECIPES.find(r => r.id === currentDayIndex);
-    if (todayLunchRecipe && lunchState[todayLunchRecipe.id]?.status === "cooked") {
-      const macros = getExactMacros("lunch", todayLunchRecipe.id);
-      cookedBookDishes.push({
-        id: `book-lunch-${todayLunchRecipe.id}`,
-        name: todayLunchRecipe.technicalName,
-        source: "Книга",
-        category: "Супы и Салаты",
-        page: todayLunchRecipe.page || 0,
-        time: "13:30",
-        image: getRecipeImagePath(todayLunchRecipe.emotionalName || todayLunchRecipe.technicalName),
-        calories: Math.round(macros.cal),
-        protein: macros.pro.toFixed(1),
-        fat: macros.fpt.toFixed(1),
-        fiber: macros.fib.toFixed(1)
-      });
-    }
+  const todayLunchRecipe = LUNCH_RECIPES.find(r => r.id === currentDayIndex);
+  if (todayLunchRecipe && lunchState[todayLunchRecipe.id]?.status === "cooked") {
+    const macros = getExactMacros("lunch", todayLunchRecipe.id);
+    cookedBookDishes.push({
+      id: `book-lunch-${todayLunchRecipe.id}`,
+      name: todayLunchRecipe.technicalName,
+      source: "Книга",
+      category: "Супы и Салаты",
+      page: todayLunchRecipe.page || 0,
+      time: "13:30",
+      image: getRecipeImagePath(todayLunchRecipe.emotionalName || todayLunchRecipe.technicalName),
+      calories: Math.round(macros.cal),
+      protein: macros.pro.toFixed(1),
+      fat: macros.fpt.toFixed(1),
+      fiber: macros.fib.toFixed(1)
+    });
+  }
 
-  // Dinner Check
-   const todayDinnerRecipe = DINNER_RECIPES.find(r => r.id === currentDayIndex);
-    if (todayDinnerRecipe && dinnerState[todayDinnerRecipe.id]?.status === "cooked") {
-      const macros = getExactMacros("dinner", todayDinnerRecipe.id);
-      cookedBookDishes.push({
-        id: `book-dinner-${todayDinnerRecipe.id}`,
-        name: todayDinnerRecipe.technicalName,
-        source: "Книга",
-        category: "Основные блюда",
-        page: todayDinnerRecipe.page || 0,
-        time: "19:00",
-        image: getRecipeImagePath(todayDinnerRecipe.emotionalName || todayDinnerRecipe.technicalName),
-        calories: Math.round(macros.cal),
-        protein: macros.pro.toFixed(1),
-        fat: macros.fpt.toFixed(1),
-        fiber: macros.fib.toFixed(1)
-      });
-    }
+  const todayDinnerRecipe = DINNER_RECIPES.find(r => r.id === currentDayIndex);
+  if (todayDinnerRecipe && dinnerState[todayDinnerRecipe.id]?.status === "cooked") {
+    const macros = getExactMacros("dinner", todayDinnerRecipe.id);
+    cookedBookDishes.push({
+      id: `book-dinner-${todayDinnerRecipe.id}`,
+      name: todayDinnerRecipe.technicalName,
+      source: "Книга",
+      category: "Основные блюда",
+      page: todayDinnerRecipe.page || 0,
+      time: "19:00",
+      image: getRecipeImagePath(todayDinnerRecipe.emotionalName || todayDinnerRecipe.technicalName),
+      calories: Math.round(macros.cal),
+      protein: macros.pro.toFixed(1),
+      fat: macros.fpt.toFixed(1),
+      fiber: macros.fib.toFixed(1)
+    });
+  }
 
-  // Must have Check
-   const todayMustHave = MUST_HAVE_RECIPES.find(r => r.id === currentDayIndex);
-    if (todayMustHave && mustHaveState[todayMustHave.id]?.status === "cooked") {
-      const macros = getExactMacros("must_have", todayMustHave.id);
-      cookedBookDishes.push({
-        id: `book-must-have-${todayMustHave.id}`,
-        name: todayMustHave.technicalName,
-        source: "Книга",
-        category: "Полезное",
-        page: todayMustHave.page || 0,
-        time: "11:00",
-        image: getRecipeImagePath(todayMustHave.emotionalName || todayMustHave.technicalName),
-        calories: Math.round(macros.cal),
-        protein: macros.pro.toFixed(1),
-        fat: macros.fpt.toFixed(1),
-        fiber: macros.fib.toFixed(1)
-      });
-    }
+  const todayMustHave = MUST_HAVE_RECIPES.find(r => r.id === currentDayIndex);
+  if (todayMustHave && mustHaveState[todayMustHave.id]?.status === "cooked") {
+    const macros = getExactMacros("must_have", todayMustHave.id);
+    cookedBookDishes.push({
+      id: `book-must-have-${todayMustHave.id}`,
+      name: todayMustHave.technicalName,
+      source: "Книга",
+      category: "Полезное",
+      page: todayMustHave.page || 0,
+      time: "11:00",
+      image: getRecipeImagePath(todayMustHave.emotionalName || todayMustHave.technicalName),
+      calories: Math.round(macros.cal),
+      protein: macros.pro.toFixed(1),
+      fat: macros.fpt.toFixed(1),
+      fiber: macros.fib.toFixed(1)
+    });
+  }
 
-  // Recipe of day Check
-   const todayRecipeOfDay = RECIPE_OF_DAY_RECIPES.find(r => r.day === currentDayIndex || r.id === currentDayIndex);
-    if (todayRecipeOfDay && recipeOfDayState[todayRecipeOfDay.id]?.status === "cooked") {
-      const macros = getExactMacros("recipe_of_day", todayRecipeOfDay.id);
-      cookedBookDishes.push({
-        id: `book-recipe-of-day-${todayRecipeOfDay.id}`,
-        name: todayRecipeOfDay.technicalName,
-        source: "Книга",
-        category: "Блюдо дня",
-        page: todayRecipeOfDay.page || 0,
-        time: "16:00",
-        image: getRecipeImagePath(todayRecipeOfDay.emotionalName || todayRecipeOfDay.technicalName),
-        calories: Math.round(macros.cal),
-        protein: macros.pro.toFixed(1),
-        fat: macros.fpt.toFixed(1),
-        fiber: macros.fib.toFixed(1)
-      });
-    }
+  const todayRecipeOfDay = RECIPE_OF_DAY_RECIPES.find(r => r.day === currentDayIndex || r.id === currentDayIndex);
+  if (todayRecipeOfDay && recipeOfDayState[todayRecipeOfDay.id]?.status === "cooked") {
+    const macros = getExactMacros("recipe_of_day", todayRecipeOfDay.id);
+    cookedBookDishes.push({
+      id: `book-recipe-of-day-${todayRecipeOfDay.id}`,
+      name: todayRecipeOfDay.technicalName,
+      source: "Книга",
+      category: "Блюдо дня",
+      page: todayRecipeOfDay.page || 0,
+      time: "16:00",
+      image: getRecipeImagePath(todayRecipeOfDay.emotionalName || todayRecipeOfDay.technicalName),
+      calories: Math.round(macros.cal),
+      protein: macros.pro.toFixed(1),
+      fat: macros.fpt.toFixed(1),
+      fiber: macros.fib.toFixed(1)
+    });
+  }
 
-  // Drinks Check
-   const todayDrink = DRINKS_RECIPES.find(r => r.day === currentDayIndex || r.id === currentDayIndex);
-    if (todayDrink && drinksState[todayDrink.id]?.status === "cooked") {
-      const macros = getExactMacros("drinks", todayDrink.id);
-      cookedBookDishes.push({
-        id: `book-drink-${todayDrink.id}`,
-        name: todayDrink.technicalName,
-        source: "Книга",
-        category: "Напитки",
-        page: todayDrink.page || 0,
-        time: "10:00",
-        image: getRecipeImagePath(todayDrink.emotionalName || todayDrink.technicalName),
-        calories: Math.round(macros.cal),
-        protein: macros.pro.toFixed(1),
-        fat: macros.fpt.toFixed(1),
-        fiber: macros.fib.toFixed(1)
-      });
-    }
+  const todayDrink = DRINKS_RECIPES.find(r => r.day === currentDayIndex || r.id === currentDayIndex);
+  if (todayDrink && drinksState[todayDrink.id]?.status === "cooked") {
+    const macros = getExactMacros("drinks", todayDrink.id);
+    cookedBookDishes.push({
+      id: `book-drink-${todayDrink.id}`,
+      name: todayDrink.technicalName,
+      source: "Книга",
+      category: "Напитки",
+      page: todayDrink.page || 0,
+      time: "10:00",
+      image: getRecipeImagePath(todayDrink.emotionalName || todayDrink.technicalName),
+      calories: Math.round(macros.cal),
+      protein: macros.pro.toFixed(1),
+      fat: macros.fpt.toFixed(1),
+      fiber: macros.fib.toFixed(1)
+    });
+  }
 
-  // Compliments Check
-   const todayCompliment = COMPLIMENTS_RECIPES.find(r => r.id === currentDayIndex);
-    if (todayCompliment && complimentsState[todayCompliment.id]?.status === "cooked") {
-      const macros = getExactMacros("compliment", todayCompliment.id);
-      cookedBookDishes.push({
-        id: `book-compliment-${todayCompliment.id}`,
-        name: todayCompliment.technicalName,
-        source: "Книга",
-        category: "Комплименты",
-        page: todayCompliment.page || 0,
-        time: "17:30",
-        image: getRecipeImagePath(todayCompliment.emotionalName || todayCompliment.technicalName),
-        calories: Math.round(macros.cal),
-        protein: macros.pro.toFixed(1),
-        fat: macros.fpt.toFixed(1),
-        fiber: macros.fib.toFixed(1)
-      });
-    }
+  const todayCompliment = COMPLIMENTS_RECIPES.find(r => r.id === currentDayIndex);
+  if (todayCompliment && complimentsState[todayCompliment.id]?.status === "cooked") {
+    const macros = getExactMacros("compliment", todayCompliment.id);
+    cookedBookDishes.push({
+      id: `book-compliment-${todayCompliment.id}`,
+      name: todayCompliment.technicalName,
+      source: "Книга",
+      category: "Комплименты",
+      page: todayCompliment.page || 0,
+      time: "17:30",
+      image: getRecipeImagePath(todayCompliment.emotionalName || todayCompliment.technicalName),
+      calories: Math.round(macros.cal),
+      protein: macros.pro.toFixed(1),
+      fat: macros.fpt.toFixed(1),
+      fiber: macros.fib.toFixed(1)
+    });
+  }
 
-  // Also include book recipes from savedDishes that aren't tracked in recipeProgress
   const cookedBookIds = new Set(cookedBookDishes.map(d => d.id));
   for (const dish of (effSavedDishes || [])) {
     if (dish.isBookRecipe) {
@@ -462,9 +457,7 @@ export default function StateNowScreen({
     }
   }
 
-  // Custom Dishes from DIY / From What Is modules — strictly scoped to currentDayIndex
-  // R1/R2 (READ-ONLY хаб): исключаем ТОЛЬКО игровой Миксер (sourceType/category),
-  // пользовательские блюда и Сборки с calories>0 учитываем обязательно, фолбэча макросы в 0.
+  // Пользовательские блюда
   const parseFiniteOrZero = (value: unknown): number => {
     if (typeof value === "number" && Number.isFinite(value)) return value;
     if (typeof value === "string") {
@@ -492,9 +485,7 @@ export default function StateNowScreen({
       if (isRealMixerDish(dish)) return false;
       const cal = parseFiniteOrNull(dish.calories);
       if (cal === null || cal <= 0) return false;
-      // Strict day scoping: only dishes cooked on currentDayIndex
       if (dish.dayIndex === currentDayIndex || (dish as any).current_day === currentDayIndex) return true;
-      // Legacy fallback — only for day 1: dishes without dayIndex that match today's local date
       if (!dish.dayIndex && currentDayIndex === 1) {
         const dishDate = dish.createdAt ? toLocalDate(new Date(dish.createdAt), getUserTimeZone()) : null;
         return dishDate === todayStr;
@@ -519,7 +510,7 @@ export default function StateNowScreen({
       };
     });
 	
-	// ── Живой сбор блюд дня для Вкладки «Динамика» (Книга + Свои блюда / Архив) ──
+  // Блюда дня для таймлайна
   const allTodayDishes = [
     ...cookedBookDishes,
     ...todayCustomDishes,
@@ -533,18 +524,17 @@ export default function StateNowScreen({
         id: d.id,
         name: d.name,
         category: d.category || "",
+        ingredients: d.ingredients,
         time: d.time || (d.createdAt ? formatTimeHM(d.createdAt, getUserTimeZone()) : ""),
         createdAt: d.createdAt,
       })),
   ];
 
-  // Убираем возможные дубликаты по id / названию
   const uniqueTodayDishes = Array.from(
     new Map(allTodayDishes.map((d: any) => [d.id || d.name, d])).values()
   );
 
-  // R6: каноническое локальное время без UTC-смещения
-  const getDishHour = (d: any): number => {
+  const getDishHourSafe = (d: any): number => {
     const tz = getUserTimeZone();
     if (d.time && typeof d.time === "string" && d.time.includes(":")) {
       const h = Number(d.time.split(":")[0]);
@@ -553,26 +543,25 @@ export default function StateNowScreen({
     if (d.createdAt) {
       try {
         const hm = formatTimeHM(d.createdAt, tz);
-        return Number(hm.split(":")[0]) || 0;
+        const h = Number(hm.split(":")[0]);
+        if (Number.isFinite(h)) return h;
       } catch {}
     }
-    return 0;
+    return 8; // утренний фолбэк
   };
 
-  // Завтрак: по слову "завтрак" либо блюдо до 12:00
   const dynamicsBreakfastLogs = uniqueTodayDishes.filter((d: any) => {
     const cat = (d.category || "").toLowerCase();
     const name = (d.name || "").toLowerCase();
-    const hour = getDishHour(d);
-    return cat.includes("завтрак") || name.includes("завтрак") || (hour > 0 && hour < 12);
+    const hour = getDishHourSafe(d);
+    return cat.includes("завтрак") || name.includes("завтрак") || hour < 12;
   });
 
-  // Обед: супы, салаты, вторые блюда либо блюда с 12:00 до 17:00
   const dynamicsLunchLogs = uniqueTodayDishes.filter((d: any) => {
     if (dynamicsBreakfastLogs.some((b: any) => (b.id && b.id === d.id) || b.name === d.name)) return false;
     const cat = (d.category || "").toLowerCase();
     const name = (d.name || "").toLowerCase();
-    const hour = getDishHour(d);
+    const hour = getDishHourSafe(d);
     return (
       cat.includes("обед") ||
       cat.includes("суп") ||
@@ -582,38 +571,12 @@ export default function StateNowScreen({
     );
   });
 
-  // Ужин: всё, что помечено как ужин/основное, либо создано после 17:00
   const dynamicsDinnerLogs = uniqueTodayDishes.filter((d: any) => {
     if (dynamicsBreakfastLogs.some((b: any) => (b.id && b.id === d.id) || b.name === d.name)) return false;
     if (dynamicsLunchLogs.some((l: any) => (l.id && l.id === d.id) || l.name === d.name)) return false;
-    const cat = (d.category || "").toLowerCase();
-    const name = (d.name || "").toLowerCase();
-    const hour = getDishHour(d);
-    return (
-      cat.includes("ужин") ||
-      cat.includes("основн") ||
-      name.includes("ужин") ||
-      hour >= 17 ||
-      hour === 0
-    );
+    return true;
   });
 
-  // R6: единая станция хаба (синхронизирована с локальной TZ, без UTC-смещения)
-  // В 11:15 при зафиксированном завтраке следующая станция — Обед WFPB.
-  const hubTz = getUserTimeZone();
-  const hubNowHM = formatTimeHM(new Date().toISOString(), hubTz);
-  const hubHour = Number(hubNowHM.split(":")[0]) || 0;
-  const hubHasBreakfast = dynamicsBreakfastLogs.length > 0;
-  const hubHasLunch = dynamicsLunchLogs.length > 0;
-  const hubHasDinner = dynamicsDinnerLogs.length > 0;
-  const hubNextStation: { stationName: string; timeRemainingText: string } = (() => {
-    if (!hubHasBreakfast && hubHour < 12) return { stationName: "Завтрак WFPB", timeRemainingText: "до 11:30" };
-    if (!hubHasLunch && hubHour < 16) return { stationName: "Обед WFPB", timeRemainingText: "13:00 – 15:00" };
-    if (!hubHasDinner && hubHour < 21) return { stationName: "Ужин WFPB", timeRemainingText: "18:30 – 20:00" };
-    return { stationName: "Отдых ЖКТ и сон", timeRemainingText: "после 21:30" };
-  })();
-
-  // Calculate overall course stats from Book module
   const totalCookedBookRecipesCount = 
     Object.values(breakfastState).filter(item => (item as any).status === "cooked").length +
     Object.values(lunchState).filter(item => (item as any).status === "cooked").length +
@@ -623,7 +586,6 @@ export default function StateNowScreen({
     Object.values(recipeOfDayState).filter(item => (item as any).status === "cooked").length +
     Object.values(drinksState).filter(item => (item as any).status === "cooked").length;
 
-  // Book targets of today menu
   const todayTotalBookMenuCount = 
     (todayBreakfastRecipe ? 1 : 0) +
     (todayLunchRecipe ? 1 : 0) +
@@ -634,7 +596,6 @@ export default function StateNowScreen({
 
   const todayCookedBookCount = cookedBookDishes.length;
 
-  // Perform daily macro and micro aggregation via the central unified DailyNutritionStore
   const dbData = DailyNutritionStore.getDailyNutrition(
     effSavedDishes,
     currentDayIndex,
@@ -658,8 +619,6 @@ export default function StateNowScreen({
     }
   );
 
-  // R1/R2: фолбэч строгой агрегации DailyNutritionStore — блюда с calories>0 но без полного набора макросов
-  // добавляем к totals с недостающими макросами = 0 (без touching внешних сторов).
   const dbLoggedIds = new Set((dbData.logs as any[]).map((l: any) => l.dishId));
   let r1ExtraCalories = 0;
   let r1ExtraProtein = 0;
@@ -722,16 +681,26 @@ export default function StateNowScreen({
   const hasAnyRealMicronutrientProfile = dbData.hasAnyRealMicronutrientProfile;
 
   const aggregatedIngredients = [...dbData.aggregatedIngredients, ...r1ExtraIngredients].sort((a,b)=> b.weight - a.weight);
+  const totalRawMass = aggregatedIngredients.reduce((acc, ing: any) => acc + (Number(ing.weight) || 0), 0);
 
-  // Core target definitions
+  const nonWfpbIngredients = Array.from(new Set(
+    aggregatedIngredients
+      .filter((i: any) => {
+        if (i.status === "red" || i.isProhibited || i.isAnimal) return true;
+        const nameLower = (i.name || "").toLowerCase();
+        return NON_WFPB_KEYWORDS.some((kw) => nameLower.includes(kw));
+      })
+      .map((i: any) => i.name)
+  ));
+  const hasNonWfpb = nonWfpbIngredients.length > 0;
+
   const waterTarget = getWaterGoal(effWeight || WATER_GOAL_FALLBACK_KG);
   const sleepTarget = 480;
   const mealsTarget = 4;
   const habitsTarget = 20;
 
-  // Time-aware water expectations
-  const activeStartMin = WATER_ACTIVE_START_MIN;      // 08:00
-  const activeWindowMin = WATER_ACTIVE_WINDOW_MIN;    // 840 мин (08:00–22:00)
+  const activeStartMin = WATER_ACTIVE_START_MIN;
+  const activeWindowMin = WATER_ACTIVE_WINDOW_MIN;
   const activeEndMin = activeStartMin + activeWindowMin;
   const nowTimeHM = formatTimeHM(new Date().toISOString(), getUserTimeZone()).split(":");
   const currentHour = Number(nowTimeHM[0]);
@@ -740,25 +709,21 @@ export default function StateNowScreen({
   const awakeMinutesToday = Math.max(0, Math.min(nowMinutes - activeStartMin, activeWindowMin));
   const expectedWaterByNow = Math.round(waterTarget * (awakeMinutesToday / activeWindowMin));
   const remainingMinutes = Math.max(0, activeEndMin - nowMinutes);
-  const isAheadOnWater = effWater >= expectedWaterByNow;
 
   const effMealCount = cookedBookDishes.length + todayCustomDishes.length;
 
-  // Percentage estimations
   const waterPct = Math.min(100, Math.round((effWater / waterTarget) * 100));
   const sleepPct = Math.min(100, Math.round((effSleep / sleepTarget) * 100));
   const mealsPct = Math.min(100, Math.round((effMealCount / mealsTarget) * 100));
   const habitsPct = Math.min(100, Math.round((effHabitsDone / habitsTarget) * 100));
-  const activityPercent = Math.min(100, Math.round(((activityLogs || []).reduce((acc: number, log: any) => acc + (log.durationSeconds || 0), 0) / 60 / MOVEMENT_DAILY_TARGET_MIN) * 100)); // % of target mins
+  const activityPercent = Math.min(100, Math.round(((activityLogs || []).reduce((acc: number, log: any) => acc + (log.durationSeconds || 0), 0) / 60 / MOVEMENT_DAILY_TARGET_MIN) * 100));
   const activityMinutes = Math.round((activityPercent / 100) * MOVEMENT_DAILY_TARGET_MIN);
   const energyPct = activityPercent;
-  const zenPct = effRatingWellbeing * 20;
-  const lightnessPct = effRatingLightness * 20;
 
   const hydrationState = ((): 'success' | 'normal' | 'warning' => {
-    if (effWater >= waterTarget) return 'success'
-    return effWater > 0 ? 'normal' : 'warning'
-  })()
+    if (effWater >= waterTarget) return 'success';
+    return effWater > 0 ? 'normal' : 'warning';
+  })();
 
   const integralScore = calculateIntegralScore({
     waterMl: effWater,
@@ -776,56 +741,7 @@ export default function StateNowScreen({
     ratingLightness: effRatingLightness,
   });
 
-  const getStatusInfo = (score: number) => {
-    // 95-100
-    if (score >= 95) return { label: "Состояние идеального баланса", style: "text-emerald-700 bg-emerald-50 border-emerald-200/60 shadow-[0_2px_8px_rgba(16,185,129,0.06)]", desc: "Сверхвысокий уровень физиологического резерва", dotColor: "bg-emerald-500" };
-    // 90-94
-    if (score >= 90) return { label: "Отличный жизненный тонус", style: "text-teal-700 bg-teal-50 border-teal-200/60 shadow-[0_2px_8px_rgba(20,184,166,0.06)]", desc: "Высокая метаболическая устойчивость", dotColor: "bg-teal-500" };
-    // 85-89
-    if (score >= 85) return { label: "Стабильное состояние", style: "text-green-700 bg-green-50 border-green-200/60 shadow-[0_2px_8px_rgba(34,197,94,0.06)]", desc: "Уверенная адаптация к нагрузкам", dotColor: "bg-green-500" };
-    // 80-84
-    if (score >= 80) return { label: "Хороший ресурсный фон", style: "text-lime-700 bg-lime-50 border-lime-200/60 shadow-[0_2px_8px_rgba(132,204,22,0.06)]", desc: "Свободный запас прочности органов", dotColor: "bg-lime-500" };
-    
-    // 75-79
-    if (score >= 75) return { label: "Устойчивый тонус", style: "text-cyan-700 bg-cyan-50 border-cyan-200/60 shadow-[0_2px_8px_rgba(6,182,212,0.06)]", desc: "Оптимальное самочувствие", dotColor: "bg-cyan-500" };
-    // 70-74
-    if (score >= 70) return { label: "Физиологический баланс", style: "text-sky-700 bg-sky-50 border-sky-200/60 shadow-[0_2px_8px_rgba(14,165,233,0.06)]", desc: "Благоприятный обмен веществ", dotColor: "bg-sky-500" };
-    // 65-69
-    if (score >= 65) return { label: "Ровное самочувствие", style: "text-blue-700 bg-blue-50 border-blue-200/60 shadow-[0_2px_8px_rgba(59,130,246,0.06)]", desc: "Адаптивные механизмы активны", dotColor: "bg-blue-500" };
-    // 60-64
-    if (score >= 60) return { label: "Умеренный ресурс", style: "text-indigo-700 bg-indigo-50 border-indigo-200/60 shadow-[0_2px_8px_rgba(99,102,241,0.06)]", desc: "Основные показатели в норме", dotColor: "bg-indigo-500" };
-    
-    // 55-59
-    if (score >= 55) return { label: "Легкое утомление", style: "text-yellow-700 bg-yellow-50 border-yellow-200/60 shadow-[0_2px_8px_rgba(234,179,8,0.06)]", desc: "Организм расходует накопленный запас", dotColor: "bg-yellow-500" };
-    // 50-54
-    if (score >= 50) return { label: "Сбалансированный ритм", style: "text-amber-700 bg-amber-50 border-amber-200/60 shadow-[0_2px_8px_rgba(245,158,11,0.06)]", desc: "Рекомендуется не перегружать системы", dotColor: "bg-amber-500" };
-    // 45-49
-    if (score >= 45) return { label: "Мягкий дефицит сил", style: "text-orange-700 bg-orange-50 border-orange-200/60 shadow-[0_2px_8px_rgba(249,115,22,0.06)]", desc: "Полезно обратить внимание на отдых", dotColor: "bg-orange-500" };
-    // 40-44
-    if (score >= 40) return { label: "Ресурс постепенно снижается", style: "text-amber-800 bg-orange-50 border-orange-200 shadow-[0_2px_8px_rgba(245,158,11,0.04)]", desc: "Организм запрашивает передышку", dotColor: "bg-amber-600" };
-    
-    // 35-39
-    if (score >= 35) return { label: "Умеренное напряжение", style: "text-orange-900 bg-orange-100/40 border-orange-200 shadow-[0_2px_8px_rgba(239,68,68,0.04)]", desc: "Требуется восполнение энергии", dotColor: "bg-orange-600" };
-    // 30-34
-    if (score >= 30) return { label: "Сниженный тонус органов", style: "text-rose-700 bg-rose-50 border-rose-200 shadow-[0_2px_8px_rgba(244,63,94,0.06)]", desc: "Стоит снизить темп и восстановиться", dotColor: "bg-rose-500" };
-    // 25-29
-    if (score >= 25) return { label: "Выраженная усталость", style: "text-rose-800 bg-rose-50 border-rose-200 shadow-[0_2px_8px_rgba(244,63,94,0.08)]", desc: "Адаптация затруднена, нужен ресурс", dotColor: "bg-rose-600" };
-    // 20-24
-    if (score >= 20) return { label: "Организм в дефиците", style: "text-red-700 bg-red-50 border-red-200 shadow-[0_2px_8px_rgba(239,68,68,0.08)]", desc: "Пора позаботиться о базовых потребностях", dotColor: "bg-red-500" };
-    // 15-19
-    if (score >= 15) return { label: "Бережный режим", style: "text-red-800 bg-red-55 border-red-200 shadow-[0_2px_8px_rgba(239,68,68,0.1)]", desc: "Рекомендуется мягкий расслабляющий отдых", dotColor: "bg-red-600" };
-    // 10-14
-    if (score >= 10) return { label: "Критический расход сил", style: "text-red-900 bg-red-50 border-red-300 shadow-[0_2px_8px_rgba(220,38,38,0.1)]", desc: "Необходима пауза для глубокого сна", dotColor: "bg-red-700" };
-    // 5-9
-    if (score >= 5) return { label: "Глубокое истощение", style: "text-red-950 bg-red-100/70 border-red-350 shadow-[0_2px_8px_rgba(185,28,28,0.12)]", desc: "Срочно перейдите в энергосберегающий режим", dotColor: "bg-red-800" };
-    // 0-4
-    return { label: "Минимальный уровень ресурса", style: "text-red-950 bg-red-100 border-red-400 shadow-[0_4px_12px_rgba(185,28,28,0.15)]", desc: "Время для полной физической разгрузки", dotColor: "bg-red-900 animate-pulse" };
-  };
-
-  const statusObj = getStatusInfo(integralScore);
-
-  // Anna analysis via dedicated engine — delegates to annaAdvisorEngine for varied, non-repetitive phrasing
-  function getAnnaAnalysis() {
+    const buildCurrentAnnaInput = (): AnnaAnalysisInput => {
     const deficitNow = Math.max(0, expectedWaterByNow - effWater);
     const paceNeeded = Math.ceil(Math.max(0, waterTarget - effWater) / Math.max(1, remainingMinutes / 60));
     const topIngredients = (aggregatedIngredients || []).slice(0, 4).map((i: any) => i.name);
@@ -842,7 +758,8 @@ export default function StateNowScreen({
       { name: "Селена", val: daySelenium },
     ].sort((a, b) => b.val - a.val);
     const leaderNutrient = leaderCandidates[0]?.val > 0 ? leaderCandidates[0] : undefined;
-    const input = {
+
+    return {
       userName: effUserName,
       totalCalories,
       totalProtein,
@@ -850,6 +767,9 @@ export default function StateNowScreen({
       totalCarbohydrates,
       totalFiber,
       topIngredients,
+      nonWfpbIngredients,
+      hasNonWfpb,
+      totalMass: totalRawMass,
       effWater,
       waterTarget,
       expectedWaterByNow,
@@ -860,50 +780,20 @@ export default function StateNowScreen({
       effWeight,
       effSystolic,
       effDiastolic,
+      effPulse,
       leaderName: leaderNutrient?.name,
       leaderPct: leaderNutrient?.val,
+      cookedDishCount: effMealCount,
+      totalDishCount: mealsTarget,
     };
-    return buildAnnaBalanceAnalysis(input, currentDayIndex || 1);
+  };
+
+  function getAnnaAnalysis() {
+    return buildAnnaBalanceAnalysis(buildCurrentAnnaInput(), currentDayIndex || 1);
   }
 
   const getAnnaAnalysisForTab = (tabId: string) => {
-    const deficitNow = Math.max(0, expectedWaterByNow - effWater);
-    const paceNeeded = Math.ceil(Math.max(0, waterTarget - effWater) / Math.max(1, remainingMinutes / 60));
-    const topIngredients = (aggregatedIngredients || []).slice(0, 4).map((i: any) => i.name);
-    const leaderCandidates = [
-      { name: "Витамина C", val: dayVitC },
-      { name: "Витамина A", val: dayVitA },
-      { name: "Калия", val: dayPotassium },
-      { name: "Магния", val: dayMagnesium },
-      { name: "Железа", val: dayIron },
-      { name: "Витамина B9", val: dayVitB9 },
-      { name: "Витамина E", val: dayVitE },
-      { name: "Витамина K", val: dayVitK },
-      { name: "Цинка", val: dayZinc },
-      { name: "Селена", val: daySelenium },
-    ].sort((a, b) => b.val - a.val);
-    const leaderNutrient = leaderCandidates[0]?.val > 0 ? leaderCandidates[0] : undefined;
-    const input = {
-      userName: effUserName,
-      totalCalories,
-      totalProtein,
-      totalFat,
-      totalCarbohydrates,
-      totalFiber,
-      topIngredients,
-      effWater,
-      waterTarget,
-      expectedWaterByNow,
-      deficitNow,
-      remainingMinutes,
-      paceNeeded,
-      effSleep,
-      effWeight,
-      effSystolic,
-      effDiastolic,
-      leaderName: leaderNutrient?.name,
-      leaderPct: leaderNutrient?.val,
-    };
+    const input = buildCurrentAnnaInput();
     const tabOrder = ["balance", "scales", "kbju", "micro", "composition", "dynamics"];
     const tabIndexOffset = Math.max(0, tabOrder.indexOf(tabId));
     return buildAnnaTabAnalysis(tabId, input, (currentDayIndex || 1) + tabIndexOffset);
@@ -914,8 +804,22 @@ export default function StateNowScreen({
     return getAnnaAnalysisForTab(tabId);
   };
 
+  useEffect(() => {
+    if (isReadOnly || !currentDayIndex) return;
+    if (!apiStateNowData) return;
+    if (savedAnnaDayRef.current === currentDayIndex) return;
+    const timer = setTimeout(() => {
+      const text = getAnnaAnalysis();
+      savedAnnaDayRef.current = currentDayIndex;
+      api("/api/anna-analysis/save", {
+        method: "POST",
+        body: { dayIndex: currentDayIndex, analysisText: text },
+      }).catch(() => {});
+    }, 4000);
+    return () => clearTimeout(timer);
+  }, [currentDayIndex, isReadOnly, apiStateNowData]);
+
   const waterLogData = (() => {
-    // Primary source: DB
     if (apiStateNowData?.dailyMetric?.waterEntries) {
       try {
         const entries = typeof apiStateNowData.dailyMetric.waterEntries === 'string'
@@ -929,7 +833,6 @@ export default function StateNowScreen({
         }
       } catch {}
     }
-    // Fallback: localStorage cache
     try {
       const raw = localStorage.getItem('wfpb_daily_water_entries_v3');
       if (!raw) return { lastWaterTimestamp: undefined, todayWaterEntries: undefined };
@@ -938,7 +841,7 @@ export default function StateNowScreen({
       if (!todayLogs || todayLogs.length === 0) return { lastWaterTimestamp: undefined, todayWaterEntries: undefined };
       return {
         lastWaterTimestamp: todayLogs[todayLogs.length - 1].timestamp,
-        todayWaterEntries: todayLogs.map((e) => ({ amount: e.amount, timestamp: e.timestamp, time: e.time })),
+        todayWaterEntries: todayLogs.map((e: any) => ({ amount: e.amount, timestamp: e.timestamp, time: e.time })),
       };
     } catch {
       return { lastWaterTimestamp: undefined, todayWaterEntries: undefined };
@@ -1003,7 +906,6 @@ export default function StateNowScreen({
       triggerNotification(`Ощущение лёгкости обновлено: ${val}/5 🍃`);
     }
 
-// Save automatic diary trace if required
     if (onSaveWellbeingComment) {
       const timeStr = formatTimeHM(new Date().toISOString(), getUserTimeZone());
       onSaveWellbeingComment(
@@ -1012,28 +914,26 @@ export default function StateNowScreen({
     }
   };
 
-  // ── Расчёт адаптивного циферблата био-метрик и смарт-трио (R3/R4: строгий контракт BioDialInput) ──
   const bioDialAdvice = calculateBioDialAdvice({
     waterMl: effWater,
     waterTarget,
     sleepMinutes: effSleep,
     cookedDishesCount: effMealCount,
     activityMinutes,
-    hasBreakfast: hubHasBreakfast,
-    hasLunch: hubHasLunch,
-    hasDinner: hubHasDinner,
+    hasBreakfast: dynamicsBreakfastLogs.length > 0,
+    hasLunch: dynamicsLunchLogs.length > 0,
+    hasDinner: dynamicsDinnerLogs.length > 0,
     lastWaterTimestamp: waterLogData.lastWaterTimestamp,
     timeZone: getUserTimeZone(),
-    nextStationName: hubNextStation.stationName,
-    nextStationTime: hubNextStation.timeRemainingText,
+    nextStationName: dynamicsBreakfastLogs.length === 0 ? "Завтрак WFPB" : "Обед WFPB",
+    nextStationTime: "13:00 – 15:00",
     recommendedActionText: recommendedAction?.title,
-    // совместимость: единая станция уже вычислена хабом — дублируем как primary input
   });
 
   return (
     <div className="flex-1 flex flex-col justify-between bg-[#FAFBFB] relative min-h-[100dvh]">
       
-      {/* Toast Notification Container */}
+      {/* Toast Notification */}
       <AnimatePresence>
         {showNotification && (
           <motion.div 
@@ -1048,7 +948,7 @@ export default function StateNowScreen({
             </div>
             <button 
               onClick={() => setShowNotification(false)}
-              className="text-white/60 hover:text-white px-2 py-1 text-[11px] font-extrabold uppercase shrink-0"
+              className="text-white/60 hover:text-white px-2 py-1 text-[11px] font-extrabold uppercase shrink-0 cursor-pointer"
             >
               OK
             </button>
@@ -1056,10 +956,10 @@ export default function StateNowScreen({
         )}
       </AnimatePresence>
 
-      {/* Main scrollable workspace */}
+      {/* Основная рабочая область скролла */}
       <div className="flex-1 overflow-y-auto px-2.5 pb-32 scrollbar-none">
         
-        {/* Header Block */}
+        {/* Шапка */}
         <div className="flex items-center justify-between pt-5 pb-4 mb-2">
           <button 
             type="button"
@@ -1090,10 +990,10 @@ export default function StateNowScreen({
           </div>
         )}
 
-        {/* Short timestamp tag — строгая одна строка */}
+        {/* Метка времени */}
         <div className="flex items-center justify-center gap-1.5 mb-3 select-none font-mono">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-tight whitespace-nowrap">
+          <span className="text-[10px] sm:text-[11px] font-bold text-slate-400 uppercase tracking-tight whitespace-nowrap">
             данные обновлены на {formatTimeHM(new Date().toISOString(), getUserTimeZone())} • экспертная оценка
           </span>
         </div>
@@ -1110,7 +1010,7 @@ export default function StateNowScreen({
           onStationClick={() => setActiveTab("dynamics")}
         />
 
-        {/* 3. TAB NAVIGATION (6 tactile 3D miniature card buttons) */}
+        {/* 3. НАВИГАЦИЯ ПО 6 ВКЛАДКАМ */}
         <div className="grid grid-cols-3 gap-2.5 mb-6 font-sans">
           {SOST_TABS.map((tab) => {
             const isActive = activeTab === tab.id;
@@ -1146,13 +1046,13 @@ export default function StateNowScreen({
           })}
         </div>
 
-        {/* 4. ACTIVE SECTION CONTAINER */}
+        {/* 4. АКТИВНЫЙ РАЗДЕЛ */}
         <AnimatePresence mode="wait">
           {activeTab === "balance" && (
             <BalanceTab
               key="balance"
               tabId={activeTab}
-               getAnnaAnalysis={() => getDisplayedAnalysis("balance")}
+              getAnnaAnalysis={() => getDisplayedAnalysis("balance")}
               integralScore={integralScore}
               sleepPct={sleepPct}
               waterPct={waterPct}
@@ -1253,8 +1153,8 @@ export default function StateNowScreen({
               key="dynamics"
               sleep={effSleep}
               wakeTime={sleepWakeTime}
-              bedtime={sleepBedtime}
-              sleepLogs={rawSleepLogs}
+              bedtime={tonightBedtime}
+              sleepQuality={sleepQuality}
               water={effWater}
               waterTarget={waterTarget}
               todayWaterEntries={waterLogData.todayWaterEntries || []}
@@ -1275,13 +1175,19 @@ export default function StateNowScreen({
               recommendedAction={recommendedAction}
               currentDayIndex={currentDayIndex}
               savedDishes={effSavedDishes}
+              latestMeas={latestMeas}
+              dayMeasurements={sortedDayMeasurements}
+              effWeight={effWeight}
+              effSystolic={effSystolic}
+              effDiastolic={effDiastolic}
+              effPulse={effPulse}
             />
           )}
         </AnimatePresence>
 
       </div>
 
-      {/* FIXED FOOTER NAV PANEL - Remains part of screen layout and moves with the app */}
+      {/* Нижняя панель */}
       <div className="absolute bottom-0 left-0 right-0 z-30 font-sans">
         <BottomBar 
           onHomeClick={onBack}
