@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { ChevronLeft } from "lucide-react";
 import { useAppStore } from "../store/useAppStore";
@@ -20,6 +20,7 @@ import { DailyNutritionStore } from "../services/DailyNutritionStore";
 import { SystemKeysStore } from "../services/SystemKeysStore";
 import { calculateIntegralScore } from "../utils/integralScore";
 import { getWaterGoal, WATER_GOAL_FALLBACK_KG, WATER_ACTIVE_START_MIN, WATER_ACTIVE_WINDOW_MIN } from "../utils/waterGoal";
+import { calculateDailyCalorieGoal } from "../utils/calorieGoal";
 import BalanceTab from "./statenow/BalanceTab";
 import { getRecommendedNextStep } from "../utils/nextStepEngine";
 import ScalesTab from "./statenow/ScalesTab";
@@ -743,7 +744,20 @@ export default function StateNowScreen({
   const habitsPct = Math.min(100, Math.round((effHabitsDone / habitsTarget) * 100));
   const activityPercent = Math.min(100, Math.round(((activityLogs || []).reduce((acc: number, log: any) => acc + (log.durationSeconds || 0), 0) / 60 / MOVEMENT_DAILY_TARGET_MIN) * 100));
   const activityMinutes = Math.round((activityPercent / 100) * MOVEMENT_DAILY_TARGET_MIN);
+  const activityPct = Math.min(100, Math.round((activityMinutes / 30) * 100));
   const energyPct = activityPercent;
+
+  const dailyCalorieGoal = useMemo(() => {
+    return calculateDailyCalorieGoal({
+      gender: profile?.gender,
+      age: profile?.age,
+      height: profile?.height,
+      weight: effWeight,
+      activityMinutes: activityMinutes,
+      healthGoals: profile?.healthGoals,
+      chronicConditions: profile?.chronicConditions,
+    });
+  }, [profile, effWeight, activityMinutes]);
 
   const hydrationState = ((): 'success' | 'normal' | 'warning' => {
     if (effWater >= waterTarget) return 'success';
@@ -791,6 +805,7 @@ export default function StateNowScreen({
       totalFat,
       totalCarbohydrates,
       totalFiber,
+      calTarget: dailyCalorieGoal.targetCalories,
       topIngredients,
       nonWfpbIngredients,
       hasNonWfpb,
@@ -826,6 +841,10 @@ export default function StateNowScreen({
 
   const getAnnaAnalysisForTab = (tabId: string) => {
     const input = buildCurrentAnnaInput();
+    // Для вкладки КБЖУ гарантируем передачу персонального калоража
+    if (tabId === "kbju") {
+      input.calTarget = dailyCalorieGoal.targetCalories;
+    }
     const tabOrder = ["balance", "scales", "kbju", "micro", "composition", "dynamics"];
     const tabIndexOffset = Math.max(0, tabOrder.indexOf(tabId));
     return buildAnnaTabAnalysis(tabId, input, (currentDayIndex || 1) + tabIndexOffset);
@@ -955,10 +974,9 @@ export default function StateNowScreen({
     hasBreakfast: dynamicsBreakfastLogs.length > 0,
     hasLunch: dynamicsLunchLogs.length > 0,
     hasDinner: dynamicsDinnerLogs.length > 0,
+    currentHour: new Date().getHours(),
     lastWaterTimestamp: waterLogData.lastWaterTimestamp,
     timeZone: getUserTimeZone(),
-    nextStationName: dynamicsBreakfastLogs.length === 0 ? "Завтрак WFPB" : "Обед WFPB",
-    nextStationTime: "13:00 – 15:00",
     recommendedActionText: recommendedAction?.title,
   });
 
@@ -1085,12 +1103,13 @@ export default function StateNowScreen({
               key="balance"
               tabId={activeTab}
               getAnnaAnalysis={() => getDisplayedAnalysis("balance")}
-              integralScore={integralScore}
+              integralScore={bioDialAdvice.integralScore}
               sleepPct={sleepPct}
               waterPct={waterPct}
               hydrationState={hydrationState}
               mealsPct={mealsPct}
               habitsPct={habitsPct}
+              activityPct={activityPct}
               ratingWellbeing={effRatingWellbeing}
               ratingEnergy={effRatingEnergy}
               ratingLightness={effRatingLightness}
@@ -1098,6 +1117,11 @@ export default function StateNowScreen({
               triggerNotification={triggerNotification}
               onBack={onBack}
               setScreen={setScreenFn}
+              totalCalories={totalCalories}
+              totalFiber={totalFiber}
+              hasNonWfpb={Boolean(hasNonWfpb || (nonWfpbIngredients && nonWfpbIngredients.length > 0))}
+              waterTarget={waterTarget}
+              effWater={effWater}
             />
           )}
 
@@ -1145,6 +1169,7 @@ export default function StateNowScreen({
               totalFiber={totalFiber}
               annaAnalysisText={getDisplayedAnalysis("kbju")}
               recommendedAction={recommendedAction}
+              calorieGoal={dailyCalorieGoal}
             />
           )}
 

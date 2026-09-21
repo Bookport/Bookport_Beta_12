@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { Sparkles, ChevronDown, ChevronUp, Droplet } from "lucide-react";
 import { motion } from "motion/react";
 import { NextStepRecommendation } from "../../utils/nextStepEngine";
@@ -22,7 +22,8 @@ interface BalanceTabProps {
   waterPct: number;
   hydrationState: 'success' | 'normal' | 'warning';
   mealsPct: number;
-  habitsPct: number;
+  habitsPct?: number;
+  activityPct: number;
   ratingWellbeing: number;
   ratingEnergy: number;
   ratingLightness: number;
@@ -30,6 +31,12 @@ interface BalanceTabProps {
   triggerNotification: (msg: string) => void;
   onBack: () => void;
   setScreen?: (screen: any) => void;
+  totalCalories?: number;
+  totalFiber?: number;
+  hasNonWfpb?: boolean;
+  hasSaltOrRedDishes?: boolean;
+  waterTarget?: number;
+  effWater?: number;
 }
 
 export default function BalanceTab({
@@ -41,6 +48,7 @@ export default function BalanceTab({
   hydrationState,
   mealsPct,
   habitsPct,
+  activityPct,
   ratingWellbeing,
   ratingEnergy,
   ratingLightness,
@@ -48,6 +56,12 @@ export default function BalanceTab({
   triggerNotification,
   onBack,
   setScreen,
+  totalCalories,
+  totalFiber,
+  hasNonWfpb,
+  hasSaltOrRedDishes,
+  waterTarget,
+  effWater,
 }: BalanceTabProps) {
   const [isAnnaExpanded, setIsAnnaExpanded] = useState(false);
 
@@ -116,20 +130,22 @@ export default function BalanceTab({
 
   const actionMeta = getActionMeta();
   
-  const interconnections = evaluateSystemInterconnections({
-    currentDayIndex: 1,
-    waterPct,
-    water: (waterPct * 2000) / 100,
-    waterTarget: 2000,
-    sleepPct,
-    mealsPct,
-    totalCalories: mealsPct > 0 ? 800 : 0,
-    totalFiber: mealsPct > 0 ? 25 : 0,
-    habitsPct,
-    ratingEnergy,
-    ratingLightness,
-    hydrationState,
-  });
+  const interconnections = useMemo(() => {
+    return evaluateSystemInterconnections({
+      currentDayIndex: 1,
+      waterPct,
+      water: effWater ?? Math.round((waterPct * (waterTarget || 2000)) / 100),
+      waterTarget: waterTarget || 2000,
+      sleepPct,
+      mealsPct,
+      totalCalories: totalCalories ?? 0,
+      totalFiber: totalFiber ?? 0,
+      activityMinutes: activityPct ? Math.round((activityPct / 100) * 30) : 0,
+      habitsPct: habitsPct ?? 0,
+      hasSaltOrRedDishes: Boolean(hasNonWfpb || hasSaltOrRedDishes),
+      currentHour: new Date().getHours(),
+    });
+  }, [waterPct, effWater, waterTarget, sleepPct, mealsPct, totalCalories, totalFiber, activityPct, habitsPct, hasNonWfpb, hasSaltOrRedDishes]);
 
 return (
     <motion.div
@@ -137,7 +153,7 @@ return (
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -12 }}
       transition={{ duration: 0.3, ease: "easeOut" }}
-      className="space-y-5 pb-36 w-full"
+      className="space-y-5 pb-5 w-full"
     >
       {/* 1. Карточка куратора Анны (единый компонент AnnaTabSpoiler) */}
       <AnnaTabSpoiler
@@ -220,9 +236,9 @@ return (
           <div className="bg-[#FFF8F0] rounded-xl py-2 px-0.5 flex flex-col items-center text-center">
             <img src={imgFactorMove} alt="Движение" className="w-7 h-7 object-contain drop-shadow-xs select-none" />
             <span className="text-[10px] font-semibold text-slate-600 mt-1 leading-none whitespace-nowrap tracking-tight">Движение</span>
-            <span className="text-[15px] font-black text-slate-800 leading-none mt-1">{habitsPct}%</span>
+            <span className="text-[15px] font-black text-slate-800 leading-none mt-1">{activityPct}%</span>
             <div className="w-full h-1 bg-slate-200/50 rounded-full mt-1.5 overflow-hidden">
-              <div className="h-full bg-orange-500 rounded-full" style={{ width: `${Math.min(100, habitsPct)}%` }} />
+              <div className="h-full bg-orange-500 rounded-full" style={{ width: `${Math.min(100, activityPct)}%` }} />
             </div>
           </div>
         </div>

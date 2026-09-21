@@ -19,6 +19,7 @@ export interface BioDialInput {
   recommendedActionText?: string;
   nextStationName?: string;
   nextStationTime?: string;
+  currentHour?: number;
   // Поля обратной совместимости
   nowMinutes?: number;
   waterTargetMl?: number;
@@ -82,6 +83,7 @@ export function calculateBioDialAdvice(input: BioDialInput): BioDialOutput {
     recommendedActionText,
     nextStationName: passedStationName,
     nextStationTime: passedStationTime,
+    currentHour: passedHour,
   } = input;
 
   // 1. Сон: 8 сегментов (каждый по 1 часу)
@@ -124,9 +126,9 @@ export function calculateBioDialAdvice(input: BioDialInput): BioDialOutput {
     )
   );
 
-  // Определение фазы времени
+  // Определение фазы времени — используем переданный currentHour, иначе системное время
   const now = new Date();
-  const hours = now.getHours();
+  const hours = typeof passedHour === "number" ? passedHour : now.getHours();
   const minutes = now.getMinutes();
   const timeStr = `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
 
@@ -178,14 +180,35 @@ export function calculateBioDialAdvice(input: BioDialInput): BioDialOutput {
     focusGain = 4;
     focusActionType = "activity";
   } else if (recommendedActionText) {
-    focusText = recommendedActionText.replace(/\(\+\d+\%.*?\)/, "").trim();
-    if (/вод|250\s*мл/i.test(focusText)) {
-      focusActionType = "water";
-    } else if (/завтрак|обед|ужин|блюд|рецепт|питани|рацион/i.test(focusText)) {
+    let rawFocus = recommendedActionText.replace(/\(\+\d+\%.*?\)/, "").trim();
+    
+    // Компактные WFPB-алиасы для однострочной плашки
+    if (/приток|питани|рацион|метабол/i.test(rawFocus)) {
+      focusText = "Приток нутриентов";
       focusActionType = "meal";
-    } else if (/активн|разминк|движен|ходьб/i.test(focusText)) {
+    } else if (/вод|гидрат|250\s*мл/i.test(rawFocus)) {
+      focusText = "Выпить 250 мл воды";
+      focusActionType = "water";
+    } else if (/разминк|активн|движен|ходьб/i.test(rawFocus)) {
+      focusText = "Разминка 10 мин";
       focusActionType = "activity";
+    } else if (/завтрак/i.test(rawFocus)) {
+      focusText = "WFPB-завтрак";
+      focusActionType = "meal";
+    } else if (/обед/i.test(rawFocus)) {
+      focusText = "WFPB-обед";
+      focusActionType = "meal";
+    } else if (/ужин/i.test(rawFocus)) {
+      focusText = "WFPB-ужин";
+      focusActionType = "meal";
+    } else if (/сон|отдых/i.test(rawFocus)) {
+      focusText = "Вечерний отдых";
+      focusActionType = "other";
+    } else if (rawFocus.length > 20) {
+      focusText = rawFocus.slice(0, 18).trim() + "…";
+      focusActionType = "other";
     } else {
+      focusText = rawFocus;
       focusActionType = "other";
     }
   }
