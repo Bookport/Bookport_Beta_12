@@ -154,7 +154,7 @@ export default function ScalesTab({
         </div>
 
         {/* Шкала 1: Сон */}
-        <div className="bg-indigo-50/60 rounded-[20px] border border-white shadow-[0_4px_16px_rgba(15,23,42,0.08)] px-3 py-[2.5px] flex flex-col justify-center gap-1.5 w-full min-h-[58px]">
+        <div className="bg-indigo-50/60 rounded-[20px] border border-white shadow-[0_4px_16px_rgba(15,23,42,0.08)] px-3.5 py-2.5 flex flex-col justify-center gap-2 w-full">
           <div className="flex justify-between items-center w-full">
             <div className="flex items-center gap-2.5">
               <img src={iconSleep} alt="Сон" className="w-8 h-8 object-contain drop-shadow-sm shrink-0" />
@@ -179,7 +179,7 @@ export default function ScalesTab({
         </div>
 
         {/* Шкала 2: Вода */}
-        <div className="bg-sky-50/60 rounded-[20px] border border-white shadow-[0_4px_16px_rgba(15,23,42,0.08)] px-3 py-[2.5px] flex flex-col justify-center gap-1.5 w-full min-h-[58px]">
+        <div className="bg-sky-50/60 rounded-[20px] border border-white shadow-[0_4px_16px_rgba(15,23,42,0.08)] px-3.5 py-2.5 flex flex-col justify-center gap-2 w-full">
           <div className="flex justify-between items-center w-full">
             <div className="flex items-center gap-2.5">
               <img src={iconWater} alt="Вода" className="w-8 h-8 object-contain drop-shadow-sm shrink-0" />
@@ -202,11 +202,11 @@ export default function ScalesTab({
             />
           </div>
           {todayWaterEntries && todayWaterEntries.length > 0 && (
-            <div className="flex items-center gap-1.5 overflow-x-auto whitespace-nowrap pb-1 pt-0.5" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+            <div className="grid grid-cols-2 gap-1.5 pt-0.5 w-full">
               {todayWaterEntries.map((entry, i) => (
-                <span key={i} className="inline-flex items-center gap-1 text-[11px] font-bold bg-white/95 text-sky-700 px-2 py-0.5 rounded-full border border-sky-100 shadow-[0_2px_4px_rgba(2,132,199,0.05)] shrink-0">
+                <span key={i} className="flex items-center justify-between gap-1 text-[11px] font-bold bg-white/95 text-sky-800 px-2.5 py-1 rounded-full border border-sky-300 shadow-[0_1px_3px_rgba(2,132,199,0.06)] min-w-0">
                   <span className="text-sky-500 text-xs leading-none">💧</span> +{entry.amount} мл 
-                  {entry.time && <span className="text-[10px] font-black text-slate-400 opacity-80"> • {entry.time}</span>}
+                  {entry.time && <span className="text-[10px] font-semibold text-slate-400 shrink-0"> • {entry.time}</span>}
                 </span>
               ))}
             </div>
@@ -214,7 +214,7 @@ export default function ScalesTab({
         </div>
 
         {/* Шкала 3: Рацион растительный */}
-        <div className="bg-emerald-50/60 rounded-[20px] border border-white shadow-[0_4px_16px_rgba(15,23,42,0.08)] px-3 py-[2.5px] flex flex-col justify-center gap-1.5 w-full min-h-[58px]">
+        <div className="bg-emerald-50/60 rounded-[20px] border border-white shadow-[0_4px_16px_rgba(15,23,42,0.08)] px-3.5 py-2.5 flex flex-col justify-center gap-2 w-full">
           <div className="flex justify-between items-center w-full">
             <div className="flex items-center gap-2.5">
               <img src={iconApple} alt="Рацион" className="w-8 h-8 object-contain drop-shadow-sm shrink-0" />
@@ -239,7 +239,7 @@ export default function ScalesTab({
         </div>
 
         {/* Шкала 4: Ключи системы (Молния) */}
-        <div className="bg-orange-50/60 rounded-[20px] border border-white shadow-[0_4px_16px_rgba(15,23,42,0.08)] px-3 py-[2.5px] flex flex-col justify-center gap-1.5 w-full min-h-[58px]">
+        <div className="bg-orange-50/60 rounded-[20px] border border-white shadow-[0_4px_16px_rgba(15,23,42,0.08)] px-3.5 py-2.5 flex flex-col justify-center gap-2 w-full">
           <div className="flex justify-between items-center w-full">
             <div className="flex items-center gap-2.5">
               <img src={iconLightning} alt="Ключи" className="w-8 h-8 object-contain drop-shadow-sm shrink-0" />
@@ -264,7 +264,7 @@ export default function ScalesTab({
         </div>
 
         {/* Шкала 5: Движение (Кроссовок) с фирменными 3D-ассетами */}
-        <div className="bg-amber-50/60 rounded-[20px] border border-white shadow-[0_4px_16px_rgba(15,23,42,0.08)] px-3 py-[2.5px] flex flex-col justify-center gap-1.5 w-full min-h-[58px]">
+        <div className="bg-amber-50/60 rounded-[20px] border border-white shadow-[0_4px_16px_rgba(15,23,42,0.08)] px-3.5 py-2.5 flex flex-col justify-center gap-2 w-full">
           <div className="flex justify-between items-center w-full">
             <div className="flex items-center gap-2.5">
               <img src={iconSneaker} alt="Движение" className="w-8 h-8 object-contain drop-shadow-sm shrink-0" />
@@ -285,7 +285,7 @@ export default function ScalesTab({
             />
           </div>
           {(activityLogs || []).length > 0 && (
-            <div className="flex items-center gap-1.5 overflow-x-auto whitespace-nowrap pb-1 pt-0.5" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+            <div className="grid grid-cols-2 gap-1.5 pt-0.5 w-full">
               {(activityLogs || []).map((log: any, i: number) => {
                 const rawType = log.activityType || log.type || "Walk";
                 const imgSrc = getMovementAssetPath(rawType, userGender);
@@ -294,20 +294,20 @@ export default function ScalesTab({
                 return (
                   <span
                     key={log.id || i}
-                    className="inline-flex items-center gap-1.5 text-[11px] font-bold bg-white/95 text-amber-800 px-2 py-0.5 rounded-full border border-amber-100 shadow-[0_2px_4px_rgba(245,158,11,0.05)] shrink-0"
+                    className="flex items-center gap-1.5 text-[10.5px] font-bold bg-white/95 text-amber-800 px-2.5 py-1 rounded-full border border-amber-300 shadow-[0_1px_3px_rgba(245,158,11,0.06)] min-w-0"
                   >
                     <img
                       src={imgSrc}
                       alt={rawType}
-                      className="w-5 h-5 object-contain shrink-0"
+                      className="w-4 h-4 object-contain shrink-0"
                       loading="lazy"
                       onError={(e) => {
                         (e.currentTarget as HTMLElement).style.display = "none";
                       }}
                     />
-                    <span>{rawType} ({durationMin} мин)</span>
+                    <span className="truncate flex-1 min-w-0 text-left">{rawType} ({durationMin} м)</span>
                     {log.timeString && (
-                      <span className="text-[10px] font-black text-slate-400 opacity-80"> • {log.timeString}</span>
+                      <span className="text-[10px] font-semibold text-slate-400 shrink-0"> • {log.timeString}</span>
                     )}
                   </span>
                 );
@@ -317,7 +317,7 @@ export default function ScalesTab({
         </div>
 
         {/* Шкала 6: Моторика ЖКТ / Очищение (Горошек) с миниатюрами Бристольской шкалы */}
-        <div className="bg-teal-50/60 rounded-[20px] border border-white shadow-[0_4px_16px_rgba(15,23,42,0.08)] px-3 py-[2.5px] flex flex-col justify-center gap-1.5 w-full min-h-[58px]">
+        <div className="bg-teal-50/60 rounded-[20px] border border-white shadow-[0_4px_16px_rgba(15,23,42,0.08)] px-3.5 py-2.5 flex flex-col justify-center gap-2 w-full">
           <div className="flex justify-between items-center w-full">
             <div className="flex items-center gap-2.5">
               <img src={iconDigestion} alt="ЖКТ" className="w-8 h-8 object-contain drop-shadow-sm shrink-0" />
@@ -348,7 +348,7 @@ export default function ScalesTab({
             />
           </div>
           {validDigestionLogs.length > 0 && (
-            <div className="flex items-center gap-1.5 overflow-x-auto whitespace-nowrap pb-1 pt-0.5" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+            <div className="grid grid-cols-2 gap-1.5 pt-0.5 w-full">
               {validDigestionLogs.map((entry, i) => {
                 const meta = getBristolMeta(entry.bristolType);
                 const safeTypeIndex = Math.min(6, Math.max(0, (entry.bristolType || 4) - 1));
@@ -357,19 +357,19 @@ export default function ScalesTab({
                 return (
                   <span
                     key={entry.id || i}
-                    className="inline-flex items-center gap-1.5 text-[11px] font-bold bg-white/95 text-teal-800 px-2 py-0.5 rounded-full border border-teal-100 shadow-[0_2px_4px_rgba(13,148,136,0.05)] shrink-0"
+                    className="flex items-center gap-1.5 text-[10.5px] font-bold bg-white/95 text-teal-800 px-2.5 py-1 rounded-full border border-teal-300 shadow-[0_1px_3px_rgba(13,148,136,0.06)] min-w-0"
                   >
                     {bristolThumb && (
                       <img
                         src={bristolThumb}
                         alt={`Бристоль ${entry.bristolType}`}
-                        className="w-5 h-5 object-contain shrink-0"
+                        className="w-4 h-4 object-contain shrink-0"
                         loading="lazy"
                       />
                     )}
-                    <span>Тип {entry.bristolType} ({meta.label})</span>
+                    <span className="truncate flex-1 min-w-0 text-left">Тип {entry.bristolType} ({meta.label})</span>
                     {entry.timeString && (
-                      <span className="text-[10px] font-black text-slate-400 opacity-80"> • {entry.timeString}</span>
+                      <span className="text-[10px] font-semibold text-slate-400 shrink-0"> • {entry.timeString}</span>
                     )}
                   </span>
                 );
