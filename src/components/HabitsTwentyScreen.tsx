@@ -448,25 +448,22 @@ const ProductCardShell: React.FC<ProductCardProps> = ({
 
   return (
     <div
-      className="w-full rounded-3xl p-0 overflow-hidden border-white border-solid border-[1px] ring-0"
+      className="w-full rounded-2xl p-0 overflow-hidden border border-white shadow-[0_4px_16px_rgba(15,23,42,0.05)]"
       style={{
-        minHeight: "153px",
         backgroundColor: surfaceColor,
-        boxShadow: `0 8px 24px ${hexToRgba(accentColor, 0.14)}`
+        boxShadow: `0 4px 16px ${hexToRgba(accentColor, 0.12)}`
       }}
     >
-      <div className="flex flex-row items-stretch w-full">
-        {/* Left: Image zone (centered vertically with 20px top/bottom margin) */}
-        <div className="w-[140px] h-[153px] relative flex items-center justify-center pt-[20px] pb-[20px] shrink-0">
-          <img
-            src={imageSrc}
-            alt={title}
-            className="w-auto h-[113px] object-contain"
-          />
-        </div>
+      <div className="flex flex-row items-start w-full gap-3 px-3 py-[3px]">
+        {/* Left: Miniature floating directly over card background */}
+        <img
+          src={imageSrc}
+          alt={title}
+          className="w-[68px] h-[68px] object-contain drop-shadow-[0_4px_10px_rgba(0,0,0,0.06)] shrink-0 mt-[1px]"
+        />
 
         {/* Right: Content zone */}
-        <div className="flex-1 flex flex-col p-4 min-w-0">
+        <div className="flex-1 flex flex-col min-w-0 pt-[1px]">
           {/* Header with title and info button */}
           <div className="flex items-start justify-between mb-2">
             <div className="flex flex-col min-w-0 flex-1">
@@ -501,8 +498,8 @@ const ProductCardShell: React.FC<ProductCardProps> = ({
             }
           </span>
 
-          {/* Controls row - aligned to right with responsive wrap */}
-          <div className="flex items-center justify-end gap-3 w-full flex-wrap gap-y-2">
+          {/* Controls row - single line, no wrap */}
+          <div className="flex flex-row items-center justify-end gap-2 w-full flex-nowrap shrink-0">
             {variant === "action" ? (
               // Action variant: single toggle button
               handleActionToggle && (
@@ -510,10 +507,10 @@ const ProductCardShell: React.FC<ProductCardProps> = ({
                   id={`toggle-${keyId}`}
                   type="button"
                   onClick={() => handleActionToggle(keyId, optimalDone)}
-                  className={`px-6 py-2 rounded-full text-[13px] font-black tracking-tight transition-all cursor-pointer border ${
+                  className={`px-5 py-2 rounded-2xl text-[13px] font-black tracking-tight transition-all cursor-pointer border border-white shadow-sm shadow-[0_4px_12px_rgba(15,23,42,0.06)] shrink-0 ${
                     isCompleted
-                      ? "bg-emerald-500 border-emerald-600 text-white shadow-sm shadow-emerald-500/25"
-                      : "bg-slate-100 border-slate-200 text-slate-500 hover:bg-slate-200/60"
+                      ? "bg-emerald-500 text-white hover:brightness-95"
+                      : "bg-white/80 text-slate-500 hover:bg-white"
                   }`}
                 >
                   {isCompleted ? (
@@ -529,7 +526,7 @@ const ProductCardShell: React.FC<ProductCardProps> = ({
               // Product variant: circles, superlevel, manual entry
               <>
                 {/* Portion buttons - compact group */}
-                <div className="flex gap-1.5">
+                <div className="flex gap-1.5 shrink-0">
                   {Array.from({ length: visibleCirclesCount }).map((_, idx) => {
                     const circleVal = idx + 1;
                     const checked = currentVal >= circleVal;
@@ -541,7 +538,7 @@ const ProductCardShell: React.FC<ProductCardProps> = ({
                         key={idx}
                         type="button"
                         onClick={() => onCircleClick(idx)}
-                        className={`h-9 w-9 rounded-full border flex items-center justify-center font-black text-[14px] transition-all duration-200 cursor-pointer shadow-sm ${
+                        className={`h-8 w-8 shrink-0 rounded-full border flex items-center justify-center font-black text-[13px] transition-all duration-200 cursor-pointer shadow-sm ${
                           checked
                             ? isSuper
                               ? "bg-amber-500 border-amber-600 text-white shadow-sm shadow-amber-500/20"
@@ -563,7 +560,7 @@ const ProductCardShell: React.FC<ProductCardProps> = ({
                     id={`superlevel-btn-${keyId}`}
                     type="button"
                     onClick={onSuperlevelToggle}
-                    className={`h-9 w-9 rounded-full border flex items-center justify-center text-[16px] font-black transition-all duration-200 cursor-pointer shadow-sm ${
+                    className={`h-8 w-8 shrink-0 rounded-full border flex items-center justify-center text-[14px] font-black transition-all duration-200 cursor-pointer shadow-sm ${
                       superLevelDone
                         ? "bg-amber-500 border-amber-600 text-white shadow-sm shadow-amber-500/20"
                         : "border-amber-200 text-amber-500 bg-amber-50/20 hover:bg-amber-500/10"
@@ -575,15 +572,15 @@ const ProductCardShell: React.FC<ProductCardProps> = ({
                 )}
 
                 {/* Manual grams display + entry button */}
-                <div className="flex items-center gap-2">
-                  <div className="px-3 py-1.5 rounded-xl bg-white/70 border border-white/50 text-[13px] font-black text-slate-700 min-w-[60px] text-center">
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <div className="px-2.5 py-1.5 rounded-xl bg-white/70 border border-white/50 text-[12px] font-black text-slate-700 min-w-[50px] text-center shrink-0">
                     {manualGrams || 0} г
                   </div>
                   <button
                     id={keyId === "legumes" ? "manual-entry-legumes" : `manual-entry-${keyId}`}
                     type="button"
                     onClick={onManualEntryOpen}
-                    className="w-10 h-10 rounded-full flex items-center justify-center text-white font-black text-[20px] shadow-sm hover:brightness-95 active:scale-95 transition-all cursor-pointer"
+                    className="w-8 h-8 shrink-0 rounded-full flex items-center justify-center text-white font-black text-[18px] shadow-sm hover:brightness-95 active:scale-95 transition-all cursor-pointer border border-white/20"
                     style={{ backgroundColor: accentColor }}
                     title="Ручной учёт"
                     aria-label={`Открыть ручной учёт для ${title}`}
@@ -613,28 +610,47 @@ const MANUAL_ENTRY_THEMES: Record<string, {
   accent: string;
   accentHover: string;
 }> = {
-  // Products - 13 unique themes
-  legumes: { img: legumesImg, surface: "#F7E8D0", accent: "#A6602F", accentHover: "#87451F" },
-  whole_grains: { img: wholeGrainsImg, surface: "#FCEBC5", accent: "#B7791F", accentHover: "#8F5A08" },
-  vegetables: { img: vegetablesImg, surface: "#E1F3D8", accent: "#4C8B3B", accentHover: "#376C2B" },
-  leafy_greens: { img: leafyGreensImg, surface: "#DDF4E7", accent: "#23805A", accentHover: "#166543" },
-  nuts: { img: nutsImg, surface: "#F5E2D5", accent: "#A65A35", accentHover: "#7D3C21" },
-  seeds: { img: seedsImg, surface: "#EEE7F7", accent: "#7652A3", accentHover: "#56367D" },
-  ground_flax: { img: groundFlaxImg, surface: "#F5EBDC", accent: "#9A6B3E", accentHover: "#70461D" },
-  spices: { img: spicesImg, surface: "#FBE2DD", accent: "#C75B45", accentHover: "#A83D2B" },
-  fruits: { img: fruitsImg, surface: "#FFE5D6", accent: "#DB6B39", accentHover: "#B94A1D" },
-  berries: { img: berriesImg, surface: "#F3E1ED", accent: "#A54679", accentHover: "#7E2E5B" },
-  sprouts: { img: sproutsImg, surface: "#EAF4D6", accent: "#6B982F", accentHover: "#4C741C" },
-  must_have: { img: mustHaveImg, surface: "#E0F0F4", accent: "#2D7F8D", accentHover: "#1C6070" },
-  healthy_drinks: { img: healthyDrinksImg, surface: "#DDF4F0", accent: "#129887", accentHover: "#0C7164" },
-  // Actions (unchanged)
-  compliment: { img: complimentImg, surface: "#FFF8E8", accent: "#C98A18", accentHover: "#A87515" },
-  recipe: { img: recipeImg, surface: "#FEF3C7", accent: "#B45309", accentHover: "#92400E" },
-  soaking: { img: soakingImg, surface: "#DBEAFE", accent: "#2563EB", accentHover: "#1D4ED8" },
-  no_oil_cook: { img: noOilImg, surface: "#D1FAE5", accent: "#059669", accentHover: "#047857" },
-  no_salt_cook: { img: noSaltImg, surface: "#EDE9FE", accent: "#7C3AED", accentHover: "#6D28D9" },
-  no_caffeine_day: { img: noCaffeineImg, surface: "#FFEDD5", accent: "#C2410C", accentHover: "#9A3412" },
-  no_sugar_day: { img: noSugarImg, surface: "#FCE7F3", accent: "#DB2777", accentHover: "#BE185D" }
+  // 20 пастельных пар без дублирования — уникальная цветовая карта
+  // Бобовые — терракот
+  legumes: { img: legumesImg, surface: "#FAF0EC", accent: "#E07A5F", accentHover: "#C86A52" },
+  // Ягоды — черничный
+  berries: { img: berriesImg, surface: "#F4F0FA", accent: "#8338EC", accentHover: "#6A2EC7" },
+  // Фрукты — персиково-абрикосовый
+  fruits: { img: fruitsImg, surface: "#FFF4EB", accent: "#FB8500", accentHover: "#E67700" },
+  // Крестоцветные — изумрудно-мятный
+  must_have: { img: mustHaveImg, surface: "#EDFAF5", accent: "#06D6A0", accentHover: "#05B48A" },
+  // Зелень — салатово-лаймовый
+  leafy_greens: { img: leafyGreensImg, surface: "#F2F8EA", accent: "#70B224", accentHover: "#5F9A1D" },
+  // Овощи — морковный
+  vegetables: { img: vegetablesImg, surface: "#FFF2EA", accent: "#F77F00", accentHover: "#E06F00" },
+  // Семена льна — льняной/пшеничный
+  ground_flax: { img: groundFlaxImg, surface: "#FAF5ED", accent: "#DDA15E", accentHover: "#C68F52" },
+  // Орехи и семена — фисташковый
+  nuts: { img: nutsImg, surface: "#F0F5EE", accent: "#588157", accentHover: "#476A47" },
+  // Специи (куркума) — шафраново-желтый
+  spices: { img: spicesImg, surface: "#FFF9E6", accent: "#FFB703", accentHover: "#E6A500" },
+  // Цельные злаки — гречишно-древесный
+  whole_grains: { img: wholeGrainsImg, surface: "#F7F2EE", accent: "#9C6644", accentHover: "#854F32" },
+  // Вода / Напитки — лазурный
+  healthy_drinks: { img: healthyDrinksImg, surface: "#EEF5FF", accent: "#3A86FF", accentHover: "#2F6FD9" },
+  // Замачивание — морской бриз / циан
+  soaking: { img: soakingImg, surface: "#EBF9FF", accent: "#00BBF9", accentHover: "#00A6DB" },
+  // Без сахара — рубиновый / каркаде
+  no_sugar_day: { img: noSugarImg, surface: "#FDF0F1", accent: "#E63946", accentHover: "#CC2F3D" },
+  // Без масла — эвкалипт
+  no_oil_cook: { img: noOilImg, surface: "#EEF7F5", accent: "#2A9D8F", accentHover: "#238A7D" },
+  // Без соли — лаванда
+  no_salt_cook: { img: noSaltImg, surface: "#F6EEFA", accent: "#7209B7", accentHover: "#5F0796" },
+  // Без кофеина — пудрово-коралловый
+  no_caffeine_day: { img: noCaffeineImg, surface: "#FCF0F0", accent: "#F28482", accentHover: "#D96E6C" },
+  // Проростки — хвойный / росток
+  sprouts: { img: sproutsImg, surface: "#EFF8EC", accent: "#38B000", accentHover: "#2F9500" },
+  // Семена — ультрамарин (Движение)
+  seeds: { img: seedsImg, surface: "#EEF2FD", accent: "#4361EE", accentHover: "#364FC2" },
+  // Комплимент — аметист (Сон/Циркады)
+  compliment: { img: complimentImg, surface: "#F1EDF8", accent: "#560BAD", accentHover: "#47099A" },
+  // Рецепт — грейпфрут / фуксия
+  recipe: { img: recipeImg, surface: "#FDF0F6", accent: "#FF006E", accentHover: "#D9005C" }
 };
 
 const BUBBLES_TEMPLATE = [
@@ -894,76 +910,96 @@ export default function HabitsTwentyScreen({
       </div>
 
       {/* CONTENT SCROLLABLE GRID */}
-      <div className="flex-1 overflow-y-auto px-4 sm:px-5 pt-4 pb-5 flex flex-col gap-4 max-w-lg mx-auto w-full scrollbar-none">
+      <div className="flex-1 overflow-y-auto px-4 sm:px-5 pt-4 pb-5 flex flex-col gap-2 max-w-lg mx-auto w-full scrollbar-none">
 
-        {/* PROGRESS BLOCK - Circular Progress Bar + Text */}
-        <div className="flex flex-row items-center gap-6 p-4 mb-4">
-          {/* Left: Circular Progress Bar */}
-          <div className="relative w-40 h-40 flex items-center justify-center shrink-0">
-            <svg className="w-full h-full transform -rotate-90" viewBox="0 0 120 120">
-              <circle 
-                cx="60" 
-                cy="60" 
-                r="52" 
-                fill="none" 
-                stroke="#E2E8F0" 
-                strokeWidth="8"
-                className="opacity-75"
-              />
-              <motion.circle 
-                cx="60" 
-                cy="60" 
-                r="52" 
-                fill="none" 
-                stroke="url(#progressGradient)" 
-                strokeWidth="9"
-                strokeDasharray={`${2 * Math.PI * 52}`}
-                initial={{ strokeDashoffset: `${2 * Math.PI * 52}` }}
-                animate={{ strokeDashoffset: `${2 * Math.PI * 52 * (1 - closedCount / 20)}` }}
-                transition={{ duration: 1.2, ease: "easeOut" }}
-                strokeLinecap="round"
-              />
-              <defs>
-                <linearGradient id="progressGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#129887" />
-                  <stop offset="50%" stopColor="#10B981" />
-                  <stop offset="100%" stopColor="#34D399" />
-                </linearGradient>
-              </defs>
+        {/* PROGRESS BLOCK - Segmented Ring 138px + Text, left edge aligned with cards, top aligned */}
+        <div className="flex flex-row items-start gap-3 px-0 py-1.5 mb-2">
+          {/* Left: Circular Segmented Progress Ring 138px - pill segments 12px with white contour */}
+          <div className="relative w-[138px] h-[138px] flex items-center justify-center shrink-0">
+            <svg className="w-full h-full" viewBox="0 0 120 120">
+              {/* 20 pill segments, distinct gap, radial, white 1.5px outline, round caps */}
+              {(() => {
+                const R = 52;
+                const C = 2 * Math.PI * R;
+                const GAP_DEG = 3.2;
+                const SEG_DEG = 18 - GAP_DEG;
+                const segLen = (SEG_DEG / 360) * C;
+                const gapLen = C - segLen;
+                const closedColors: string[] = keys
+                  .filter(k => k.optimalDone)
+                  .sort((a, b) => a.num - b.num)
+                  .map(k => MANUAL_ENTRY_THEMES[k.id]?.accent || "#E2E8F0");
+                return Array.from({ length: 20 }).map((_, i) => {
+                  const isFilled = i < closedCount;
+                  const stroke = isFilled ? (closedColors[i] || "#E2E8F0") : "#E2E8F0";
+                  const opacity = isFilled ? 1 : 0.55;
+                  return (
+                    <g key={i} className="transition-colors duration-300">
+                      {/* White contour 1.5px around pill (radial) */}
+                      <circle
+                        cx="60"
+                        cy="60"
+                        r={R}
+                        fill="none"
+                        stroke="white"
+                        strokeWidth="15"
+                        strokeDasharray={`${segLen} ${gapLen}`}
+                        strokeLinecap="round"
+                        transform={`rotate(${i * 18 - 90} 60 60)`}
+                        opacity={0.98}
+                      />
+                      {/* Colored / neutral pill */}
+                      <circle
+                        cx="60"
+                        cy="60"
+                        r={R}
+                        fill="none"
+                        stroke={stroke}
+                        strokeWidth="12"
+                        strokeDasharray={`${segLen} ${gapLen}`}
+                        strokeLinecap="round"
+                        transform={`rotate(${i * 18 - 90} 60 60)`}
+                        opacity={opacity}
+                        className="transition-colors duration-300"
+                      />
+                    </g>
+                  );
+                });
+              })()}
             </svg>
 
-            {/* Logo Green in center - no text inside ring */}
+            {/* Logo inside ring */}
             <img
               src={logoGreen}
               alt=""
-              className="absolute w-[65%] h-[65%] object-contain pointer-events-none select-none"
+              className="absolute w-[62%] h-[62%] object-contain pointer-events-none select-none"
             />
           </div>
 
-          {/* Right: Text Block */}
-          <div className="flex flex-col flex-1 gap-1">
+          {/* Right: Text Block - top aligned with ring top */}
+          <div className="flex flex-col flex-1 gap-1 pt-1">
             <span className="text-sm font-bold text-gray-400 uppercase tracking-widest">
               ПРОГРЕСС ДНЯ
             </span>
             <span className="text-6xl font-extrabold text-gray-800 leading-none">
               {closedCount} <span className="text-2xl font-semibold text-gray-500">из 20</span>
             </span>
-            <p className="text-base text-gray-600 font-medium mt-2">
+            <p className="text-[12px] text-gray-600 font-medium mt-1 leading-snug">
               {MOTIVATION_PHRASES[closedCount] || MOTIVATION_PHRASES[0]}
             </p>
           </div>
         </div>
 
-        {/* CUSTOM TAB SELECTOR - Two separate buttons */}
+        {/* CUSTOM TAB SELECTOR - Two separate buttons - compact height, unified slate text */}
         <div className="w-full flex gap-2 justify-between select-none shrink-0">
           <button
             id="tab-products"
             type="button"
             onClick={() => setActiveTab("products")}
-            className={`flex-[1] py-3 px-4 text-center rounded-xl text-[16px] font-bold tracking-tight transition-all cursor-pointer border shadow-sm ${
+            className={`flex-[1] py-2.5 px-4 text-center rounded-2xl text-[14px] sm:text-[15px] font-bold tracking-tight transition-all cursor-pointer border border-white shadow-sm ${
               activeTab === "products"
-                ? "bg-[#DDF4F0] text-[#129887] border-white shadow-[0_2px_8px_rgba(18,152,135,0.15)]"
-                : "bg-[#DDF4F0] text-[#129887]/70 border-white hover:bg-[#D1EBE6]"
+                ? "bg-[#DDF4F0] text-slate-700"
+                : "bg-[#DDF4F0]/70 text-slate-600 hover:bg-[#DDF4F0] hover:text-slate-700"
             }`}
           >
             Продукты
@@ -972,10 +1008,10 @@ export default function HabitsTwentyScreen({
             id="tab-actions"
             type="button"
             onClick={() => setActiveTab("actions")}
-            className={`flex-[1] py-3 px-4 text-center rounded-xl text-[16px] font-bold tracking-tight transition-all cursor-pointer border shadow-sm ${
+            className={`flex-[1] py-2.5 px-4 text-center rounded-2xl text-[14px] sm:text-[15px] font-bold tracking-tight transition-all cursor-pointer border border-white shadow-sm ${
               activeTab === "actions"
-                ? "bg-[#EEE8FF] text-[#7C3AED] border-white shadow-[0_2px_8px_rgba(124,58,237,0.15)]"
-                : "bg-[#EEE8FF] text-[#7C3AED]/70 border-white hover:bg-[#E6D9FF]"
+                ? "bg-[#EEE8FF] text-slate-700"
+                : "bg-[#EEE8FF]/70 text-slate-600 hover:bg-[#EEE8FF] hover:text-slate-700"
             }`}
           >
             Действия
@@ -1117,13 +1153,13 @@ export default function HabitsTwentyScreen({
               </div>
 
               {/* Scrollable content block (Purely scrollable, safely bounded) */}
-              <div className="flex-1 overflow-y-auto p-5 space-y-4 text-left font-normal select-text scroll-smooth overscroll-contain" style={{ scrollbarWidth: "thin" }}>
+              <div className="flex-1 overflow-y-auto p-5 space-y-4 text-left font-normal select-text scroll-smooth overscroll-contain scrollbar-none [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
 
                 {/* DYNAMIC MANUAL ENTRY ADJUSTMENT BAR (only for healthy_drinks - quick ml buttons only) */}
                 {richKeyInfo.category === "product" && richKeyInfo.id === "healthy_drinks" && (
                   <div className="p-4 rounded-2xl bg-teal-50/40 border border-teal-100 flex flex-col gap-3 shrink-0">
                     <h5 className="text-[11px] font-black uppercase text-teal-600 tracking-wider">
-                      📝 Ручной учёт напитков
+                      Ручной учёт напитков
                     </h5>
 
                     {/* Quick increment/decrement buttons in ml */}
@@ -1358,7 +1394,8 @@ export default function HabitsTwentyScreen({
                         Дневной оптимум
                       </h5>
                       <p className="text-[13px] sm:text-[13.5px] text-slate-800 leading-relaxed font-bold break-words whitespace-pre-wrap">
-                        🎯 {richKeyInfo.optimumText}
+                        <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-bold bg-slate-100 text-slate-700 mr-1.5 align-middle">Оптимум</span>
+                        {richKeyInfo.optimumText}
                       </p>
                     </div>
 
@@ -1366,7 +1403,8 @@ export default function HabitsTwentyScreen({
                     {richKeyInfo.hasSuperlevel && richKeyInfo.superlevelText && (
                       <div className="flex flex-col p-3 rounded-xl bg-amber-50/45 border border-amber-100">
                         <h5 className="text-[11.5px] font-black uppercase text-amber-600 tracking-wider mb-1">
-                          ★ Суперуровень
+                          <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-bold bg-amber-100 text-amber-700 mr-1.5 align-middle">Уровень</span>
+                          Суперуровень
                         </h5>
                         <p className="text-[12.5px] sm:text-[13px] text-amber-800 leading-relaxed font-semibold break-words whitespace-pre-wrap">
                           {richKeyInfo.superlevelText}
@@ -1380,7 +1418,8 @@ export default function HabitsTwentyScreen({
                         Почему это жизненно важно
                       </h5>
                       <p className="text-[13px] sm:text-[13.5px] text-emerald-800 bg-emerald-50/15 p-3 rounded-xl border border-emerald-100/30 leading-relaxed font-semibold break-words whitespace-pre-wrap">
-                        🧬 {richKeyInfo.whyImportant}
+                        <span className="font-bold text-slate-800 mr-1">Важно:</span>
+                        {richKeyInfo.whyImportant}
                       </p>
                     </div>
                   </>
@@ -1467,7 +1506,7 @@ export default function HabitsTwentyScreen({
               </div>
 
               {/* Scrollable content */}
-              <div className="flex-1 overflow-y-auto p-5 space-y-4 text-left font-normal select-text scroll-smooth overscroll-contain" style={{ scrollbarWidth: "thin" }}>
+              <div className="flex-1 overflow-y-auto p-5 space-y-4 text-left font-normal select-text scroll-smooth overscroll-contain scrollbar-none [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                 {/* Manual entry block */}
                 <div className="p-4 rounded-2xl bg-[var(--manual-surface5)] border border-[var(--manual-soft2)] flex flex-col gap-2.5 shrink-0">
                   <h5 className="text-[11px] font-black uppercase text-[var(--manual-accent)] tracking-wider">
