@@ -3,16 +3,14 @@ import { motion, AnimatePresence } from "motion/react";
 import BottomBar from "./BottomBar";
 import {
   ArrowLeft,
-  Award,
   Plus,
   Minus,
   X,
   HelpCircle,
-  Calendar
 } from "lucide-react";
 import { resolveAvatar } from "../utils/annaAvatarResolver";
 import { api } from "../utils/api";
-import { addDays, formatTimeHM, toLocalDate } from "../shared/dates";
+import { addDays, toLocalDate } from "../shared/dates";
 import { getUserTimeZone } from "../shared/timeZoneStore";
 import {
   SleepDaySummary,
@@ -51,9 +49,9 @@ const CustomSleepTooltip = ({ active, payload, label }: any) => {
     const isFuture = datum?.isFuture === true;
     const val = payload[0].value;
     return (
-      <div className="flex flex-col p-2 bg-[#F5F3FF] rounded-xl shadow-sm border-none outline-none z-40">
-        <div className="text-slate-700 text-xs font-bold">День {label}</div>
-        <div className={`text-xs font-bold ${isFuture ? "text-slate-400" : "text-[#8B5CF6]"}`}>
+      <div className="flex flex-col p-2 bg-slate-900/90 backdrop-blur-md rounded-xl shadow-lg border border-slate-700/50 z-40">
+        <div className="text-slate-300 text-xs font-medium">День {label}</div>
+        <div className={`text-xs font-mono font-bold ${isFuture ? "text-slate-400" : "text-emerald-400"}`}>
           {isFuture || !val ? "Нет данных" : `${Math.floor(val / 60)} ч ${val % 60} мин`}
         </div>
       </div>
@@ -66,18 +64,14 @@ interface SleepDetailsScreenProps {
   currentDayIndex: number;
   userName: string;
   userGender: "female" | "male";
-  sleep: number; // today's sleep minutes
+  sleep: number;
   setSleep: (val: number) => void;
   onBack: () => void;
   sleepLogs: Record<number, SleepDaySummary>;
   setSleepLogs: React.Dispatch<React.SetStateAction<Record<number, SleepDaySummary>>>;
-
-  // Canonical journal (multiple sleeps per day) + save pipeline
   sleepJournal?: SleepEntry[];
   onSaveSleepEntry?: (entry: SleepEntry) => void;
   onHydrateJournal?: (serverEntries: SleepEntry[]) => void;
-
-  // Day notes
   dayNotes: Record<number, { text: string; time: string; source?: string; tags?: string[]; isVoice?: boolean }[]>;
   setDayNotes: React.Dispatch<React.SetStateAction<Record<number, { text: string; time: string; source?: string; tags?: string[]; isVoice?: boolean }[]>>>;
 }
@@ -97,11 +91,9 @@ export default function SleepDetailsScreen({
   onSaveSleepEntry,
   onHydrateJournal,
 }: SleepDetailsScreenProps) {
-  // Selected graph day — общий store-выбор (как в Water/Movement)
   const selectedGraphDay = useAppStore((s) => s.selectedGraphDay);
   const setSelectedGraphDay = useAppStore((s) => s.setSelectedGraphDay);
 
-  // Manual sleep entry form state
   const [showManualEntry, setShowManualEntry] = useState(false);
   const [manualDay, setManualDay] = useState<number>(currentDayIndex);
   const [manualBedtime, setManualBedtime] = useState<string>("23:00");
@@ -109,15 +101,12 @@ export default function SleepDetailsScreen({
   const [manualQuality, setManualQuality] = useState<SleepQuality>(null);
   const [manualError, setManualError] = useState<string>("");
 
-  // Time stepper helper: shift "HH:MM" by deltaMin with 24h wraparound
   const shiftTime = (hhmm: string, deltaMin: number): string => {
     const [h, m] = hhmm.split(":").map(Number);
     const total = ((h * 60 + m + deltaMin) % 1440 + 1440) % 1440;
     return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
   };
 
-  // Press-and-hold auto-repeat для степперов времени: клик = один шаг,
-  // зажатие >400ms — автоповтор каждые 120ms.
   const holdTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const holdIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const stopTimeHold = () => {
@@ -166,7 +155,6 @@ export default function SleepDetailsScreen({
     setManualError("");
   };
 
-  // Fetch historical sleep journal from server on mount and hydrate the parent.
   useEffect(() => {
     api<Record<string, any>[]>("/api/metrics/daily")
       .then(records => {
@@ -187,8 +175,6 @@ export default function SleepDetailsScreen({
             }
           }
 
-          // Legacy row: sleepMinutes recorded but journal absent -> honest entry
-          // without invented bed/wake times and without fake quality.
           const rDay = Number(r.dayIndex);
           if (!hasValidLog && r.sleepMinutes > 0 && rDay) {
             const now = Date.now();
@@ -216,14 +202,12 @@ export default function SleepDetailsScreen({
       .catch((err) => console.warn("[SleepDetails] failed to load history:", err));
   }, []);
 
-  // Selected day variables
   const sleepGoalToday = 480; // 8 Hours
   const graphDayEntry = sleepLogs[selectedGraphDay];
   const graphDayDuration = graphDayEntry ? graphDayEntry.duration : 0;
   const graphDayPercent = Math.min(100, Math.round((graphDayDuration / sleepGoalToday) * 100));
   const dayJournalEntries = (sleepJournal || []).filter(e => e.dayIndex === selectedGraphDay && e.status !== "draft");
 
-  // Per-day primitives feeding the Anna SleepContext (selected graph day).
   const summaryDay = selectedGraphDay ?? currentDayIndex;
   const hasEntryForDay = graphDayEntry !== null;
   const qualityForDay = graphDayEntry?.quality ?? null;
@@ -252,7 +236,6 @@ export default function SleepDetailsScreen({
       : null;
   });
 
-  // 28-day chart data: duration + future flag for every course day.
   const chartData = useMemo(() => {
     return Array.from({ length: 28 }).map((_, idx) => {
       const dayNum = idx + 1;
@@ -262,7 +245,6 @@ export default function SleepDetailsScreen({
     });
   }, [sleepLogs, currentDayIndex]);
 
-  // Click-through zone over each bar (Water/Movement pattern).
   const CustomSleepBarShape = (props: any) => {
     const { x, y, width, height, fill, stroke, strokeWidth, payload, background } = props;
     const fullHeight = background ? background.height : height;
@@ -278,8 +260,8 @@ export default function SleepDetailsScreen({
           rx={4}
           ry={4}
           fill={fill}
-          stroke={stroke}
-          strokeWidth={strokeWidth}
+          stroke={stroke || "none"}
+          strokeWidth={strokeWidth || 0}
           style={{ outline: 'none' }}
         />
         <rect
@@ -288,9 +270,8 @@ export default function SleepDetailsScreen({
           width={width * 2}
           height={fullHeight}
           fill="transparent"
-          stroke="transparent"
+          stroke="none"
           strokeWidth={0}
-          strokeOpacity={0}
           cursor="pointer"
           style={{ outline: 'none' }}
           onPointerDown={(e) => {
@@ -305,7 +286,6 @@ export default function SleepDetailsScreen({
     );
   };
 
-  // Global calculations for the entire course period
   const getGlobalMetrics = () => {
     const entries = Object.values(sleepLogs).filter(e => e.duration > 0 && e.dayIndex <= currentDayIndex);
     const count = entries.length;
@@ -327,14 +307,12 @@ export default function SleepDetailsScreen({
     const avgMin = Math.round(totalMin / count);
     const goodQ = entries.filter(e => e.quality === "good").length;
 
-    // Bedtime stability (checking if bedtime is usually before 23:30)
     let earlyBedtimes = 0;
     let bedtimesWithTime = 0;
     entries.forEach(e => {
       if (!e.sleepTime) return;
       bedtimesWithTime++;
       const [h, m] = e.sleepTime.split(":").map(Number);
-      // bedtimes like 22:00, 23:00, 21:00 are early
       if (h === 21 || h === 22 || (h === 23 && m <= 15)) {
         earlyBedtimes++;
       }
@@ -343,9 +321,8 @@ export default function SleepDetailsScreen({
       ? "Нет данных"
       : (earlyBedtimes / bedtimesWithTime > 0.7 
         ? "Стабильный (22:00–23:15)" 
-        : (earlyBedtimes / bedtimesWithTime > 0.4 ? "Умеренный ритм" : "Плавающий график ⚠️"));
+        : (earlyBedtimes / bedtimesWithTime > 0.4 ? "Умеренный ритм" : "Плавающий график"));
 
-    // Waketime stability (consistent wake minutes after midnight ratio)
     let properWake = 0;
     let waketimesWithTime = 0;
     entries.forEach(e => {
@@ -362,7 +339,6 @@ export default function SleepDetailsScreen({
         ? "Высокая (06:00–08:00)" 
         : "Нерегулярная");
 
-    // Streak of meeting at least 7 hours (420 mins)
     let currentStreak = 0;
     let maxStreak = 0;
     for (let d = 1; d <= currentDayIndex; d++) {
@@ -375,7 +351,6 @@ export default function SleepDetailsScreen({
       }
     }
 
-    // Find best and worst days based on duration
     let bestDayIdx = 1;
     let maxDuration = -1;
     let worstDayIdx = 1;
@@ -406,9 +381,6 @@ export default function SleepDetailsScreen({
 
   const metrics = getGlobalMetrics();
 
-  // Anna coaching: built from the real sleep journal of the SELECTED day via
-  // the shared sleep dictionary. Memoized over the primitives that feed the
-  // SleepContext, so the phrase only changes when that data actually changes.
   const annaCoaching = useMemo(() => {
     const summary = buildDailySummary(summaryDay, useAppStore.getState(), currentDayIndex);
     const bedtimeRegularity: SleepContext["bedtimeRegularity"] =
@@ -461,18 +433,13 @@ export default function SleepDetailsScreen({
     weightDeltaForDay,
   ]);
 
-  // Color mappings based on sleep duration/quality
-  let glowBorderClass = "border-violet-100 shadow-[0_8px_30px_rgb(139,92,246,0.04)]";
-  let statusBadge = "bg-violet-50 text-violet-600 border border-violet-100";
+  let glowBorderClass = "border-white shadow-[0_4px_20px_rgba(15,23,42,0.05)]";
   if (annaCoaching.mood === "good") {
-    glowBorderClass = "border-emerald-100 shadow-[0_8px_30px_rgb(16,185,129,0.06)]";
-    statusBadge = "bg-emerald-50 text-emerald-600 border border-emerald-100";
+    glowBorderClass = "border-emerald-200/60 shadow-[0_8px_30px_rgb(16,185,129,0.06)]";
   } else if (annaCoaching.mood === "warning") {
-    glowBorderClass = "border-amber-100 shadow-[0_8px_30px_rgb(245,158,11,0.06)]";
-    statusBadge = "bg-amber-50 text-amber-600 border border-amber-100";
+    glowBorderClass = "border-amber-200/60 shadow-[0_8px_30px_rgb(245,158,11,0.06)]";
   }
 
-  // Quality label mapping Helper
   const getQualityLabel = (q: string) => {
     if (q === "good") return "Отличный сон";
     if (q === "fair") return "Средний сон";
@@ -483,23 +450,23 @@ export default function SleepDetailsScreen({
     <div className="w-full flex flex-col justify-between relative overflow-hidden" id="sleep-analytics-screen">
       
       {/* Scrollable Body */}
-      <div className="flex-1 flex flex-col px-5 pt-3 pb-6 max-h-[740px] overflow-y-auto scrollbar-none">
+      <div className="flex-1 flex flex-col px-4 pt-3 pb-5 overflow-y-auto scrollbar-none">
         
         {/* Navigation Header */}
-        <div className="flex justify-between items-center w-full mb-5">
+        <div className="flex justify-between items-center w-full mb-3.5">
           <button
             id="sleep-back-btn"
             type="button"
             onClick={onBack}
-            className="w-10 h-10 rounded-full bg-white border border-slate-100 shadow-[0_2px_8px_rgba(0,0,0,0.03)] flex items-center justify-center text-slate-650 hover:bg-slate-50 transition-all active:scale-95 cursor-pointer"
+            className="w-10 h-10 rounded-full bg-white border border-slate-100 shadow-[0_2px_8px_rgba(0,0,0,0.03)] flex items-center justify-center text-slate-600 hover:bg-slate-50 transition-all active:scale-95 cursor-pointer shrink-0"
           >
             <ArrowLeft className="w-5 h-5 antialiased pointer-events-none" />
           </button>
           <div className="flex flex-col items-center">
-            <span className="text-[12px] font-black text-slate-400 uppercase tracking-widest leading-none">Дневник</span>
+            <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest leading-none">Дневник</span>
             <span className="text-[18px] font-black text-slate-800" style={{ fontFamily: '"Calibri", sans-serif' }}>Режим сна и отдыха</span>
           </div>
-          <div className="w-10 h-10" />
+          <div className="w-10 h-10 shrink-0" />
         </div>
 
         {/* Manual sleep entry trigger */}
@@ -510,92 +477,95 @@ export default function SleepDetailsScreen({
             setShowManualEntry(true);
             setManualError("");
           }}
-          className="w-[min(320px,calc(100%-48px))] mx-auto mb-5 py-2.5 rounded-2xl border-none bg-violet-50/90 text-violet-700 text-sm font-bold shadow-sm flex items-center justify-center gap-2 hover:bg-violet-100 transition-colors"
+          className="w-full mb-3.5 py-2.5 rounded-2xl bg-emerald-50 text-emerald-800 border border-emerald-200/60 text-sm font-bold shadow-sm flex items-center justify-center gap-2 hover:bg-emerald-100/80 transition-all active:scale-[0.99] cursor-pointer"
         >
-          <Plus className="w-4 h-4" /> Записать сон вручную
+          <Plus className="w-4 h-4 text-emerald-700" /> Записать сон вручную
         </button>
 
         {/* 1. UPPER PART: LAST NIGHT SUMMARY */}
-        <div className="bg-white rounded-[32px] p-4.5 shadow-md flex flex-col gap-4 text-left mb-5">
-          <div className="flex justify-between items-start">
+        <div className="bg-white rounded-[28px] border border-white p-3.5 shadow-[0_4px_20px_rgba(15,23,42,0.05)] flex flex-col gap-3 text-left mb-3.5">
+          <div className="flex justify-between items-center">
             <div className="flex flex-col gap-0.5">
-              <span className="text-[11px] font-bold text-violet-500 tracking-wider uppercase">ОТЧЁТ О СНЕ</span>
-              <h2 className="text-[20px] font-bold text-text-dark leading-tight">Прошлая ночь • День {selectedGraphDay}</h2>
+              <span className="text-[10px] font-extrabold text-slate-400 tracking-wider uppercase">ОТЧЁТ О СНЕ</span>
+              <h2 className="text-[18px] font-black text-slate-800 leading-tight">Прошлая ночь • День {selectedGraphDay}</h2>
             </div>
             
-            <span className="text-xs bg-violet-100/60 font-black text-violet-700 px-3 py-1 rounded-full border border-violet-200/50">
+            <span className="text-xs bg-slate-50 font-mono font-bold text-slate-600 px-3 py-1 rounded-full border border-slate-200/70 whitespace-nowrap shrink-0">
               Цель: 8 ч
             </span>
           </div>
 
-          <div className="grid grid-cols-2 gap-3.5 pt-1.5">
+          <div className="flex flex-col gap-2.5 pt-1">
             {/* Duration card */}
-            <div className="bg-[#F8F4F9] rounded-3xl p-4 shadow-md col-span-2 relative overflow-hidden">
+            <div className="bg-gradient-to-br from-indigo-50/40 via-purple-50/20 to-slate-50/60 border border-slate-100 rounded-2xl p-3 shadow-xs relative overflow-hidden">
               <div className="flex items-center justify-between">
                 <div className="flex flex-col gap-0.5">
-                  <span className="text-[11px] text-purple-600 font-extrabold tracking-wide uppercase">ДЛИТЕЛЬНОСТЬ</span>
+                  <span className="text-[10px] text-indigo-900/60 font-black tracking-wider uppercase">ДЛИТЕЛЬНОСТЬ</span>
                   {graphDayDuration > 0 ? (
-                    <span className="text-[26px] font-black text-text-dark font-mono leading-tight">
+                    <span className="text-[24px] font-black text-slate-800 font-mono leading-none">
                       {Math.floor(graphDayDuration / 60)} ч {graphDayDuration % 60} мин
                     </span>
                   ) : (
-                    <span className="text-[18px] font-bold text-text-muted">Нет записи</span>
+                    <span className="text-[17px] font-bold text-slate-400">Нет записи</span>
                   )}
                 </div>
-                <img src={imgDuration} alt="" className="w-14 h-14 object-contain pointer-events-none shrink-0" />
+                <img src={imgDuration} alt="" className="w-12 h-12 object-contain pointer-events-none shrink-0" />
               </div>
 
               {/* Progress Slider tube */}
-              <div className="w-full h-2.5 rounded-full bg-slate-200/50 overflow-hidden mt-3 relative z-10">
+              <div className="w-full h-2 rounded-full bg-slate-200/60 overflow-hidden mt-2.5 relative z-10">
                 <motion.div
                   initial={{ width: "0%" }}
                   animate={{ width: `${graphDayPercent}%` }}
-                  className="h-full rounded-full bg-gradient-to-r from-violet-400 to-indigo-500 shadow-sm"
+                  className="h-full rounded-full bg-gradient-to-r from-indigo-500 via-indigo-600 to-emerald-500 shadow-xs"
                   transition={{ duration: 0.5 }}
                 />
               </div>
             </div>
 
-            <div className="col-span-2 grid grid-cols-[1fr_auto_1fr] gap-3">
+            {/* Row 1: Отбой & Подъём */}
+            <div className="grid grid-cols-2 gap-2.5">
               {/* Card 1: Отбой */}
-              <div className="bg-[#F4ECF7] shadow-sm rounded-2xl p-3 flex flex-row justify-between items-center min-w-0">
-                <div className="flex flex-col items-start min-w-0 truncate">
-                  <span className="text-[9px] text-purple-600 font-black uppercase tracking-wider">ОТБОЙ</span>
-                  <span className="text-[17px] font-black font-mono text-slate-800 truncate">
-                    {graphDayEntry ? (graphDayEntry.sleepTime || "Время не указано") : "—:—"}
+              <div className="bg-[#FAF8FD] border border-purple-100/40 shadow-xs rounded-2xl py-2.5 px-3 flex flex-row justify-between items-center min-w-0">
+                <div className="flex flex-col items-start min-w-0">
+                  <span className="text-[9px] text-purple-700/70 font-black uppercase tracking-wider">ОТБОЙ</span>
+                  <span className="text-[16px] font-black font-mono text-slate-800 leading-tight whitespace-nowrap">
+                    {graphDayEntry ? (graphDayEntry.sleepTime || "—:—") : "—:—"}
                   </span>
                 </div>
-                <img src={imgBedtime} className="w-11 h-11 object-contain shrink-0 ml-1" alt="Отбой" />
+                <img src={imgBedtime} className="w-9 h-9 object-contain shrink-0 ml-auto pointer-events-none" alt="Отбой" />
               </div>
 
-              {/* Card 2: Самочувствие */}
-              <div className="bg-[#F9F0F5] shadow-sm rounded-2xl p-3 flex flex-row justify-between items-center min-w-0">
-                <div className="flex flex-col items-start min-w-0 truncate">
-                  <span className="text-[9px] text-purple-600 font-black uppercase tracking-wider">САМОЧУВСТВИЕ</span>
-                  <span className="text-[13px] font-bold text-slate-800 leading-tight whitespace-nowrap">
-                    {graphDayEntry ? (graphDayEntry.quality ? getQualityLabel(graphDayEntry.quality) : "Не отмечено") : "Нет данных"}
+              {/* Card 2: Подъём */}
+              <div className="bg-[#F6FAF8] border border-emerald-100/50 shadow-xs rounded-2xl py-2.5 px-3 flex flex-row justify-between items-center min-w-0">
+                <div className="flex flex-col items-start min-w-0">
+                  <span className="text-[9px] text-emerald-700/80 font-black uppercase tracking-wider">ПОДЪЁМ</span>
+                  <span className="text-[16px] font-black font-mono text-slate-800 leading-tight whitespace-nowrap">
+                    {graphDayEntry ? (graphDayEntry.wakeTime || "—:—") : "—:—"}
                   </span>
                 </div>
+                <img src={imgWakeup} className="w-9 h-9 object-contain shrink-0 ml-auto pointer-events-none" alt="Подъём" />
+              </div>
+            </div>
+
+            {/* Row 2: Самочувствие */}
+            <div className="bg-slate-50/80 border border-slate-100 shadow-xs rounded-2xl py-2 px-3 flex flex-row justify-between items-center min-w-0">
+              <div className="flex flex-col items-start min-w-0">
+                <span className="text-[9px] text-slate-400 font-black uppercase tracking-wider">САМОЧУВСТВИЕ</span>
+                <span className="text-[14px] font-bold text-slate-800 leading-tight whitespace-nowrap">
+                  {graphDayEntry ? (graphDayEntry.quality ? getQualityLabel(graphDayEntry.quality) : "Не отмечено") : "Нет данных"}
+                </span>
+              </div>
+              <div className="shrink-0 ml-auto">
                 {graphDayEntry?.quality === "good" ? (
-                  <img src={imgGood} className="w-11 h-11 object-contain shrink-0 ml-1" alt="Самочувствие" />
+                  <img src={imgGood} className="w-9 h-9 object-contain" alt="Самочувствие" />
                 ) : graphDayEntry?.quality === "fair" ? (
-                  <img src={imgAverage} className="w-11 h-11 object-contain shrink-0 ml-1" alt="Самочувствие" />
+                  <img src={imgAverage} className="w-9 h-9 object-contain" alt="Самочувствие" />
                 ) : graphDayEntry?.quality === "poor" ? (
-                  <img src={imgPoor} className="w-11 h-11 object-contain shrink-0 ml-1" alt="Самочувствие" />
+                  <img src={imgPoor} className="w-9 h-9 object-contain" alt="Самочувствие" />
                 ) : (
-                  <HelpCircle className="w-11 h-11 object-contain shrink-0 ml-1 text-slate-400" />
+                  <HelpCircle className="w-7 h-7 text-slate-300" />
                 )}
-              </div>
-
-              {/* Card 3: Подъём */}
-              <div className="bg-[#F0F0FA] shadow-sm rounded-2xl p-3 flex flex-row justify-between items-center min-w-0">
-                <div className="flex flex-col items-start min-w-0 truncate">
-                  <span className="text-[9px] text-purple-600 font-black uppercase tracking-wider">ПОДЪЁМ</span>
-                  <span className="text-[17px] font-black font-mono text-slate-800 truncate">
-                    {graphDayEntry ? (graphDayEntry.wakeTime || "Время не указано") : "—:—"}
-                  </span>
-                </div>
-                <img src={imgWakeup} className="w-11 h-11 object-contain shrink-0 ml-1" alt="Подъём" />
               </div>
             </div>
 
@@ -609,9 +579,9 @@ export default function SleepDetailsScreen({
                   ? "записи"
                   : "записей";
               return (
-                <div className="col-span-2 flex items-center justify-between text-[11px] font-bold text-slate-500 bg-[#F8F4F9] rounded-2xl shadow-sm px-3 py-2">
+                <div className="flex items-center justify-between text-[11px] font-bold text-slate-500 bg-slate-50 rounded-2xl border border-slate-100 px-3 py-2">
                   <span>Несколько периодов сна за день</span>
-                  <span className="text-violet-600 font-black">{n} {plural}</span>
+                  <span className="text-emerald-700 font-mono font-black">{n} {plural}</span>
                 </div>
               );
             })()}
@@ -619,11 +589,11 @@ export default function SleepDetailsScreen({
         </div>
 
         {/* 2. MIDDLE PART: ANNA'S BLOCK */}
-        <div className={`rounded-[28px] p-4.5 text-left flex flex-col gap-3.5 transition-all duration-500 relative z-10 mb-5 bg-[#F5F3FF] shadow-sm ${glowBorderClass}`} id="anna-sleep-coaching-box">
+        <div className={`rounded-[28px] p-3.5 text-left flex flex-col gap-3 transition-all duration-300 relative z-10 mb-3.5 bg-[#FAF9FD] border ${glowBorderClass}`} id="anna-sleep-coaching-box">
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-2.5">
               <div className="relative shrink-0">
-                <div className="w-11 h-11 rounded-full overflow-hidden border border-brand-green-mint/30 shadow-md">
+                <div className="w-10 h-10 rounded-full overflow-hidden border border-emerald-200/60 shadow-xs">
                   <img
                     src={annaAvatarSrc}
                     alt="Анна советует"
@@ -632,37 +602,36 @@ export default function SleepDetailsScreen({
                 </div>
               </div>
               <div className="flex flex-col animate-[fadeIn_0.3s_ease]">
-                <span className="text-[15px] font-black leading-none">Анна</span>
-                <span className="text-[11px] font-bold text-text-muted mt-0.5 leading-none">Советник WFPB</span>
+                <span className="text-[14px] font-black leading-none text-slate-800">Анна</span>
+                <span className="text-[10px] font-bold text-slate-400 mt-0.5 leading-none">Советник WFPB</span>
               </div>
             </div>
 
-            <img src={ingrGreenImg} alt="Anna Logo" className="w-6 h-6 object-contain shrink-0" />
+            <img src={ingrGreenImg} alt="Anna Logo" className="w-5 h-5 object-contain shrink-0" />
           </div>
 
-          <div className="bg-white/80 backdrop-blur-xs p-3 rounded-2xl text-[14px] leading-relaxed font-semibold text-slate-800">
+          <div className="bg-white/90 backdrop-blur-xs p-3 rounded-2xl text-[13px] leading-relaxed font-normal text-slate-600 shadow-xs border border-white">
             {annaCoaching.text}
           </div>
         </div>
 
         {/* 3. GRAPHIC: 28-DAY sleep dynamic course chart */}
-        <div className="bg-white rounded-[32px] border border-gray-100 p-4 shadow-[0_4px_16px_rgba(0,0,0,0.02)] text-left flex flex-col gap-3 mb-5">
-          <div className="flex justify-between items-baseline px-1">
+        <div className="bg-white rounded-[28px] border border-white p-3.5 shadow-[0_4px_20px_rgba(15,23,42,0.05)] text-left flex flex-col gap-3 mb-3.5">
+          <div className="flex justify-between items-center px-0.5">
             <div className="flex flex-col">
-              <span className="text-[11px] font-bold text-violet-600 tracking-wide uppercase">СТАТИСТИКА КУРСА</span>
-              <span className="text-[16px] font-black text-text-dark">Мониторинг ритма сна 28 дней</span>
+              <span className="text-[10px] font-extrabold text-slate-400 tracking-wider uppercase">СТАТИСТИКА КУРСА</span>
+              <span className="text-[15px] font-black text-slate-800">Мониторинг ритма сна 28 дней</span>
             </div>
             
-            <div className="text-[11px] text-text-muted font-bold bg-slate-50 px-2.5 py-0.5 rounded-lg border border-slate-100">
-              Выбран день: <span className="text-violet-500 font-mono font-black">{selectedGraphDay}</span>
+            <div className="text-[11px] text-slate-500 font-bold bg-slate-50 px-2.5 py-1 rounded-xl border border-slate-100 whitespace-nowrap shrink-0">
+              Выбран день: <span className="text-emerald-700 font-mono font-black">{selectedGraphDay}</span>
             </div>
           </div>
 
-          {/* Interactive 28-day chart (Recharts, Water/Movement pattern) */}
-          <div className="relative pt-6 pb-2 px-1 h-44 outline-none border-none focus:outline-none focus:ring-0" style={{ outline: 'none', border: 'none' }}>
-            {/* 8-hour norm line indicator */}
-            <div className="absolute top-[30%] left-0 right-0 border-t border-dashed border-violet-300/30 flex justify-end z-0 pointer-events-none">
-              <span className="text-[8px] text-violet-400 font-bold bg-white px-1 -mt-1.5 font-mono z-10">Норма (8 часов)</span>
+          {/* Interactive 28-day chart */}
+          <div className="relative pt-5 pb-1 h-44 outline-none border-none focus:outline-none focus:ring-0">
+            <div className="absolute top-[32%] left-0 right-0 border-t border-dashed border-slate-200 flex justify-end z-0 pointer-events-none">
+              <span className="text-[8px] text-slate-400 font-bold bg-white px-1.5 -mt-1.5 font-mono z-10">Норма (8 часов)</span>
             </div>
 
             <style>{`
@@ -674,42 +643,46 @@ export default function SleepDetailsScreen({
               }
             `}</style>
 
-            <ResponsiveContainer width="100%" height="100%" className="outline-none border-none focus:outline-none focus:ring-0" style={{ outline: 'none', border: 'none' }}>
-              <BarChart data={chartData} margin={{ top: 5, right: 10, left: 10, bottom: 0 }} className="outline-none border-none focus:outline-none focus:ring-0" style={{ outline: 'none', border: 'none' }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chartData} margin={{ top: 5, right: 6, left: 6, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorSleep" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#8B5CF6" stopOpacity={1}/>
-                    <stop offset="100%" stopColor="#C4B5FD" stopOpacity={1}/>
+                    <stop offset="0%" stopColor="#6366F1" stopOpacity={1}/>
+                    <stop offset="100%" stopColor="#A5B4FC" stopOpacity={1}/>
+                  </linearGradient>
+                  <linearGradient id="colorSleepGoal" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#059669" stopOpacity={1}/>
+                    <stop offset="100%" stopColor="#34D399" stopOpacity={1}/>
                   </linearGradient>
                   <linearGradient id="colorSleepEmpty" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#DDD6FE" stopOpacity={1}/>
-                    <stop offset="100%" stopColor="#EDE9FE" stopOpacity={1}/>
+                    <stop offset="0%" stopColor="#E2E8F0" stopOpacity={0.8}/>
+                    <stop offset="100%" stopColor="#F1F5F9" stopOpacity={0.5}/>
                   </linearGradient>
                 </defs>
-                <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: "#94a3b8" }} />
+                <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: "#94a3b8" }} />
                 <YAxis hide type="number" domain={[0, sleepGoalToday * 1.15]} />
                 <Tooltip content={<CustomSleepTooltip />} cursor={{ fill: 'transparent' }} wrapperStyle={{ outline: 'none', border: 'none', zIndex: 50, pointerEvents: 'none' }} />
-                <ReferenceLine y={sleepGoalToday} stroke="#C4B5FD" strokeDasharray="4 4" />
+                <ReferenceLine y={sleepGoalToday} stroke="#CBD5E1" strokeDasharray="3 3" />
                 <Bar
                   dataKey="duration"
                   radius={[4, 4, 0, 0]}
-                  maxBarSize={20}
+                  maxBarSize={16}
                   isAnimationActive={false}
                   shape={<CustomSleepBarShape />}
-                  background={{ fill: 'transparent', stroke: 'transparent', strokeWidth: 0, strokeOpacity: 0 }}
-                  style={{ outline: 'none', stroke: 'none' }}
+                  background={{ fill: 'transparent', stroke: 'none', strokeWidth: 0 }}
+                  style={{ outline: 'none' }}
                 >
                   {chartData.map((entry, index) => {
                     const isActive = entry.day === selectedGraphDay;
-                    let fill = "url(#colorSleep)";
+                    let fill = entry.duration >= sleepGoalToday ? "url(#colorSleepGoal)" : "url(#colorSleep)";
                     if (entry.isFuture) fill = "#F1F5F9";
                     else if (entry.duration === 0) fill = "url(#colorSleepEmpty)";
                     return (
                       <Cell
                         key={`cell-${index}`}
                         fill={fill}
-                        stroke={isActive ? "#A78BFA" : "transparent"}
-                        strokeWidth={isActive ? 2 : 0}
+                        stroke={isActive ? "#059669" : "none"}
+                        strokeWidth={isActive ? 1.5 : 0}
                       />
                     );
                   })}
@@ -719,16 +692,16 @@ export default function SleepDetailsScreen({
           </div>
 
           {/* Selected day summary: header + individual entry cards */}
-          <div className="flex justify-between items-end mb-2 px-1">
-            <h3 className="text-sm font-bold text-purple-600 uppercase">
+          <div className="flex justify-between items-center mb-1 px-1">
+            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
               Сон за день {selectedGraphDay}
             </h3>
             {dayJournalEntries.length >= 2 && (
-              <span className="text-xs text-slate-500">Записей: {dayJournalEntries.length}</span>
+              <span className="text-[11px] font-mono text-slate-400">Записей: {dayJournalEntries.length}</span>
             )}
           </div>
 
-          <div className="flex flex-col mb-5">
+          <div className="flex flex-col gap-1.5">
             {(dayJournalEntries.length > 0
               ? dayJournalEntries
               : graphDayEntry
@@ -747,27 +720,27 @@ export default function SleepDetailsScreen({
               return (
                 <div
                   key={idx}
-                  className="bg-[#F4ECF7] shadow-sm rounded-2xl flex flex-row justify-between items-center px-3 py-[2px] mb-2"
+                  className="bg-slate-50 border border-slate-100/80 shadow-xs rounded-2xl flex flex-row justify-between items-center px-3 py-2"
                 >
-                  <span className="text-[14px] font-bold text-slate-800">
+                  <span className="text-[13px] font-bold text-slate-800 font-mono">
                     {dur > 0
                       ? `${Math.floor(dur / 60)} ч ${dur % 60} мин (${pct}%)`
                       : "Нет записи"}
                   </span>
                   <span className="flex items-center shrink-0">
-                    <span className="text-[12px] font-semibold text-slate-500 mr-2">
+                    <span className="text-[12px] font-medium text-slate-500 mr-1.5">
                       {entry.quality ? getQualityLabel(entry.quality) : "Не отмечено"}
                     </span>
                     {thumb && (
-                      <img src={thumb} alt="" className="w-8 h-8 object-contain shrink-0 ml-2 pointer-events-none" />
+                      <img src={thumb} alt="" className="w-7 h-7 object-contain shrink-0 ml-1 pointer-events-none" />
                     )}
                   </span>
                 </div>
               );
             })}
             {dayJournalEntries.length === 0 && !graphDayEntry && (
-              <div className="bg-[#F4ECF7] shadow-sm rounded-2xl px-3 py-[2px] mb-2">
-                <p className="text-[12px] text-slate-400 font-medium italic leading-tight py-1">
+              <div className="bg-slate-50 border border-slate-100 rounded-2xl px-3 py-2">
+                <p className="text-[12px] text-slate-400 font-medium italic leading-tight">
                   Записи сна за этот день отсутствуют
                 </p>
               </div>
@@ -776,78 +749,88 @@ export default function SleepDetailsScreen({
         </div>
 
         {/* 4. LOWER PART: HISTORIC GLOBAL METRICS */}
-        <div className="flex flex-col gap-3">
-          <span className="text-[11px] font-bold text-violet-600 tracking-wide uppercase px-1 text-left">ГЛОБАЛЬНАЯ КУРСОВАЯ СТАТИСТИКА</span>
+        <div className="flex flex-col gap-2.5 mb-2">
+          <span className="text-[10px] font-extrabold text-slate-400 tracking-wider uppercase px-1 text-left">
+            ГЛОБАЛЬНАЯ КУРСОВАЯ СТАТИСТИКА
+          </span>
           
-          <div className="grid grid-cols-2 gap-3 text-left">
+          <div className="grid grid-cols-2 gap-2.5 text-left">
 
-            {/* Средний сон */}
-            <div className="bg-[#F3F4F9] rounded-2xl shadow-sm px-3 py-1 flex flex-row justify-between items-center min-w-0">
+            {/* Средний сон (Мята) */}
+            <div className="bg-[#F0FDF4] border border-emerald-100/70 rounded-2xl shadow-xs py-2.5 px-3 flex flex-row justify-between items-center min-w-0">
               <div className="flex flex-col gap-0.5 min-w-0">
-                <span className="text-[9px] text-purple-600 font-black tracking-wider uppercase">СРЕДНИЙ СОН</span>
-                <span className="text-[15px] font-black text-text-dark font-mono leading-none">
+                <span className="text-[9px] text-emerald-800/70 font-black tracking-wider uppercase">СРЕДНИЙ СОН</span>
+                <span className="text-[15px] font-black text-slate-800 font-mono leading-none">
                   {metrics.averageDuration > 0
                     ? `${Math.floor(metrics.averageDuration / 60)}ч ${metrics.averageDuration % 60}м`
                     : "Нет данных"
                   }
                 </span>
-                <span className="text-[9px] text-text-muted">динамика за {metrics.totalDaysLogged} дн</span>
+                <span className="text-[9px] text-slate-400">за {metrics.totalDaysLogged} дн</span>
               </div>
-              <img src={imgAverageSleep} alt="" className="w-11 h-11 object-contain shrink-0" />
+              <img src={imgAverageSleep} alt="" className="w-9 h-9 object-contain shrink-0 ml-auto" />
             </div>
 
-            {/* Активная серия */}
-            <div className="bg-[#FFF6ED] rounded-2xl shadow-sm px-3 py-1 flex flex-row justify-between items-center min-w-0">
+            {/* Активная серия (Персик) */}
+            <div className="bg-[#FFF7ED] border border-amber-100/70 rounded-2xl shadow-xs py-2.5 px-3 flex flex-row justify-between items-center min-w-0">
               <div className="flex flex-col gap-0.5 min-w-0">
-                <span className="text-[9px] text-purple-600 font-black tracking-wider uppercase">АКТИВНАЯ СЕРИЯ</span>
+                <span className="text-[9px] text-amber-800/70 font-black tracking-wider uppercase">АКТИВНАЯ СЕРИЯ</span>
                 <span className="text-[15px] font-black text-amber-600 font-mono leading-none">+{metrics.streak} дн</span>
-                <span className="text-[9px] text-text-muted">цель сна достигнута</span>
+                <span className="text-[9px] text-slate-400">цель достигнута</span>
               </div>
-              <img src={imgActiveStreak} alt="" className="w-11 h-11 object-contain shrink-0" />
+              <img src={imgActiveStreak} alt="" className="w-9 h-9 object-contain shrink-0 ml-auto" />
             </div>
 
-            {/* Регулярность отбоя */}
-            <div className="bg-[#F6F0FA] rounded-2xl shadow-sm px-3 py-1 flex flex-row justify-between items-center min-w-0">
-              <div className="flex flex-col gap-0.5 min-w-0">
-                <span className="text-[9px] text-purple-600 font-black tracking-wider uppercase">РЕГУЛЯРНОСТЬ ОТБОЯ</span>
-                <span className="text-[13px] font-bold text-violet-700 leading-tight">
+            {/* Регулярность отбоя (Лаванда) */}
+            <div className="bg-[#FAF8FD] border border-purple-100/60 rounded-2xl shadow-xs py-2 px-2.5 flex flex-row justify-between items-center min-w-0">
+              <div className="flex flex-col min-w-0 flex-1 mr-1">
+                <span className="text-[9px] text-purple-800/70 font-black tracking-wider uppercase">РЕГУЛЯРНОСТЬ ОТБОЯ</span>
+                <span className="text-[11px] font-bold text-slate-800 leading-snug line-clamp-2">
                   {metrics.bedtimeStability}
                 </span>
-                <span className="text-[9px] text-text-muted">смещение ритма</span>
+                <span className="text-[9px] text-slate-400">смещение ритма</span>
               </div>
-              <img src={imgBedtimeReg} alt="" className="w-11 h-11 object-contain shrink-0" />
+              <img src={imgBedtimeReg} alt="" className="w-8 h-8 object-contain shrink-0 ml-auto pointer-events-none" />
             </div>
 
-            {/* Стабильность подъёма */}
-            <div className="bg-[#F0F8F6] rounded-2xl shadow-sm px-3 py-1 flex flex-row justify-between items-center min-w-0">
-              <div className="flex flex-col gap-0.5 min-w-0">
-                <span className="text-[9px] text-purple-600 font-black tracking-wider uppercase">СТАБИЛЬНОСТЬ ПОДЪЁМА</span>
-                <span className="text-[13px] font-bold text-emerald-600 leading-tight">
+            {/* Стабильность подъёма (Свежесть) */}
+            <div className="bg-[#F0F8F6] border border-teal-100/60 rounded-2xl shadow-xs py-2 px-2.5 flex flex-row justify-between items-center min-w-0">
+              <div className="flex flex-col min-w-0 flex-1 mr-1">
+                <span className="text-[9px] text-teal-800/70 font-black tracking-wider uppercase">СТАБИЛЬНОСТЬ ПОДЪЁМА</span>
+                <span className="text-[11px] font-bold text-slate-800 leading-snug line-clamp-2">
                   {metrics.waketimeStability}
                 </span>
-                <span className="text-[9px] text-text-muted">утренняя свежесть</span>
+                <span className="text-[9px] text-slate-400">утренняя свежесть</span>
               </div>
-              <img src={imgWakeupStab} alt="" className="w-11 h-11 object-contain shrink-0" />
+              <img src={imgWakeupStab} alt="" className="w-8 h-8 object-contain shrink-0 ml-auto pointer-events-none" />
             </div>
 
             {/* Лучший сон */}
-            <div className="bg-[#FFF9E6] rounded-2xl shadow-sm p-2 flex flex-row items-center gap-3 text-left min-w-0">
-              <img src={imgBestSleep} alt="" className="w-11 h-11 object-contain shrink-0" />
-              <div className="flex flex-col gap-0.5 min-w-0">
-                <span className="text-[9px] text-violet-700 font-black uppercase tracking-tight">ЛУЧШИЙ СОН</span>
-                <span className="text-[12px] font-bold text-slate-800 leading-tight truncate">{metrics.bestDay}</span>
+            <div className="bg-[#FEFCE8] border border-yellow-100/80 rounded-2xl shadow-xs py-2 px-2.5 flex flex-row items-center justify-between min-w-0">
+              <div className="flex flex-col gap-0.5 min-w-0 flex-1">
+                <div className="flex items-center gap-1">
+                  <span className="text-[9px] text-amber-800 font-black uppercase tracking-tight">ЛУЧШИЙ СОН</span>
+                  <span className="text-[8px] font-mono font-bold text-amber-600 bg-amber-100/80 px-1 rounded">ТОП</span>
+                </div>
+                <span className="text-[11px] font-bold font-mono text-slate-800 leading-tight whitespace-nowrap overflow-hidden text-ellipsis">
+                  {metrics.bestDay}
+                </span>
               </div>
-              <span className="ml-auto text-[9px] font-bold text-[#A78BFA] px-2 py-0.5 bg-white rounded-md shrink-0">РЕКОРД</span>
+              <img src={imgBestSleep} alt="" className="w-8 h-8 object-contain shrink-0 ml-1.5" />
             </div>
 
             {/* Дефицитный день */}
-            <div className="bg-[#FFF0F0] rounded-2xl shadow-sm p-2 flex flex-row items-center gap-3 text-left min-w-0">
-              <img src={imgDeficitDay} alt="" className="w-11 h-11 object-contain shrink-0" />
-              <div className="flex flex-col gap-0.5 min-w-0">
-                <span className="text-[9px] text-[#C1323B] font-black uppercase tracking-tight">ДЕФИЦИТНЫЙ ДЕНЬ</span>
-                <span className="text-[12px] font-bold text-slate-800 leading-tight truncate">{metrics.worstDay}</span>
+            <div className="bg-[#FFF1F2] border border-rose-100/80 rounded-2xl shadow-xs py-2 px-2.5 flex flex-row items-center justify-between min-w-0">
+              <div className="flex flex-col gap-0.5 min-w-0 flex-1">
+                <div className="flex items-center gap-1">
+                  <span className="text-[9px] text-rose-800 font-black uppercase tracking-tight">ДЕФИЦИТ</span>
+                  <span className="text-[8px] font-mono font-bold text-rose-600 bg-rose-100/80 px-1 rounded">ВНИМАНИЕ</span>
+                </div>
+                <span className="text-[11px] font-bold font-mono text-slate-800 leading-tight whitespace-nowrap overflow-hidden text-ellipsis">
+                  {metrics.worstDay}
+                </span>
               </div>
-              <span className="ml-auto text-[9px] font-bold text-rose-500 px-2 py-0.5 bg-white rounded-md shrink-0">ПРЕДУПРЕЖДЕНИЕ</span>
+              <img src={imgDeficitDay} alt="" className="w-8 h-8 object-contain shrink-0 ml-1.5" />
             </div>
 
           </div>
@@ -861,24 +844,24 @@ export default function SleepDetailsScreen({
           <>
             <motion.div
               initial={{ opacity: 0 }}
-              animate={{ opacity: 0.45 }}
+              animate={{ opacity: 0.5 }}
               exit={{ opacity: 0 }}
               onClick={() => setShowManualEntry(false)}
-              className="absolute inset-0 bg-[#0F172A] z-50 cursor-pointer pointer-events-auto"
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-xs z-50 cursor-pointer pointer-events-auto"
             />
 
             <motion.div
-              initial={{ opacity: 0, scale: 0.94 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.94 }}
-              transition={{ type: "spring", damping: 26, stiffness: 300 }}
-              className="absolute inset-0 z-[60] flex items-center justify-center p-6 pointer-events-none"
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              className="absolute inset-0 z-[60] flex items-center justify-center p-4 pointer-events-none"
             >
-              <div className="w-full max-w-[360px] bg-white rounded-[28px] p-5 shadow-2xl text-left pointer-events-auto max-h-[88%] overflow-y-auto scrollbar-none">
-                <div className="flex justify-between items-center mb-4">
+              <div className="w-full max-w-[360px] bg-white rounded-[28px] border border-white p-4 shadow-2xl text-left pointer-events-auto max-h-[90%] overflow-y-auto scrollbar-none">
+                <div className="flex justify-between items-center mb-3">
                   <div className="flex flex-col">
-                    <span className="text-[11px] font-bold text-violet-600 tracking-wider uppercase">РУЧНОЙ ВВОД</span>
-                    <h3 className="text-[17px] font-black text-text-dark" style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}>
+                    <span className="text-[10px] font-extrabold text-slate-400 tracking-wider uppercase">РУЧНОЙ ВВОД</span>
+                    <h3 className="text-[17px] font-black text-slate-800" style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}>
                       Запись сна задним числом
                     </h3>
                   </div>
@@ -891,9 +874,9 @@ export default function SleepDetailsScreen({
                   </button>
                 </div>
 
-                <div className="flex flex-col gap-5">
-                  {/* Feeling Selection — top */}
-                  <div className="bg-[#F8F0FA] rounded-[24px] p-4 flex justify-around mb-2">
+                <div className="flex flex-col gap-3.5">
+                  {/* Feeling Selection */}
+                  <div className="bg-slate-50/80 border border-slate-100 rounded-2xl p-2.5 flex justify-around">
                     {([
                       { v: "good" as const, label: "Хорошо", img: imgGood },
                       { v: "fair" as const, label: "Средне", img: imgAverage },
@@ -903,12 +886,12 @@ export default function SleepDetailsScreen({
                         key={opt.v}
                         type="button"
                         onClick={() => setManualQuality(opt.v)}
-                        className={`flex flex-col items-center gap-1.5 cursor-pointer select-none transition-transform ${
-                          manualQuality === opt.v ? "scale-110 drop-shadow-md" : ""
+                        className={`flex flex-col items-center gap-1 cursor-pointer select-none transition-all p-1.5 rounded-xl ${
+                          manualQuality === opt.v ? "bg-white shadow-sm ring-1 ring-emerald-400 scale-105" : "opacity-75 hover:opacity-100"
                         }`}
                       >
-                        <img src={opt.img} alt={opt.label} className="w-20 h-20 object-contain pointer-events-none" />
-                        <span className={`text-[13px] font-bold ${manualQuality === opt.v ? "text-purple-900" : "text-slate-500"}`}>
+                        <img src={opt.img} alt={opt.label} className="w-14 h-14 object-contain pointer-events-none" />
+                        <span className={`text-[12px] font-bold ${manualQuality === opt.v ? "text-emerald-800" : "text-slate-500"}`}>
                           {opt.label}
                         </span>
                       </button>
@@ -917,31 +900,31 @@ export default function SleepDetailsScreen({
 
                   {/* Day picker */}
                   <div>
-                    <span className="text-[11px] text-text-muted font-black tracking-wider uppercase mb-1.5 block">ДЕНЬ КУРСА</span>
-                    <div className="flex items-center justify-between gap-3">
+                    <span className="text-[10px] text-slate-400 font-extrabold tracking-wider uppercase mb-1 block">ДЕНЬ КУРСА</span>
+                    <div className="flex items-center justify-between gap-3 bg-slate-50 border border-slate-100 rounded-2xl p-1 px-2">
                       <button
                         type="button"
                         onClick={() => setManualDay(d => Math.max(1, d - 1))}
-                        className="w-10 h-10 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-600 hover:bg-slate-100 cursor-pointer"
+                        className="w-9 h-9 rounded-xl bg-white border border-slate-200/60 shadow-xs flex items-center justify-center text-slate-600 hover:bg-slate-50 active:scale-95 cursor-pointer"
                       >
                         <Minus className="w-4 h-4 pointer-events-none" />
                       </button>
-                      <span className="text-[18px] font-black text-slate-800 font-mono">День {manualDay}</span>
+                      <span className="text-[16px] font-black text-slate-800 font-mono">День {manualDay}</span>
                       <button
                         type="button"
                         onClick={() => setManualDay(d => Math.min(currentDayIndex, d + 1))}
-                        className="w-10 h-10 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-600 hover:bg-slate-100 cursor-pointer"
+                        className="w-9 h-9 rounded-xl bg-white border border-slate-200/60 shadow-xs flex items-center justify-center text-slate-600 hover:bg-slate-50 active:scale-95 cursor-pointer"
                       >
                         <Plus className="w-4 h-4 pointer-events-none" />
                       </button>
                     </div>
                   </div>
 
-                  {/* Time Steppers — vertical, fat-finger sized */}
-                  <div className="flex flex-col gap-6 items-center">
-                    <div className="flex flex-col items-center gap-2">
-                      <span className="text-sm font-bold text-slate-400 uppercase tracking-wider">Отбой</span>
-                      <div className="flex items-center gap-4">
+                  {/* Time Steppers */}
+                  <div className="flex flex-col gap-3 items-center">
+                    <div className="flex flex-col items-center gap-1 w-full">
+                      <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Отбой</span>
+                      <div className="flex items-center justify-center gap-3 w-full">
                         <button
                           type="button"
                           aria-label="Отбой: минус 5 минут"
@@ -949,11 +932,11 @@ export default function SleepDetailsScreen({
                           onPointerUp={stopTimeHold}
                           onPointerLeave={stopTimeHold}
                           onPointerCancel={stopTimeHold}
-                          className="w-14 h-14 rounded-full bg-slate-50 flex items-center justify-center text-3xl text-slate-600 hover:bg-slate-100 cursor-pointer select-none active:scale-95 transition-transform touch-none"
+                          className="w-11 h-11 rounded-full bg-slate-100 flex items-center justify-center text-2xl font-bold text-slate-600 hover:bg-slate-200/70 cursor-pointer select-none active:scale-95 transition-transform touch-none"
                         >
                           −
                         </button>
-                        <span className="text-5xl font-bold text-slate-800 tracking-tight w-40 text-center">{manualBedtime}</span>
+                        <span className="text-4xl font-black font-mono text-slate-800 tracking-tight w-36 text-center">{manualBedtime}</span>
                         <button
                           type="button"
                           aria-label="Отбой: плюс 5 минут"
@@ -961,16 +944,16 @@ export default function SleepDetailsScreen({
                           onPointerUp={stopTimeHold}
                           onPointerLeave={stopTimeHold}
                           onPointerCancel={stopTimeHold}
-                          className="w-14 h-14 rounded-full bg-slate-50 flex items-center justify-center text-3xl text-slate-600 hover:bg-slate-100 cursor-pointer select-none active:scale-95 transition-transform touch-none"
+                          className="w-11 h-11 rounded-full bg-slate-100 flex items-center justify-center text-2xl font-bold text-slate-600 hover:bg-slate-200/70 cursor-pointer select-none active:scale-95 transition-transform touch-none"
                         >
                           +
                         </button>
                       </div>
                     </div>
 
-                    <div className="flex flex-col items-center gap-2">
-                      <span className="text-sm font-bold text-slate-400 uppercase tracking-wider">Подъём</span>
-                      <div className="flex items-center gap-4">
+                    <div className="flex flex-col items-center gap-1 w-full">
+                      <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Подъём</span>
+                      <div className="flex items-center justify-center gap-3 w-full">
                         <button
                           type="button"
                           aria-label="Подъём: минус 5 минут"
@@ -978,11 +961,11 @@ export default function SleepDetailsScreen({
                           onPointerUp={stopTimeHold}
                           onPointerLeave={stopTimeHold}
                           onPointerCancel={stopTimeHold}
-                          className="w-14 h-14 rounded-full bg-slate-50 flex items-center justify-center text-3xl text-slate-600 hover:bg-slate-100 cursor-pointer select-none active:scale-95 transition-transform touch-none"
+                          className="w-11 h-11 rounded-full bg-slate-100 flex items-center justify-center text-2xl font-bold text-slate-600 hover:bg-slate-200/70 cursor-pointer select-none active:scale-95 transition-transform touch-none"
                         >
                           −
                         </button>
-                        <span className="text-5xl font-bold text-slate-800 tracking-tight w-40 text-center">{manualWakeTime}</span>
+                        <span className="text-4xl font-black font-mono text-slate-800 tracking-tight w-36 text-center">{manualWakeTime}</span>
                         <button
                           type="button"
                           aria-label="Подъём: плюс 5 минут"
@@ -990,7 +973,7 @@ export default function SleepDetailsScreen({
                           onPointerUp={stopTimeHold}
                           onPointerLeave={stopTimeHold}
                           onPointerCancel={stopTimeHold}
-                          className="w-14 h-14 rounded-full bg-slate-50 flex items-center justify-center text-3xl text-slate-600 hover:bg-slate-100 cursor-pointer select-none active:scale-95 transition-transform touch-none"
+                          className="w-11 h-11 rounded-full bg-slate-100 flex items-center justify-center text-2xl font-bold text-slate-600 hover:bg-slate-200/70 cursor-pointer select-none active:scale-95 transition-transform touch-none"
                         >
                           +
                         </button>
@@ -1004,18 +987,18 @@ export default function SleepDetailsScreen({
                     </span>
                   )}
 
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 pt-1">
                     <button
                       type="button"
                       onClick={() => setShowManualEntry(false)}
-                      className="flex-1 py-3 rounded-2xl bg-slate-50 text-slate-500 text-[14px] font-semibold active:scale-[0.98] transition-transform cursor-pointer"
+                      className="flex-1 py-2.5 rounded-2xl bg-slate-100 text-slate-600 text-[13px] font-bold active:scale-[0.98] transition-transform cursor-pointer"
                     >
                       Отмена
                     </button>
                     <button
                       type="button"
                       onClick={submitManualEntry}
-                      className="flex-[2] py-3 rounded-2xl bg-[#E6D4EB] text-purple-900 text-[14px] font-semibold shadow-sm active:scale-[0.98] transition-transform cursor-pointer"
+                      className="flex-[2] py-2.5 rounded-2xl bg-emerald-600 text-white text-[13px] font-bold shadow-md shadow-emerald-600/20 active:scale-[0.98] transition-transform cursor-pointer hover:bg-emerald-700"
                     >
                       Сохранить запись
                     </button>

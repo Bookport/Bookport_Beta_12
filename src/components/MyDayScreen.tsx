@@ -2934,57 +2934,83 @@ export default function MyDayScreen({
       {/* NIGHT PROMPT MODAL */}
       <AnimatePresence>
         {showNightPrompt && (
-          <>
+          <div className="fixed inset-0 z-[65] flex items-center justify-center p-4">
+            {/* Backdrop */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-[#0F172A]/80 z-[60] flex items-center justify-center p-5"
+              onClick={() => setShowNightPrompt(false)}
+              className="absolute inset-0 bg-slate-950/75 backdrop-blur-sm cursor-pointer"
             />
+
+            {/* Modal Dialog Card */}
             <motion.div
-              initial={{ scale: 0.92, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.92, opacity: 0 }}
-              transition={{ type: "spring", damping: 26, stiffness: 300 }}
-              className="absolute z-[61] flex flex-col items-center gap-4 p-6 w-full max-w-[340px]"
+              initial={{ scale: 0.94, opacity: 0, y: 10 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.94, opacity: 0, y: 10 }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              className="relative z-10 w-full max-w-[340px] bg-slate-900/95 border border-slate-700/60 rounded-[28px] p-6 shadow-2xl flex flex-col items-center gap-4 text-center select-none"
             >
               <button
                 type="button"
                 onClick={() => setShowNightPrompt(false)}
-                className="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-slate-300 hover:text-white hover:bg-white/20 transition-colors cursor-pointer"
+                className="absolute top-3.5 right-3.5 w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-slate-300 hover:text-white hover:bg-white/20 transition-colors cursor-pointer"
               >
                 <X className="w-4 h-4 pointer-events-none" />
               </button>
 
-              <img
-                src={imgNightPrompt}
-                alt="Лечь спать"
-                className="w-[180px] h-auto object-contain cursor-pointer select-none"
-              />
-
-              <div className="text-center">
-                <span className="text-[20px] font-black text-white tracking-tight block leading-tight">
-                  ЛЕЧЬ СПАТЬ
-                </span>
-                <span className="text-[12px] text-violet-200/60 font-bold mt-0.5 block">
-                  нажмите сейчас
-                </span>
+              <div className="pt-2">
+                <img
+                  src={imgNightPrompt}
+                  alt="Лечь спать"
+                  className="w-32 h-auto object-contain pointer-events-none drop-shadow-md"
+                />
               </div>
 
-              <button
-                type="button"
-                onClick={() => {
-                  const tz = getUserTimeZone();
-                  const todayStr = todayLocalDate(tz);
-                  setLastConsumedDate(todayStr);
-                  setShowNightPrompt(false);
-                }}
-                className="mt-2 py-3 px-5 rounded-2xl bg-purple-100 text-purple-600 font-semibold text-[14px] transition-all cursor-pointer active:scale-98"
-              >
-                Нарушаем режим
-              </button>
+              <div className="flex flex-col gap-1">
+                <span className="text-[20px] font-black text-white tracking-tight leading-tight">
+                  Пора отдыхать
+                </span>
+                <p className="text-[13px] text-slate-300/80 leading-snug px-2">
+                  Организм лучше всего восстанавливается при стабильном ночном режиме.
+                </p>
+              </div>
+
+              <div className="w-full flex flex-col gap-2 pt-1">
+                {/* Primary Action Button */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowNightPrompt(false);
+                    // Триггерим засыпание (запуск ночной сессии)
+                    if (typeof handleConfirmSleep === "function") {
+                      handleConfirmSleep();
+                    } else if (typeof startNightSession === "function") {
+                      startNightSession();
+                    }
+                  }}
+                  className="w-full py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[14px] shadow-lg shadow-emerald-900/40 active:scale-[0.98] transition-all cursor-pointer"
+                >
+                  Отойти ко сну
+                </button>
+
+                {/* Secondary Action Button */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const tz = getUserTimeZone();
+                    const todayStr = todayLocalDate(tz);
+                    setLastConsumedDate(todayStr);
+                    setShowNightPrompt(false);
+                  }}
+                  className="w-full py-2.5 rounded-2xl bg-slate-800/80 hover:bg-slate-800 text-slate-300 font-semibold text-[13px] active:scale-[0.98] transition-all cursor-pointer border border-slate-700/50"
+                >
+                  Нарушаем режим
+                </button>
+              </div>
             </motion.div>
-          </>
+          </div>
         )}
       </AnimatePresence>
 
@@ -2995,41 +3021,58 @@ export default function MyDayScreen({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="absolute inset-0 bg-[#0B0F1C] z-[45] flex flex-col items-center justify-between p-6 overflow-hidden select-none"
+            className="fixed inset-0 bg-[#090D16] z-[70] flex flex-col items-center justify-between p-6 pb-10 overflow-hidden select-none"
           >
-            {/* Stars ambient */}
-            <div className="absolute top-8 left-12 w-40 h-40 bg-violet-600/8 rounded-full blur-3xl animate-pulse" />
-            <div className="absolute bottom-24 right-8 w-48 h-48 bg-indigo-500/10 rounded-full blur-3xl" />
+            {/* Ambient Lighting */}
+            <div className="absolute top-12 left-1/2 -translate-x-1/2 w-64 h-64 bg-indigo-600/10 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute bottom-20 left-1/2 -translate-x-1/2 w-72 h-72 bg-emerald-600/10 rounded-full blur-3xl pointer-events-none" />
 
-            <div className="flex flex-col items-center gap-4 relative z-10 pt-8">
-              <img src={imgNightPrompt} alt="" className="w-[120px] h-auto object-contain opacity-70" />
-              <div className="flex flex-col items-center gap-1.5">
-                <h2 className="text-[20px] font-black text-white/90 tracking-tight text-center leading-snug">
+            {/* Top / Center Block */}
+            <div className="flex-1 flex flex-col items-center justify-center gap-4 relative z-10 w-full max-w-[320px] text-center my-auto">
+              <div className="relative">
+                <img 
+                  src={imgNightPrompt} 
+                  alt="" 
+                  className="w-28 h-auto object-contain opacity-85 pointer-events-none drop-shadow-lg" 
+                />
+              </div>
+
+              <div className="flex flex-col items-center gap-2">
+                <h2 className="text-[21px] font-black text-white tracking-tight leading-snug">
                   Приложение отдыхает вместе с тобой…
                 </h2>
-                <p className="text-[13px] text-violet-200/50 text-center leading-relaxed max-w-[260px]">
-                  Твой организм восстанавливается. Отдыхай спокойно.
+                <p className="text-[13px] text-slate-300/70 leading-relaxed max-w-[270px]">
+                  Твой организм обновляется, сосуды очищаются, а сон восстанавливает силы.
                 </p>
               </div>
+
               {bedTimeRecorded && (
-                <span className="text-[12px] bg-white/6 px-4 py-1.5 rounded-full font-mono text-violet-200 border border-white/10 font-bold mt-1">
-                  Начали в: {bedTimeRecorded}
-                </span>
+                <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-slate-800/80 border border-slate-700/60 shadow-xs mt-1">
+                  <span className="text-[10px] uppercase font-bold text-slate-400">Начало:</span>
+                  <span className="text-[13px] font-mono font-bold text-emerald-400">
+                    {bedTimeRecorded}
+                  </span>
+                </div>
               )}
             </div>
 
-            <div className="flex flex-col items-center gap-3 pb-16 relative z-10">
-              <img
-                src={imgWakeUp}
-                alt="Пробуждение"
-                className="w-[160px] h-auto object-contain cursor-pointer select-none active:scale-95 transition-transform"
+            {/* Bottom Wakeup CTA Block */}
+            <div className="flex flex-col items-center gap-2 relative z-10 w-full max-w-[280px]">
+              <button
+                type="button"
                 onClick={handleWakeUpFromOverlay}
-              />
-              <div className="text-center">
-                <span className="text-[18px] font-black text-white tracking-tight block">
-                  ПРОБУЖДЕНИЕ
-                </span>
-              </div>
+                className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-black text-[15px] shadow-lg shadow-orange-950/50 active:scale-[0.98] transition-all cursor-pointer flex items-center justify-center gap-2"
+              >
+                <img
+                  src={imgWakeUp}
+                  alt=""
+                  className="w-6 h-6 object-contain pointer-events-none"
+                />
+                <span>ПРОБУЖДЕНИЕ</span>
+              </button>
+              <span className="text-[11px] font-medium text-slate-400">
+                Нажми после окончательного подъёма
+              </span>
             </div>
           </motion.div>
         )}
