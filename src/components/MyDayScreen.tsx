@@ -2500,7 +2500,7 @@ export default function MyDayScreen({
                   alt="Ключи системы"
                   className="w-full h-auto drop-shadow-sm pointer-events-none object-contain"
                 />
-                <div className="absolute top-[53%] right-[25%] -translate-y-1/2 translate-x-1/2 flex items-center justify-center w-12 h-12 text-[36px] font-extrabold text-gray-700 tracking-tighter">
+                <div className="absolute top-[52%] right-[25%] -translate-y-1/2 translate-x-1/2 flex items-center justify-center w-12 h-12 text-[22px] font-black text-slate-700 leading-none select-none pointer-events-none">
                   {habitsDone}
                 </div>
               </div>
@@ -3080,63 +3080,75 @@ export default function MyDayScreen({
         {movementSession && (() => {
           const activeConfig = Object.values(ACTIVITY_CONFIGS).find(cfg => cfg.name === movementSession.activityType) || Object.values(ACTIVITY_CONFIGS)[0];
           return (
-          <div className="absolute bottom-22 right-6 z-50 pointer-events-auto" id="floating-active-stopwatch">
+          <div className="absolute bottom-35 right-5 z-50 pointer-events-auto" id="floating-active-stopwatch">
             <motion.div
-              initial={{ scale: 0, opacity: 0, y: 50 }}
+              initial={{ scale: 0, opacity: 0, y: 30 }}
               animate={{ 
                 scale: 1, 
                 opacity: 1, 
                 y: 0,
-                boxShadow: movementSession.isPaused ? "0 4px 20px rgba(0,0,0,0.1)" : [
-                  "0 4px 20px rgba(0,0,0,0.1), 0 0 0 0px rgba(0,0,0,0.05)",
-                  "0 4px 20px rgba(0,0,0,0.1), 0 0 0 10px rgba(0,0,0,0.1)",
-                  "0 4px 20px rgba(0,0,0,0.1), 0 0 0 0px rgba(0,0,0,0.05)"
-                ]
+                boxShadow: movementSession.isPaused 
+                  ? "0 8px 25px rgba(15,23,42,0.12)" 
+                  : [
+                      "0 8px 25px rgba(15,23,42,0.12), 0 0 0 0px rgba(16,185,129,0.2)",
+                      "0 8px 25px rgba(15,23,42,0.12), 0 0 0 8px rgba(16,185,129,0.08)",
+                      "0 8px 25px rgba(15,23,42,0.12), 0 0 0 0px rgba(16,185,129,0.2)"
+                    ]
               }}
-              exit={{ scale: 0, opacity: 0, y: 50 }}
+              exit={{ scale: 0, opacity: 0, y: 30 }}
               transition={{
-                boxShadow: movementSession.isPaused ? {} : { repeat: Infinity, duration: 1.8, ease: "easeInOut" },
-                scale: { type: "spring", damping: 15 }
+                boxShadow: movementSession.isPaused ? {} : { repeat: Infinity, duration: 2, ease: "easeInOut" },
+                scale: { type: "spring", damping: 18 }
               }}
               style={{ backgroundColor: activeConfig.hexColor }}
-              className="rounded-[28px] py-2 px-4 shadow-xl flex items-center gap-3 cursor-default select-none border border-slate-200/50"
+              className="rounded-full py-1.5 pl-2.5 pr-3 shadow-[0_8px_25px_rgba(15,23,42,0.12)] flex items-center gap-2.5 cursor-default select-none border border-white"
             >
-              <div className={`w-10 h-10 flex items-center justify-center shrink-0 ${movementSession.isPaused ? "grayscale opacity-80" : "animate-pulse"}`}>
-                <img src={getMovementAssetPath(movementSession.activityType, userGender)} alt={movementSession.activityType} className="w-full h-full object-contain" />
+              {/* Mini avatar */}
+              <div className={`w-8 h-8 flex items-center justify-center shrink-0 ${movementSession.isPaused ? "grayscale opacity-80" : "animate-pulse"}`}>
+                <img 
+                  src={getMovementAssetPath(movementSession.activityType, userGender)} 
+                  alt={movementSession.activityType} 
+                  className="w-full h-full object-contain" 
+                />
               </div>
               
-              <div className="flex flex-col text-left mr-2 min-w-[70px]">
-                <span className="text-[10px] font-black tracking-widest uppercase leading-none block mb-0.5 text-slate-500">
+              {/* Status and stopwatch */}
+              <div className="flex flex-col text-left min-w-[58px]">
+                <span className="text-[9.5px] font-black tracking-wider uppercase leading-none block mb-0.5 text-slate-400">
                   {movementSession.isPaused ? "ПАУЗА" : "АКТИВНО"}
                 </span>
-                <span className="text-[18px] font-black font-mono leading-none text-slate-800">
+                <span className="text-[16px] font-black font-mono leading-none text-slate-800 tracking-tight">
                   {Math.floor(activityElapsedTime / 60).toString().padStart(2, "0")}:
                   {(activityElapsedTime % 60).toString().padStart(2, "0")}
                 </span>
               </div>
 
-              <div className="flex gap-3 shrink-0 ml-1 items-center">
+              {/* Action buttons with comfortable touch targets */}
+              <div className="flex gap-1.5 shrink-0 items-center pl-1">
                 {movementSession.isPaused ? (
                   <button 
+                    type="button"
                     onClick={resumeMovementActivity}
-                    className="flex items-center justify-center text-emerald-600 hover:text-emerald-700 active:scale-90 transition-all"
+                    className="w-8 h-8 rounded-full bg-white/80 hover:bg-white text-emerald-600 border border-white shadow-xs flex items-center justify-center active:scale-90 transition-all cursor-pointer"
                   >
-                    <Play className="w-8 h-8 fill-current" />
+                    <Play className="w-4 h-4 fill-current ml-0.5" />
                   </button>
                 ) : (
                   <button 
+                    type="button"
                     onClick={pauseMovementActivity}
-                    className="flex items-center justify-center text-slate-600 hover:text-slate-700 active:scale-90 transition-all"
+                    className="w-8 h-8 rounded-full bg-white/80 hover:bg-white text-slate-600 border border-white shadow-xs flex items-center justify-center active:scale-90 transition-all cursor-pointer"
                   >
-                    <Pause className="w-8 h-8 fill-current" />
+                    <Pause className="w-4 h-4 fill-current" />
                   </button>
                 )}
                 
                 <button 
+                  type="button"
                   onClick={(e) => { e.stopPropagation(); stopMovementActivity(); }}
-                  className="flex items-center justify-center text-rose-600 hover:text-rose-700 active:scale-90 transition-all"
+                  className="w-8 h-8 rounded-full bg-white/80 hover:bg-white text-rose-600 border border-white shadow-xs flex items-center justify-center active:scale-90 transition-all cursor-pointer"
                 >
-                  <Square className="w-8 h-8 fill-current" />
+                  <Square className="w-3.5 h-3.5 fill-current rounded-[2px]" />
                 </button>
               </div>
             </motion.div>
@@ -3147,42 +3159,50 @@ export default function MyDayScreen({
       {/* 12. DETAILED SUMMARY OF COMPLETED SESSION POPUP MODAL */}
       <AnimatePresence>
         {showMovementSummaryCompleted && (
-          <div className="absolute inset-0 bg-black/45 backdrop-blur-xs flex items-center justify-center p-6 z-[67]" id="movement-completed-summary-modal">
+          <div className="absolute inset-0 bg-black/45 backdrop-blur-xs flex items-center justify-center p-5 z-[67]" id="movement-completed-summary-modal">
             <motion.div
               initial={{ scale: 0.94, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.94, opacity: 0 }}
-              className="bg-white rounded-[32px] border border-gray-100 p-5.5 w-full max-w-[325px] text-center shadow-[0_22px_60px_rgba(0,0,0,0.18)] flex flex-col gap-4 text-slate-800 text-left"
+              className="bg-white rounded-[28px] border border-white p-5 w-full max-w-[325px] text-center shadow-[0_10px_35px_rgba(15,23,42,0.12)] flex flex-col gap-3.5 text-slate-800"
             >
               <div className="flex flex-col gap-1 text-center items-center">
-                <div className="w-20 h-20 justify-self-center my-1 select-none animate-bounce">
-                  <img src={getMovementAssetPath(showMovementSummaryCompleted.activityType, userGender)} alt="Успех" className="w-full h-full object-contain" />
+                <div className="w-18 h-18 justify-self-center my-0.5 select-none animate-bounce">
+                  <img 
+                    src={getMovementAssetPath(showMovementSummaryCompleted.activityType, userGender)} 
+                    alt="Успех" 
+                    className="w-full h-full object-contain" 
+                  />
                 </div>
-                <span className="text-[11px] font-extrabold text-indigo-600 tracking-widest uppercase mt-1">ОТЛИЧНАЯ ТРЕНИРОВКА!</span>
-                <h3 className="text-[19px] font-black text-slate-800 leading-tight" style={{ fontFamily: '"Calibri", sans-serif' }}>
+                <span className="text-[10.5px] font-black text-slate-400 tracking-wider uppercase mt-1">
+                  ОТЛИЧНАЯ ТРЕНИРОВКА!
+                </span>
+                <h3 className="text-[18px] font-black text-slate-800 tracking-tight leading-tight">
                   {showMovementSummaryCompleted.activityType} завершена!
                 </h3>
               </div>
 
               {/* Key numbers metrics */}
-              <div className="grid grid-cols-2 gap-2.5 bg-indigo-50/40 p-3 rounded-2xl border border-indigo-100/30">
+              <div className="grid grid-cols-2 gap-2 bg-[#F8FAFC] py-2.5 px-3 rounded-2xl border border-slate-100">
                 <div className="text-center">
-                  <span className="text-[10px] text-slate-500 font-bold block">Время сессии</span>
-                  <span className="text-[18px] font-black text-indigo-950 font-mono">
+                  <span className="text-[10px] text-slate-400 font-bold block mb-0.5">Время сессии</span>
+                  <span className="text-[17px] font-black text-slate-800 font-mono tracking-tight">
                     {Math.floor(showMovementSummaryCompleted.durationSeconds / 60)}м {showMovementSummaryCompleted.durationSeconds % 60}с
                   </span>
                 </div>
-                <div className="text-center border-l border-indigo-100/60">
-                  <span className="text-[10px] text-slate-500 font-bold block">Вклад в прогресс</span>
-                  <span className="text-[18px] font-extrabold text-emerald-600 font-mono">
+                <div className="text-center border-l border-slate-200/60">
+                  <span className="text-[10px] text-slate-400 font-bold block mb-0.5">Вклад в прогресс</span>
+                  <span className="text-[17px] font-black text-[#047857] font-mono tracking-tight">
                     +{showMovementSummaryCompleted.pointsEarned} {getPlural(showMovementSummaryCompleted.pointsEarned, ['балл', 'балла', 'баллов'])}
                   </span>
                 </div>
               </div>
 
               {/* Rich customizable WFPB educational longevity advice tip */}
-              <div className="text-[12.5px] leading-relaxed text-slate-600 bg-[#FAF9FD] rounded-xl p-3 border border-slate-100 relative">
-                <span className="text-indigo-500 font-extrabold block mb-0.5">🌿 Влияние на организм:</span>
+              <div className="text-[12px] leading-relaxed text-slate-700 bg-[#F4FBF7] rounded-2xl p-3 border border-emerald-100/70 text-left relative font-medium">
+                <span className="text-[#047857] font-black block mb-0.5 text-[11px] uppercase tracking-wider">
+                  Влияние на организм
+                </span>
                 {(() => {
                   const act = showMovementSummaryCompleted.activityType;
                   if (act.includes("Прогулка")) {
@@ -3216,7 +3236,7 @@ export default function MyDayScreen({
               <button
                 type="button"
                 onClick={() => setShowMovementSummaryCompleted(null)}
-                className="w-full py-3 bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-600 hover:brightness-105 text-white font-extrabold rounded-2xl text-[14px] shadow-md transition-all cursor-pointer active:scale-97 text-center"
+                className="w-full py-2.5 bg-[#047857] hover:bg-[#065F46] active:scale-97 text-white font-black rounded-2xl text-[14px] shadow-[0_4px_14px_rgba(4,120,87,0.22)] transition-all cursor-pointer text-center"
               >
                 Отлично, в журнал!
               </button>
