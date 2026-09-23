@@ -2906,9 +2906,10 @@ export default function MyDayScreen({
               </div>
 
               {/* Information Hint */}
-              <div className="flex items-center gap-2 bg-sky-500/5 px-4 py-3 rounded-2xl border border-sky-100/40 text-[12.5px] leading-snug font-medium text-sky-800 my-4 text-left">
-                <HelpCircle className="w-4.5 h-4.5 text-sky-500 shrink-0" />
-                <span>{getDailyWaterTip()}</span>
+              <div className="bg-[#F4FBF7] border border-white rounded-2xl p-3 my-3 shadow-xs text-center">
+                <span className="text-[12px] leading-snug font-medium text-slate-600">
+                  {getDailyWaterTip()}
+                </span>
               </div>
 
               {/* Large Confirm primary action button */}
