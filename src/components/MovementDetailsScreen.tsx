@@ -455,7 +455,7 @@ export default function MovementDetailsScreen({
                 <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: "#94a3b8" }} />
                 <YAxis hide type="number" />
                 <Tooltip content={<CustomMovementTooltip />} cursor={{ fill: 'transparent' }} wrapperStyle={{ outline: 'none', border: 'none', zIndex: 50, pointerEvents: 'none' }} />
-                <ReferenceLine y={dailyTargetMin} stroke="#C7D2FE" strokeDasharray="4 4" isAnimationActive={false} label={{ value: "Цель", position: 'insideTopRight', fontSize: 9, fill: '#818CF8', fontWeight: 700 }} />
+                <ReferenceLine y={dailyTargetMin} stroke="#C7D2FE" strokeDasharray="4 4" label={{ value: "Цель", position: 'insideTopRight', fontSize: 9, fill: '#818CF8', fontWeight: 700 }} />
                 <Bar
                   dataKey="minutes"
                   radius={[4, 4, 0, 0]}

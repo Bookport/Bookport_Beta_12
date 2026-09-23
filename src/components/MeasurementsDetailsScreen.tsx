@@ -1,19 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { motion, AnimatePresence } from "motion/react";
 import BottomBar from "./BottomBar";
-import { 
-  ArrowLeft, 
-  Heart, 
-  Scale, 
-  Smile, 
-  TrendingUp, 
-  Zap, 
-  Award, 
-  Activity, 
-  CheckCircle2, 
-  Calendar,
-  HelpCircle
-} from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { useAppStore } from "../store/useAppStore";
 import { BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { resolveAvatar } from "../utils/annaAvatarResolver";
@@ -73,7 +60,7 @@ export interface MeasurementLogEntry {
   id: string;
   dayIndex: number;
   timestamp: number;
-  timeString: string; // e.g. "14:15"
+  timeString: string;
   
   // Subjective
   energy: "высокая" | "спокойная" | "сниженная" | "";
@@ -111,17 +98,11 @@ export default function MeasurementsDetailsScreen({
   dayNotes,
   setDayNotes
 }: MeasurementsDetailsScreenProps) {
-  // Analytical chart default selected day is today
   const selectedGraphDay = useAppStore((s) => s.selectedGraphDay);
   const setSelectedGraphDay = useAppStore((s) => s.setSelectedGraphDay);
   
-  // Active selected chart metric tab inside analytics
-  // "wellbeing" | "energy" | "pulse" | "weight"
   const [activeChartMetric, setActiveChartMetric] = useState<"energy" | "mood" | "wellbeing" | "pulse" | "weight">("energy");
 
-  // Initial measurement logs are passed as props, defaulting to {} from parent
-
-  // Fetch historical measurement logs from server on mount so the 28-day chart has full history
   useEffect(() => {
     api<Record<string, any>[]>("/api/metrics/daily")
       .then(records => {
@@ -171,15 +152,12 @@ export default function MeasurementsDetailsScreen({
       .catch((err) => console.warn("[MeasurementsDetails] failed to load history:", err));
   }, [setMeasurementLogs]);
 
-  // Real "starting weight" from the global user profile (set at registration/onboarding).
   const profileInitialWeight = useAppStore((s) => s.userProfile?.initialWeight);
 
-  // Aggregate stats over the 28-day course
   const getGlobalMeasurementMetrics = () => {
     let totalLogsCount = 0;
     let daysWithLogsCount = 0;
     
-    // Track weights for calculations
     let firstLoggedWeight: number | null = null;
     let finalWeight: number | null = null;
     let minPulse = 200;
@@ -187,7 +165,6 @@ export default function MeasurementsDetailsScreen({
     let pulseSum = 0;
     let pulseCount = 0;
 
-    // Daily averages
     let highEnergyDays = 0;
     let goodWellbeingDays = 0;
 
@@ -218,8 +195,6 @@ export default function MeasurementsDetailsScreen({
       ? Number((firstLoggedWeight - finalWeight).toFixed(1)) 
       : 0;
 
-    // "Вес на старте": the first logged measurement wins; otherwise fall back to the
-    // real initial weight from the user profile (set at registration/onboarding).
     const startingWeight = firstLoggedWeight ?? profileInitialWeight ?? 0;
 
     return {
@@ -238,14 +213,10 @@ export default function MeasurementsDetailsScreen({
 
   const stats = getGlobalMeasurementMetrics();
 
-
-
-  // Resolved logs for current day vs graph-selected day
   const todayList = measurementLogs[currentDayIndex] || [];
   const selectedDayList = measurementLogs[selectedGraphDay] || [];
   
   const latestTodayLog = todayList.length > 0 ? todayList[todayList.length - 1] : null;
-  const latestSelectedDayLog = selectedDayList.length > 0 ? selectedDayList[selectedDayList.length - 1] : null;
 
   const storeDigestionEntries = useAppStore((s) => s.digestionEntries);
   const storeWaterEntries = useAppStore((s) => s.waterEntries);
@@ -265,9 +236,6 @@ export default function MeasurementsDetailsScreen({
     return null;
   }, [latestTodayLog, storeMeasurementEntries]);
 
-  // Anna Context logic
-  const usedInitialWeight = stats.initialWeight || null;
-
   const annaComment = useMemo(() => {
     const summary = buildDailySummary(selectedGraphDay ?? currentDayIndex, useAppStore.getState(), currentDayIndex);
     return getMeasurementsFeedback(summary, userName, userGender);
@@ -282,27 +250,22 @@ export default function MeasurementsDetailsScreen({
     userName
   ]);
 
-  // Draw 28-day column charts based on selected metric
-  
   const { chartData, maxBars } = React.useMemo(() => {
     let max = 0;
     const data: any[] = [];
     
     for (let d = 1; d <= 28; d++) {
       const logs = measurementLogs[d] || [];
-      // Sort chronologically
       const sortedLogs = [...logs].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
       
       if (sortedLogs.length > max) max = sortedLogs.length;
       
       let point: any = { day: d, logs: sortedLogs, hitboxVal: 0.1 };
       
-      // For subjective metrics (Stacked Bars)
       sortedLogs.forEach((log, i) => {
-         point[`log${i}`] = 1; // Each episode adds 1 unit of height
+         point[`log${i}`] = 1;
       });
       
-      // For physical metrics (Single Bar - Average)
       if (sortedLogs.length > 0) {
         const validPulses = sortedLogs.filter(e => e.pulse !== null).map(e => e.pulse as number);
         point.avgPulse = validPulses.length > 0 ? Math.round(validPulses.reduce((a, b) => a + b, 0) / validPulses.length) : null;
@@ -319,7 +282,6 @@ export default function MeasurementsDetailsScreen({
     return { chartData: data, maxBars: Math.max(1, max) };
   }, [measurementLogs]);
 
-  // ---- CUSTOM SHAPES FOR CHART ----
   const HitboxShape = (props: any) => {
     const { x, y, width, height, payload, background } = props;
     const fullHeight = background ? background.height : (height > 0 ? height : 200);
@@ -348,7 +310,7 @@ export default function MeasurementsDetailsScreen({
   const StackedBlockShape = (props: any) => {
     const { x, y, width, height, fill } = props;
     if (!height || height === 0) return null;
-    const gap = 2; // Gap between stacked blocks
+    const gap = 2;
     return (
       <rect 
          x={x} 
@@ -397,8 +359,8 @@ export default function MeasurementsDetailsScreen({
     }
 
     if (val === 0) return baseColor;
-    if (val === 1) return "#FFF59D"; // Neutral/Normal
-    if (val === 2) return "#FFCCBC"; // Negative/Low
+    if (val === 1) return "#FFF59D";
+    if (val === 2) return "#FFCCBC";
     return baseColor;
   };
 
@@ -409,7 +371,7 @@ export default function MeasurementsDetailsScreen({
       
       if (!logs || logs.length === 0) {
         return (
-          <div className="bg-white shadow-xl border border-slate-100 rounded-xl p-3 text-[13px] font-bold text-slate-800 z-[100]">
+          <div className="bg-white/95 backdrop-blur-md shadow-[0_8px_24px_rgba(15,23,42,0.12)] border border-white rounded-2xl p-3 text-xs font-bold text-slate-800 z-[100]">
             <div>День {day}</div>
             <div className="text-slate-400 font-medium mt-0.5">Нет записей</div>
           </div>
@@ -419,13 +381,13 @@ export default function MeasurementsDetailsScreen({
       const isPhysical = activeChartMetric === "pulse" || activeChartMetric === "weight";
 
       return (
-        <div className="bg-white shadow-xl border border-slate-100 rounded-xl p-3 text-[13px] font-bold text-slate-800 z-[100] max-w-[220px]">
+        <div className="bg-white/95 backdrop-blur-md shadow-[0_8px_24px_rgba(15,23,42,0.12)] border border-white rounded-2xl p-3 text-xs font-bold text-slate-800 z-[100] max-w-[220px]">
           <div className="mb-2 border-b border-slate-100 pb-1.5 flex justify-between items-center gap-3">
             <span>День {day}</span>
-            <span className="text-[10px] text-slate-400 font-bold bg-slate-50 px-1.5 py-0.5 rounded-md">Записей: {logs.length}</span>
+            <span className="text-[10px] text-slate-500 font-bold bg-slate-100 px-1.5 py-0.5 rounded-md">Записей: {logs.length}</span>
           </div>
           
-          <div className="flex flex-col gap-2.5">
+          <div className="flex flex-col gap-2">
             {[...logs].map((log: any, idx: number) => {
                let mainText = "";
                let subText = "";
@@ -437,7 +399,7 @@ export default function MeasurementsDetailsScreen({
                    color = "#81C784";
                  } else {
                    mainText = log.weight ? `${log.weight} кг` : "Нет данных";
-                   color = "#B2EBF2";
+                   color = "#80CBC4";
                  }
                } else {
                  const parsed = parseTonus(log.tonus);
@@ -463,10 +425,10 @@ export default function MeasurementsDetailsScreen({
                return (
                  <div key={log.id || idx} className="flex items-start gap-2 leading-tight">
                     <span className="text-[10px] text-slate-400 font-mono mt-0.5 w-8 shrink-0">{log.timeString || "—"}</span>
-                    <div className="w-2.5 h-2.5 rounded-full mt-[3px] shrink-0 shadow-sm" style={{ backgroundColor: color }} />
+                    <div className="w-2.5 h-2.5 rounded-full mt-[3px] shrink-0 shadow-xs" style={{ backgroundColor: color }} />
                     <div className="flex flex-col">
                        <span className="text-slate-700">{mainText}</span>
-                       {subText && <span className="text-[10.5px] text-slate-400 font-semibold">{subText}</span>}
+                       {subText && <span className="text-[10px] text-slate-400 font-medium">{subText}</span>}
                     </div>
                  </div>
                );
@@ -479,56 +441,56 @@ export default function MeasurementsDetailsScreen({
   };
 
   return (
-    <div className="w-full flex flex-col justify-between relative bg-[#FAF9FD]" id="measurements-analytics-screen">
+    <div className="min-h-screen bg-[#FAFBFB] text-slate-800 flex flex-col justify-between relative pb-5" id="measurements-analytics-screen">
       
-      {/* Scrollable container */}
-      <div className="flex-1 flex flex-col px-5 pt-4.5 pb-6 max-h-[740px] overflow-y-auto scrollbar-none text-slate-800">
+      {/* Основной контентный поток без жестких max-h */}
+      <div className="w-full max-w-md mx-auto px-4 pt-3.5 flex flex-col gap-4">
         
-        {/* Navigation Header */}
-        <div className="flex justify-between items-center w-full mb-5">
+        {/* Шапка / Navigation Header */}
+        <header className="flex justify-between items-center w-full py-1">
           <button 
             type="button"
             onClick={onBack}
-            className="w-10 h-10 rounded-full bg-white border border-slate-100 shadow-[0_2px_8px_rgba(0,0,0,0.03)] flex items-center justify-center text-slate-650 hover:bg-slate-50 transition-all active:scale-95 cursor-pointer"
+            className="w-10 h-10 rounded-full bg-white border border-slate-100 shadow-[0_2px_8px_rgba(15,23,42,0.04)] flex items-center justify-center text-slate-600 active:scale-95 transition-transform cursor-pointer"
+            aria-label="Назад"
           >
-            <ArrowLeft className="w-6 h-6 antialiased" />
+            <ArrowLeft className="w-5 h-5 antialiased" />
           </button>
           <div className="flex flex-col items-center">
-            <span className="text-[12px] font-black text-slate-400 uppercase tracking-widest leading-none">Дневник</span>
-            <span className="text-[18px] font-black text-slate-800" style={{ fontFamily: '"Calibri", sans-serif' }}>Замеры & Тонус</span>
+            <span className="text-[10.5px] font-bold text-slate-400 uppercase tracking-widest leading-none">Дневник</span>
+            <span className="text-[17px] font-bold text-slate-900 tracking-tight mt-0.5">Замеры & Тонус</span>
           </div>
           <div className="w-10 h-10" />
-        </div>
+        </header>
 
-        
-        {/* Style to forcefully remove Recharts focus outlines */}
+        {/* Стили для полного снятия outline Recharts */}
         <style>{`
           .recharts-wrapper, .recharts-wrapper:focus, 
-          .recharts-surface, .recharts-surface:focus {
+          .recharts-surface, .recharts-surface:focus,
+          .recharts-wrapper *:focus {
             outline: none !important;
             border: none !important;
             box-shadow: none !important;
           }
         `}</style>
 
-        {/* 1. UPPER PART: TODAY'S CURRENT STATE */}
-        <div className="bg-white rounded-[32px] border border-gray-100/90 p-4.5 shadow-[0_5px_15px_-3px_rgba(43,49,55,0.02)] flex flex-col gap-4 text-left mb-5">
-          <div className="flex justify-between items-start">
+        {/* 1. ПАРЯЩИЙ ОСТРОВ: ТЕКУЩИЙ ЗАМЕР */}
+        <section className="bg-white rounded-[28px] border border-white shadow-[0_4px_20px_rgba(15,23,42,0.05)] p-4 sm:p-5 flex flex-col gap-3.5 text-left">
+          <div className="flex justify-between items-start gap-2">
             <div>
-              <span className="text-[11px] font-black text-[#4CAF50] tracking-wider uppercase block mb-0.5">СОСТОЯНИЕ НА СЕГОДНЯ</span>
-              <h2 className="text-[20px] font-black text-slate-800" style={{ fontFamily: '"Calibri", sans-serif' }}>Текущий замер</h2>
+              <span className="text-[10px] font-black text-emerald-600 tracking-wider uppercase block">СОСТОЯНИЕ НА СЕГОДНЯ</span>
+              <h2 className="text-[18px] font-black text-slate-900 tracking-tight mt-0.5">Текущий замер</h2>
             </div>
-            <div className="bg-[#E8F5E9] text-[#1B5E20] shadow-sm rounded-full px-3 py-1.5 text-[12px] font-bold">
+            <div className="bg-emerald-50 text-emerald-800 rounded-full px-2.5 py-1 text-[11px] font-bold shrink-0 whitespace-nowrap">
               {todayList.length} замер{todayList.length === 1 ? "" : todayList.length > 1 && todayList.length < 5 ? "а" : "ов"} сегодня
             </div>
           </div>
 
-          {/* If there's at least one measurement today, render stats */}
           {latestTodayLog ? (
             <div className="flex flex-col gap-3">
               
-              {/* Subjective states: horizontal row of miniatures */}
-              <div className="flex flex-row justify-around gap-2 pt-4">
+              {/* Субъективные состояния: Триада тонуса */}
+              <div className="flex flex-row justify-around items-center gap-1 pt-2 pb-1 bg-slate-50/60 rounded-2xl border border-slate-100/60">
                 {[
                   { title: "САМОЧУВСТВИЕ", idx: +parseTonus(latestTodayLog.tonus).wellbeing, states: WELLBEING_STATES },
                   { title: "ЭНЕРГИЯ", idx: +parseTonus(latestTodayLog.tonus).energy, states: ENERGY_STATES },
@@ -537,45 +499,49 @@ export default function MeasurementsDetailsScreen({
                   const stateIdx = s.idx >= 0 && s.idx < s.states.length ? s.idx : 0;
                   const item = s.states[stateIdx];
                   return (
-                    <div key={s.title} className="flex flex-col items-center gap-1">
-                      <span className="text-[10px] text-[#4CAF50] font-black uppercase tracking-wide">{s.title}</span>
-                      <img src={item.img} alt={item.label} className="w-16 h-16 object-contain" />
-                      <span className="text-[12px] font-black text-slate-700">{item.label}</span>
+                    <div key={s.title} className="flex flex-col items-center gap-1 px-1">
+                      <span className="text-[9px] text-emerald-700 font-bold uppercase tracking-wider">{s.title}</span>
+                      <img src={item.img} alt={item.label} className="w-14 h-14 sm:w-16 sm:h-16 object-contain" />
+                      <span className="text-[11.5px] font-extrabold text-slate-700">{item.label}</span>
                     </div>
                   );
                 })}
               </div>
 
-              {/* Physical objective numbers panel layout */}
-              <div className={`grid ${latestBP ? 'grid-cols-3' : 'grid-cols-2'} gap-1.5 sm:gap-3 mt-1`}>
-                <div className="bg-[#F1F8E9] shadow-sm rounded-2xl py-0.5 px-2 sm:px-3 flex flex-row items-center justify-between">
-                  <img src={iconPulse} alt="Пульс" className="w-8 h-8 sm:w-10 sm:h-10 object-contain shrink-0" />
-                  <div className="flex flex-col text-right">
-                    <span className="text-[9px] sm:text-[10px] text-[#4CAF50] font-black uppercase tracking-wide">Пульс</span>
-                    <span className="text-xl sm:text-2xl font-extrabold text-slate-800 font-mono leading-tight whitespace-nowrap tracking-tighter">
+              {/* Объективные метрики: Адаптивная Bento-сетка */}
+              <div className={`grid ${latestBP ? 'grid-cols-3' : 'grid-cols-2'} gap-2 pt-0.5`}>
+                
+                {/* Пульс */}
+                <div className="bg-emerald-50/50 rounded-2xl py-2 px-2.5 flex items-center justify-between border border-emerald-100/40">
+                  <img src={iconPulse} alt="Пульс" className="w-8 h-8 sm:w-9 sm:h-9 object-contain shrink-0" />
+                  <div className="flex flex-col text-right min-w-0">
+                    <span className="text-[9px] text-emerald-700 font-extrabold uppercase tracking-wider leading-none mb-1">Пульс</span>
+                    <span className="text-lg sm:text-xl font-black text-slate-800 font-mono tracking-tight whitespace-nowrap leading-none">
                       {latestTodayLog?.pulse ? `${latestTodayLog.pulse}` : "—"}
                     </span>
                   </div>
                 </div>
 
+                {/* Давление */}
                 {latestBP && (
-                  <div className="bg-emerald-50 shadow-sm rounded-2xl py-0.5 px-1.5 sm:px-2 flex flex-col items-center justify-center text-center">
-                    <span className="text-[9px] sm:text-[10px] text-[#2E7D32] font-black uppercase tracking-wide">Давление</span>
-                    <span className="text-xl sm:text-2xl font-extrabold text-slate-800 font-mono leading-tight whitespace-nowrap tracking-tighter">
+                  <div className="bg-emerald-50/50 rounded-2xl py-2 px-2 flex flex-col items-center justify-center text-center border border-emerald-100/40">
+                    <span className="text-[9px] text-emerald-700 font-extrabold uppercase tracking-wider leading-none mb-1">Давление</span>
+                    <span className="text-lg sm:text-xl font-black text-slate-800 font-mono tracking-tight whitespace-nowrap leading-none">
                       {latestBP.sys}/{latestBP.dia}
                     </span>
-                    <span className="text-[7px] sm:text-[8px] font-bold text-slate-500 uppercase tracking-widest">мм рт.ст.</span>
+                    <span className="text-[7.5px] font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap shrink-0 mt-1">мм рт.ст.</span>
                   </div>
                 )}
 
-                <div className="bg-[#E0F2F1] shadow-sm rounded-2xl py-0.5 px-2 sm:px-3 flex flex-row items-center justify-between">
-                  <div className="flex flex-col text-left">
-                    <span className="text-[9px] sm:text-[10px] text-[#00796B] font-black uppercase tracking-wide">Вес</span>
-                    <span className="text-xl sm:text-2xl font-extrabold text-slate-800 font-mono leading-tight whitespace-nowrap tracking-tighter">
+                {/* Вес */}
+                <div className="bg-teal-50/50 rounded-2xl py-2 px-2.5 flex items-center justify-between border border-teal-100/40">
+                  <div className="flex flex-col text-left min-w-0">
+                    <span className="text-[9px] text-teal-800 font-extrabold uppercase tracking-wider leading-none mb-1">Вес</span>
+                    <span className="text-lg sm:text-xl font-black text-slate-800 font-mono tracking-tight whitespace-nowrap leading-none">
                       {latestTodayLog?.weight ? `${latestTodayLog.weight}` : "—"}
                     </span>
                   </div>
-                  <img src={iconWeight} alt="Вес" className="w-8 h-8 sm:w-10 sm:h-10 object-contain shrink-0" />
+                  <img src={iconWeight} alt="Вес" className="w-8 h-8 sm:w-9 sm:h-9 object-contain shrink-0" />
                 </div>
               </div>
 
@@ -583,60 +549,68 @@ export default function MeasurementsDetailsScreen({
           ) : (
             <div className="py-6 text-center flex flex-col items-center justify-center">
               <span className="text-3xl filter saturate-75 mb-2">📊</span>
-              <p className="text-[14px] text-slate-400 font-semibold italic">Замеров сегодня ещё не проводилось.</p>
+              <p className="text-[13.5px] text-slate-500 font-medium italic">Замеров сегодня ещё не проводилось.</p>
               <p className="text-[11px] text-slate-400 mt-1">Обычный клик по кнопке «Замеры» позволит мгновенно записать состояние!</p>
             </div>
           )}
-        </div>
+        </section>
 
-        {/* 2. MIDDLE PART: ANNA'S MOTIVATIONAL ADVICE BOX */}
-        <div className="bg-[#F4FBF7] shadow-sm rounded-[28px] p-4 text-left flex flex-col gap-3 relative z-10 mb-5" id="anna-measurements-advice-box">
+        {/* 2. ПАРЯЩИЙ ОСТРОВ: СОВЕТ АННЫ (Теплый пастельно-оранжевый / персиковый) */}
+        <section 
+          className="bg-[#FFF8F2] shadow-[0_4px_20px_rgba(249,115,22,0.06)] rounded-[28px] border border-white p-3.5 sm:p-4 text-left flex flex-col gap-2 relative z-10" 
+          id="anna-measurements-advice-box"
+        >
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-2.5">
               <div className="relative shrink-0">
-                <div className="w-11 h-11 rounded-full overflow-hidden border border-emerald-100/60 shadow-md">
+                <div className="w-10 h-10 rounded-full overflow-hidden ring-2 ring-orange-200/70 shadow-xs">
                   <img 
                     src={annaAvatarSrc}
-                    alt="Анна советует" 
+                    alt="Анна" 
                     className="w-full h-full object-cover"
                   />
                 </div>
               </div>
               <div className="flex flex-col text-left">
-                <span className="text-[15px] font-black text-slate-900 leading-none">Анна</span>
-                <span className="text-[11px] font-bold text-slate-500 mt-0.5 leading-none">Советник WFPB</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[14px] font-bold text-slate-800 leading-none">Анна</span>
+                  <span className="bg-orange-100/80 text-orange-800 text-[9.5px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
+                    Биометрия
+                  </span>
+                </div>
+                <span className="text-[10.5px] text-slate-400 font-medium mt-0.5 leading-none">Советник WFPB</span>
               </div>
             </div>
             
-            <img src={ingrGreen} alt="Логотип WFPB" className="w-6 h-6 object-contain" />
+            <img src={ingrGreen} alt="WFPB" className="w-6 h-6 object-contain opacity-90" />
           </div>
 
-          <div className="bg-white/80 backdrop-blur-xs p-3.5 rounded-2xl text-[13.5px] leading-relaxed font-semibold text-slate-800">
+          <div className="bg-white/90 backdrop-blur-xs p-3 rounded-2xl text-[13px] leading-snug font-normal text-slate-700 border border-orange-100/50 shadow-[0_2px_8px_rgba(0,0,0,0.02)] [&_p+p]:mt-1.5">
             <AnnaText text={annaComment || "Сделай свой первый замер сегодня, чтобы я могла проанализировать твою динамику!"} userName={userName} />
           </div>
-        </div>
+        </section>
 
-        {/* 3. LOWER PART: LONG TERM 28-DAY AGGREGATE TELEMETRY */}
-        <div className="bg-white rounded-[32px] border border-gray-100 p-4 shadow-[0_4px_16px_rgba(0,0,0,0.02)] text-left flex flex-col gap-3 mb-5">
+        {/* 3. ПАРЯЩИЙ ОСТРОВ: 28-ДНЕВНЫЙ ГРАФИК */}
+        <section className="bg-white rounded-[28px] border border-white shadow-[0_4px_20px_rgba(15,23,42,0.05)] p-4 text-left flex flex-col gap-3">
           <div className="flex justify-between items-baseline px-1">
             <div className="flex flex-col text-left">
-              <span className="text-[11px] font-black text-[#4CAF50] tracking-wide uppercase">СТАТИСТИКА КУРСА</span>
-              <span className="text-[16px] font-black text-slate-800">Динамика организма 28 дней</span>
+              <span className="text-[10px] font-black text-emerald-600 tracking-wider uppercase">СТАТИСТИКА КУРСА</span>
+              <span className="text-[16px] font-bold text-slate-900 tracking-tight">Динамика за 28 дней</span>
             </div>
             
-            <div className="text-[11px] text-slate-500 font-bold bg-slate-50 px-2.5 py-0.5 rounded-lg border border-slate-100">
-              Выбран День: <span className="text-emerald-600 font-mono font-black">{selectedGraphDay}</span>
+            <div className="text-[10.5px] text-slate-500 font-bold bg-slate-50 px-2.5 py-0.5 rounded-lg border border-slate-100 shrink-0">
+              Выбран День: <span className="text-emerald-700 font-mono font-black">{selectedGraphDay}</span>
             </div>
           </div>
 
-          {/* Metric selector pill bar */}
-          <div className="flex flex-row justify-between gap-1 w-full bg-white p-1 rounded-2xl border border-slate-100">
+          {/* Селектор метрик с защитой мобильной верстки */}
+          <div className="flex flex-row justify-between gap-1 w-full bg-slate-100/70 p-1 rounded-2xl">
             {[
-              { id: "energy", label: "Энергия", activeClass: "bg-[#C5E1A5] text-[#33691E]" },
-              { id: "mood", label: "Настроение", activeClass: "bg-[#B2DFDB] text-[#004D40]" },
-              { id: "wellbeing", label: "Самочувствие", activeClass: "bg-[#A5D6A7] text-[#1B5E20]" },
-              { id: "pulse", label: "Пульс", activeClass: "bg-[#81C784] text-[#1B5E20]" },
-              { id: "weight", label: "Вес", activeClass: "bg-[#B2EBF2] text-[#006064]" }
+              { id: "energy", label: "Энергия", activeClass: "bg-white shadow-xs text-emerald-800 font-bold" },
+              { id: "mood", label: "Настроение", activeClass: "bg-white shadow-xs text-teal-800 font-bold" },
+              { id: "wellbeing", label: "Тонус", activeClass: "bg-white shadow-xs text-emerald-800 font-bold" },
+              { id: "pulse", label: "Пульс", activeClass: "bg-white shadow-xs text-emerald-800 font-bold" },
+              { id: "weight", label: "Вес", activeClass: "bg-white shadow-xs text-teal-800 font-bold" }
             ].map(tab => {
               const isActive = activeChartMetric === tab.id;
               return (
@@ -644,31 +618,22 @@ export default function MeasurementsDetailsScreen({
                   key={tab.id}
                   type="button"
                   onClick={() => setActiveChartMetric(tab.id as any)}
-                  className={`flex-1 whitespace-nowrap overflow-hidden text-ellipsis text-center py-2 rounded-xl text-[10px] sm:text-xs font-semibold transition-colors cursor-pointer ${
-                    isActive ? tab.activeClass : "bg-[#F4FBF7] text-[#81C784]"
+                  className={`flex-1 min-w-0 text-center py-1.5 px-0.5 rounded-xl text-[10.5px] transition-all cursor-pointer ${
+                    isActive ? tab.activeClass : "text-slate-500 hover:text-slate-800 font-medium"
                   }`}
                 >
-                  {tab.label}
+                  <span className="truncate block">{tab.label}</span>
                 </button>
               );
             })}
           </div>
 
-          <div className="relative pt-4 pb-2 px-1 h-44 outline-none border-none focus:outline-none focus:ring-0" style={{ outline: 'none', border: 'none' }}>
-            <style>{`
-              .recharts-wrapper *:focus,
-              .recharts-surface:focus,
-              .recharts-layer:focus,
-              .recharts-bar-rect:focus,
-              .recharts-line-curve:focus {
-                outline: none !important;
-              }
-            `}</style>
-            <ResponsiveContainer width="100%" height="100%" className="outline-none border-none focus:outline-none focus:ring-0" style={{ outline: 'none', border: 'none' }}>
-              <BarChart data={chartData} margin={{ top: 5, right: 10, left: 10, bottom: 0 }} className="outline-none border-none focus:outline-none focus:ring-0" style={{ outline: 'none', border: 'none' }}>
-                <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: "#94a3b8" }} />
+          <div className="relative pt-3 pb-1 px-0.5 h-44 outline-none border-none">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chartData} margin={{ top: 5, right: 6, left: 6, bottom: 0 }}>
+                <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 9.5, fill: "#94a3b8" }} />
                 <YAxis hide type="number" allowDecimals={false} domain={[0, 'dataMax']} />
-                <Tooltip content={<CustomMeasureTooltip />} cursor={{ fill: '#f1f5f9', opacity: 0.5, rx: 4, ry: 4 }} wrapperStyle={{ outline: 'none', border: 'none', pointerEvents: 'none', zIndex: 100 }} />
+                <Tooltip content={<CustomMeasureTooltip />} cursor={{ fill: '#f1f5f9', opacity: 0.5, rx: 4, ry: 4 }} wrapperStyle={{ pointerEvents: 'none', zIndex: 100 }} />
                 
                 {activeChartMetric === "pulse" || activeChartMetric === "weight" ? (
                   <Bar
@@ -676,13 +641,12 @@ export default function MeasurementsDetailsScreen({
                     stackId="a"
                     isAnimationActive={false}
                     shape={<PhysicalBarShape />}
-                    maxBarSize={20}
-                    style={{ outline: 'none', stroke: 'none' }}
+                    maxBarSize={18}
                   >
                     {chartData.map((entry, index) => (
                       <Cell
                         key={`cell-${index}`}
-                        fill={activeChartMetric === "pulse" ? "#81C784" : "#B2EBF2"}
+                        fill={activeChartMetric === "pulse" ? "#81C784" : "#80CBC4"}
                         stroke="transparent"
                         strokeWidth={0}
                       />
@@ -696,8 +660,7 @@ export default function MeasurementsDetailsScreen({
                       stackId="a"
                       isAnimationActive={false}
                       shape={<StackedBlockShape />}
-                      maxBarSize={20}
-                      style={{ outline: 'none', stroke: 'none' }}
+                      maxBarSize={18}
                     >
                       {chartData.map((entry, index) => {
                         const logData = entry.logs[i];
@@ -726,10 +689,10 @@ export default function MeasurementsDetailsScreen({
             </ResponsiveContainer>
           </div>
 
-          {/* Selected day list inspection block */}
-          <div className="bg-slate-50 rounded-2xl p-3 border border-slate-100 flex flex-col gap-2 relative mt-1">
+          {/* История замеров выбранного дня */}
+          <div className="bg-slate-50/80 rounded-2xl p-3 border border-slate-100/80 flex flex-col gap-2 relative mt-0.5">
             <div className="flex justify-between items-baseline">
-              <span className="text-[11.5px] font-bold text-slate-500 uppercase tracking-wider block">
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
                 История замеров • День {selectedGraphDay}
               </span>
               <span className="text-[10px] font-bold text-slate-400">
@@ -738,38 +701,38 @@ export default function MeasurementsDetailsScreen({
             </div>
 
             {selectedDayList.length > 0 ? (
-              <div className="flex flex-col rounded-xl overflow-hidden border border-[#E8F5E9] bg-[#FAFCFB] max-h-[160px] overflow-y-auto scrollbar-none">
+              <div className="flex flex-col rounded-xl overflow-hidden border border-emerald-100/80 bg-white max-h-[160px] overflow-y-auto scrollbar-none">
                 {selectedDayList.map((entry, index) => {
                   const p = parseTonus(entry.tonus);
                   return (
                     <div 
                       key={entry.id || index}
-                      className="flex flex-row items-center justify-between py-1.5 px-2 border-b border-[#E8F5E9] last:border-b-0"
+                      className="flex flex-row items-center justify-between py-2 px-2.5 border-b border-emerald-50 last:border-b-0"
                     >
-                      <div className="flex items-center gap-1 min-w-[45px]">
-                        <img src={iconTime} alt="time" className="w-4 h-4 object-contain opacity-60" />
-                        <span className="text-[11px] text-slate-500 font-mono font-medium">{entry.timeString}</span>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <img src={iconTime} alt="time" className="w-3.5 h-3.5 object-contain opacity-50" />
+                        <span className="text-[11px] text-slate-500 font-mono font-semibold">{entry.timeString}</span>
                       </div>
                       
-                      <div className="flex gap-1 items-center">
-                        <img src={ENERGY_STATES[+p.energy]?.img || ENERGY_STATES[0].img} className="w-6 h-6 object-contain" alt="energy" />
-                        <img src={MOOD_STATES[+p.mood]?.img || MOOD_STATES[0].img} className="w-6 h-6 object-contain" alt="mood" />
-                        <img src={WELLBEING_STATES[+p.wellbeing]?.img || WELLBEING_STATES[0].img} className="w-6 h-6 object-contain" alt="wellbeing" />
+                      <div className="flex gap-1 items-center shrink-0">
+                        <img src={ENERGY_STATES[+p.energy]?.img || ENERGY_STATES[0].img} className="w-5 h-5 object-contain" alt="energy" />
+                        <img src={MOOD_STATES[+p.mood]?.img || MOOD_STATES[0].img} className="w-5 h-5 object-contain" alt="mood" />
+                        <img src={WELLBEING_STATES[+p.wellbeing]?.img || WELLBEING_STATES[0].img} className="w-5 h-5 object-contain" alt="wellbeing" />
                       </div>
 
-                      <div className="flex items-center gap-1.5 sm:gap-2">
-                        <div className="flex items-center gap-0.5 w-[36px] sm:w-[40px] shrink-0">
-                          <img src={iconPulse} alt="pulse" className="w-3.5 h-3.5 sm:w-4 sm:h-4 object-contain" />
-                          <span className="text-[10px] sm:text-[11px] font-mono font-bold text-slate-700">{entry.pulse || "—"}</span>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <div className="flex items-center gap-0.5 shrink-0">
+                          <img src={iconPulse} alt="pulse" className="w-3.5 h-3.5 object-contain" />
+                          <span className="text-[10.5px] font-mono font-bold text-slate-700">{entry.pulse || "—"}</span>
                         </div>
-                        <div className="flex items-center justify-center w-[48px] sm:w-[54px] shrink-0 bg-[#E8F5E9] rounded-md px-1 py-0.5">
-                          <span className="text-[9px] sm:text-[10px] font-mono font-bold text-[#2E7D32] tracking-tighter">
+                        <div className="flex items-center justify-center shrink-0 bg-emerald-50 rounded-md px-1.5 py-0.5 border border-emerald-150">
+                          <span className="text-[9.5px] font-mono font-bold text-emerald-800 tracking-tight whitespace-nowrap">
                             {entry.systolic && entry.diastolic ? `${entry.systolic}/${entry.diastolic}` : "—/—"}
                           </span>
                         </div>
-                        <div className="flex items-center gap-0.5 w-[40px] sm:w-[45px] shrink-0">
-                          <img src={iconWeight} alt="weight" className="w-3.5 h-3.5 sm:w-4 sm:h-4 object-contain" />
-                          <span className="text-[10px] sm:text-[11px] font-mono font-bold text-slate-700">{entry.weight || "—"}</span>
+                        <div className="flex items-center gap-0.5 shrink-0">
+                          <img src={iconWeight} alt="weight" className="w-3.5 h-3.5 object-contain" />
+                          <span className="text-[10.5px] font-mono font-bold text-slate-700">{entry.weight || "—"}</span>
                         </div>
                       </div>
                     </div>
@@ -782,61 +745,78 @@ export default function MeasurementsDetailsScreen({
               </p>
             )}
           </div>
-        </div>
+        </section>
 
-        {/* 4. STATISTICS MATRIX BENTO GRIDS */}
-        <div className="grid grid-cols-2 gap-3.5 mb-6 text-left">
+        {/* 4. СТАТИСТИКА КУРСА: ПАРЯЩИЕ BENTO-ОСТРОВА */}
+        <div className="grid grid-cols-2 gap-3 mb-2 text-left">
           
-          {/* Average Pulse */}
-          <div className="bg-[#F1F8E9] shadow-sm rounded-2xl p-3.5 flex flex-col justify-between relative overflow-hidden">
-            <img src={iconPulse} alt="Пульс" className="absolute top-3 right-3 w-12 h-12 object-contain opacity-90" />
-            <div className="relative z-10 pr-14">
-              <span className="text-[10px] uppercase font-black text-slate-500 tracking-wider">СРЕДНИЙ ПУЛЬС</span>
-              <p className="text-[19px] font-black text-slate-800 mt-1 font-mono">
-                {stats.avgPulse} <span className="text-xs font-bold text-slate-600">уд/мин</span>
-              </p>
-            </div>
-            <span className="text-[11px] font-bold text-[#33691E] mt-2 block relative z-10">
-              Норма покоя: 55-75
-            </span>
-          </div>
-
-          {/* High Energy Ratio Percent */}
-          <div className="bg-[#E8F5E9] shadow-sm rounded-2xl p-3.5 flex flex-col justify-between relative overflow-hidden">
-            <img src={iconResource} alt="Ресурс" className="absolute top-3 right-3 w-12 h-12 object-contain opacity-90" />
-            <div className="relative z-10 pr-14">
-              <span className="text-[10px] uppercase font-black text-slate-500 tracking-wider">РЕСУРСНЫЕ ДНИ</span>
-              <p className="text-[19px] font-black text-slate-800 mt-1 font-mono">
-                {stats.highEnergyPercent}% <span className="text-xs font-bold text-slate-600">дней</span>
-              </p>
-            </div>
-            <span className="text-[11px] font-bold text-[#1B5E20] mt-2 block relative z-10">
-              Энергия высокая/спокойная
-            </span>
-          </div>
-
-          {/* WFPB Weight aggregate loss wellness achievement */}
-          <div className="bg-[#E0F2F1] shadow-sm rounded-2xl p-3.5 flex flex-col justify-between col-span-2 relative overflow-hidden">
-            <img src={iconProgress} alt="Прогресс" className="absolute top-2 right-2 w-16 h-16 object-contain opacity-90" />
-            <div className="relative z-10 pr-20 flex flex-col">
-              <div>
-                <span className="text-[10px] uppercase font-black text-slate-500 tracking-wider">ИЗМЕНЕНИЕ ВЕСА ЗА КУРС</span>
-                <p className="text-[24px] font-black text-[#004D40] mt-0.5" style={{ fontFamily: '"Calibri", sans-serif' }}>
-                  -{stats.weightLoss} кг
-                </p>
+          {/* Средний пульс: персиковый цвет под карточку Анны */}
+          <div className="bg-[#FFF8F2] rounded-[22px] border border-white shadow-[0_4px_16px_rgba(249,115,22,0.05)] p-3 flex flex-col gap-1 relative overflow-hidden">
+            <img src={iconPulse} alt="Пульс" className="absolute top-2 right-2 w-10 h-10 object-contain opacity-90 pointer-events-none" />
+            <div className="relative z-10 pr-9">
+              <span className="text-[9px] uppercase font-black text-slate-400 tracking-wider block">СРЕДНИЙ ПУЛЬС</span>
+              <div className="flex items-baseline gap-1 mt-0.5">
+                <span className="text-[22px] font-black text-slate-900 font-mono tracking-tight leading-none">{stats.avgPulse}</span>
+                <span className="text-[10px] font-bold text-slate-400 whitespace-nowrap shrink-0">уд/мин</span>
               </div>
             </div>
-            <div className="border-t border-[#B2DFDB] mt-2.5 pt-2 flex justify-between text-[11px] font-bold text-slate-700 relative z-10 w-full sm:w-[80%] pr-14">
-              <span>Старт: <b className="text-slate-800 font-extrabold">{stats.initialWeight} кг</b></span>
-              <span>•</span>
-              <span>Сейчас: <b className="text-slate-800 font-extrabold">{stats.currentWeight} кг</b></span>
+            <span className="text-[10px] font-bold text-orange-900/80 relative z-10 leading-none">
+              Норма покоя: 55–75
+            </span>
+          </div>
+
+          {/* Ресурсные дни: свежий мятно-изумрудный */}
+          <div className="bg-[#EBF7EE] rounded-[22px] border border-white shadow-[0_4px_16px_rgba(15,23,42,0.04)] p-3 flex flex-col gap-1 relative overflow-hidden">
+            <img src={iconResource} alt="Ресурс" className="absolute top-2 right-2 w-10 h-10 object-contain opacity-90 pointer-events-none" />
+            <div className="relative z-10 pr-9">
+              <span className="text-[9px] uppercase font-black text-slate-400 tracking-wider block">РЕСУРСНЫЕ ДНИ</span>
+              <div className="flex items-baseline gap-1 mt-0.5">
+                <span className="text-[22px] font-black text-slate-900 font-mono tracking-tight leading-none">{stats.highEnergyPercent}%</span>
+                <span className="text-[10px] font-bold text-slate-400 whitespace-nowrap shrink-0">дней</span>
+              </div>
             </div>
+            <span className="text-[10px] font-bold text-emerald-800 relative z-10 leading-none truncate">
+              Энергия в норме
+            </span>
+          </div>
+
+      {/* Изменение веса: Компактный акцент с крупными Старт / Сейчас */}
+      <div className="bg-[#E6F4F2] rounded-[22px] border border-white shadow-[0_4px_16px_rgba(15,23,42,0.04)] p-3 col-span-2 relative overflow-hidden flex flex-col gap-2.5">
+        <img src={iconProgress} alt="Прогресс" className="absolute top-2 right-2.5 w-12 h-12 object-contain opacity-90 pointer-events-none" />
+        
+        {/* Верхний ряд: Заголовок и дельта */}
+        <div className="relative z-10 pr-14 flex flex-col">
+          <span className="text-[9px] uppercase font-black text-slate-400 tracking-wider block">ИЗМЕНЕНИЕ ВЕСА ЗА КУРС</span>
+          <div className="flex items-baseline gap-1.5 mt-0.5">
+            <span className="text-[26px] font-black text-teal-950 font-mono tracking-tight leading-none">
+              -{stats.weightLoss}
+            </span>
+            <span className="text-xs font-bold text-teal-700">кг</span>
           </div>
         </div>
 
+        {/* Контрастные плашки Старт / Сейчас без серой черты */}
+        <div className="relative z-10 grid grid-cols-2 gap-2 bg-white/70 p-2 rounded-xl border border-teal-100/60 shadow-xs">
+          <div className="flex items-baseline justify-between pr-2 border-r border-teal-100">
+            <span className="text-[10.5px] font-bold text-slate-400 uppercase tracking-wide">Старт</span>
+            <span className="text-[15px] font-black text-slate-800 font-mono tracking-tight">
+              {stats.initialWeight} <span className="text-[10px] font-bold text-slate-400">кг</span>
+            </span>
+          </div>
+          <div className="flex items-baseline justify-between pl-1">
+            <span className="text-[10.5px] font-bold text-teal-700 uppercase tracking-wide">Сейчас</span>
+            <span className="text-[15px] font-black text-teal-950 font-mono tracking-tight">
+              {stats.currentWeight} <span className="text-[10px] font-bold text-teal-600">кг</span>
+            </span>
+          </div>
+        </div>
       </div>
 
-      {/* Symmetrical Bottom Navigation menu context selection */}
+    </div>
+
+  </div>
+
+      {/* Нижняя навигация */}
       <BottomBar 
         activeTab="my-day" 
         onHomeClick={onBack} 

@@ -2983,11 +2983,12 @@ export default function MyDayScreen({
                   type="button"
                   onClick={() => {
                     setShowNightPrompt(false);
-                    // Триггерим засыпание (запуск ночной сессии)
-                    if (typeof handleConfirmSleep === "function") {
-                      handleConfirmSleep();
-                    } else if (typeof startNightSession === "function") {
-                      startNightSession();
+                    // Безопасный запуск ночной сессии без TS-ошибок
+                    const w = window as any;
+                    if (typeof w.handleConfirmSleep === "function") {
+                      w.handleConfirmSleep();
+                    } else if (typeof w.startNightSession === "function") {
+                      w.startNightSession();
                     }
                   }}
                   className="w-full py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[14px] shadow-lg shadow-emerald-900/40 active:scale-[0.98] transition-all cursor-pointer"
@@ -3291,33 +3292,35 @@ export default function MyDayScreen({
       {/* 12. FAST MEASUREMENTS SLOT SHEET */}
       <AnimatePresence>
         {showFastMeasurements && (
-          <div className="absolute inset-0 bg-black/45 backdrop-blur-xs flex items-center justify-center z-[65] px-5 py-6" id="fast-measurements-sheet-overlay">
+          <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-[65] px-4 py-4" id="fast-measurements-sheet-overlay">
             {/* Backdrop click to dismiss */}
             <div className="absolute inset-0 z-0" onClick={() => setShowFastMeasurements(false)} />
 
             <motion.div
-              initial={{ opacity: 0, scale: 0.96, y: 12 }}
+              initial={{ opacity: 0, scale: 0.96, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.96, y: 12 }}
-              transition={{ type: "spring", damping: 25, stiffness: 220 }}
-              className="bg-white rounded-[32px] w-full max-w-[420px] p-5 text-left border border-slate-100 shadow-[0_-15px_35px_rgba(0,0,0,0.12)] relative z-10 max-h-[92%] overflow-y-auto scrollbar-none flex flex-col gap-3 text-slate-800"
+              exit={{ opacity: 0, scale: 0.96, y: 10 }}
+              transition={{ type: "spring", damping: 26, stiffness: 260 }}
+              className="bg-white rounded-[28px] w-full max-w-[400px] p-4 text-left border border-white shadow-[0_12px_36px_rgba(15,23,42,0.16)] relative z-10 max-h-[96dvh] flex flex-col gap-2.5 text-slate-800"
             >
-              <div className="flex justify-between items-center">
+              {/* Шапка модалки */}
+              <div className="flex justify-between items-center px-1">
                 <div>
-                  <span className="text-[11px] font-black text-emerald-600 tracking-wider uppercase block mb-0.5">ВЫБОР СОСТОЯНИЯ</span>
-                  <h3 className="text-[20px] font-black text-slate-850" style={{ fontFamily: '"Calibri", sans-serif' }}>Замеры организма</h3>
+                  <span className="text-[10px] font-black text-emerald-600 tracking-wider uppercase block">ВЫБОР СОСТОЯНИЯ</span>
+                  <h3 className="text-[18px] font-bold text-slate-900 tracking-tight leading-none mt-0.5">Замеры организма</h3>
                 </div>
                 <button 
                   type="button"
                   onClick={() => setShowFastMeasurements(false)} 
-                  className="w-8 h-8 rounded-full bg-emerald-50 border border-emerald-100/60 flex items-center justify-center text-emerald-500 hover:bg-emerald-100 active:scale-90 transition-all text-xs font-bold font-mono"
+                  className="w-7 h-7 rounded-full bg-slate-100/80 border border-slate-200/50 flex items-center justify-center text-slate-500 hover:bg-slate-200 active:scale-90 transition-all text-xs font-bold cursor-pointer"
+                  aria-label="Закрыть"
                 >
                   ✕
                 </button>
               </div>
 
-              {/* 1. Энергия / Настроение / Самочувствие — циклические 2D-миниатюры */}
-              <div className="flex flex-row justify-around items-start bg-emerald-50/50 rounded-2xl p-2">
+              {/* 1. Энергия / Настроение / Самочувствие — компактные циклические 2D-миниатюры */}
+              <div className="flex flex-row justify-around items-center bg-emerald-50/50 rounded-2xl p-2 border border-emerald-100/50">
                 {[
                   { title: "ЭНЕРГИЯ", states: ENERGY_STATES, current: fastEnergy, onClick: cycleEnergy },
                   { title: "НАСТРОЕНИЕ", states: MOOD_STATES, current: fastMood, onClick: cycleMood },
@@ -3329,137 +3332,155 @@ export default function MyDayScreen({
                       key={cat.title}
                       type="button"
                       onClick={cat.onClick}
-                      className="flex flex-col items-center gap-0.5 cursor-pointer bg-transparent border-0 outline-none"
+                      className="flex flex-col items-center gap-0.5 cursor-pointer bg-transparent border-0 outline-none active:scale-95 transition-transform"
                     >
-                      <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">{cat.title}</span>
+                      <span className="text-[8.5px] font-black text-emerald-700/80 uppercase tracking-wider">{cat.title}</span>
                       <img
                         src={state.img}
                         alt={state.label}
-                        className="w-20 h-20 object-contain select-none pointer-events-none"
+                        className="w-14 h-14 object-contain select-none pointer-events-none drop-shadow-xs"
                         draggable={false}
                       />
-                      <span className="text-[11px] font-extrabold text-slate-700">{state.label}</span>
+                      <span className="text-[11px] font-bold text-slate-700 leading-none">{state.label}</span>
                     </button>
                   );
                 })}
               </div>
 
-              {/* 2. Пульс, Вес, Давление — крупные степперы с удержанием */}
-              <div className="flex flex-col gap-2.5 border-t border-slate-100 pt-3">
+              {/* 2. Пульс, Вес, Давление — компактные эргономичные степперы */}
+              <div className="flex flex-col gap-2 pt-0.5">
 
-                {/* Pulse */}
-                <div className="flex flex-col gap-0.5">
-                  <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-widest px-1">Пульс (ЧСС)</span>
-                  <div className="flex items-center justify-center gap-4 select-none">
+                {/* Пульс */}
+                <div className="flex items-center justify-between bg-slate-50/70 rounded-2xl px-3 py-1.5 border border-slate-100">
+                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">Пульс</span>
+                  
+                  <div className="flex items-center gap-3 select-none">
                     <HoldStepperButton
                       disabled={fastPulse <= 40}
                       onStep={() => setFastPulse(prev => Math.max(40, prev - 1))}
-                      className="w-14 h-14 rounded-2xl bg-white border-2 border-slate-200 shadow-sm flex items-center justify-center text-slate-700 active:scale-90 hover:border-emerald-300 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                      className="w-10 h-10 rounded-xl bg-white border border-slate-200/80 shadow-2xs flex items-center justify-center text-slate-700 active:scale-90 hover:border-emerald-400 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
                     >
-                      <Minus className="w-6 h-6" />
+                      <Minus className="w-4 h-4" />
                     </HoldStepperButton>
-                    <div className="flex flex-col items-center min-w-[90px]">
-                      <span className="font-mono font-bold text-3xl text-slate-800">{fastPulse}</span>
-                      <span className="text-[9px] font-extrabold text-slate-400 leading-none">уд/мин</span>
+
+                    <div className="flex flex-col items-center min-w-[70px]">
+                      <span className="font-mono font-black text-2xl text-slate-900 leading-none">{fastPulse}</span>
+                      <span className="text-[8.5px] font-bold text-slate-400 leading-none mt-0.5 whitespace-nowrap">уд/мин</span>
                     </div>
+
                     <HoldStepperButton
                       disabled={fastPulse >= 180}
                       onStep={() => setFastPulse(prev => Math.min(180, prev + 1))}
-                      className="w-14 h-14 rounded-2xl bg-white border-2 border-slate-200 shadow-sm flex items-center justify-center text-slate-700 active:scale-90 hover:border-emerald-300 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                      className="w-10 h-10 rounded-xl bg-white border border-slate-200/80 shadow-2xs flex items-center justify-center text-slate-700 active:scale-90 hover:border-emerald-400 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
                     >
-                      <Plus className="w-6 h-6" />
+                      <Plus className="w-4 h-4" />
                     </HoldStepperButton>
                   </div>
                 </div>
 
-                {/* Weight */}
-                <div className="flex flex-col gap-0.5">
-                  <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-widest px-1">Вес (кг)</span>
-                  <div className="flex items-center justify-center gap-4 select-none">
+                {/* Вес */}
+                <div className="flex items-center justify-between bg-slate-50/70 rounded-2xl px-3 py-1.5 border border-slate-100">
+                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">Вес</span>
+                  
+                  <div className="flex items-center gap-3 select-none">
                     <HoldStepperButton
                       disabled={fastWeight <= 30}
                       onStep={() => setFastWeight(prev => Math.max(30, Number((prev - 0.1).toFixed(1))))}
-                      className="w-14 h-14 rounded-2xl bg-white border-2 border-slate-200 shadow-sm flex items-center justify-center text-slate-700 active:scale-90 hover:border-emerald-300 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                      className="w-10 h-10 rounded-xl bg-white border border-slate-200/80 shadow-2xs flex items-center justify-center text-slate-700 active:scale-90 hover:border-emerald-400 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
                     >
-                      <Minus className="w-6 h-6" />
+                      <Minus className="w-4 h-4" />
                     </HoldStepperButton>
-                    <div className="flex flex-col items-center min-w-[90px]">
-                      <span className="font-mono font-bold text-3xl text-slate-800">{fastWeight.toFixed(1)}</span>
-                      <span className="text-[9px] font-extrabold text-slate-400 leading-none">кг</span>
+
+                    <div className="flex flex-col items-center min-w-[70px]">
+                      <span className="font-mono font-black text-2xl text-slate-900 leading-none">{fastWeight.toFixed(1)}</span>
+                      <span className="text-[8.5px] font-bold text-slate-400 leading-none mt-0.5 whitespace-nowrap">кг</span>
                     </div>
+
                     <HoldStepperButton
                       disabled={fastWeight >= 250}
                       onStep={() => setFastWeight(prev => Math.min(250, Number((prev + 0.1).toFixed(1))))}
-                      className="w-14 h-14 rounded-2xl bg-white border-2 border-slate-200 shadow-sm flex items-center justify-center text-slate-700 active:scale-90 hover:border-emerald-300 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                      className="w-10 h-10 rounded-xl bg-white border border-slate-200/80 shadow-2xs flex items-center justify-center text-slate-700 active:scale-90 hover:border-emerald-400 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
                     >
-                      <Plus className="w-6 h-6" />
+                      <Plus className="w-4 h-4" />
                     </HoldStepperButton>
                   </div>
                 </div>
 
-                {/* Systolic */}
-                <div className="flex flex-col gap-0.5">
-                  <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-widest px-1">Верхнее давление (систола)</span>
-                  <div className="flex items-center justify-center gap-4 select-none">
+                {/* Верхнее давление (систола) */}
+                <div className="flex items-center justify-between bg-slate-50/70 rounded-2xl px-3 py-1.5 border border-slate-100">
+                  <div className="flex flex-col">
+                    <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wide leading-none">Систола</span>
+                    <span className="text-[8.5px] text-slate-400 font-medium mt-0.5">верхнее АД</span>
+                  </div>
+                  
+                  <div className="flex items-center gap-3 select-none">
                     <HoldStepperButton
                       disabled={fastSystolic <= 60}
                       onStep={() => setFastSystolic(prev => Math.max(60, prev - 1))}
-                      className="w-14 h-14 rounded-2xl bg-white border-2 border-slate-200 shadow-sm flex items-center justify-center text-slate-700 active:scale-90 hover:border-emerald-300 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                      className="w-10 h-10 rounded-xl bg-white border border-slate-200/80 shadow-2xs flex items-center justify-center text-slate-700 active:scale-90 hover:border-emerald-400 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
                     >
-                      <Minus className="w-6 h-6" />
+                      <Minus className="w-4 h-4" />
                     </HoldStepperButton>
-                    <div className="flex flex-col items-center min-w-[90px]">
-                      <span className="font-mono font-bold text-3xl text-slate-800">{fastSystolic}</span>
-                      <span className="text-[9px] font-extrabold text-slate-400 leading-none">мм рт.ст.</span>
+
+                    <div className="flex flex-col items-center min-w-[70px]">
+                      <span className="font-mono font-black text-2xl text-slate-900 leading-none">{fastSystolic}</span>
+                      <span className="text-[8.5px] font-bold text-slate-400 leading-none mt-0.5 whitespace-nowrap">мм рт.ст.</span>
                     </div>
+
                     <HoldStepperButton
                       disabled={fastSystolic >= 220}
                       onStep={() => setFastSystolic(prev => Math.min(220, prev + 1))}
-                      className="w-14 h-14 rounded-2xl bg-white border-2 border-slate-200 shadow-sm flex items-center justify-center text-slate-700 active:scale-90 hover:border-emerald-300 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                      className="w-10 h-10 rounded-xl bg-white border border-slate-200/80 shadow-2xs flex items-center justify-center text-slate-700 active:scale-90 hover:border-emerald-400 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
                     >
-                      <Plus className="w-6 h-6" />
+                      <Plus className="w-4 h-4" />
                     </HoldStepperButton>
                   </div>
                 </div>
 
-                {/* Diastolic */}
-                <div className="flex flex-col gap-0.5">
-                  <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-widest px-1">Нижнее давление (диастола)</span>
-                  <div className="flex items-center justify-center gap-4 select-none">
+                {/* Нижнее давление (диастола) */}
+                <div className="flex items-center justify-between bg-slate-50/70 rounded-2xl px-3 py-1.5 border border-slate-100">
+                  <div className="flex flex-col">
+                    <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wide leading-none">Диастола</span>
+                    <span className="text-[8.5px] text-slate-400 font-medium mt-0.5">нижнее АД</span>
+                  </div>
+                  
+                  <div className="flex items-center gap-3 select-none">
                     <HoldStepperButton
                       disabled={fastDiastolic <= 30}
                       onStep={() => setFastDiastolic(prev => Math.max(30, prev - 1))}
-                      className="w-14 h-14 rounded-2xl bg-white border-2 border-slate-200 shadow-sm flex items-center justify-center text-slate-700 active:scale-90 hover:border-emerald-300 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                      className="w-10 h-10 rounded-xl bg-white border border-slate-200/80 shadow-2xs flex items-center justify-center text-slate-700 active:scale-90 hover:border-emerald-400 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
                     >
-                      <Minus className="w-6 h-6" />
+                      <Minus className="w-4 h-4" />
                     </HoldStepperButton>
-                    <div className="flex flex-col items-center min-w-[90px]">
-                      <span className="font-mono font-bold text-3xl text-slate-800">{fastDiastolic}</span>
-                      <span className="text-[9px] font-extrabold text-slate-400 leading-none">мм рт.ст.</span>
+
+                    <div className="flex flex-col items-center min-w-[70px]">
+                      <span className="font-mono font-black text-2xl text-slate-900 leading-none">{fastDiastolic}</span>
+                      <span className="text-[8.5px] font-bold text-slate-400 leading-none mt-0.5 whitespace-nowrap">мм рт.ст.</span>
                     </div>
+
                     <HoldStepperButton
                       disabled={fastDiastolic >= 140}
                       onStep={() => setFastDiastolic(prev => Math.min(140, prev + 1))}
-                      className="w-14 h-14 rounded-2xl bg-white border-2 border-slate-200 shadow-sm flex items-center justify-center text-slate-700 active:scale-90 hover:border-emerald-300 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                      className="w-10 h-10 rounded-xl bg-white border border-slate-200/80 shadow-2xs flex items-center justify-center text-slate-700 active:scale-90 hover:border-emerald-400 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
                     >
-                      <Plus className="w-6 h-6" />
+                      <Plus className="w-4 h-4" />
                     </HoldStepperButton>
                   </div>
                 </div>
 
               </div>
 
-              {/* Status and warnings info box inside sheet */}
-              <div className="bg-emerald-50 rounded-2xl p-3 border border-emerald-100/60 text-[11.5px] leading-relaxed text-emerald-800 font-bold">
-                💡 {getDailyMeasurementTip()}
+              {/* Лампочка с советом */}
+              <div className="bg-emerald-50/80 rounded-xl p-2.5 border border-emerald-100/60 text-[11px] leading-snug text-emerald-900 font-medium">
+                {getDailyMeasurementTip()}
               </div>
 
-              {/* Large glorious Save trigger and cancel button */}
-              <div className="flex gap-3 mt-1">
+              {/* Кнопки действий */}
+              <div className="flex gap-2.5 pt-0.5">
                 <button
                   type="button"
                   onClick={() => setShowFastMeasurements(false)}
-                  className="flex-1 py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold rounded-2xl text-[14px] transition-all cursor-pointer active:scale-97 text-center"
+                  className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded-2xl text-[13.5px] transition-all cursor-pointer active:scale-95 text-center"
                 >
                   Отмена
                 </button>
@@ -3467,7 +3488,7 @@ export default function MyDayScreen({
                 <button
                   type="button"
                   onClick={submitFastMeasurement}
-                  className="flex-[2] py-3.5 bg-emerald-500 hover:bg-emerald-600 text-white font-black rounded-2xl text-[15px] transition-all cursor-pointer active:scale-97 flex items-center justify-center"
+                  className="flex-[2] py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-2xl text-[14px] shadow-sm transition-all cursor-pointer active:scale-95 flex items-center justify-center"
                 >
                   Записать замер
                 </button>
@@ -3476,6 +3497,7 @@ export default function MyDayScreen({
           </div>
         )}
       </AnimatePresence>
+	  
       {/* 21. DIARY (ДНЕВНИК) EXPANDED BOTTOM SHEET OVERLAY */}
       <AnimatePresence>
         {showDiarySheet && (
