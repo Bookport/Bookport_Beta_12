@@ -58,12 +58,13 @@ export default function MovementDetailsScreen({
   const setSelectedGraphDay = useAppStore((s) => s.setSelectedGraphDay);
 
   const dailyTargetMin = getMovementGoal();
+  const summaryDay = selectedGraphDay ?? currentDayIndex;
 
   const getDayEntries = (day: number) =>
     movementEntries.filter((e: MovementEntry) => e.dayIndex === day);
 
   const todayEntries = getDayEntries(currentDayIndex);
-  const selectedDayEntries = getDayEntries(selectedGraphDay);
+  const selectedDayEntries = getDayEntries(summaryDay);
   const selectedDayTotalMin = getMovementMinutes(selectedDayEntries);
   const selectedDayPercent = Math.min(100, Math.round((selectedDayTotalMin / dailyTargetMin) * 100));
 
@@ -163,14 +164,13 @@ export default function MovementDetailsScreen({
   const latestActivityType = todayEntries.length > 0 ? todayEntries[todayEntries.length - 1].type : null;
 
   const annaCoaching = useMemo(() => {
-    const summaryDay = selectedGraphDay ?? currentDayIndex;
     const summary = buildDailySummary(summaryDay, useAppStore.getState(), currentDayIndex);
     const foodSummary = buildFoodSummary(savedDishes, summaryDay);
     const isCurrentDay = summaryDay === currentDayIndex;
     return generateMovementSummary(summary, userName, userGender, getDayEntries(summaryDay), foodSummary, isCurrentDay);
-  }, [selectedGraphDay, currentDayIndex, digestionEntries, waterEntries, measurementEntries, movementEntries, savedDishes, userName, userGender]);
+  }, [summaryDay, currentDayIndex, digestionEntries, waterEntries, measurementEntries, movementEntries, savedDishes, userName, userGender]);
 
-  const isCurrentSelected = selectedGraphDay === currentDayIndex;
+  const isCurrentSelected = summaryDay === currentDayIndex;
   const [historicalText, setHistoricalText] = useState<string | null>(null);
   const [historicalLoading, setHistoricalLoading] = useState(false);
   const historyRequestDayRef = useRef<number | null>(null);
@@ -184,7 +184,7 @@ export default function MovementDetailsScreen({
       setHistoricalLoading(false);
       return;
     }
-    const requestedDay = selectedGraphDay;
+    const requestedDay = summaryDay;
     historyRequestDayRef.current = requestedDay;
     setHistoricalLoading(true);
     setHistoricalText(null);
@@ -199,7 +199,7 @@ export default function MovementDetailsScreen({
         setHistoricalText(null);
         setHistoricalLoading(false);
       });
-  }, [selectedGraphDay, currentDayIndex, isCurrentSelected]);
+  }, [summaryDay, currentDayIndex, isCurrentSelected]);
 
   useEffect(() => {
     if (!isCurrentSelected || !currentDayIndex) return;
@@ -215,13 +215,15 @@ export default function MovementDetailsScreen({
     return () => clearTimeout(timer);
   }, [isCurrentSelected, currentDayIndex, annaCoaching.text]);
 
-  const displayedText = isCurrentSelected
-    ? annaCoaching.text
-    : historicalLoading
-      ? "Загружаем сохраненный комментарий…"
-      : historicalText
-        ? historicalText
-        : "Комментарий Анны за этот день не был сохранен.";
+  // Сохранённый комментарий остаётся снимком прошлого дня. Если его нет,
+  // показываем локальный расчёт для выбранной даты, ничего не записывая в историю.
+  const displayedText = summaryDay > currentDayIndex
+    ? "Данные из будущего скрыты"
+    : isCurrentSelected
+      ? annaCoaching.text
+      : historicalLoading
+        ? "Загружаем сохраненный комментарий…"
+        : historicalText || annaCoaching.text;
 
   const chartData = useMemo(() => {
     return Array.from({ length: 28 }).map((_, idx) => {

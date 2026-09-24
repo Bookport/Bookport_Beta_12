@@ -34,6 +34,12 @@ export interface DailySummary {
   movement: {
     activeMin: number;
     status: 'sedentary' | 'active' | 'athletic';
+    /** Есть ли записи за выбранный день; ноль минут сам по себе не равен отсутствию записей. */
+    hasEntries: boolean;
+    /** Число записей за выбранный день, включая записи с нулевой длительностью. */
+    entryCount: number;
+    /** Уникальные записанные типы активности за выбранный день, без выводов об интенсивности. */
+    activityTypes: string[];
   };
   measurements: {
     pulseAvg: number | null;
@@ -167,6 +173,13 @@ export const buildDailySummary = (dayIndex: number, store: AppState, currentDayI
   // (когда durationSeconds ещё не нормализован) activeMin=0 и Анна выдаёт «на нуле».
   const movementEntries = store.movementEntries.filter(m => Number(m.dayIndex) === dayIndexNum);
   const activeMin = getMovementMinutes(movementEntries);
+  const movementHasEntries = movementEntries.length > 0;
+  const movementEntryCount = movementEntries.length;
+  const movementActivityTypes = Array.from(new Set(
+    movementEntries
+      .map(entry => (entry.type || entry.activityType || '').trim())
+      .filter(Boolean)
+  ));
   let movementStatus: 'sedentary' | 'active' | 'athletic' = 'sedentary';
   if (activeMin >= getMovementGoal()) movementStatus = 'active';
   if (activeMin >= 60) movementStatus = 'athletic';
@@ -245,7 +258,13 @@ const latestWeightDeltaAnyDay = latestWeightAnyDay !== null && store.userProfile
       comfortRatio: digestionEntries.length ? comfortableCount / digestionEntries.length : null,
       status: digestionStatus,
     },
-    movement: { activeMin, status: movementStatus },
+    movement: {
+      activeMin,
+      status: movementStatus,
+      hasEntries: movementHasEntries,
+      entryCount: movementEntryCount,
+      activityTypes: movementActivityTypes,
+    },
     measurements: {
       pulseAvg,
       latestPulse,
