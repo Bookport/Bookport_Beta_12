@@ -34,14 +34,29 @@ export const getWaterFeedback = (
   const messageParts: string[] = [];
   const water = summary.water;
   const digestion = summary.digestion;
-  const latestMeasurements = summary.latestMeasurements;
 
   // Нормализованный показатель: для текущего дня — время-скорректированный % (timePct),
   // для истории — абсолютный % от суточной нормы.
   const coachingPct = water.timePct ?? water.pct;
   const isToday = water.timePct !== null;
 
+  // Для комментария используем только замеры выбранного дня — и сегодня, и в истории.
+  // Глобальный последний замер может относиться к другой дате.
+  const measurements = {
+    pulseAvg: summary.measurements.latestPulse ?? summary.measurements.pulseAvg,
+    systolic: summary.measurements.systolic,
+    diastolic: summary.measurements.diastolic,
+    weightAvg: summary.measurements.weightAvg,
+    weightDelta: summary.measurements.weightDelta,
+    tonus: summary.measurements.tonus,
+  };
+
   const ctx: WaterContext = {
+    dayIndex: summary.dayIndex,
+    isToday,
+    goal: water.goal,
+    dailyPct: water.pct,
+    expectedGoalOnNow: water.expectedGoalOnNow,
     userName: userName || "",
     userGender: userGender === "male" ? "male" : userGender === "female" ? "female" : undefined,
     waterStatus: water.status,
@@ -49,14 +64,7 @@ export const getWaterFeedback = (
     amount: water.amount,
     latestBristol: digestion.latestBristol,
     yesterdayFiber: summary.food?.yesterdayFiber ?? 0,
-    latestMeasurements: {
-      pulseAvg: latestMeasurements.pulse,
-      systolic: latestMeasurements.systolic,
-      diastolic: latestMeasurements.diastolic,
-      weightAvg: latestMeasurements.weight,
-      weightDelta: latestMeasurements.weightDelta,
-      tonus: latestMeasurements.tonus,
-    },
+    latestMeasurements: measurements,
   };
 
   // Аддитивный помощник: пушит блок только если словарь вернул текст
@@ -92,12 +100,12 @@ export const getWaterFeedback = (
       : 'critical';
   }
 
-  // Кросс-модульные блоки активны только при реальном дефиците к текущему часу.
-  // Для текущего дня — только критический темп (< 50% от ожидаемого): при behind/mild
-  // (50–69 / 70–99) работает только базовая ветка. Для истории — прежняя логика isLowWater.
+  // Ноль всегда получает только базовую фразу. При ненулевом объёме расширенный
+  // кросс-контекст доступен сегодня для critical, в истории — для deficit/critical.
+  // Позитивные ветки optimum и наблюдение снижения веса остаются исключениями.
   const showCross = isToday
     ? tier === 'critical'
-    : tier === 'zero' || tier === 'deficit' || tier === 'critical';
+    : tier === 'deficit' || tier === 'critical';
 
   // ─────────────────────────────────────────────────────────────
   // БЛОК 1: БАЗА — шкала zero → critical → behind → mild → optimum → excess
@@ -131,11 +139,11 @@ export const getWaterFeedback = (
   // Кандидаты собираются в порядке приоритета: самочувствие → активный ЖКТ →
   // клетчатка → наблюдение веса → нейтральный позитивный ЖКТ. Push только первого.
   // ─────────────────────────────────────────────────────────────
-  const pulse = latestMeasurements.pulse;
-  const sys = latestMeasurements.systolic;
-  const dia = latestMeasurements.diastolic;
-  const weightDelta = latestMeasurements.weightDelta;
-  const tonus = latestMeasurements.tonus;
+  const pulse = measurements.pulseAvg;
+  const sys = measurements.systolic;
+  const dia = measurements.diastolic;
+  const weightDelta = measurements.weightDelta;
+  const tonus = measurements.tonus;
 
   const crossCandidates: string[][] = [];
 
@@ -158,8 +166,8 @@ export const getWaterFeedback = (
     else if (tier === "optimum") crossCandidates.push(cross_food_highFiber_optimum);
   }
 
-  // 4. Наблюдение веса
-  if (weightDelta !== null && weightDelta < 0) crossCandidates.push(cross_measurements_weightLoss);
+  // 4. Наблюдение веса: нулевой объём воды не сопровождаем кросс-блоком.
+  if (tier !== 'zero' && weightDelta !== null && weightDelta < 0) crossCandidates.push(cross_measurements_weightLoss);
   if (showCross && weightDelta !== null && weightDelta >= 0.3) crossCandidates.push(cross_measurements_weightGain);
 
   // 5. Нейтральный позитивный ЖКТ-контекст
