@@ -1,3 +1,5 @@
+// src/utils/crossModuleSummary.ts
+
 import { AppState } from "../store/useAppStore";
 import { getMovementGoal, getMovementMinutes } from "./movementUtils";
 import { getWaterGoal, WATER_ACTIVE_START_MIN, WATER_ACTIVE_WINDOW_MIN } from "./waterGoal";
@@ -30,6 +32,14 @@ export interface DailySummary {
     symptoms: string[];
     comfortRatio: number | null;
     status: 'constipation' | 'ideal' | 'diarrhea' | 'no_data';
+    /** Реальный объём стула из формы («Скудно» / «Нормально» / «Объёмно»). */
+    volume: 'scanty' | 'normal' | 'voluminous' | null;
+    /** Флаг явного выбора пользователем варианта «Нет симптомов». */
+    explicitNoSymptoms: boolean;
+    /** Список всех валидных типов Бристоля за день по порядку записей. */
+    bristolTypes: number[];
+    /** Флаг наличия хотя бы одного валидного типа Бристоля за день. */
+    hasBristol: boolean;
   };
   movement: {
     activeMin: number;
@@ -108,23 +118,55 @@ export const buildDailySummary = (dayIndex: number, store: AppState, currentDayI
   let worstBristol: number | null = null;
   let latestBristol: number | null = null;
   let latestComfort: 'easy' | 'normal' | 'hard' | null = null;
+  let latestVolume: 'scanty' | 'normal' | 'voluminous' | null = null;
+  let explicitNoSymptoms = false;
   let latestSymptoms: string[] = [];
   const symptomsSet = new Set<string>();
+  const bristolTypes: number[] = [];
   let comfortableCount = 0;
 
   if (digestionEntries.length > 0) {
-    latestBristol = digestionEntries[0].bristolType;
-    latestComfort = digestionEntries[0].comfort === "Легко" || digestionEntries[0].comfort === "easy"
-      ? "easy"
-      : digestionEntries[0].comfort === "Тяжело" || digestionEntries[0].comfort === "uncomfortable"
-        ? "hard"
-        : "normal";
-    latestSymptoms = (digestionEntries[0].symptoms || []).filter(s => s !== "Нет симптомов");
+    const latest = digestionEntries[0];
+    latestBristol = typeof latest.bristolType === 'number' && latest.bristolType >= 1 && latest.bristolType <= 7
+      ? latest.bristolType
+      : null;
+
+    // Определение реального объёма (кнопки в UI «Скудно» / «Нормально» / «Объёмно»)
+    const rawComfort = String(latest.comfort || '').trim().toLowerCase();
+    if (rawComfort === 'scanty' || rawComfort === 'скудно') {
+      latestVolume = 'scanty';
+    } else if (rawComfort === 'voluminous' || rawComfort === 'объёмно' || rawComfort === 'объемно') {
+      latestVolume = 'voluminous';
+    } else if (rawComfort === 'normal' || rawComfort === 'нормально') {
+      latestVolume = 'normal';
+    }
+
+    // Сохранение семантики субъективного комфорта (лёгкость/тяжесть),
+    // не подменяя введённый объём на ложное утверждение о легкости/дискомфорте
+    if (rawComfort === 'легко' || rawComfort === 'easy') {
+      latestComfort = 'easy';
+    } else if (rawComfort === 'тяжело' || rawComfort === 'uncomfortable' || rawComfort === 'hard') {
+      latestComfort = 'hard';
+    } else if (latestVolume !== null) {
+      latestComfort = null;
+    } else {
+      latestComfort = 'normal';
+    }
+
+    // Обработка симптомов последней записи: отделяем явное «Нет симптомов» от пустого массива
+    const rawLatestSymptoms = latest.symptoms || [];
+    explicitNoSymptoms = rawLatestSymptoms.some(s => s === "Нет симптомов" || s === "none");
+    latestSymptoms = rawLatestSymptoms.filter(s => s !== "Нет симптомов" && s !== "none");
+
     let bristolSum = 0;
+    let validBristolCount = 0;
     let maxDev = -1;
+
     for (const log of digestionEntries) {
-      if (log.bristolType) {
+      if (typeof log.bristolType === 'number' && log.bristolType >= 1 && log.bristolType <= 7) {
+        bristolTypes.push(log.bristolType);
         bristolSum += log.bristolType;
+        validBristolCount++;
         const dev = Math.abs(log.bristolType - 4);
         if (dev > maxDev) {
           maxDev = dev;
@@ -133,13 +175,18 @@ export const buildDailySummary = (dayIndex: number, store: AppState, currentDayI
       }
       if (log.symptoms) {
         log.symptoms.forEach(s => {
-          if (s !== "Нет симптомов") symptomsSet.add(s);
+          if (s !== "Нет симптомов" && s !== "none") symptomsSet.add(s);
         });
       }
-      const c = log.comfort ? (log.comfort === "Легко" || log.comfort === "easy" ? "easy" : log.comfort === "Нормально" || log.comfort === "normal" ? "normal" : "uncomfortable") : "normal";
-      if (c === "easy" || c === "normal") comfortableCount++;
+      const c = String(log.comfort || '').trim().toLowerCase();
+      if (c === "легко" || c === "easy" || c === "нормально" || c === "normal") {
+        comfortableCount++;
+      }
     }
-    bristolAvg = bristolSum / digestionEntries.length;
+
+    if (validBristolCount > 0) {
+      bristolAvg = Number((bristolSum / validBristolCount).toFixed(1));
+    }
   }
 
   let digestionStatus: 'constipation' | 'ideal' | 'diarrhea' | 'no_data' = 'no_data';
@@ -184,64 +231,64 @@ export const buildDailySummary = (dayIndex: number, store: AppState, currentDayI
   if (activeMin >= getMovementGoal()) movementStatus = 'active';
   if (activeMin >= 60) movementStatus = 'athletic';
 
-// 4. MEASUREMENTS
-const measurements = store.measurementEntries
-  .filter(m => Number(m.dayIndex) === dayIndexNum)
-  .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)); // Descending (самые новые первые)
+  // 4. MEASUREMENTS
+  const measurements = store.measurementEntries
+    .filter(m => Number(m.dayIndex) === dayIndexNum)
+    .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)); // Descending (самые новые первые)
 
-const allMeasurements = [...store.measurementEntries]
-  .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)); // Descending (самые новые вообще)
+  const allMeasurements = [...store.measurementEntries]
+    .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)); // Descending (самые новые вообще)
 
-const pulses = measurements.filter(m => m.pulse).map(m => m.pulse as number);
-const weights = measurements.filter(m => m.weight).map(m => m.weight as number);
-const systolics = measurements.filter(m => m.systolic).map(m => m.systolic as number);
-const diastolics = measurements.filter(m => m.diastolic).map(m => m.diastolic as number);
+  const pulses = measurements.filter(m => m.pulse).map(m => m.pulse as number);
+  const weights = measurements.filter(m => m.weight).map(m => m.weight as number);
+  const systolics = measurements.filter(m => m.systolic).map(m => m.systolic as number);
+  const diastolics = measurements.filter(m => m.diastolic).map(m => m.diastolic as number);
 
-const latestPulse = pulses.length > 0 ? pulses[0] : null; // Последний (актуальный) замер пульса — отсортирован по времени (массив уже убывается по timestamp)
-const systolic = systolics.length > 0 ? systolics[0] : null;
-const diastolic = diastolics.length > 0 ? diastolics[0] : null;
-const pulseAvg = pulses.length > 0 ? Math.round(pulses.reduce((a,b)=>a+b,0)/pulses.length) : null;
-const weightAvg = weights.length > 0 ? Number((weights.reduce((a,b)=>a+b,0)/weights.length).toFixed(1)) : null;
+  const latestPulse = pulses.length > 0 ? pulses[0] : null; // Последний (актуальный) замер пульса — отсортирован по времени (массив уже убывает по timestamp)
+  const systolic = systolics.length > 0 ? systolics[0] : null;
+  const diastolic = diastolics.length > 0 ? diastolics[0] : null;
+  const pulseAvg = pulses.length > 0 ? Math.round(pulses.reduce((a,b)=>a+b,0)/pulses.length) : null;
+  const weightAvg = weights.length > 0 ? Number((weights.reduce((a,b)=>a+b,0)/weights.length).toFixed(1)) : null;
 
-let tonus: 'low' | 'normal' | 'high' | 'no_data' = 'no_data';
-let rawTonus: string | null = null;
-if (measurements.length > 0) {
-  const latestMeasurement = measurements[0];
-  if (latestMeasurement.tonus) {
-    rawTonus = latestMeasurement.tonus;
-    const tStr = latestMeasurement.tonus.toLowerCase();
-    if (tStr.includes("плохое") || tStr.includes("сниженная") || tStr.includes("тяжёлое")) {
-      tonus = 'low';
-    } else if (tStr.includes("хорошее") || tStr.includes("высокая") || tStr.includes("отличное") || tStr.includes("лёгкое")) {
-      tonus = 'high';
-    } else {
-      tonus = 'normal';
+  let tonus: 'low' | 'normal' | 'high' | 'no_data' = 'no_data';
+  let rawTonus: string | null = null;
+  if (measurements.length > 0) {
+    const latestMeasurement = measurements[0];
+    if (latestMeasurement.tonus) {
+      rawTonus = latestMeasurement.tonus;
+      const tStr = latestMeasurement.tonus.toLowerCase();
+      if (tStr.includes("плохое") || tStr.includes("сниженная") || tStr.includes("тяжёлое")) {
+        tonus = 'low';
+      } else if (tStr.includes("хорошее") || tStr.includes("высокая") || tStr.includes("отличное") || tStr.includes("лёгкое")) {
+        tonus = 'high';
+      } else {
+        tonus = 'normal';
+      }
     }
   }
-}
 
-// 4b. LATEST-ANY-DAY MEASUREMENTS (самые свежие замеры вообще, независимо от дня)
-const latestMeasurementAnyDay = allMeasurements.length > 0 ? allMeasurements[0] : null;
-const latestPulseAnyDay = latestMeasurementAnyDay?.pulse ?? null;
-const latestSystolicAnyDay = latestMeasurementAnyDay?.systolic ?? null;
-const latestDiastolicAnyDay = latestMeasurementAnyDay?.diastolic ?? null;
-const latestWeightAnyDay = latestMeasurementAnyDay?.weight ?? null;
-let latestTonusAnyDay: 'low' | 'normal' | 'high' | 'no_data' = 'no_data';
-let latestRawTonusAnyDay: string | null = null;
-if (latestMeasurementAnyDay?.tonus) {
-  latestRawTonusAnyDay = latestMeasurementAnyDay.tonus;
-  const tStr = latestMeasurementAnyDay.tonus.toLowerCase();
-  if (tStr.includes("плохое") || tStr.includes("сниженная") || tStr.includes("тяжёлое")) {
-    latestTonusAnyDay = 'low';
-  } else if (tStr.includes("хорошее") || tStr.includes("высокая") || tStr.includes("отличное") || tStr.includes("лёгкое")) {
-    latestTonusAnyDay = 'high';
-  } else {
-    latestTonusAnyDay = 'normal';
+  // 4b. LATEST-ANY-DAY MEASUREMENTS (самые свежие замеры вообще, независимо от дня)
+  const latestMeasurementAnyDay = allMeasurements.length > 0 ? allMeasurements[0] : null;
+  const latestPulseAnyDay = latestMeasurementAnyDay?.pulse ?? null;
+  const latestSystolicAnyDay = latestMeasurementAnyDay?.systolic ?? null;
+  const latestDiastolicAnyDay = latestMeasurementAnyDay?.diastolic ?? null;
+  const latestWeightAnyDay = latestMeasurementAnyDay?.weight ?? null;
+  let latestTonusAnyDay: 'low' | 'normal' | 'high' | 'no_data' = 'no_data';
+  let latestRawTonusAnyDay: string | null = null;
+  if (latestMeasurementAnyDay?.tonus) {
+    latestRawTonusAnyDay = latestMeasurementAnyDay.tonus;
+    const tStr = latestMeasurementAnyDay.tonus.toLowerCase();
+    if (tStr.includes("плохое") || tStr.includes("сниженная") || tStr.includes("тяжёлое")) {
+      latestTonusAnyDay = 'low';
+    } else if (tStr.includes("хорошее") || tStr.includes("высокая") || tStr.includes("отличное") || tStr.includes("лёгкое")) {
+      latestTonusAnyDay = 'high';
+    } else {
+      latestTonusAnyDay = 'normal';
+    }
   }
-}
-const latestWeightDeltaAnyDay = latestWeightAnyDay !== null && store.userProfile?.initialWeight
-  ? Number((latestWeightAnyDay - store.userProfile.initialWeight).toFixed(1))
-  : null;
+  const latestWeightDeltaAnyDay = latestWeightAnyDay !== null && store.userProfile?.initialWeight
+    ? Number((latestWeightAnyDay - store.userProfile.initialWeight).toFixed(1))
+    : null;
 
   return {
     dayIndex: dayIndexNum,
@@ -257,6 +304,10 @@ const latestWeightDeltaAnyDay = latestWeightAnyDay !== null && store.userProfile
       symptoms: Array.from(symptomsSet),
       comfortRatio: digestionEntries.length ? comfortableCount / digestionEntries.length : null,
       status: digestionStatus,
+      volume: latestVolume,
+      explicitNoSymptoms,
+      bristolTypes,
+      hasBristol: bristolTypes.length > 0,
     },
     movement: {
       activeMin,
