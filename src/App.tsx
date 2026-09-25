@@ -1088,20 +1088,27 @@ export default function App() {
       <GlobalNotificationOverlay />
       <DigestionModal />
       <div 
-        className="w-full min-h-[100dvh] bg-[#F0F3F5] flex justify-center items-stretch text-text-main transition-colors duration-300 pointer-events-auto relative overflow-x-hidden"
+        className="w-full h-[100dvh] overflow-hidden bg-[#F0F3F5] flex justify-center items-stretch text-text-main transition-colors duration-300 pointer-events-auto relative"
         style={{ fontFamily: '"Calibri", "Candara", "Segoe UI", system-ui, sans-serif' }}
       >
         <div className="absolute top-10 left-10 w-96 h-96 bg-brand-green-bright/3 rounded-full blur-[100px] pointer-events-none" />
         <div className="absolute bottom-10 right-10 w-96 h-96 bg-brand-green-mint/3 rounded-full blur-[100px] pointer-events-none" />
 
-        {/* Main viewport Container: адаптивная высота 100dvh и капсула max-w-[440px] */}
+        {/* Main viewport Container: TWA-капсула max-w-[440px], фиксированная
+            высота 100dvh без собственного скролла body. Единственная зона
+            вертикальной прокрутки — внутренний контейнер ниже. */}
         <motion.div 
-          className="w-full max-w-[440px] min-h-[100dvh] bg-white flex flex-col justify-between relative shadow-[0_0_40px_rgba(15,23,42,0.06)] sm:border-x sm:border-slate-200/70"
+          className="w-full max-w-[440px] h-[100dvh] overflow-hidden relative mx-auto bg-white flex flex-col shadow-[0_0_40px_rgba(15,23,42,0.06)] sm:border-x sm:border-slate-200/70"
         >
         
         {/* Top Spacer element representing the status bar region - completely clean empty area of the interface itself */}
-        <div className="h-4 w-full" />
+        <div className="h-4 w-full shrink-0" />
 
+        {/* Единственная область вертикальной прокрутки капсулы.
+            Экраны внутри отдают высоту этому flex-контейнеру
+            (motion-обертки flex-1 flex flex-col), своих окон скролла
+            на уровне App не заводят. */}
+        <div className="flex-1 w-full min-h-0 overflow-y-auto overflow-x-hidden no-scrollbar flex flex-col">
         <AnimatePresence mode="wait">
           {screen === "welcome" ? (
             <motion.div 
@@ -1642,6 +1649,7 @@ export default function App() {
             </motion.div>
           )}
         </AnimatePresence>
+        </div>
 
         {/* Global Achievement Overlay */}
         <AchievementOverlay userGender={userGender} onMixer={(a) => setMixerConfig({

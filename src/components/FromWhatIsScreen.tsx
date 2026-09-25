@@ -85,10 +85,10 @@ export default function FromWhatIsScreen({
   }
 
   return (
-    <div className="flex-1 flex flex-col justify-between bg-[#FAFAFA] min-h-[844px] relative" id="from-what-is-screen-root">
+    <div className="flex-1 flex flex-col justify-between bg-[#FAFAFA] min-h-0 relative" id="from-what-is-screen-root">
       
       {/* 1. SCROLLABLE SCREEN CONTENT CONTAINER */}
-      <div className="flex-1 px-5 pt-3 pb-8 overflow-y-auto max-h-[720px]" id="from-what-is-scroll-container">
+      <div className="flex-1 min-h-0 px-5 pt-3 pb-8 overflow-y-auto no-scrollbar" id="from-what-is-scroll-container">
         
         {/* HEADER BAR */}
         <div className="relative flex items-center mb-6 z-10" id="from-what-is-header">

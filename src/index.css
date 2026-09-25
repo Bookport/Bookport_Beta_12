@@ -147,36 +147,88 @@
 
 
 
-/* Thin custom scrollbar for desktop */
-.scrollbar-thin {
-  scrollbar-width: thin;
-  scrollbar-color: #d1d5db transparent;
+@layer base {
+  /* TWA mobile shell: prevent rubber-band / chained scroll on html/body,
+     keep touch + mouse-wheel scrolling working. Native scrollbar bars are
+     hidden globally (see rules below); scrollable areas opt back into a
+     visible thin bar only via .scrollbar-thin on desktop pointers. */
+  html,
+  body {
+    overscroll-behavior-y: none;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  html::-webkit-scrollbar,
+  body::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+
+  body {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  #root {
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
+    min-height: 100dvh;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  #root::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
 }
 
-.scrollbar-thin::-webkit-scrollbar {
-  width: 5px;
+@layer utilities {
+  /* Global helpers to hide scrollbars while keeping the element scrollable
+     (touch + wheel). Plain CSS so they work without Tailwind plugins.
+     Aliases: .no-scrollbar / .hidden-scrollbar / .scrollbar-none */
+  .no-scrollbar,
+  .hidden-scrollbar,
+  .scrollbar-none,
+  .anna-chat-scroll {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .no-scrollbar::-webkit-scrollbar,
+  .hidden-scrollbar::-webkit-scrollbar,
+  .scrollbar-none::-webkit-scrollbar,
+  .anna-chat-scroll::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
 }
 
-.scrollbar-thin::-webkit-scrollbar-track {
-  background: transparent;
-}
+/* Thin custom scrollbar — desktop pointers with a real mouse only,
+   so mobile TWA (touch) never gets a visible native bar from it. */
+@media (hover: hover) and (pointer: fine) {
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: #d1d5db transparent;
+  }
 
-.scrollbar-thin::-webkit-scrollbar-thumb {
-  background: #d1d5db;
-  border-radius: 8px;
-}
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 5px;
+  }
 
-.scrollbar-thin::-webkit-scrollbar-thumb:hover {
-  background: #a1a1aa;
-}
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
 
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: #d1d5db;
+    border-radius: 8px;
+  }
 
-/* Hide scrollbar for Anna chat area */
-.anna-chat-scroll {
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-
-.anna-chat-scroll::-webkit-scrollbar {
-  display: none;
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: #a1a1aa;
+  }
 }

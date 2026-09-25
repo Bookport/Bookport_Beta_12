@@ -307,10 +307,10 @@ export default function IngredientsScreen({
   };
 
   return (
-    <div className="flex-1 flex flex-col justify-between bg-[#FAFAFA] min-h-[844px] relative scroll-smooth" id="ingredients-screen-root">
+    <div className="min-h-0 flex-1 flex flex-col justify-between bg-[#FAFAFA] relative scroll-smooth" id="ingredients-screen-root">
       
       {/* 1. SCROLLABLE SCREEN CONTAINER */}
-      <div className="flex-1 px-5 pt-3 pb-8 overflow-y-auto max-h-[725px]" id="ingredients-scroll-container">
+      <div className="flex-1 min-h-0 px-5 pt-3 pb-8 overflow-y-auto no-scrollbar" id="ingredients-scroll-container">
         
         {/* HEADER BAR */}
         <div className="relative flex items-center mb-5 z-10" id="ingredients-header">
@@ -383,7 +383,7 @@ export default function IngredientsScreen({
                 </p>
               </motion.div>
             ) : (
-              <div className="grid grid-cols-1 gap-2.5 max-h-[220px] overflow-y-auto pr-1" id="added-ingredients-scroller">
+              <div className="grid grid-cols-1 gap-2.5 max-h-[220px] overflow-y-auto no-scrollbar pr-1" id="added-ingredients-scroller">
                 {selectedIngredients.map((ing) => (
                   <motion.div
                     key={ing.id}
@@ -497,7 +497,7 @@ export default function IngredientsScreen({
                       className="overflow-hidden border-t border-gray-100"
                     >
                       <div className="p-3 flex flex-col gap-3">
-                        <div className="grid grid-cols-3 gap-3 max-h-[260px] overflow-y-auto pr-0.5">
+                        <div className="grid grid-cols-3 gap-3 max-h-[260px] overflow-y-auto no-scrollbar pr-0.5">
                           {items.length === 0 ? (
                             <div className="col-span-3 flex flex-col items-center justify-center py-6 text-text-placeholder select-none">
                               <span className="text-[12px] font-medium">
@@ -511,7 +511,7 @@ export default function IngredientsScreen({
                                 type="button"
                                 key={item.fullName}
                                 onClick={() => handleSelectPredefined(item, catName)}
-                                className={`flex flex-col items-center justify-start cursor-pointer gap-2 relative active:scale-95 transition-transform ${isSelected ? 'drop-shadow-md' : ''}`}
+                                className={`min-w-0 flex flex-col items-center justify-start cursor-pointer gap-2 relative active:scale-95 transition-transform ${isSelected ? 'drop-shadow-md' : ''}`}
                               >
                                 <div className="w-16 h-16 flex items-center justify-center shrink-0">
                                   <img 

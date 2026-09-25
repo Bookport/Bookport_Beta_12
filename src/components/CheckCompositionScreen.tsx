@@ -51,12 +51,15 @@ interface DishCategoryOption {
   key: string;
   image: string;
   color: string;
+  // Короткая подпись только для 9 кнопок сетки (бейдж выбранной категории
+  // и dishCategory наружу остаются полными — см. selectedDishCategory).
+  shortLabel?: string;
 }
 
 const DISH_CATEGORIES: DishCategoryOption[] = [
-  { key: "Первые блюда", image: categorySoup, color: "#FFF0E5" },
+  { key: "Первые блюда", image: categorySoup, color: "#FFF0E5", shortLabel: "Первое" },
   { key: "Салаты", image: categorySalad, color: "#EBF5EA" },
-  { key: "Вторые блюда", image: categoryMain, color: "#FDF5E6" },
+  { key: "Вторые блюда", image: categoryMain, color: "#FDF5E6", shortLabel: "Второе" },
   { key: "Напитки", image: categoryDrink, color: "#E8F4F8" },
   { key: "Смузи", image: categorySmoothie, color: "#E2F0E9" },
   { key: "Закуски", image: categorySnack, color: "#F5EEF8" },
@@ -351,7 +354,7 @@ function FoodAutocompleteList({
     );
   }
   return (
-    <div className="bg-white border border-[#EFF2F3] shadow-[0_12px_28px_rgba(43,49,55,0.12)] rounded-[16px] max-h-[200px] overflow-y-auto flex flex-col z-40">
+    <div className="bg-white border border-[#EFF2F3] shadow-[0_12px_28px_rgba(43,49,55,0.12)] rounded-[16px] max-h-[200px] overflow-y-auto no-scrollbar flex flex-col z-40">
       {suggestions.map(({ item, isRed }) => (
         <button
           key={item.id}
@@ -1533,7 +1536,7 @@ export default function CheckCompositionScreen({
                       className="flex-1 min-w-0 whitespace-nowrap overflow-hidden text-[14px] font-extrabold tracking-tight text-[#2B3137] leading-none"
                       style={{ fontFamily: '"Calibri", sans-serif' }}
                     >
-                      {cat.key}
+                      {cat.shortLabel ?? cat.key}
                     </span>
                   </div>
                 );
@@ -1728,7 +1731,7 @@ export default function CheckCompositionScreen({
 
                   {/* DROP DOWN OVERLAY OF DICTIONARY SELECTION */}
                   {isDropdownOpen && (
-                    <div className="absolute top-[100%] left-0 right-0 mt-1 bg-white border border-[#EFF2F3] shadow-[0_12px_28px_rgba(43,49,55,0.12)] rounded-[20px] p-2.5 z-50 max-h-[240px] overflow-y-auto flex flex-col gap-1">
+                    <div className="absolute top-[100%] left-0 right-0 mt-1 bg-white border border-[#EFF2F3] shadow-[0_12px_28px_rgba(43,49,55,0.12)] rounded-[20px] p-2.5 z-50 max-h-[240px] overflow-y-auto no-scrollbar flex flex-col gap-1">
                       
                       {/* Interactive Section indicator if category has multiple subcategories like "Свежие продукты" */}
                       {activeCategory === "Свежие продукты" && (

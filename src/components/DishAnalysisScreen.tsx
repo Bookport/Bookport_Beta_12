@@ -595,8 +595,8 @@ useEffect(() => {
               </p>
             </div>
 
-            {/* SUMMARY: 6 macro cards */}
-            <div className="grid grid-cols-3 gap-2.5">
+            {/* SUMMARY: 6 macro cards, 2x3 — пары: Калорийность|Белки, Жиры|Углеводы, Клетчатка|Омега */}
+            <div className="grid grid-cols-2 gap-2.5">
               {renderNutrientRow("calories")}
               {renderNutrientRow("protein")}
               {renderNutrientRow("fat")}
