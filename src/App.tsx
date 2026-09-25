@@ -6,6 +6,7 @@ import { useNotificationEngine } from "./services/useNotificationEngine";
 import { formatTimeHM, todayLocalDate } from "./shared/dates";
 import { getUserTimeZone, setUserTimeZone } from "./shared/timeZoneStore";
 import GlobalNotificationOverlay from "./components/GlobalNotificationOverlay";
+import CalculatorsWindow from "./modules/calculators/host/CalculatorsWindow";
 import { api } from "./utils/api";
 import { getTelegramInitData } from "./utils/telegramClient";
 import { useTelegram } from "./hooks/useTelegram";
@@ -1087,6 +1088,10 @@ export default function App() {
     <ErrorBoundary>
       <GlobalNotificationOverlay />
       <DigestionModal />
+      {/* Окно модуля «Калькуляторы»: свой слой поверх капсулы, открывается
+          кнопкой «Клуб» (screen === "calculators"). Читает userProfile из
+          стора и ничего в стор не пишет. */}
+      <CalculatorsWindow />
       <div 
         className="w-full h-[100dvh] overflow-hidden bg-[#F0F3F5] flex justify-center items-stretch text-text-main transition-colors duration-300 pointer-events-auto relative"
         style={{ fontFamily: '"Calibri", "Candara", "Segoe UI", system-ui, sans-serif' }}
@@ -1627,6 +1632,11 @@ export default function App() {
                 onSelectFree={() => handleRestartCourse(false)}
               />
             </motion.div>
+          ) : screen === "calculators" ? (
+            /* За окном калькуляторов экран приложения не монтируем: у окна
+               своя высота 100dvh и своя зона прокрутки, второй скролл
+               внутри капсулы ломает вёрстку. */
+            null
           ) : (
             <motion.div
               key="my-day-view"

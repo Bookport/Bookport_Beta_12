@@ -22,7 +22,10 @@ export type Screen =
   | "digestion" | "my-day" | "habits-twenty" | "what-i-eat"
   | "check-composition" | "dish-analysis" | "my-dishes"
   | "from-what-is" | "book-recipes" | "purchases" | "diary"
-  | "anna" | "state-now" | "settings" | "rewards" | "club" | "graduation";
+  | "anna" | "state-now" | "settings" | "rewards" | "club" | "graduation"
+  // Окно модуля «Калькуляторы»: монтируется отдельным слоем в App,
+  // экранов в цепочке AnimatePresence у него нет.
+  | "calculators";
 
 export interface UserProfile {
   name?: string;

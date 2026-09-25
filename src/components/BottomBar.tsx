@@ -169,11 +169,13 @@ export default function BottomBar({ activeTab = "my-day", ...props }: BottomBarP
         </button>
       </div>
 
-      {/* Клуб */}
+      {/* Клуб — вход в модуль «Калькуляторы». Старый экран клуба (screen ===
+          "club") остаётся в приложении, но из нижнего меню больше не
+          открывается. */}
       <button
         id="nav-club"
         type="button"
-        onClick={() => setScreen("club")}
+        onClick={() => setScreen("calculators")}
         className="flex-1 flex flex-col items-center justify-center gap-1 py-0.5 transition-all duration-200 cursor-pointer active:scale-95 text-center"
       >
         <div className={`w-7 h-7 flex items-center justify-center ${

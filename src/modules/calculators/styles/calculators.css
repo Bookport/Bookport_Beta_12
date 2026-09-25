@@ -1,0 +1,79 @@
+/*
+ * Стили экрана калькуляторов.
+ *
+ * Всё живёт внутри .calc-screen и .calc-dialog: ни глобальных `body`/`html`/`*`,
+ * ни `@font-face` — экран не должен менять остальное приложение.
+ * Подключается импортом из CalculatorsScreen.tsx.
+ */
+
+.calc-screen {
+  --calc-canvas: #ffffff;
+  --calc-ink: #1e293b;
+
+  color: var(--calc-ink);
+  background-color: var(--calc-canvas);
+  -webkit-tap-highlight-color: transparent;
+}
+
+/*
+ * Акцент открытого калькулятора: задаётся на контейнере диалога из каталога,
+ * нейтральное значение ниже нужно для карточки профиля и для модальных форм без акцента.
+ */
+.calc-dialog {
+  --calc-accent: #1e293b;
+  --calc-accent-soft: rgba(30, 41, 59, 0.08);
+  --calc-accent-ring: rgba(30, 41, 59, 0.25);
+
+  color: var(--calc-ink);
+}
+
+.calc-screen input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.calc-screen input[type="number"]::-webkit-outer-spin-button,
+.calc-screen input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* В Telegram WebView вертикальный свайп по полю не должен утаскивать окно приложения. */
+.calc-screen .calc-scrollable {
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+/*
+ * Прокрутка — жестом на телефоне и колесом на ПК, видимой полосы нет: на 360px
+ * она съедает ~15px ширины и рвёт ряд плашек. Полоса скрывается у собственного
+ * прокручиваемого контейнера модуля (экран и тело диалога), глобальных правил нет.
+ */
+.calc-screen,
+.calc-screen .calc-scrollable {
+  scrollbar-width: none;
+}
+
+.calc-screen::-webkit-scrollbar,
+.calc-screen .calc-scrollable::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .calc-dialog {
+    animation: calc-dialog-in 220ms cubic-bezier(0.23, 1, 0.32, 1);
+  }
+}
+
+@keyframes calc-dialog-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 14px, 0) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
