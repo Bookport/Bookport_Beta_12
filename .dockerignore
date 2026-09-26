@@ -9,3 +9,11 @@ test_speed*.sh
 deploy.py
 *.pyc
 __pycache__
+pgdata
+dist
+build
+logs
+Trash
+backups
+achives
+backgro
