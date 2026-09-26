@@ -9,6 +9,11 @@ export default defineConfig(() => {
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
+        // В браузере Prisma не работает и не нужна, а её браузерный стенд
+        // подключается спецификатором `.prisma/client/index-browser`, который
+        // браузер не умеет разрешить — поэтому в собранном бандле он ронял
+        // весь модуль. Сервера это не касается: server.ts собирается esbuild.
+        '@prisma/client': path.resolve(__dirname, 'src/prismaBrowserStub.ts'),
       },
     },
     server: {
