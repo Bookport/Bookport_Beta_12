@@ -8,7 +8,8 @@ import { HttpsProxyAgent } from "https-proxy-agent";
 let bot: Telegraf | null = null;
 let botUsername: string | null = null;
 
-export function setupTelegramWebhook(app: Express) {
+// IS_PRODUCTION передаёт сервер: процесс сам о себе судить не может (см. server.ts, bootNodeEnv).
+export function setupTelegramWebhook(app: Express, isProduction: boolean) {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   if (!token) {
     logger.warn("[TelegramBot] TELEGRAM_BOT_TOKEN not set, bot disabled");
@@ -36,35 +37,40 @@ export function setupTelegramWebhook(app: Express) {
 
       // Purchase flow
       if (param && param.startsWith("purchase_")) {
-        const purchaseToken = await prisma.purchaseToken.findUnique({
-          where: { token: param },
+        const telegramId = String(ctx.from.id);
+
+        // Токен расходываем первым и в той же транзакции, что и пользователя:
+        // updateMany с used=false — это одновременно проверка и захват. Раздельные
+        // upsert + update давали окно, в котором прерванный процесс оставлял
+        // пользователя с purchasedAt, но живой токен, и его тратил второй человек.
+        const user = await prisma.$transaction(async (tx) => {
+          const spent = await tx.purchaseToken.updateMany({
+            where: { token: param, used: false, expiresAt: { gt: new Date() } },
+            data: { used: true, telegramId, usedAt: new Date() },
+          });
+          if (spent.count !== 1) return null;
+
+          return tx.user.upsert({
+            where: { telegramId },
+            update: {
+              telegramName: ctx.from.first_name || null,
+              telegramUsername: ctx.from.username || null,
+              purchasedAt: new Date(),
+            },
+            create: {
+              id: crypto.randomUUID(),
+              telegramId,
+              telegramName: ctx.from.first_name || null,
+              telegramUsername: ctx.from.username || null,
+              purchasedAt: new Date(),
+            },
+          });
         });
 
-        if (!purchaseToken || purchaseToken.used || purchaseToken.expiresAt < new Date()) {
+        if (!user) {
           await ctx.reply("Ссылка устарела или недействительна. Обратитесь в поддержку.");
           return;
         }
-
-        const user = await prisma.user.upsert({
-          where: { telegramId: String(ctx.from.id) },
-          update: {
-            telegramName: ctx.from.first_name || null,
-            telegramUsername: ctx.from.username || null,
-            purchasedAt: new Date(),
-          },
-          create: {
-            id: crypto.randomUUID(),
-            telegramId: String(ctx.from.id),
-            telegramName: ctx.from.first_name || null,
-            telegramUsername: ctx.from.username || null,
-            purchasedAt: new Date(),
-          },
-        });
-
-        await prisma.purchaseToken.update({
-          where: { id: purchaseToken.id },
-          data: { used: true, telegramId: String(ctx.from.id), usedAt: new Date() },
-        });
 
         const appUrl = process.env.SERVER_URL || "https://app.vsedelovede.ru";
         await ctx.reply(
@@ -107,7 +113,7 @@ export function setupTelegramWebhook(app: Express) {
 
   app.use(bot.webhookCallback("/api/telegram-webhook"));
 
-  if (process.env.NODE_ENV === "production" && process.env.SERVER_URL) {
+  if (isProduction && process.env.SERVER_URL) {
     const webhookUrl = `${process.env.SERVER_URL}/api/telegram-webhook`;
     bot.telegram.setWebhook(webhookUrl).then(() => {
       logger.info(`[TelegramBot] Webhook set to ${webhookUrl}`);
@@ -115,7 +121,12 @@ export function setupTelegramWebhook(app: Express) {
       logger.error("[TelegramBot] Failed to set webhook", err);
     });
   } else {
-    logger.info("[TelegramBot] Webhook mode disabled (dev environment)");
+    // Раньше здесь всегда писалось «dev environment», хотя причины две, и для прода они разные.
+    logger.info(
+      isProduction
+        ? "[TelegramBot] Webhook НЕ зарегистрирован: не задан SERVER_URL — бот не получает обновления"
+        : "[TelegramBot] Webhook mode disabled (dev environment)"
+    );
   }
 }
 

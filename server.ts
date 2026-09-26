@@ -58,8 +58,9 @@ declare global {
 const projectRoot = process.cwd();
 
 const envPath = path.join(projectRoot, ".env");
-// NODE_ENV внутри процесса — не свидетель: @prisma/client при импорте сам читает .env
-// из рабочей директории и выставляет NODE_ENV="development", а vite делает то же самое.
+// NODE_ENV внутри процесса — не свидетель: @prisma/client при импорте выставляет
+// NODE_ENV="development", если переменная не задана (замер m-19: и с .env в каталоге, и без него).
+// Явное значение он не перебивает, но полагаться на «а нам его точно передали» нельзя.
 // В ESM это не перехватить даже баннером сборщика — импорты исполняются до любой строки модуля.
 // Поэтому режим берём из /proc/self/environ: это окружение, с которым процесс запустили,
 // и ни один dotenv-подобный загрузчик его не меняет.
@@ -726,7 +727,7 @@ async function startServer() {
   });
 
   // ── Telegram Webhook ──
-  setupTelegramWebhook(app);
+  setupTelegramWebhook(app, IS_PRODUCTION);
 
   // ── Purchase Token API (для лендинга WordPress) ──
   app.post("/api/purchase/register", async (req, res) => {
