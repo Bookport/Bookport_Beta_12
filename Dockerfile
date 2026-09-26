@@ -21,7 +21,7 @@ COPY prisma ./prisma/
 
 RUN npx vite build
 RUN npx esbuild server.ts --bundle --platform=node --format=esm \
-    --packages=external --sourcemap --outfile=dist/server.mjs
+    --packages=external --sourcemap --outfile=build/server.mjs
 RUN mkdir -p dist/src/assets/images/anna && \
     cp -r src/assets/images/anna/* dist/src/assets/images/anna/ 2>/dev/null || true
 
@@ -32,6 +32,7 @@ RUN apk add --no-cache curl
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/build ./build
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/src/anna_wiki ./src/anna_wiki
@@ -43,4 +44,4 @@ RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 EXPOSE 3000
 
 ENTRYPOINT ["docker-entrypoint.sh"]
-CMD ["node", "--max-old-space-size=400", "dist/server.mjs"]
+CMD ["node", "--max-old-space-size=400", "build/server.mjs"]
