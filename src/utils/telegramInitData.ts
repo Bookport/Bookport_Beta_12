@@ -11,18 +11,10 @@ export function extractTelegramUser(initData: string): TelegramUser | null {
   try {
     const botToken = process.env.TELEGRAM_BOT_TOKEN;
 
-    // In production, bot token is required for HMAC validation
+    // Без токена проверять подпись нечем ни в каком режиме: доступ не выдаём.
     if (!botToken) {
-      if (process.env.NODE_ENV === "production") {
-        logger.error("[InitData] TELEGRAM_BOT_TOKEN not set in production!");
-        return null;
-      }
-      // Dev fallback: parse user without hash validation
-      logger.warn("[InitData] TELEGRAM_BOT_TOKEN not set — dev mode skip validation");
-      const params = new URLSearchParams(initData);
-      const userStr = params.get("user");
-      if (!userStr) return null;
-      return JSON.parse(userStr) as TelegramUser;
+      logger.error("[InitData] TELEGRAM_BOT_TOKEN not set — initData rejected");
+      return null;
     }
 
     const params = new URLSearchParams(initData);

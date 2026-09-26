@@ -1,6 +1,7 @@
 import express from "express";
 import path from "path";
 import fs from "fs/promises";
+import { readFileSync } from "fs";
 import crypto from "crypto";
 import { Type } from "@google/genai";
 import dotenv from "dotenv";
@@ -57,7 +58,30 @@ declare global {
 const projectRoot = process.cwd();
 
 const envPath = path.join(projectRoot, ".env");
-dotenv.config({ override: true, path: envPath });
+// NODE_ENV внутри процесса — не свидетель: @prisma/client при импорте сам читает .env
+// из рабочей директории и выставляет NODE_ENV="development", а vite делает то же самое.
+// В ESM это не перехватить даже баннером сборщика — импорты исполняются до любой строки модуля.
+// Поэтому режим берём из /proc/self/environ: это окружение, с которым процесс запустили,
+// и ни один dotenv-подобный загрузчик его не меняет.
+function bootNodeEnv(): { known: boolean; value?: string } {
+  try {
+    const raw = readFileSync("/proc/self/environ", "latin1");
+    const hit = raw.split("\0").find((entry) => entry.startsWith("NODE_ENV="));
+    return { known: true, value: hit ? hit.slice("NODE_ENV=".length).trim() : undefined };
+  } catch {
+    return { known: false, value: process.env.NODE_ENV };
+  }
+}
+
+const BOOT_ENV = bootNodeEnv();
+const IS_PRODUCTION = BOOT_ENV.known
+  ? BOOT_ENV.value === undefined || BOOT_ENV.value === "production"
+  : (BOOT_ENV.value || "production") === "production";
+
+// .env читаем только вне production: файл в каталоге не должен иметь власти над боевым режимом.
+if (!IS_PRODUCTION) {
+  dotenv.config({ path: envPath });
+}
 
 const PORT = parseInt(process.env.PORT || "3001", 10);
 
@@ -630,7 +654,7 @@ async function startServer() {
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
   // ── Dev Auth Bypass ──
-  if (process.env.NODE_ENV === 'development') {
+  if (!IS_PRODUCTION) {
     app.use('/api', (req, res, next) => {
       req.userId = (req.headers['x-dev-user-id'] as string) || 'dev-user-00000000-0000-0000-0000-000000000000';
       req.telegramId = 'dev-telegram-id';
@@ -3242,7 +3266,7 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
   });
 
   // Vite development middleware vs Static Production files
-  if (process.env.NODE_ENV !== "production") {
+  if (!IS_PRODUCTION) {
     const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: { middlewareMode: true, host: true, allowedHosts: true },
@@ -3330,6 +3354,16 @@ function startAccessExpiryWatcher() {
 
 const app = await startServer();
 if (!process.env.VERCEL) {
+  if (IS_PRODUCTION && (await fs.access(envPath).then(() => true).catch(() => false))) {
+    logger.error("[BOOT] в production в рабочей директории лежит .env — режим работы нельзя отличить от дев-режима, сервер не поднимается.");
+    process.exit(1);
+  }
+
+  if (IS_PRODUCTION && !process.env.TELEGRAM_BOT_TOKEN) {
+    logger.error("[BOOT] TELEGRAM_BOT_TOKEN не задан — проверить подпись initData нечем, сервер не поднимается.");
+    process.exit(1);
+  }
+
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
   });
