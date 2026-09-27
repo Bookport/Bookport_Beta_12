@@ -1102,6 +1102,12 @@ export default function App() {
             вертикальной прокрутки — внутренний контейнер ниже. */}
         <motion.div 
           className="w-full max-w-[440px] h-[100dvh] overflow-hidden relative mx-auto bg-white flex flex-col shadow-[0_0_40px_rgba(15,23,42,0.06)] sm:border-x sm:border-slate-200/70"
+          /* env(...) здесь нули, пока вьюпорт не растянут на всю область экрана —
+             для этого в index.html стоит viewport-fit=cover. */
+          style={{
+            paddingTop: 'env(safe-area-inset-top, 0px)',
+            paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+          }}
         >
         
         {/* Top Spacer element representing the status bar region - completely clean empty area of the interface itself */}
