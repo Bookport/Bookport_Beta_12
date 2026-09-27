@@ -5,6 +5,7 @@ import { readFileSync } from "fs";
 import crypto from "crypto";
 import { Type } from "@google/genai";
 import dotenv from "dotenv";
+import compression from "compression";
 
 import { findForbiddenInText } from "./src/data/wfpb_forbidden_ingredients";
 import { normalize, candidateKeys, resolveAgainstIndex, ALIASES } from "./src/utils/ingredientMappingCore";
@@ -520,6 +521,10 @@ async function startServer() {
   });
 
   const app = express();
+
+  // Первый экран тянет один JS-чанк: 4 853 079 Б против 1 041 157 Б в gzip (замер m-114 на прод-контейнере,
+  // где до этой строки не было ни Content-Encoding, ни сжатия на входе).
+  app.use(compression());
 
   // Increase payload size limit to receive captured camera photo bytes
   app.use(express.json({ limit: "50mb" }));
@@ -3189,8 +3194,22 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
     });
   } else {
     const distPath = path.join(projectRoot, "dist");
-    app.use(express.static(distPath));
+    // Имена в /assets содержат хеш содержимого (замер m-114: 1466 файлов из 1466 с хешем), поэтому годится
+    // immutable: релиз меняет имя, и устаревший кэш не мешает. Остальной статик отдаётся как раньше.
+    app.use(
+      "/assets",
+      express.static(path.join(distPath, "assets"), { maxAge: "365d", immutable: true })
+    );
+    app.use(
+      express.static(distPath, {
+        setHeaders: (res, filePath) => {
+          // index.html — единственный файл без хеша в имени: его надо перечитывать каждый заход.
+          if (path.basename(filePath) === "index.html") res.setHeader("Cache-Control", "no-cache");
+        },
+      })
+    );
     app.get("*", (req, res) => {
+      res.setHeader("Cache-Control", "no-cache");
       res.sendFile(path.join(distPath, "index.html"));
     });
   }
