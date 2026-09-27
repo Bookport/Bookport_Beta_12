@@ -53,8 +53,8 @@ spec:
           requests:
             cpu: 100m
             memory: 256Mi
-        # entrypoint перед `exec "$@"` гоняет migrate deploy + generate, поэтому port
-        # открывается не сразу — сначала startupProbe, остальные ждут её.
+        # entrypoint перед `exec "$@"` гоняет migrate deploy и (при пустой Книге) сид, поэтому
+        # port открывается не сразу — сначала startupProbe, остальные ждут её.
         startupProbe:
           httpGet:
             path: /healthz

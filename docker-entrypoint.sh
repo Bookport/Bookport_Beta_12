@@ -4,8 +4,10 @@ set -e
 echo "Running Prisma migrations..."
 npx prisma migrate deploy
 
-echo "Generating Prisma Client..."
-npx prisma generate
+# `prisma generate` здесь не нужен: клиент генерится при сборке образа (Dockerfile, стадия
+# prod-deps) и копируется в runner (`COPY --from=prod-deps /app/node_modules/.prisma`), а схема
+# берётся из того же образа. Повторный generate на старте пода только переписывал node_modules:
+# замер m-137/m-137b на throwaway-Postgres — healthz через 9 с с ним и через 7 с без него.
 
 # Справочник Книги читается сервером (src/services/annaRecipeLookup.ts:103,
 # src/services/annaTools.ts:187,353,386), поэтому при пустой таблице его надо заполнить.
