@@ -111,11 +111,31 @@ export function setupTelegramWebhook(app: Express, isProduction: boolean) {
     }
   });
 
-  app.use(bot.webhookCallback("/api/telegram-webhook"));
+  // Маршрут вебхуза специально смонтирован выше auth-middleware (его зовёт Telegram, а не
+  // пользователь с initData), значит он доступен извне. Без secret_token любой, кто знает адрес,
+  // мог прислать свой апдейт — например `chat_join_request` от имени нужного telegramId.
+  // Проверку делает сам telegraf: webhookFilter сравнивает заголовок
+  // `x-telegram-bot-api-secret-token` константным сравнением и при несовпадении отдаёт next(),
+  // то есть запрос уходит в 404, не доходя до обработчиков бота.
+  const webhookPath = "/api/telegram-webhook";
+  const webhookSecret = process.env.TELEGRAM_WEBHOOK_SECRET;
+  if (webhookSecret || !isProduction) {
+    app.use(bot.webhookCallback(webhookPath, webhookSecret ? { secretToken: webhookSecret } : undefined));
+    if (!webhookSecret) {
+      logger.warn("[TelegramBot] TELEGRAM_WEBHOOK_SECRET не задан — обновления принимаются без проверки (только в дев-режиме)");
+    }
+  } else {
+    logger.error("[TelegramBot] TELEGRAM_WEBHOOK_SECRET не задан — маршрут /api/telegram-webhook не монтируется: неподписанные обновления принимать нельзя");
+  }
 
-  if (isProduction && process.env.SERVER_URL) {
-    const webhookUrl = `${process.env.SERVER_URL}/api/telegram-webhook`;
-    bot.telegram.setWebhook(webhookUrl).then(() => {
+  const missingWebhookEnv = [
+    process.env.SERVER_URL ? null : "SERVER_URL",
+    webhookSecret ? null : "TELEGRAM_WEBHOOK_SECRET",
+  ].filter(Boolean);
+
+  if (isProduction && process.env.SERVER_URL && webhookSecret) {
+    const webhookUrl = `${process.env.SERVER_URL}${webhookPath}`;
+    bot.telegram.setWebhook(webhookUrl, { secret_token: webhookSecret }).then(() => {
       logger.info(`[TelegramBot] Webhook set to ${webhookUrl}`);
     }).catch((err) => {
       logger.error("[TelegramBot] Failed to set webhook", err);
@@ -124,7 +144,7 @@ export function setupTelegramWebhook(app: Express, isProduction: boolean) {
     // Раньше здесь всегда писалось «dev environment», хотя причины две, и для прода они разные.
     logger.info(
       isProduction
-        ? "[TelegramBot] Webhook НЕ зарегистрирован: не задан SERVER_URL — бот не получает обновления"
+        ? `[TelegramBot] Webhook НЕ зарегистрирован: не задано ${missingWebhookEnv.join(" и ")} — бот не получает обновления`
         : "[TelegramBot] Webhook mode disabled (dev environment)"
     );
   }
