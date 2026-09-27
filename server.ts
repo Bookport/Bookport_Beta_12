@@ -86,6 +86,20 @@ if (!IS_PRODUCTION) {
 
 const PORT = parseInt(process.env.PORT || "3001", 10);
 
+// Ответ 500 наружу не должен нести текст внутренней ошибки (имена полей,
+// стеки, строки Prisma) — только короткий текст и код обращения для разговора
+// с поддержкой; подробности уходят в лог под этим же кодом.
+function fail500(req: any, res: any, err: any, extra?: Record<string, unknown>) {
+  const correlationId = crypto.randomUUID().slice(0, 8);
+  const detail = err instanceof Error ? (err.stack ?? err.message) : String(err);
+  logger.error(`[500] cid=${correlationId} ${req?.method ?? "-"} ${req?.originalUrl ?? "-"}: ${detail}`);
+  return res.status(500).json({
+    error: `Внутренняя ошибка сервера (код обращения: ${correlationId})`,
+    correlationId,
+    ...extra,
+  });
+}
+
 const USDA_API_KEY = "ywYviAkfdnK8u2Sn19fMG7Kvmje8y2Bd66Hi2hlN";
 
 // Robust wrapper with automatic model cascade fallback.
@@ -751,7 +765,7 @@ async function startServer() {
       res.json({ botLink, token });
     } catch (err: any) {
       logger.error("[Purchase] register error:", err.message);
-      res.status(500).json({ error: err.message });
+      fail500(req, res, err);
     }
   });
 
@@ -1835,7 +1849,7 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
       const text = await transcribeAudio(audioBase64, { format: format || "wav" });
       return res.json({ text });
     } catch (err: any) {
-      return res.status(500).json({ error: err.message });
+      return fail500(req, res, err);
     }
   });
 
@@ -1922,7 +1936,7 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
       });
     } catch (err: any) {
       console.error("[Init] error:", err.message);
-      res.status(500).json({ error: err.message });
+      fail500(req, res, err);
     }
   });
 
@@ -1976,7 +1990,7 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
       });
     } catch (err: any) {
       console.error("[Graduation] error:", err.message);
-      res.status(500).json({ error: err.message });
+      fail500(req, res, err);
     }
   });
 
@@ -2019,7 +2033,7 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
       });
     } catch (err: any) {
       console.error("[RestartCourse] error:", err.message);
-      res.status(500).json({ error: err.message });
+      fail500(req, res, err);
     }
   });
 
@@ -2069,7 +2083,7 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
       res.json({ ok: true, userId: user.id });
     } catch (err: any) {
       console.error("[UserProfile] error:", err.message);
-      res.status(500).json({ error: err.message });
+      fail500(req, res, err);
     }
   });
 
@@ -2101,7 +2115,7 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
       });
     } catch (err: any) {
       console.error("[UserProfile] GET error:", err.message);
-      res.status(500).json({ error: err.message });
+      fail500(req, res, err);
     }
   });
 
@@ -2127,7 +2141,7 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
       res.json(items);
     } catch (err: any) {
       console.error("[Food] GET error:", err.message);
-      res.status(500).json({ error: err.message });
+      fail500(_req, res, err);
     }
   });
 
@@ -2146,7 +2160,7 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
       res.json({ globalProgress: user.globalProgress });
     } catch (err: any) {
       console.error("[UserProgress] error:", err.message);
-      res.status(500).json({ error: err.message });
+      fail500(req, res, err);
     }
   });
 
@@ -2199,7 +2213,7 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
       });
     } catch (err: any) {
       console.error("[UserData] GET error:", err.message);
-      res.status(500).json({ error: err.message });
+      fail500(req, res, err);
     }
   });
 
@@ -2284,7 +2298,7 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
       });
     } catch (err: any) {
       console.error("[StateNow] GET error:", err.message);
-      res.status(500).json({ error: err.message });
+      fail500(req, res, err);
     }
   });
 
@@ -2471,7 +2485,7 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
       res.json({ ok: true, id: record.id });
     } catch (err: any) {
       console.error("[DailyMetric] error:", err.message);
-      res.status(500).json({ error: err.message });
+      fail500(req, res, err);
     }
   });
 
@@ -2494,7 +2508,7 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
       })));
     } catch (err: any) {
       console.error("[DailyMetric] GET error:", err.message);
-      res.status(500).json({ error: err.message });
+      fail500(req, res, err);
     }
   });
 
@@ -2569,7 +2583,7 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
       res.json({ ok: true, id: record.id, record });
     } catch (err: any) {
       console.error("[DailyRating] error:", err.message);
-      res.status(500).json({ error: err.message });
+      fail500(req, res, err);
     }
   });
 
@@ -2594,7 +2608,7 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
       res.json({ ok: true, id: record.id });
     } catch (err: any) {
       console.error("[RecipeProgress] error:", err.message);
-      res.status(500).json({ error: err.message });
+      fail500(req, res, err);
     }
   });
 
@@ -2606,7 +2620,7 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
       res.json(records.map(r => ({ ...r, tags: r.tags ? JSON.parse(r.tags) : [] })));
     } catch (err: any) {
       console.error("[RecipeProgress] GET error:", err.message);
-      res.status(500).json({ error: err.message });
+      fail500(req, res, err);
     }
   });
 
@@ -2686,7 +2700,7 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
       res.json({ ok: true, dish });
     } catch (err: any) {
       console.error("[SavedDish] error:", err.message);
-      res.status(500).json({ error: err.message });
+      fail500(req, res, err);
     }
   });
 
@@ -2708,7 +2722,7 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
       })));
     } catch (err: any) {
       console.error("[SavedDish] GET error:", err.message);
-      res.status(500).json({ error: err.message });
+      fail500(req, res, err);
     }
   });
 
@@ -2732,7 +2746,7 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
       res.json({ ok: true, id: dish.id });
     } catch (err: any) {
       console.error("[SavedDish] PATCH error:", err.message);
-      res.status(500).json({ error: err.message });
+      fail500(req, res, err);
     }
   });
 
@@ -2747,7 +2761,7 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
       res.json({ success: true });
     } catch (err: any) {
       console.error("[SavedDish] DELETE error:", err.message);
-      res.status(500).json({ error: err.message });
+      fail500(req, res, err);
     }
   });
 
@@ -2772,7 +2786,7 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
       res.json({ ok: true, id: entry.id });
     } catch (err: any) {
       console.error("[Diary] error:", err.message);
-      res.status(500).json({ error: err.message });
+      fail500(req, res, err);
     }
   });
 
@@ -2790,7 +2804,7 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
       res.json(entries.map(e => ({ ...e, tags: e.tags ? JSON.parse(e.tags) : [] })));
     } catch (err: any) {
       console.error("[Diary] GET error:", err.message);
-      res.status(500).json({ error: err.message });
+      fail500(req, res, err);
     }
   });
 
@@ -2804,7 +2818,7 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
       res.json({ ok: true });
     } catch (err: any) {
       console.error("[Diary] DELETE error:", err.message);
-      res.status(500).json({ error: err.message });
+      fail500(req, res, err);
     }
   });
 
@@ -2824,7 +2838,7 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error";
       console.error("[Diary hidden events] GET error:", message);
-      res.status(500).json({ error: message });
+      fail500(req, res, err);
     }
   });
 
@@ -2857,7 +2871,7 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error";
       console.error("[Diary hidden events] POST error:", message);
-      res.status(500).json({ error: message });
+      fail500(req, res, err);
     }
   });
 
@@ -2869,7 +2883,7 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
       const items = await prisma.shoppingItem.findMany({ where: { userId: req.userId }, orderBy: { createdAt: "desc" } });
       res.json(items);
     } catch (err: any) {
-      res.status(500).json({ error: err.message });
+      fail500(req, res, err);
     }
   });
 
@@ -2882,7 +2896,7 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
       });
       res.json({ ok: true, id: item.id });
     } catch (err: any) {
-      res.status(500).json({ error: err.message });
+      fail500(req, res, err);
     }
   });
 
@@ -2896,7 +2910,7 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
       if (r.count === 0) return res.status(404).json({ error: "Item not found" });
       res.json({ ok: true, id });
     } catch (err: any) {
-      res.status(500).json({ error: err.message });
+      fail500(req, res, err);
     }
   });
 
@@ -2907,7 +2921,7 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
       if (r.count === 0) return res.status(404).json({ error: "Item not found" });
       res.json({ ok: true });
     } catch (err: any) {
-      res.status(500).json({ error: err.message });
+      fail500(req, res, err);
     }
   });
 
@@ -2917,7 +2931,7 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
       await prisma.shoppingItem.deleteMany({ where: { userId: req.userId } });
       res.json({ ok: true });
     } catch (err: any) {
-      res.status(500).json({ error: err.message });
+      fail500(req, res, err);
     }
   });
 
@@ -2932,7 +2946,7 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
       });
       res.json({ ok: true, id: chat.id });
     } catch (err: any) {
-      res.status(500).json({ error: err.message });
+      fail500(req, res, err);
     }
   });
 
@@ -2946,7 +2960,7 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
       });
       res.json(chats);
     } catch (err: any) {
-      res.status(500).json({ error: err.message });
+      fail500(req, res, err);
     }
   });
 
@@ -2977,7 +2991,7 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
       });
       res.json({ ok: true, id: msg.id });
     } catch (err: any) {
-      res.status(500).json({ error: err.message });
+      fail500(req, res, err);
     }
   });
 
@@ -2995,7 +3009,7 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
       });
       res.json({ text: msg?.text || null });
     } catch (err: any) {
-      res.status(500).json({ error: err.message });
+      fail500(req, res, err);
     }
   });
 
@@ -3098,7 +3112,7 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
       res.json({ unlocked: [] });
     } catch (err: any) {
       logger.error("[Achievements] Check error:", err.message);
-      res.status(500).json({ error: err.message, unlocked: [] });
+      fail500(req, res, err, { unlocked: [] });
     }
   });
 
@@ -3195,7 +3209,7 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
       res.status(400).json({ error: "Unknown action" });
     } catch (e: any) {
       logger.error("[Debug] Error:", e.message);
-      res.status(500).json({ error: e.message });
+      fail500(req, res, e);
     }
   });
 
@@ -3306,8 +3320,12 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
   }
 
   app.use((err: any, req: any, res: any, next: any) => {
-    console.error("[ERROR]", err.status || 500, err.message);
-    res.status(err.status || 500).json({ error: err.message });
+    const status = err.status || 500;
+    if (status < 500) {
+      console.error("[ERROR]", status, err.message);
+      return res.status(status).json({ error: err.message });
+    }
+    fail500(req, res, err);
   });
 
   return app;
