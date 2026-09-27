@@ -254,9 +254,7 @@ function getAnnaBubbleStyle(currentScreen: string) {
 export default function App() {
   useNotificationEngine(); // Run global notifications
   
-  console.log("App.tsx is rendering!");
   const screen = useAppStore((s) => s.screen);
-  console.log("Current screen is:", screen);
   const setScreen = useAppStore((s) => s.setScreen);
   const buildVersion = "Bookport_20_Beta";
   const annaAvatarSrc = resolveGeneralAvatar().src;
@@ -571,7 +569,6 @@ export default function App() {
         lastName: tgUser.last_name,
         username: tgUser.username,
       });
-      console.log(`[Telegram] Mini App opened by @${tgUser.username || tgUser.first_name} (id: ${tgUser.id})`);
     }
   }, []);
 
@@ -607,7 +604,6 @@ export default function App() {
 
         const data = await api<any>("/api/user/data");
         setUserTimeZone(data.profile?.timeZone);
-        console.log("[Init] profile:", data.profile?.name || "—", "dishes:", data.savedDishes?.length, "diary:", data.diary?.length, "progress:", data.recipeProgress?.length);
 
         // Hydrate achievement engine with server-side unlocked IDs
         if (data.unlockedAchievementIds?.length > 0) {
@@ -1622,10 +1618,10 @@ export default function App() {
               className="flex-1 flex flex-col"
             >
               <GraduationScreen
-                userName={userName || (useAppStore.getState().userProfile.name as string) || "Полковник Санчес"}
-                totalWaterLiters={graduationData?.totalWaterLiters ?? 64.5}
-                cookedOutOf166={graduationData?.cookedOutOf166 ?? 14}
-                totalFiberKg={graduationData?.totalFiberKg ?? 1.2}
+                userName={userName || (useAppStore.getState().userProfile.name as string)}
+                totalWaterLiters={graduationData?.totalWaterLiters}
+                cookedOutOf166={graduationData?.cookedOutOf166}
+                totalFiberKg={graduationData?.totalFiberKg}
                 weightDelta={graduationData?.weightDelta ?? null}
                 systolicDelta={graduationData?.systolicDelta ?? null}
                 onSelectPro={() => handleRestartCourse(true)}

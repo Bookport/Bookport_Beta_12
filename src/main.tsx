@@ -5,8 +5,6 @@ import ErrorBoundary from './components/ErrorBoundary.tsx';
 import './index.css';
 import { getTelegramInitData } from './utils/telegramClient';
 
-console.log("main.tsx is executing!");
-
 window.addEventListener('error', (event) => {
   console.error("Caught global error:", event.error);
   fetch('/api/logs/client', {

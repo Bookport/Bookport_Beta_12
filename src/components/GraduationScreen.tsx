@@ -34,10 +34,10 @@ export interface GraduationScreenProps {
 }
 
 export const GraduationScreen: React.FC<GraduationScreenProps> = ({
-  userName = "Полковник Санчес",
-  totalWaterLiters = 64.5,
+  userName = "",
+  totalWaterLiters,
   cookedOutOf166,
-  totalFiberKg = 1.2,
+  totalFiberKg,
   weightDelta = null,
   systolicDelta = null,
   onSelectPro,
@@ -45,7 +45,7 @@ export const GraduationScreen: React.FC<GraduationScreenProps> = ({
   onShareCertificate,
   totalCookedCount,
 }) => {
-  const displayCooked = cookedOutOf166 ?? totalCookedCount ?? 14;
+  const displayCooked = cookedOutOf166 ?? totalCookedCount ?? null;
   return (
     <div className="min-h-screen bg-[#F8FAFC] pb-12 pt-4 px-3 sm:px-4 max-w-lg mx-auto font-sans antialiased text-slate-800">
       {/* 1. HERO-БЛОК «ТРИУМФ 28 ДНЕЙ» */}
@@ -80,7 +80,7 @@ export const GraduationScreen: React.FC<GraduationScreenProps> = ({
 
         {/* Персональный подзаголовок */}
         <p className="text-[13px] sm:text-[14.5px] font-medium text-slate-600 max-w-sm mt-1.5 leading-snug px-2">
-          <span className="font-bold text-slate-800">{userName}</span>, вы совершили фундаментальную перезагрузку метаболизма и клеточной энергии.
+          {userName ? <><span className="font-bold text-slate-800">{userName}</span>, вы</> : "Вы"} совершили фундаментальную перезагрузку метаболизма и клеточной энергии.
         </p>
         {(weightDelta != null || systolicDelta != null) && (
           <div className="flex flex-wrap items-center justify-center gap-2 mt-3">
@@ -135,7 +135,7 @@ export const GraduationScreen: React.FC<GraduationScreenProps> = ({
             </div>
             <div>
               <div className="text-[20px] sm:text-[22px] font-black text-slate-900 leading-none mb-1">
-                {totalWaterLiters.toFixed(1)} л
+                {totalWaterLiters != null ? totalWaterLiters.toFixed(1) : "—"} л
               </div>
               <p className="text-[10.5px] text-slate-600 leading-tight">
                 Чистый объём воды, восстановивший текучесть лимфы и тургор тканей.
@@ -162,7 +162,7 @@ export const GraduationScreen: React.FC<GraduationScreenProps> = ({
             </div>
             <div>
               <div className="text-[20px] sm:text-[22px] font-black text-slate-900 leading-none mb-1">
-                {displayCooked} из 166
+                {displayCooked != null ? displayCooked : "—"} из 166
               </div>
               <p className="text-[10.5px] text-slate-600 leading-tight">
                 Цельных растительных блюд, сформировавших новый защитный микробиом.
@@ -189,7 +189,7 @@ export const GraduationScreen: React.FC<GraduationScreenProps> = ({
             </div>
             <div>
               <div className="text-[20px] sm:text-[22px] font-black text-slate-900 leading-none mb-1">
-                {totalFiberKg.toFixed(1)} кг
+                {totalFiberKg != null ? totalFiberKg.toFixed(1) : "—"} кг
               </div>
               <p className="text-[10.5px] text-slate-600 leading-tight">
                 Терапевтическое волокно, снявшее оксидативный стресс и инсулиновые пики.
