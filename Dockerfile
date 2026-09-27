@@ -30,16 +30,31 @@ RUN npx vite build
 RUN npx esbuild server.ts --bundle --platform=node --format=esm \
     --packages=external --sourcemap --outfile=build/server.mjs
 
+FROM node:22-alpine AS prod-deps
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+COPY prisma ./prisma/
+
+# Рантайм пода (этап 3.10): серверный бандл собирается с --packages=external, поэтому наружу
+# должны ехать только те пакеты, которые он реально импортирует, — плюс пара prisma+tsx,
+# которую зовёт docker-entrypoint.sh (migrate deploy / generate / db seed = «tsx prisma/seed.ts»).
+# v6-сборщик (vite, @tailwindcss/vite, @vitejs/plugin-react) и клиентские библиотеки
+# (react, recharts, lucide-react, zustand, motion, html5-qrcode) нужны только стадии builder:
+# сервер обращается к vite лишь в ветке `if (!IS_PRODUCTION)` (server.ts:3233), в проде она недостижима.
+RUN npm ci --omit=dev --ignore-scripts
+RUN npx prisma generate
+
 FROM node:22-alpine AS runner
 WORKDIR /app
 
 RUN apk add --no-cache curl tini
 
-COPY --from=deps /app/node_modules ./node_modules
+COPY --from=prod-deps /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/build ./build
 COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=prod-deps /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/src/anna_wiki ./src/anna_wiki
 COPY --from=builder /app/src/data ./src/data
 COPY --from=builder /app/src/assets/images ./src/assets/images
