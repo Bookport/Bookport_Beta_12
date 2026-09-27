@@ -108,6 +108,14 @@ function debugInput(...args: any[]) {
   if (!IS_PRODUCTION) console.log(...args);
 }
 
+// Сравнение секретов: привели обе стороны к sha256 (одинаковая длина обязательна для
+// timingSafeEqual), сравниваем без раннего выхода.
+function secretEqual(a: string, b: string): boolean {
+  const ha = crypto.createHash("sha256").update(a).digest();
+  const hb = crypto.createHash("sha256").update(b).digest();
+  return crypto.timingSafeEqual(ha, hb);
+}
+
 // Robust wrapper with automatic model cascade fallback.
 // models можно переопределить точечным вызовом (напр., photo recognition),
 // дефолтный каскад других endpoint'ов не меняется.
@@ -549,6 +557,44 @@ async function startServer() {
     }
   });
 
+  // ── Telegram Webhook ──
+  // Монтаж ДО auth-middleware: Telegram приходит сюда без initData, и после
+  // `app.use("/api", auth)` маршрут отвечал 401 — то есть в проде не доходило ни одно
+  // обновление, включая активацию инвайтов.
+  setupTelegramWebhook(app, IS_PRODUCTION);
+
+  // ── Purchase Token API (для лендинга WordPress) ──
+  // Тот же порядок: у лендинга нет initData, есть только X-API-Key.
+  app.post("/api/purchase/register", async (req, res) => {
+    const expected = process.env.PURCHASE_API_KEY;
+    if (!expected) {
+      logger.error("[Purchase] PURCHASE_API_KEY не задан — маршрут закрыт");
+      return res.status(503).json({ error: "Purchase API is not configured" });
+    }
+    const apiKey = req.headers["x-api-key"];
+    if (typeof apiKey !== "string" || !secretEqual(apiKey, expected)) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ error: "Email required" });
+    try {
+      const token = `purchase_${crypto.randomUUID()}`;
+      await prisma.purchaseToken.create({
+        data: {
+          token,
+          email,
+          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        },
+      });
+      const botUsername = getBotUsername();
+      const botLink = botUsername ? `https://t.me/${botUsername}?start=${token}` : null;
+      res.json({ botLink, token });
+    } catch (err: any) {
+      logger.error("[Purchase] register error:", err.message);
+      fail500(req, res, err);
+    }
+  });
+
   // ── Dev Auth Bypass ──
   if (!IS_PRODUCTION) {
     app.use('/api', (req, res, next) => {
@@ -619,35 +665,6 @@ async function startServer() {
       return originalEnd(...args);
     } as typeof res.end;
     next();
-  });
-
-  // ── Telegram Webhook ──
-  setupTelegramWebhook(app, IS_PRODUCTION);
-
-  // ── Purchase Token API (для лендинга WordPress) ──
-  app.post("/api/purchase/register", async (req, res) => {
-    const apiKey = req.headers["x-api-key"];
-    if (apiKey !== process.env.PURCHASE_API_KEY) {
-      return res.status(403).json({ error: "Forbidden" });
-    }
-    const { email } = req.body;
-    if (!email) return res.status(400).json({ error: "Email required" });
-    try {
-      const token = `purchase_${crypto.randomUUID()}`;
-      await prisma.purchaseToken.create({
-        data: {
-          token,
-          email,
-          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-        },
-      });
-      const botUsername = getBotUsername();
-      const botLink = botUsername ? `https://t.me/${botUsername}?start=${token}` : null;
-      res.json({ botLink, token });
-    } catch (err: any) {
-      logger.error("[Purchase] register error:", err.message);
-      fail500(req, res, err);
-    }
   });
 
   // Client error log receiver
