@@ -23,6 +23,8 @@ spec:
       labels:
         app: bookport
     spec:
+      # Зафиксировано явно, совпадает со значением по умолчанию Kubernetes.
+      terminationGracePeriodSeconds: 30
       containers:
       - env:
         - name: NODE_ENV
@@ -51,3 +53,26 @@ spec:
           requests:
             cpu: 100m
             memory: 256Mi
+        # entrypoint перед `exec "$@"` гоняет migrate deploy + generate, поэтому port
+        # открывается не сразу — сначала startupProbe, остальные ждут её.
+        startupProbe:
+          httpGet:
+            path: /healthz
+            port: http
+          periodSeconds: 2
+          timeoutSeconds: 2
+          failureThreshold: 30
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: http
+          periodSeconds: 20
+          timeoutSeconds: 3
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: http
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
