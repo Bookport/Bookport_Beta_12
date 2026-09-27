@@ -3297,7 +3297,11 @@ function startAccessExpiryWatcher() {
   logger.info(`[AccessExpiry] Watcher started (interval=${CHECK_INTERVAL_MS}ms, warn=${WARN_DAYS} days)`);
 }
 
-const app = await startServer();
+// Гейты обязательных переменных читаются до startServer() и до app.listen(): без базы
+// сервер поднимался, отвечал /healthz 200 и падал стеком Prisma на каждом запросе к базе
+// (первая ошибка — watchdog уже после "Server running"; замер m-131, случай BEFORE).
+// Порядок проверки важен: .env в каталоге опасен и для @prisma/client — он при импорте сам
+// читает .env от корня проекта и подставляет DATABASE_URL, поэтому сначала отказ по .env.
 if (!process.env.VERCEL) {
   if (IS_PRODUCTION && (await fs.access(envPath).then(() => true).catch(() => false))) {
     logger.error("[BOOT] в production в рабочей директории лежит .env — режим работы нельзя отличить от дев-режима, сервер не поднимается.");
@@ -3309,6 +3313,14 @@ if (!process.env.VERCEL) {
     process.exit(1);
   }
 
+  if (IS_PRODUCTION && !process.env.DATABASE_URL) {
+    logger.error("[BOOT] DATABASE_URL не задан — подключения к базе нет, сервер не поднимается.");
+    process.exit(1);
+  }
+}
+
+const app = await startServer();
+if (!process.env.VERCEL) {
   const server = app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
   });
