@@ -2717,6 +2717,10 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
     try {
       const { id } = req.params;
       const data = req.body;
+      // WHERE только по id — чужой id менялся бы без сверки владельца (IDOR).
+      const existing = await prisma.savedDish.findUnique({ where: { id } });
+      if (!existing) return res.status(404).json({ error: "Dish not found" });
+      if (existing.userId !== req.userId) return res.status(403).json({ error: "Forbidden" });
       const dish = await prisma.savedDish.update({
         where: { id },
         data: {
@@ -2887,8 +2891,10 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
     try {
       const { id } = req.params;
       const { checked } = req.body;
-      const item = await prisma.shoppingItem.update({ where: { id }, data: { checked } });
-      res.json({ ok: true, id: item.id });
+      // updateMany с userId в where: чужой id не изменится, и P2025 не бросается.
+      const r = await prisma.shoppingItem.updateMany({ where: { id, userId: req.userId }, data: { checked } });
+      if (r.count === 0) return res.status(404).json({ error: "Item not found" });
+      res.json({ ok: true, id });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
@@ -2897,7 +2903,8 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
   app.delete("/api/shopping-list/:id", async (req, res) => {
     if (!req.userId) return res.status(400).json({ error: "Missing device ID" });
     try {
-      await prisma.shoppingItem.delete({ where: { id: req.params.id } });
+      const r = await prisma.shoppingItem.deleteMany({ where: { id: req.params.id, userId: req.userId } });
+      if (r.count === 0) return res.status(404).json({ error: "Item not found" });
       res.json({ ok: true });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
