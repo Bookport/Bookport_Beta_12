@@ -3198,8 +3198,16 @@ Generate a short, sarcastic Anna comment (1 paragraph, 2-4 sentences in Russian)
   app.use((err: any, req: any, res: any, next: any) => {
     const status = err.status || 500;
     if (status < 500) {
-      console.error("[ERROR]", status, err.message);
-      return res.status(status).json({ error: err.message });
+      // Сюда попадают только ошибки фреймворка (body-parser, stat из sendFile): маршруты
+      // отдают свои 4xx напрямую через res.json({ error }). Их message — текст Node с
+      // абсолютными путями контейнера, наружу его отдавать нельзя.
+      const correlationId = crypto.randomUUID().slice(0, 8);
+      const detail = err instanceof Error ? (err.stack ?? err.message) : String(err);
+      logger.error(`[4xx] cid=${correlationId} ${status} ${req?.method ?? "-"} ${req?.originalUrl ?? "-"}: ${detail}`);
+      return res.status(status).json({
+        error: status === 404 ? "Не найдено" : "Запрос обработан некорректно",
+        correlationId,
+      });
     }
     fail500(req, res, err);
   });
