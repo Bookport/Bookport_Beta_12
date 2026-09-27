@@ -564,7 +564,7 @@ User action (e.g., saves a dish)
 
 | Secret | Location | Line | Severity | Notes |
 |---|---|---|---|---|
-| `USDA_API_KEY` | `var USDA_API_KEY = "ywYviAkfdnK8u2Sn19fMG7Kvmje8y2Bd66Hi2hlN"` | 2283 | **CRITICAL** | Hardcoded in source, exposed in plaintext in the bundle. Used for USDA FoodData Central API calls. |
+| `USDA_API_KEY` | `var USDA_API_KEY = "<ключ удалён из исходников 27.09, см. этап 3.0>"` | 2283 | **CRITICAL** | Hardcoded in source, exposed in plaintext in the bundle. Used for USDA FoodData Central API calls. |
 | `DASHSCOPE_API_KEY` | `process.env.DASHSCOPE_API_KEY` | 67, 139, 195 | OK | Environment variable, used in 3 separate client instances |
 | `TELEGRAM_BOT_TOKEN` | `process.env.TELEGRAM_BOT_TOKEN` | 2022, 2135 | OK | Environment variable |
 | `PURCHASE_API_KEY` | `process.env.PURCHASE_API_KEY` | 2625 | OK | Environment variable, used with `timingSafeEqual` |
@@ -572,7 +572,7 @@ User action (e.g., saves a dish)
 
 ### 8.1 USDA API Key Risk
 
-The key `ywYviAkfdnK8u2Sn19fMG7Kvmje8y2Bd66Hi2hlN` is:
+The key `<ключ удалён из исходников 27.09, см. этап 3.0>` is:
 1. Visible in the compiled bundle served to anyone who can access the pod
 2. Used at: `https://api.nal.usda.gov/fdc/v1/foods/search?api_key=${USDA_API_KEY}&query=...`
 3. Rate-limited by USDA (likely 1000 req/day for free tier)

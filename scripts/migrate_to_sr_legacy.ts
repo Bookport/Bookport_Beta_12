@@ -3,7 +3,11 @@ import * as dotenv from "dotenv";
 
 dotenv.config();
 
-const USDA_API_KEY = process.env.USDA_API_KEY || "ywYviAkfdnK8u2Sn19fMG7Kvmje8y2Bd66Hi2hlN";
+const USDA_API_KEY = process.env.USDA_API_KEY ?? "";
+if (!USDA_API_KEY) {
+  console.error("USDA_API_KEY не задан в окружении");
+  process.exit(1);
+}
 const BATCH_SIZE = 50;
 
 function parseUSDA(food: any) {

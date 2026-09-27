@@ -3,7 +3,9 @@ import { prisma } from "../src/prisma";
 const USDA_FOOD_URL = "https://api.nal.usda.gov/fdc/v1/food";
 
 function usdaApiKey(): string {
-  return process.env.USDA_API_KEY || "ywYviAkfdnK8u2Sn19fMG7Kvmje8y2Bd66Hi2hlN";
+  const key = process.env.USDA_API_KEY;
+  if (!key) throw new Error("USDA_API_KEY не задан в окружении");
+  return key;
 }
 
 function parseUSDA(food: any) {
