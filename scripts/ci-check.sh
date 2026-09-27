@@ -61,8 +61,13 @@ do_client() {
 
 do_server() {
   npx esbuild server.ts --bundle --platform=node --format=esm \
-      --packages=external --sourcemap --outfile=build/server.mjs
+      --packages=external --outfile=build/server.mjs
   [ -s build/server.mjs ] || die "build/server.mjs пустой"
+  # Карта серверного бандла = полные исходники сервера. В боевом образе её быть не должно
+  # (Dockerfile собирает без --sourcemap); проверка ловит случайный возврат флага.
+  if [ -e build/server.mjs.map ]; then
+    die "появился build/server.mjs.map — в образе не должно быть исходников сервера"
+  fi
   echo "  артефакт: build/server.mjs $(wc -c < build/server.mjs) Б"
 }
 

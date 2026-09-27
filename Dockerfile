@@ -32,8 +32,16 @@ COPY book-ingredient-decisions.json ./
 COPY output/book-registry.json ./output/
 
 RUN npx vite build
+
+# Без --sourcemap (этап 3): карта `server.mjs.map` несёт в себе полные исходники сервера
+# (`sourcesContent`: в замере 138after — 2 154 648 Б против 1 525 966 Б самого бандла),
+# а наружу она уезжает, потому что `COPY --from=builder /app/build ./build` забирает каталог
+# целиком. Рантайму карта не нужна: `--enable-source-maps`/`source-map-support` не заданы ни в
+# Dockerfile, ни в entrypoint, ни в `k8s-deployment.yaml` (замер: 0 вхождений), то есть стектрейс
+# и без неё указывает на `build/server.mjs:<строка>`. Нужна расшифровка конкретного падения —
+# та же команда с `--sourcemap` на том же коммите, но вне образа.
 RUN npx esbuild server.ts --bundle --platform=node --format=esm \
-    --packages=external --sourcemap --outfile=build/server.mjs
+    --packages=external --outfile=build/server.mjs
 
 FROM node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402 AS prod-deps
 WORKDIR /app
