@@ -633,13 +633,12 @@ async function startServer() {
           },
         });
       } else {
-        user = await prisma.user.create({
-          data: {
-            id: crypto.randomUUID(),
-            telegramId,
-            telegramName: tgUser.first_name || null,
-            telegramUsername: tgUser.username || null,
-          },
+        // Строка пользователя появляется только от активации инвайта в боте (`src/services/telegramBot.ts`).
+        // Пока здесь был `prisma.user.create`, любой аккаунт Telegram входил молча и получал пустой,
+        // но живой аккаунт — то есть платный доступ можно было обойти без токена.
+        logger.warn(`[auth] telegramId=${telegramId} без активированного инвайта — отказ`);
+        return res.status(403).json({
+          error: "Инвайт не найден. Оформите доступ на сайте и активируйте ссылку в боте.",
         });
       }
 
