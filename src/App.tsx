@@ -10,6 +10,7 @@ import CalculatorsWindow from "./modules/calculators/host/CalculatorsWindow";
 import { api } from "./utils/api";
 import { getTelegramInitData } from "./utils/telegramClient";
 import { useTelegram } from "./hooks/useTelegram";
+import { useTelegramBackButton } from "./hooks/useTelegramBackButton";
 import GlassRing from "./components/GlassRing";
 import StartButton from "./components/StartButton";
 import BottomBar from "./components/BottomBar";
@@ -557,6 +558,7 @@ export default function App() {
 
   // Telegram WebApp init: expand to full screen, save user to store
   const { tg, user: tgUser, expand } = useTelegram();
+  useTelegramBackButton();
   const setTelegramUser = useAppStore((s) => s.setTelegramUser);
   const isTelegram = !!tg || window.location.search.includes('tgWebAppData=');
 

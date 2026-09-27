@@ -120,6 +120,9 @@ export interface AppNotification {
 
 export interface AppState {
   screen: Screen;
+  // Экраны, из которых пришли в текущий: аппаратная «назад» возвращает по нему,
+  // а не закрывает Mini App. Пишется в setScreen.
+  screenHistory: Screen[];
   foodCache: FoodCacheItem[];
   foodCacheLoading: boolean;
   userProfile: UserProfile;
@@ -148,6 +151,7 @@ export interface AppState {
 
   fetchFoodCache: () => Promise<void>;
   setScreen: (screen: Screen) => void;
+  back: () => void;
   setUserProfile: (profile: UserProfile) => void;
   updateUserProfile: (patch: Partial<UserProfile>) => void;
   setTelegramUser: (user: TelegramUser | null) => void;
@@ -177,6 +181,7 @@ export interface AppState {
 
 export const useAppStore = create<AppState>((set) => ({
   screen: "welcome",
+  screenHistory: [],
   foodCache: [],
   foodCacheLoading: false,
   userProfile: {},
@@ -200,7 +205,22 @@ export const useAppStore = create<AppState>((set) => ({
   unshippedProgress: 0,
   isGodMode: false,
 
-  setScreen: (screen) => set({ screen }),
+  // История нужна потому, что в Telegram «назад» на Android закрывает Mini App,
+  // пока клиент не показал BackButton. Кнопки «назад» самих экранов тоже идут
+  // сюда: если цель — верхний экран истории, это возврат, а не новая глубина.
+  setScreen: (screen) =>
+    set((s) => {
+      if (s.screen === screen) return {};
+      const last = s.screenHistory[s.screenHistory.length - 1];
+      if (last === screen) return { screen, screenHistory: s.screenHistory.slice(0, -1) };
+      return { screen, screenHistory: [...s.screenHistory, s.screen].slice(-20) };
+    }),
+  back: () =>
+    set((s) => {
+      const prev = s.screenHistory[s.screenHistory.length - 1];
+      if (!prev) return {};
+      return { screen: prev, screenHistory: s.screenHistory.slice(0, -1) };
+    }),
   setUserProfile: (profile) => set({ userProfile: profile }),
   // Partial update: мержит только переданные поля, остальные не трогает
   // (registration baseline initial* защищён от перезаписи).
