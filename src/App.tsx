@@ -6,6 +6,7 @@ import { useNotificationEngine } from "./services/useNotificationEngine";
 import { formatTimeHM, todayLocalDate } from "./shared/dates";
 import { getUserTimeZone, setUserTimeZone } from "./shared/timeZoneStore";
 import GlobalNotificationOverlay from "./components/GlobalNotificationOverlay";
+import AccessDeniedScreen from "./components/AccessDeniedScreen";
 import CalculatorsWindow from "./modules/calculators/host/CalculatorsWindow";
 import { api } from "./utils/api";
 import { getTelegramInitData } from "./utils/telegramClient";
@@ -553,6 +554,10 @@ export default function App() {
   const setCalendarOpen = useAppStore((s) => s.setCalendarOpen);
   const storeGender = useAppStore((s) => s.userProfile?.gender);
 
+  // Этап 1.12: отказ авторизации (401/403) на старте больше не оставляет пользователя
+  // за рабочим экраном с правдоподобными цифрами — за него показывает AccessDeniedScreen.
+  const [accessDenied, setAccessDenied] = useState<{ text: string; hint: string; siteUrl?: string } | null>(null);
+
   // Dynamic state container for HabitsTwenty screen checked circles data
   const [habitsTwentyData, setHabitsTwentyData] = useState<HabitsState | undefined>(undefined);
 
@@ -704,7 +709,25 @@ export default function App() {
             useAppStore.getState().setRecipeState(type, state as any);
           }
         }
-      } catch (err) {
+      } catch (err: any) {
+        // 401/403 — отказ авторизации, а не сетевая проблема. Раньше здесь был только
+        // console.warn, и пользователь оставался за рабочим экраном с правдоподобными
+        // цифрами без пользователя (этап 1.12).
+        if (err?.status === 403 || err?.status === 401) {
+          setAccessDenied(
+            err.status === 403
+              ? {
+                  text: err.serverError || "Доступ не открыт. Оформите доступ на сайте и активируйте ссылку в боте.",
+                  hint: "Откройте приложение заново после активации ссылки в боте.",
+                  siteUrl: err.siteUrl,
+                }
+              : {
+                  text: "Приложение не получило данные пользователя из Telegram.",
+                  hint: "Мини-приложение нужно открывать из чата с ботом, а не по прямой ссылке.",
+                }
+          );
+          return;
+        }
         console.warn("[Init] server data load failed:", err);
       }
     })();
@@ -1081,6 +1104,18 @@ export default function App() {
     // Turn screen back to 'my-day'
     setScreen("my-day");
   };
+
+  // Отказ доступа подменяет собой всё приложение: ниже были бы шапка, навигация,
+  // «20 % … 1 из 28 дня» и пустые «Мои блюда» без пользователя.
+  if (accessDenied) {
+    return (
+      <AccessDeniedScreen
+        text={accessDenied.text}
+        hint={accessDenied.hint}
+        siteUrl={accessDenied.siteUrl}
+      />
+    );
+  }
 
   return (
     <ErrorBoundary>

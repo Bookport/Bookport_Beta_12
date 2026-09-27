@@ -607,6 +607,10 @@ async function startServer() {
 
   // ── Telegram InitData Middleware ──
   // Validates Telegram Mini App initData and finds/creates user by telegramId
+  // Ссылка на сайт, где оформляется доступ, для экрана отказа (этап 1.12). Не задана —
+  // клиент не показывает кнопку: выдуманного адреса в бандле быть не должно.
+  const accessSiteUrl = process.env.ACCESS_SITE_URL || "";
+
   app.use("/api", async (req, res, next) => {
     if (req.userId) return next();
     const initData = req.headers["x-telegram-init-data"] as string | undefined;
@@ -631,6 +635,7 @@ async function startServer() {
           logger.warn(`[auth] telegramId=${telegramId} доступ истёк ${user.accessExpiresAt.toISOString()} — отказ`);
           return res.status(403).json({
             error: "Срок доступа истёк. Продлите доступ на сайте и откройте приложение заново.",
+            ...(accessSiteUrl ? { siteUrl: accessSiteUrl } : {}),
           });
         }
         // Update name/username in case they changed in Telegram
@@ -648,6 +653,7 @@ async function startServer() {
         logger.warn(`[auth] telegramId=${telegramId} без активированного инвайта — отказ`);
         return res.status(403).json({
           error: "Инвайт не найден. Оформите доступ на сайте и активируйте ссылку в боте.",
+          ...(accessSiteUrl ? { siteUrl: accessSiteUrl } : {}),
         });
       }
 

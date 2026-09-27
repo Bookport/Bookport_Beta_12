@@ -108,7 +108,20 @@ export async function api<T = any>(
   if (!response.ok) {
     const text = await response.text().catch(() => "");
     clientLogger.apiError(path, response.status, text);
-    throw new Error(`API ${response.status}: ${text.slice(0, 200)}`);
+    // Серверские 401/403 несут человекочитаемый `error` (и для отказа доступа — `siteUrl`).
+    // Без этих полей вызывающий код видит только `API 403: {"error":"…"}` и не может
+    // отличить отказ доступа от сетевой ошибки — см. экран отказа в App.tsx (этап 1.12).
+    let parsed: any = null;
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      parsed = null;
+    }
+    const err: any = new Error(`API ${response.status}: ${text.slice(0, 200)}`);
+    err.status = response.status;
+    if (typeof parsed?.error === "string") err.serverError = parsed.error;
+    if (typeof parsed?.siteUrl === "string") err.siteUrl = parsed.siteUrl;
+    throw err;
   }
 
   return response.json();
