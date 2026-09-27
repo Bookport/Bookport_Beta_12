@@ -1,4 +1,9 @@
-FROM node:22-alpine AS deps
+# Базовый образ зафиксирован по digest (этап 3, открытый пункт «фиксация digests»): с плавающим
+# `node:22-alpine` пересборка того же коммита в другой день даёт другой образ, и откат по тегу
+# (3.3, `scripts/release.sh`) перестаёт воспроизводить то, что реально работало.
+# Обновление — отдельной правкой, где рядом стоит записать, что проверяли (`docker manifest
+# inspect node:22-alpine@<digest>` подтверждает, что digest живёт в registry).
+FROM node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402 AS deps
 WORKDIR /app
 
 COPY package.json package-lock.json ./
@@ -7,7 +12,7 @@ COPY prisma ./prisma/
 RUN npm ci --ignore-scripts
 RUN npx prisma generate
 
-FROM node:22-alpine AS builder
+FROM node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402 AS builder
 WORKDIR /app
 
 COPY --from=deps /app/node_modules ./node_modules
@@ -30,7 +35,7 @@ RUN npx vite build
 RUN npx esbuild server.ts --bundle --platform=node --format=esm \
     --packages=external --sourcemap --outfile=build/server.mjs
 
-FROM node:22-alpine AS prod-deps
+FROM node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402 AS prod-deps
 WORKDIR /app
 
 COPY package.json package-lock.json ./
@@ -45,7 +50,7 @@ COPY prisma ./prisma/
 RUN npm ci --omit=dev --ignore-scripts
 RUN npx prisma generate
 
-FROM node:22-alpine AS runner
+FROM node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402 AS runner
 WORKDIR /app
 
 RUN apk add --no-cache curl tini
