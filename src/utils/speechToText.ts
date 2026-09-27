@@ -1,5 +1,6 @@
 import React from "react";
 import { getTelegramInitData } from "./telegramClient";
+import { LLM_TIMEOUT_MS, timeoutSignal } from "./api";
 
 let micStream: MediaStream | null = null;
 
@@ -247,6 +248,7 @@ export class SpeechToTextSession {
         method: "POST",
         headers: { "Content-Type": "application/json", "X-Telegram-Init-Data": getTelegramInitData() },
         body: JSON.stringify({ audioBase64: base64, format: "wav" }),
+        signal: timeoutSignal(LLM_TIMEOUT_MS),
       });
 
       if (!res.ok) throw new Error(`Transcription failed: ${res.status}`);

@@ -8,6 +8,7 @@
 
 import { checkWFPB } from "../utils/wfpbRules";
 import { getTelegramInitData } from "../utils/telegramClient";
+import { LLM_TIMEOUT_MS, timeoutSignal } from "../utils/api";
 
 export interface AIProviderConfig {
   provider: "studio" | "server" | "hybrid";
@@ -219,7 +220,8 @@ export const AnnaTextProvider = {
         const resp = await fetch("/api/anna-supports", {
           method: "POST",
           headers: { "Content-Type": "application/json", "X-Telegram-Init-Data": getTelegramInitData() },
-          body: JSON.stringify({ situation, userName: name, userGender: isFemale ? "female" : "male" })
+          body: JSON.stringify({ situation, userName: name, userGender: isFemale ? "female" : "male" }),
+          signal: timeoutSignal(LLM_TIMEOUT_MS),
         });
         if (resp.ok) {
           const data = await resp.json();
@@ -234,7 +236,8 @@ export const AnnaTextProvider = {
       const resp = await fetch("/api/anna-supports", {
         method: "POST",
         headers: { "Content-Type": "application/json", "X-Telegram-Init-Data": getTelegramInitData() },
-        body: JSON.stringify({ situation, userName: name, userGender: isFemale ? "female" : "male" })
+        body: JSON.stringify({ situation, userName: name, userGender: isFemale ? "female" : "male" }),
+        signal: timeoutSignal(LLM_TIMEOUT_MS),
       });
       if (resp.ok) {
         const data = await resp.json();
@@ -276,7 +279,8 @@ export const MealAnalysisProvider = {
     const resp = await fetch("/api/analyze-dish", {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-Telegram-Init-Data": getTelegramInitData() },
-      body
+      body,
+      signal: timeoutSignal(LLM_TIMEOUT_MS),
     });
 
     if (resp.ok) {
@@ -318,7 +322,8 @@ export const IngredientRecognitionProvider = {
     const resp = await fetch("/api/analyze-image", {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-Telegram-Init-Data": getTelegramInitData() },
-      body: JSON.stringify({ imageBase64: payloadBase64 })
+      body: JSON.stringify({ imageBase64: payloadBase64 }),
+      signal: timeoutSignal(LLM_TIMEOUT_MS),
     });
     
     if (resp.ok) {

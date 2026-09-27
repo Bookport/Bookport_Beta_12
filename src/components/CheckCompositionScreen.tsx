@@ -13,6 +13,7 @@ import {
   AlertTriangle
 } from "lucide-react";
 import { getTelegramInitData } from "../utils/telegramClient";
+import { LLM_TIMEOUT_MS, timeoutSignal } from "../utils/api";
 import BottomBar from "./BottomBar";
 import CalendarButton from "./CalendarButton";
 import { resolveAvatar } from "../utils/annaAvatarResolver";
@@ -684,7 +685,8 @@ export default function CheckCompositionScreen({
       fetch("/api/anna-sarcastic-reply", {
         method: "POST",
         headers: { "Content-Type": "application/json", "X-Telegram-Init-Data": getTelegramInitData() },
-        body: JSON.stringify({ items: blueCards.map(c => c.shortName || c.fullName) })
+        body: JSON.stringify({ items: blueCards.map(c => c.shortName || c.fullName) }),
+        signal: timeoutSignal(LLM_TIMEOUT_MS)
       })
       .then(res => {
         if (!res.ok) throw new Error("Server responded with error code");

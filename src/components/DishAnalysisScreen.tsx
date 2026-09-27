@@ -22,6 +22,7 @@ import { resolveAvatarForCompliance, resolveAvatar } from "../utils/annaAvatarRe
 import { checkWFPB } from "../utils/wfpbRules";
 import { useAppStore } from "../store/useAppStore";
 import { getTelegramInitData } from "../utils/telegramClient";
+import { LLM_TIMEOUT_MS, timeoutSignal } from "../utils/api";
 import { clientLogger } from "../utils/clientLogger";
 import {
   DAILY_VALUES,
@@ -177,6 +178,7 @@ export default function DishAnalysisScreen({
         "X-Telegram-Init-Data": getTelegramInitData(),
       },
       body: JSON.stringify({ dishName: result.dishName, ingredients: mapped, mealSource, dishCategory }),
+      signal: timeoutSignal(LLM_TIMEOUT_MS),
     })
       .then((r) => r.json())
       .then((data) => {

@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { getTelegramInitData } from "../utils/telegramClient";
+import { API_TIMEOUT_MS, timeoutSignal } from "../utils/api";
 import { setUserTimeZone } from "../shared/timeZoneStore";
 import type { SavedDish } from "../types/dishes";
 
@@ -253,6 +254,7 @@ export const useAppStore = create<AppState>((set) => ({
       set({ foodCacheLoading: true });
       const resp = await fetch("/api/food", {
         headers: { "X-Telegram-Init-Data": getTelegramInitData() },
+        signal: timeoutSignal(API_TIMEOUT_MS),
       });
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       const items: FoodCacheItem[] = await resp.json();
@@ -266,6 +268,7 @@ export const useAppStore = create<AppState>((set) => ({
     try {
       const resp = await fetch("/api/user/profile", {
         headers: { "X-Telegram-Init-Data": getTelegramInitData() },
+        signal: timeoutSignal(API_TIMEOUT_MS),
       });
       if (resp.ok) {
         const data = await resp.json();
