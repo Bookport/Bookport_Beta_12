@@ -1,0 +1,71 @@
+name: ci
+
+# Подхватится только после пуша в этот репозиторий — локально те же проверки гоняются
+# командой `bash scripts/ci-check.sh all`.
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "22"
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: bookport_ci_shadow
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci -d bookport_ci_shadow"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - run: npm ci
+      - run: npx prisma generate
+
+      - name: Типы (tsc --noEmit)
+        run: bash scripts/ci-check.sh typecheck
+
+      - name: Клиент (vite build)
+        run: bash scripts/ci-check.sh client
+
+      - name: Серверный бандл (esbuild)
+        run: bash scripts/ci-check.sh server
+
+      - name: Миграции против схемы
+        env:
+          CHECK_DATABASE_URL: postgresql://ci:ci@localhost:5432/bookport_ci_shadow?schema=public
+        run: bash scripts/ci-check.sh schema
+
+      - name: Образ из HEAD (docker build)
+        run: bash scripts/ci-check.sh image
+
+      # Тестов в контуре нет: четыре файла src/modules/calculators/__tests__/* существуют, но
+      # ни vitest, ни jest в зависимостях не объявлены — прогоном они не покрываются.
