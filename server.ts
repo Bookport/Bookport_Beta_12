@@ -3274,9 +3274,21 @@ if (!process.env.VERCEL) {
     process.exit(1);
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
+  const server = app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
   });
   startAccessExpiryWatcher();
+
+  // Контейнеру Kubernetes перед удалением пода приходит SIGTERM, и через 30 с
+  // (terminationGracePeriodSeconds) — SIGKILL. Без обработчика соединения обрываются
+  // на середине; закрываем listener и даём долететь текущим запросам, 8 с с запасом
+  // внутрь grace-периода.
+  for (const sig of ["SIGTERM", "SIGINT"] as const) {
+    process.on(sig, () => {
+      logger.info(`[shutdown] ${sig}: новых не принимаем, долеиваем до 8 с`);
+      server.close(() => process.exit(0));
+      setTimeout(() => process.exit(0), 8000).unref();
+    });
+  }
 }
 export default app;
