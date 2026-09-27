@@ -100,6 +100,13 @@ function fail500(req: any, res: any, err: any, extra?: Record<string, unknown>) 
   });
 }
 
+// Отладочный вывод списков ингредиентов (данные человека) — только вне прод-контура.
+// Режим берём из IS_PRODUCTION (/proc/self/environ), а не из process.env.NODE_ENV:
+// последнее @prisma/client может выставить сам.
+function debugInput(...args: any[]) {
+  if (!IS_PRODUCTION) console.log(...args);
+}
+
 const USDA_API_KEY = "ywYviAkfdnK8u2Sn19fMG7Kvmje8y2Bd66Hi2hlN";
 
 // Robust wrapper with automatic model cascade fallback.
@@ -267,12 +274,7 @@ async function computeNutrientsFromDB(
     dbKey: i.dbKey,
     foodItemId: i.foodItemId
   }));
-  console.log("[DEBUG INPUT] Received from frontend:", payloadToLog);
-  try {
-    await fs.writeFile("DEBUG_PAYLOAD.json", JSON.stringify(payloadToLog, null, 2), "utf8");
-  } catch (err) {
-    console.error("Failed to write debug payload", err);
-  }
+  debugInput("[DEBUG INPUT] Received from frontend:", payloadToLog);
 
   const items = await prisma.foodItem.findMany();
 
@@ -417,11 +419,11 @@ async function computeNutrientsFromDB(
 
     // Никакого silent-continue: нераспознанные и неполные позиции собираются.
     if (!foodItem || !hasCompleteNutrition(foodItem)) {
-      console.log(`[PIPELINE TRACE 2.1] Nutrition lookup UNRESOLVED "${rawShort || rawFull}"${ing.dbKey ? ` (dbKey="${ing.dbKey}")` : ""}${ing.foodItemId ? ` (foodItemId="${ing.foodItemId}")` : ""}${ing.fdcId != null ? ` (fdcId=${ing.fdcId})` : ""}`);
+      debugInput(`[PIPELINE TRACE 2.1] Nutrition lookup UNRESOLVED "${rawShort || rawFull}"${ing.dbKey ? ` (dbKey="${ing.dbKey}")` : ""}${ing.foodItemId ? ` (foodItemId="${ing.foodItemId}")` : ""}${ing.fdcId != null ? ` (fdcId=${ing.fdcId})` : ""}`);
       unresolved.push({ input: rawShort || rawFull, weight });
       continue;
     }
-    console.log(`[PIPELINE TRACE 2.1] Nutrition lookup HIT "${rawShort || rawFull}"${ing.dbKey ? ` (dbKey="${ing.dbKey}")` : ""}${ing.foodItemId ? ` (foodItemId="${ing.foodItemId}")` : ""}${ing.fdcId != null ? ` (fdcId=${ing.fdcId})` : ""} -> "${foodItem.nameRu}" (fdcId=${foodItem.fdcId}) weight=${weight}g`);
+    debugInput(`[PIPELINE TRACE 2.1] Nutrition lookup HIT "${rawShort || rawFull}"${ing.dbKey ? ` (dbKey="${ing.dbKey}")` : ""}${ing.foodItemId ? ` (foodItemId="${ing.foodItemId}")` : ""}${ing.fdcId != null ? ` (fdcId=${ing.fdcId})` : ""} -> "${foodItem.nameRu}" (fdcId=${foodItem.fdcId}) weight=${weight}g`);
 
     for (const field of NUTRIENT_FIELDS) {
       const val = (foodItem as any)[field];
@@ -1088,7 +1090,7 @@ async function startServer() {
 ОБЯЗАТЕЛЬНОЕ ПРАВИЛО: Все цифры объема переводи в текст прописью (например, 'один литр двести миллилитров', а не '1200 мл'). Запрещено использовать числа для объема. Не упоминай пользователю, откуда взял эти данные.]`;
 
           systemPrompt += waterInjectionText;
-          console.log('[Water Pre-fetch JIT Triggered]:', {
+          debugInput('[Water Pre-fetch JIT Triggered]:', {
             isWaterQuery,
             message: userMessage,
             injectedText: waterInjectionText,
@@ -1293,7 +1295,7 @@ const fallbackReply = parseAnnaEmotionReply(
   app.post("/api/analyze-dish", async (req, res) => {
     res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
     const { ingredients, defaultDishName, mealSource, dishCategory } = req.body || {};
-    console.log("[PIPELINE TRACE 1] Raw Input from Client:", JSON.stringify(ingredients?.map((i: any) => ({ name: i.fullName || i.shortName, weight: i.weight }))), "HasImage: false");
+    debugInput("[PIPELINE TRACE 1] Raw Input from Client:", JSON.stringify(ingredients?.map((i: any) => ({ name: i.fullName || i.shortName, weight: i.weight }))), "HasImage: false");
     try {
       if (!ingredients || !Array.isArray(ingredients) || ingredients.length === 0) {
         return res.status(400).json({ error: "No ingredients received" });
