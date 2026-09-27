@@ -51,6 +51,11 @@ WORKDIR /app
 RUN apk add --no-cache curl tini
 
 COPY --from=prod-deps /app/node_modules ./node_modules
+# package.json обязателен в рантайме: docker-entrypoint.sh при пустой BookRecipe зовёт
+# `npx prisma db seed`, а Prisma берёт команду сида из поля "prisma"."seed" этого файла.
+# Без него замер m-124: seed завершается с кодом 0 и одним байтом вывода, таблица остаётся
+# пустой, а `|| echo "Seed skipped or failed"` глотает даже это.
+COPY package.json ./
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/build ./build
 COPY --from=builder /app/prisma ./prisma
