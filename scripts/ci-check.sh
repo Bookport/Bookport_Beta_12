@@ -118,6 +118,18 @@ do_image() {
   fi
   echo "  в образе нет /app/.env"
 
+  # Карта серверного бандла = полные исходники сервера (sourcesContent), а образ уезжает в
+  # публичный реестр (замер m-141b: docker.io/vsedelovede/bookport is_private=false, pull_count
+  # 2450, анонимный токен отдаёт манифест со кодом 200). Проверяем содержимое образа, а не
+  # только локальную сборку: Dockerfile может вернуть --sourcemap независимо от ci-check.
+  local map_in_image
+  map_in_image=$(docker run --rm --entrypoint /bin/sh "$tag" -c 'ls /app/build/*.map /app/dist/*.map 2>/dev/null' || true)
+  if [ -n "$map_in_image" ]; then
+    docker image rm "$tag" >/dev/null || true
+    die "в образе лежат карты исходников: $(echo "$map_in_image" | tr '\n' ' ')"
+  fi
+  echo "  карт исходников в образе нет"
+
   if [ "${KEEP_IMAGE:-0}" = "1" ]; then
     echo "  образ оставлен: $tag"
   else
