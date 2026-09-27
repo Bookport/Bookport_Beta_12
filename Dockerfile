@@ -29,8 +29,6 @@ COPY output/book-registry.json ./output/
 RUN npx vite build
 RUN npx esbuild server.ts --bundle --platform=node --format=esm \
     --packages=external --sourcemap --outfile=build/server.mjs
-RUN mkdir -p dist/src/assets/images/anna && \
-    cp -r src/assets/images/anna/* dist/src/assets/images/anna/ 2>/dev/null || true
 
 FROM node:22-alpine AS runner
 WORKDIR /app

@@ -9,7 +9,7 @@
     "dev": "npm run dev:clean && NODE_ENV=development BOOK_REGISTRY_RUNTIME=1 BOOK_REGISTRY_SHADOW=1 tsx watch --ignore \"src/**/*\" server.ts",
     "dev:server": "NODE_ENV=development BOOK_REGISTRY_RUNTIME=1 BOOK_REGISTRY_SHADOW=1 tsx watch server.ts",
     "dev:client": "vite",
-    "build": "vite build && esbuild server.ts --bundle --platform=node --format=esm --packages=external --sourcemap --outfile=build/server.mjs && mkdir -p dist/src/assets/images/anna && cp -r src/assets/images/anna/* dist/src/assets/images/anna/",
+    "build": "vite build && esbuild server.ts --bundle --platform=node --format=esm --packages=external --sourcemap --outfile=build/server.mjs",
     "start": "NODE_ENV=production BOOK_REGISTRY_RUNTIME=1 BOOK_REGISTRY_SHADOW=1 node build/server.mjs",
     "clean": "rm -rf dist build server.js",
     "lint": "tsc --noEmit",
