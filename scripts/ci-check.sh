@@ -100,6 +100,19 @@ do_image() {
 
   local tag="bookport-ci-check:$(git rev-parse --short=12 HEAD)"
   ( cd "$WT_DIR" && docker build -t "$tag" . ) || die "docker build из HEAD не собрался"
+
+  # В образе не должно быть .env: @prisma/client при импорте читает .env от корня проекта и
+  # подставляет из него DATABASE_URL (замер m-131b) — то есть файл в образе имел бы власть над
+  # боевым подключением, и наш dotenv-гейт его не останавливает. Проверяем содержимое /app,
+  # а не контекст: COPY . . сегодня нет, но защита от будущего возврата к нему.
+  local env_in_image
+  env_in_image=$(docker run --rm --entrypoint /bin/sh "$tag" -c 'ls -a /app 2>/dev/null | grep -x "\.env"' || true)
+  if [ -n "$env_in_image" ]; then
+    docker image rm "$tag" >/dev/null || true
+    die "в образе лежит /app/.env — Prisma возьмёт из него DATABASE_URL в обход boot-гейтов"
+  fi
+  echo "  в образе нет /app/.env"
+
   if [ "${KEEP_IMAGE:-0}" = "1" ]; then
     echo "  образ оставлен: $tag"
   else
