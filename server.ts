@@ -624,6 +624,15 @@ async function startServer() {
       let user = await prisma.user.findUnique({ where: { telegramId } });
 
       if (user) {
+        // Срок доступа: NULL = бессрочно. Сегодня `accessExpiresAt` не выставляет никто из
+        // боевого пути (пишут только `seed_dev.cjs:12` и dev-обход `:605`), поэтому гейт
+        // обязан пропускать NULL — иначе он заблокировал бы всю существующую базу.
+        if (user.accessExpiresAt && user.accessExpiresAt.getTime() <= Date.now()) {
+          logger.warn(`[auth] telegramId=${telegramId} доступ истёк ${user.accessExpiresAt.toISOString()} — отказ`);
+          return res.status(403).json({
+            error: "Срок доступа истёк. Продлите доступ на сайте и откройте приложение заново.",
+          });
+        }
         // Update name/username in case they changed in Telegram
         user = await prisma.user.update({
           where: { id: user.id },
