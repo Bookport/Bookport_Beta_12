@@ -1,3 +1,6 @@
+// Этап 2.3: разделение localStorage по владельцу обязано случиться до импорта App —
+// `SystemKeysStore` читает хранилище на этапе импорта своего модуля.
+import './utils/userStorageScope';
 import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
