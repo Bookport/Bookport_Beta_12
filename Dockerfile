@@ -19,6 +19,13 @@ COPY index.html ./
 COPY public/ ./public/
 COPY prisma ./prisma/
 
+# Клиент импортирует два файла вне src/: src/utils/bookRecipeNutrients.ts:5 ->
+# ../../book-ingredient-decisions.json и src/utils/bookRegistryShadow.ts ->
+# ../../output/book-registry.json. Без них `vite build` внутри образа падает
+# («Could not resolve»), хотя локально в репозитории эти файлы на месте.
+COPY book-ingredient-decisions.json ./
+COPY output/book-registry.json ./output/
+
 RUN npx vite build
 RUN npx esbuild server.ts --bundle --platform=node --format=esm \
     --packages=external --sourcemap --outfile=build/server.mjs
@@ -28,7 +35,7 @@ RUN mkdir -p dist/src/assets/images/anna && \
 FROM node:22-alpine AS runner
 WORKDIR /app
 
-RUN apk add --no-cache curl
+RUN apk add --no-cache curl tini
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
@@ -43,5 +50,8 @@ RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 EXPOSE 3000
 
-ENTRYPOINT ["docker-entrypoint.sh"]
+# tini = PID 1: он пропускает SIGTERM дальше по процессу и подбирает детей.
+# Без него node как PID 1 сигнал не получает: замер `docker stop -t 15` — все 15 с
+# и код 137 (SIGKILL), с tini — 0 с и код 143.
+ENTRYPOINT ["/sbin/tini", "--", "docker-entrypoint.sh"]
 CMD ["node", "--max-old-space-size=400", "build/server.mjs"]
