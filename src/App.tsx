@@ -1095,6 +1095,9 @@ export default function App() {
     setScreen("my-day");
   };
 
+  const recordClick = (pts: number = 1) =>
+    useAppStore.getState().setClickCount(useAppStore.getState().clickCount + pts);
+
   // Отказ доступа подменяет собой всё приложение: ниже были бы шапка, навигация,
   // «20 % … 1 из 28 дня» и пустые «Мои блюда» без пользователя.
   if (accessDenied) {
@@ -1694,6 +1697,17 @@ export default function App() {
             />
           )}
         </AnimatePresence>
+
+        <CalendarOverlay
+          isOpen={isCalendarOpen}
+          onClose={() => setCalendarOpen(false)}
+          dayNotes={dayNotes}
+          setDayNotes={setDayNotes}
+          currentDayIndex={activeDayIndex}
+          viewingDayIndex={viewingDayIndex}
+          setViewingDayIndex={setViewingDayIndex}
+          recordClick={recordClick}
+        />
 
       </motion.div>
     </div>

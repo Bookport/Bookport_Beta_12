@@ -15,10 +15,8 @@ import {
   sumCompletedSleepMinutes,
 } from "../shared/sleep";
 import { 
-  Calendar, 
   Moon, 
   Zap, 
-  Sparkles, 
   Mic, 
   CheckCircle2, 
   ChevronLeft, 
@@ -37,12 +35,10 @@ import {
   Pause,
   Square
 } from "lucide-react";
-import { resolveAvatar } from "../utils/annaAvatarResolver";
 import { useAppStore } from "../store/useAppStore";
 import { getWaterGoal, WATER_GOAL_FALLBACK_KG } from "../utils/waterGoal";
 import { SystemKeysStore } from "../services/SystemKeysStore";
 import { calculateIntegralScore } from "../utils/integralScore";
-import AnnaText from "./AnnaText";
 import { api } from "../utils/api";
 import { getPlural } from "../utils/pluralize";
 import { getDailyWaterTip } from "../utils/waterTips";
@@ -79,6 +75,8 @@ import diaryImg from "../assets/images/buttons/дневник.webp";
 import stateNowImg from "../assets/images/buttons/состояние сейчас.webp";
 import logoSprout from "../assets/images/buttons/logo.webp";
 import systemKeyWidget from "../assets/images/keysustem/22.webp";
+import calendarIcon from "../assets/images/progress/2.webp";
+import progressIcon from "../assets/images/progress/1.webp";
 import { DailyNutritionStore } from "../services/DailyNutritionStore";
 import { 
   BREAKFAST_RECIPES, 
@@ -90,7 +88,6 @@ import {
   DRINKS_RECIPES 
 } from "./BookRecipesScreen";
 
-const annaAvatarSrc = resolveAvatar({ toneGroup: 'positive', intent: 'success' }).src;
 import BottomBar from "./BottomBar";
 import CalendarButton from "./CalendarButton";
 import WaterDetailsScreen from "./WaterDetailsScreen";
@@ -232,7 +229,6 @@ interface MyDayScreenProps {
   onOpenBookRecipes?: () => void;
   onOpenPurchases?: () => void;
   onOpenDiary?: () => void;
-  onOpenAnna?: () => void;
   onOpenStateNow?: () => void;
   screen?: string;
   userName?: string;
@@ -541,7 +537,6 @@ export default function MyDayScreen({
   const onOpenDiary = () => setScreen("diary");
   const onOpenAnna = () => setScreen("anna");
   const onOpenStateNow = () => setScreen("state-now");
-  const [annaPhraseOffset] = useState(() => Math.floor(Math.random() * 3));
 
   // Custom added states for premium sheets ("Покупки", "Дневник", "Состояние сейчас")
   const [showPurchasesSheet, setShowPurchasesSheet] = useState(false);
@@ -2164,80 +2159,6 @@ export default function MyDayScreen({
     setClickCountStore(clickCount + points);
   };
 
-  // 3. Anna Recommendations logic
-  const getAnnaRecommendation = () => {
-    let name = "";
-    let isFemale = true;
-    if (typeof window !== "undefined") {
-      name = "";
-      isFemale = true;
-    }
-
-    const namePrefix = name ? `${name}, ` : "";
-    const pleasedWord = "рада";
-    const proudWord = "горжусь";
-    const dynamicGreeting = name ? `Привет, ${name}!` : "Привет!";
-
-    const zeroHabitsPhrases = [
-      `${namePrefix}твой день чист и полон возможностей! Давай сделаем первый шаг в заполнении ключей. Каждый шаг приблизит тебя к балансу! 🌿`,
-      `Свежее утро — время для чистой воды и лёгкой активности. Жду твоих первых побед в «Ключах системы», ${name || "друг"}! 💚`,
-      `${dynamicGreeting} Сегодня идеальный день, чтобы зарядить организм природной силой WFPB рациона. Начнём отмечать наши ключи? ✨`
-    ];
-
-    const lowHabitsPhrases = [
-      `Отличное начало! Уже ${habitsDone} из 20 ключей выполнены. Наш сосуд начинает наполняться, продолжаем! 🔥`,
-      `Прекрасный старт дня, ${name || "дорогой друг"}! ${habitsDone} ${getPlural(habitsDone, ['ключ', 'ключа', 'ключей'])} позади. Зелень, вода и движение — это твои проводники к долголетию. 🌿`,
-      `Вижу твою заботу о клетках! ${habitsDone} отметок наполнили сосуд. Давай добавим ещё растительной пользы! 🔋`
-    ];
-
-    const midHabitsPhrases = [
-      `Твоя шкала ключей позеленела! ${habitsDone} из 20 — прекрасный ритм. Организм говорит тебе спасибо за чистую растительную пищу! 🍃`,
-      `Какая лёгкость и осознанность, ${namePrefix || ""}ты наполняешься энергией на ${habitsDone} ${getPlural(habitsDone, ['деление', 'деления', 'делений'])}. Впереди новые здоровые рекорды сегодня! 🌟`,
-      `Я невероятно ${pleasedWord} твоим упорством! ${habitsDone} ${getPlural(habitsDone, ['ключ', 'ключа', 'ключей'])} выполнены без капли соли и масла. Твой сосуд заряжен больше чем наполовину! 💚`
-    ];
-
-    const highHabitsPhrases = [
-      `Невероятно, ${name || "друг"}! ${habitsDone} из 20 достижений! Твой пульс жизни бьётся в чистом ритме. Считанные шаги до абсолютного 100% WFPB триумфа! 🚀`,
-      `Ты на финишной прямой! ${habitsDone} отмеченных пунктов. Чистое сияние клеток почти на максимуме. Я искренне ${proudWord} твоей динамикой! ⚡`,
-      `Каждая клетка твоего тела празднует растительное обновление, ${namePrefix || ""} ${habitsDone} из 20 — космический уровень заботы о себе! 💎`
-    ];
-
-    const perfectHabitsPhrases = [
-      `👑 Ура, ${name || "победитель"}! Полный триумф! Все 20 ключей закрыты! Твой золотой WFPB-сосуд наполнился на все 100%! Ты — эталон чистой осознанности и здоровья! Поздравляю! 🎉`,
-      `☀️ Поздравляю с абсолютным рекордом дня, ${name || "друг мой"}! Все 20 ключей светятся чистым триумфом! Твои клетки сияют живой растительной силой без соли! Ты космос! 🏆`,
-      `⭐ Небывалый чистый ритм! Все 20 ключей полностью закрыты! Это настоящий подвиг для здоровья, твоё будущее «я» присылает тебе миллион благодарностей! 💖`
-    ];
-
-    if (habitsDone === 0) {
-      return {
-        title: "Анна приветствует",
-        text: zeroHabitsPhrases[annaPhraseOffset % zeroHabitsPhrases.length]
-      };
-    } else if (habitsDone >= 20) {
-      return {
-        title: "Анна празднует триумф!",
-        text: perfectHabitsPhrases[annaPhraseOffset % perfectHabitsPhrases.length]
-      };
-    } else if (habitsDone >= 15) {
-      return {
-        title: "Рекомендация от Анны",
-        text: highHabitsPhrases[annaPhraseOffset % highHabitsPhrases.length]
-      };
-    } else if (habitsDone >= 8) {
-      return {
-        title: "Рекомендация от Анны",
-        text: midHabitsPhrases[annaPhraseOffset % midHabitsPhrases.length]
-      };
-    } else {
-      return {
-        title: "Рекомендация от Анны",
-        text: lowHabitsPhrases[annaPhraseOffset % lowHabitsPhrases.length]
-      };
-    }
-  };
-
-  const annaMsg = getAnnaRecommendation();
-
   if (showWaterDetails) {
     return (
       <WaterDetailsScreen
@@ -2447,59 +2368,52 @@ export default function MyDayScreen({
           </div>
 
           {/* Right Cards Stack: Unified Progress + Calendar Widget */}
-          <div className="col-span-5 flex flex-col gap-2 items-end mt-6">
+          <div className="col-span-5 flex flex-col gap-1.5 items-end mt-[14px]">
             
-            {/* Unified Widget: Progress + Calendar */}
-            <div className="flex flex-row items-center justify-between w-full bg-slate-50/50 backdrop-blur-md border border-slate-200/50 shadow-sm rounded-2xl px-4 py-2.5 mb-3">
-              {/* Left: Progress */}
+            {/* 1. Кнопка Календаря (День цикла) */}
+            <motion.button
+              type="button"
+              onClick={() => {
+                recordClick();
+                onOpenCalendar();
+              }}
+              whileTap={{ scale: 0.97 }}
+              className="w-full flex items-center justify-between bg-slate-50/50 backdrop-blur-md border border-slate-200/50 shadow-sm rounded-2xl px-3 py-1.5 cursor-pointer transition-transform hover:scale-[1.02] active:scale-[0.97] focus:outline-none"
+            >
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-[#F0FDF4] flex items-center justify-center text-[#15803D] shrink-0">
-                  <Sparkles className="w-4.5 h-4.5 stroke-[2]" />
+                <img
+                  src={calendarIcon}
+                  alt="Календарь"
+                  className="w-9 h-9 object-contain shrink-0 drop-shadow-sm pointer-events-none"
+                />
+                <div className="flex flex-col text-left">
+                  <span className="text-[15px] sm:text-[16px] font-bold text-slate-800 leading-tight whitespace-nowrap">
+                    {currentDayIndex} из 28
+                  </span>
+                  <span className="text-[11px] font-medium text-slate-400 lowercase leading-tight">
+                    день
+                  </span>
                 </div>
-                <div className="flex flex-col">
-                  <span 
-                    className="text-[17px] sm:text-[18px] font-bold text-text-dark leading-none"
-                    style={{ fontFamily: '"Calibri", sans-serif' }}
-                  >
+              </div>
+            </motion.button>
+
+            {/* 2. Блок Прогресса */}
+            <div className="w-full flex items-center justify-between bg-slate-50/50 backdrop-blur-md border border-slate-200/50 shadow-sm rounded-2xl px-3 py-1.5">
+              <div className="flex items-center gap-2.5">
+                <img
+                  src={progressIcon}
+                  alt="Прогресс"
+                  className="w-9 h-9 object-contain shrink-0 drop-shadow-sm pointer-events-none"
+                />
+                <div className="flex flex-col text-left">
+                  <span className="text-[15px] sm:text-[16px] font-bold text-slate-800 leading-tight">
                     {globalProgress}
                   </span>
-                  <span 
-                    className="text-[11px] text-text-muted font-bold tracking-tight lowercase mt-0.5 leading-none"
-                    style={{ fontFamily: '"Calibri", sans-serif' }}
-                  >
+                  <span className="text-[11px] font-medium text-slate-400 lowercase leading-tight">
                     прогресс
                   </span>
                 </div>
               </div>
-
-              {/* Center Separator */}
-              <div className="w-px h-8 bg-gray-300/50 mx-2"></div>
-
-              {/* Right: Calendar */}
-              <motion.button
-                type="button"
-                onClick={() => { recordClick(); onOpenCalendar(); }}
-                className="flex items-center gap-2.5 transition-all duration-300 hover:scale-[1.03] active:scale-97 cursor-pointer focus:outline-none shrink-0"
-                whileTap={{ scale: 0.97 }}
-              >
-                <div className="w-7.5 h-7.5 rounded-lg bg-[#EBF5EF] flex items-center justify-center text-[#2E6B47] shrink-0">
-                  <Calendar className="w-4 h-4 stroke-[2]" />
-                </div>
-                <div className="flex flex-col">
-                  <span 
-                    className="text-[17px] sm:text-[18px] font-bold text-text-dark leading-none whitespace-nowrap"
-                    style={{ fontFamily: '"Calibri", sans-serif' }}
-                  >
-                    {currentDayIndex} из 28
-                  </span>
-                  <span 
-                    className="text-[11px] text-text-muted font-bold tracking-tight lowercase mt-0.5 leading-none"
-                    style={{ fontFamily: '"Calibri", sans-serif' }}
-                  >
-                    день
-                  </span>
-                </div>
-              </motion.button>
             </div>
 
             {/* Card 3: Привычки (Ключи системы — новый дизайн с картинкой) */}
@@ -2509,7 +2423,7 @@ export default function MyDayScreen({
                 recordClick(1);
                 onOpenHabitsTwenty();
               }}
-              className="flex flex-col items-center justify-center cursor-pointer active:scale-[0.98] transition-transform duration-200 w-full -translate-y-4"
+              className="flex flex-col items-center justify-center cursor-pointer active:scale-[0.98] transition-transform duration-200 w-full -translate-y-2"
             >
               <div className="relative w-full">
                 <img
@@ -2736,46 +2650,6 @@ export default function MyDayScreen({
               className="w-full h-full object-cover"
             />
           </motion.button>
-        </div>
-
-        {/* Section 5: Recommendation Card from Anna (Dynamic advice based on indicators) */}
-        <div className="bg-white rounded-[24px] shadow-[0_4px_16px_rgba(43,49,55,0.03)] p-4 mb-6 flex flex-col gap-3 text-left">
-          <div className="flex items-center gap-3">
-            {/* Anna's Premium Circular Avatar with glossy glass ring */}
-            <div className="relative shrink-0">
-              <div className="w-12 h-12 rounded-full overflow-hidden border border-brand-green-mint/30 shadow-[0_4px_8px_-2px_rgba(16,181,81,0.2)]">
-                <img 
-                  src={annaAvatarSrc}
-                  alt="Анна — Советник WFPB" 
-                  className="w-full h-full object-cover"
-                />
-              </div>
-              <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-brand-green-bright border-2 border-white flex items-center justify-center text-xs scale-105">
-                🌱
-              </div>
-            </div>
-
-            <div className="flex flex-col">
-              <h3 
-                className="text-[17px] sm:text-[18px] font-black text-text-dark leading-none"
-                style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}
-              >
-                Анна
-              </h3>
-              <span 
-                className="text-[11.5px] sm:text-[12px] font-bold text-text-muted mt-0.5 leading-none"
-                style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}
-              >
-                Советник WFPB
-              </span>
-            </div>
-          </div>
-
-          <AnnaText
-            text={annaMsg.text}
-            userName={userName}
-            className="text-[14px] sm:text-[15px] text-text-sec bg-slate-50/70 p-3 rounded-2xl leading-relaxed font-medium"
-          />
         </div>
 
       </div>
