@@ -1,3 +1,6 @@
+import backUrl from "../assets/images/teleg/back.webp";
+import logoUrl from "../assets/images/teleg/logo.webp";
+
 interface AccessDeniedScreenProps {
   text: string;
   siteUrl?: string;
@@ -15,42 +18,53 @@ export default function AccessDeniedScreen({ text, siteUrl, hint }: AccessDenied
 
   return (
     <div
-      className="w-full h-[100dvh] bg-[#F0F3F5] flex justify-center text-text-main"
-      style={{ fontFamily: family }}
+      className="w-full min-h-[100dvh] bg-[#EFF3EC] bg-cover bg-center bg-no-repeat flex justify-center text-text-main"
+      style={{ fontFamily: family, backgroundImage: `url(${backUrl})` }}
     >
       <div
-        className="w-full max-w-[440px] h-[100dvh] bg-white mx-auto flex flex-col justify-center px-6 sm:border-x sm:border-slate-200/70"
+        className="w-full max-w-[440px] min-h-[100dvh] flex flex-col justify-center items-center px-7"
         style={{
-          paddingTop: "env(safe-area-inset-top, 0px)",
-          paddingBottom: "env(safe-area-inset-bottom, 0px)",
+          paddingTop: "calc(env(safe-area-inset-top, 0px) + 48px)",
+          paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 48px)",
         }}
       >
-        <h1 className="text-[26px] font-bold text-text-dark leading-[1.15] mb-3">
-          Доступ не открыт
-        </h1>
+        <img
+          src={logoUrl}
+          alt="Всё дело в еде!"
+          className="w-[30%] min-w-[116px] max-w-[164px] mb-14 select-none"
+          draggable={false}
+        />
 
-        <p className="text-[17px] text-text-sec leading-[1.4] mb-7">{text}</p>
+        <div className="w-full">
+          <h1 className="text-[28px] font-bold text-text-dark leading-[1.15] mb-4">
+            Доступ не открыт
+          </h1>
 
-        {safeUrl && (
-          <a
-            href={safeUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="w-full max-w-[340px] h-[58px] rounded-[28px] text-[18px] sm:text-[20px] font-bold text-white volumetric-btn flex items-center justify-center select-none"
-          >
-            Оформить доступ
-          </a>
-        )}
+          <p className="text-[18px] text-text-sec leading-[1.5] mb-10">{text}</p>
+        </div>
 
-        <div className="flex flex-col gap-3 mt-7">
-          <button
-            type="button"
-            onClick={() => window.location.reload()}
-            className="text-[16px] text-brand-green-dark underline underline-offset-2 cursor-pointer self-start"
-          >
-            Повторить
-          </button>
-          <p className="text-[14px] text-text-muted leading-[1.4]">{hint}</p>
+        <div className="w-[68%] min-w-[224px] max-w-[300px] flex flex-col items-stretch">
+          {safeUrl && (
+            <a
+              href={safeUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="h-[62px] rounded-[31px] text-[19px] sm:text-[20px] font-bold mint-btn flex items-center justify-center select-none"
+            >
+              Оформить доступ
+            </a>
+          )}
+
+          <div className="flex flex-col gap-3 mt-7">
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="text-[16px] text-brand-green-dark underline underline-offset-2 cursor-pointer self-start"
+            >
+              Повторить
+            </button>
+            <p className="text-[14px] text-text-muted leading-[1.45]">{hint}</p>
+          </div>
         </div>
       </div>
     </div>
