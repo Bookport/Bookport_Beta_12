@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { getTelegramInitData } from "../utils/telegramClient";
-import { API_TIMEOUT_MS, timeoutSignal } from "../utils/api";
+import { API_TIMEOUT_MS, api, timeoutSignal } from "../utils/api";
 import { setUserTimeZone } from "../shared/timeZoneStore";
 import type { SavedDish } from "../types/dishes";
 
@@ -147,7 +147,7 @@ export interface AppState {
   courseStartTimestamp: number | null;
   clickCount: number;
   globalProgress: number;
-  unshippedProgress: number;
+  pendingScoreDelta: number;
   isGodMode: boolean;
 
   fetchFoodCache: () => Promise<void>;
@@ -158,7 +158,8 @@ export interface AppState {
   setTelegramUser: (user: TelegramUser | null) => void;
   setClickCount: (count: number) => void;
   setGlobalProgress: (count: number) => void;
-  setUnshippedProgress: (count: number) => void;
+  addProgressXp: (amount: number) => void;
+  consumePendingScore: () => number;
   setCalendarOpen: (open: boolean) => void;
   setOverlayOpen: (open: boolean) => void;
   setDigestionModalOpen: (open: boolean, day?: number) => void;
@@ -180,7 +181,7 @@ export interface AppState {
   initApp: () => Promise<void>;
 }
 
-export const useAppStore = create<AppState>((set) => ({
+export const useAppStore = create<AppState>((set, get) => ({
   screen: "welcome",
   screenHistory: [],
   foodCache: [],
@@ -203,7 +204,7 @@ export const useAppStore = create<AppState>((set) => ({
   courseStartTimestamp: null,
   clickCount: 0,
   globalProgress: 0,
-  unshippedProgress: 0,
+  pendingScoreDelta: 0,
   isGodMode: false,
 
   // История нужна потому, что в Telegram «назад» на Android закрывает Mini App,
@@ -229,7 +230,24 @@ export const useAppStore = create<AppState>((set) => ({
   setTelegramUser: (user) => set({ telegramUser: user }),
   setClickCount: (count) => { set({ clickCount: count }); localStorage.setItem('wfpb_click_count', String(count)); },
   setGlobalProgress: (count) => set({ globalProgress: count }),
-  setUnshippedProgress: (count) => set({ unshippedProgress: count }),
+  // Централизованное начисление XP: локальный инкремент + буфер для анимации плашки + персист на бэкенд.
+  addProgressXp: (amount) => {
+    if (!amount || amount <= 0) return;
+    set((state) => ({
+      globalProgress: (state.globalProgress || 0) + amount,
+      pendingScoreDelta: (state.pendingScoreDelta || 0) + amount,
+    }));
+    api("/api/user/progress", {
+      method: "POST",
+      body: { increment: amount },
+    }).catch(() => {});
+  },
+  // Забирает накопленную дельту для анимации на Главном экране и сбрасывает буфер в 0.
+  consumePendingScore: () => {
+    const delta = get().pendingScoreDelta;
+    if (delta > 0) set({ pendingScoreDelta: 0 });
+    return delta;
+  },
   setCalendarOpen: (open) => set({ isCalendarOpen: open }),
   setOverlayOpen: (open) => set({ isOverlayOpen: open }),
   setDigestionModalOpen: (open, day) => set({ isDigestionModalOpen: open, digestionModalDay: day || null }),

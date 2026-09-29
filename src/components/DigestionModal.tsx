@@ -86,6 +86,9 @@ export default function DigestionModal({ day }: DigestionModalProps) {
       console.warn("Failed to save digestion log to DB");
     });
 
+    // Организм/ЖКТ +10 XP за сохранение записи пищеварения
+    useAppStore.getState().addProgressXp(10);
+
     setIsSymptomsOpen(false);
     setDigestionModalOpen(false);
   };

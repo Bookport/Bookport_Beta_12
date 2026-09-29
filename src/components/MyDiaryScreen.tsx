@@ -592,6 +592,9 @@ export default function MyDiaryScreen({
 
     saveSelectedDayNotes([...currentNotes, newNote]);
 
+    // Этап 2: дневник +5 XP за новую запись
+    useAppStore.getState().addProgressXp(5);
+
     // Persist diary entry to the database (fire-and-forget), save server ID for future DELETE
     api("/api/diary", {
       method: "POST",

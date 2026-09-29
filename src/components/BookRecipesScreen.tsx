@@ -2175,6 +2175,11 @@ export default function BookRecipesScreen({
       }).catch(() => {});
     }
 
+    // Этап 2: рецепты из книги +50 XP только за "cooked" (за "ponder" не начисляем)
+    if (statusType === "cooked") {
+      useAppStore.getState().addProgressXp(50);
+    }
+
     // Reset and close
     setSelectedRecipe(null);
     setSelectedRecipeType(null);

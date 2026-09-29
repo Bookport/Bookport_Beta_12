@@ -767,50 +767,6 @@ export default function App() {
     return () => clearTimeout(bootTimer);
   }, [])
 
-  // Global click tracker — increments progress counter, ships to backend in batches
-  useEffect(() => {
-    const SHIP_THRESHOLD = 5;
-    const SHIP_INTERVAL_MS = 10000;
-    let shipTimer: ReturnType<typeof setTimeout> | null = null;
-
-    function shipProgress() {
-      const unshipped = useAppStore.getState().unshippedProgress;
-      if (unshipped <= 0) return;
-      useAppStore.getState().setUnshippedProgress(0);
-      api("/api/user/progress", {
-        method: "POST",
-        body: { increment: unshipped },
-      }).then((res: any) => {
-        if (res?.globalProgress !== undefined) {
-          useAppStore.getState().setGlobalProgress(res.globalProgress);
-        }
-      }).catch(() => {});
-    }
-
-    function resetShipTimer() {
-      if (shipTimer) clearTimeout(shipTimer);
-      shipTimer = setTimeout(shipProgress, SHIP_INTERVAL_MS);
-    }
-
-    function handleClick() {
-      const { globalProgress, unshippedProgress } = useAppStore.getState();
-      useAppStore.getState().setGlobalProgress(globalProgress + 1);
-      useAppStore.getState().setUnshippedProgress(unshippedProgress + 1);
-      resetShipTimer();
-
-      if (useAppStore.getState().unshippedProgress >= SHIP_THRESHOLD) {
-        if (shipTimer) clearTimeout(shipTimer);
-        shipProgress();
-      }
-    }
-
-    document.addEventListener("click", handleClick);
-    return () => {
-      document.removeEventListener("click", handleClick);
-      if (shipTimer) clearTimeout(shipTimer);
-    };
-  }, []);
-
   // Sync userGender from the Zustand store (server profile) whenever it changes
   useEffect(() => {
     if (storeGender) {
@@ -890,6 +846,8 @@ export default function App() {
 
   // Zustand subscribe — fires on any store change (movement, clickCount, etc.)
   const lastSnapshotRef = useRef('')
+  // Этап 2: prev closedCount для начисления XP за новые ключи (delta * 10)
+  const prevClosedCountRef = useRef<number | null>(null)
   useEffect(() => {
     const unsub = useAppStore.subscribe(() => {
       const snapshot = buildSnapshot()
@@ -917,6 +875,12 @@ export default function App() {
   useEffect(() => {
     const { closedCount } = SystemKeysStore.calculateKeysForDay(currentDayIndex, savedDishes, water);
     setHabitsDone(closedCount);
+    // Этап 2: ключи системы +10 XP за каждый новый ключ (при снижении — только двигаем prev, без списания)
+    const prev = prevClosedCountRef.current;
+    if (prev !== null && closedCount > prev) {
+      useAppStore.getState().addProgressXp((closedCount - prev) * 10);
+    }
+    prevClosedCountRef.current = closedCount;
   }, [currentDayIndex, savedDishes, water]);
 
   const handleToggleFavorite = (id: string) => {
@@ -1484,6 +1448,9 @@ export default function App() {
 
                   setSavedDishes(prev => [newDish, ...prev]);
                   setScreen("my-dishes");
+
+                  // Этап 2: еда +20 XP за сохранение блюда (не миксер, не смена категории)
+                  useAppStore.getState().addProgressXp(20);
 
                   // Persist photo/DIY dish to DB (fire-and-forget)
                   api("/api/saved-dishes", {

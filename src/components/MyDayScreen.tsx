@@ -345,6 +345,80 @@ export default function MyDayScreen({
   const globalProgress = useAppStore((s) => s.globalProgress);
   const setClickCountStore = useAppStore((s) => s.setClickCount);
 
+  // Этап 3: анимация плашки прогресса (флоатер +N, одометр, микро-пульс).
+  // Подписка на буфер XP: срабатывает и при маунте (возврат с других экранов),
+  // и при начислениях на этом же экране (вода/движение/сон/замеры/ключи).
+  const pendingScoreDelta = useAppStore((s) => s.pendingScoreDelta);
+  const [rewardDelta, setRewardDelta] = useState(0);
+  const [showFloater, setShowFloater] = useState(false);
+  const [displayedProgress, setDisplayedProgress] = useState<number | null>(null);
+  const [plaquePulse, setPlaquePulse] = useState(false);
+  const [iconBounce, setIconBounce] = useState(false);
+  const rewardTimersRef = React.useRef<ReturnType<typeof setTimeout>[]>([]);
+  const rewardRafRef = React.useRef<number | null>(null);
+  // Поколение анимации: новый запуск вытесняет предыдущий без убийства
+  // текущего через cleanup (cleanup при consumePendingScore срывал анимацию).
+  const rewardRunIdRef = React.useRef(0);
+
+  // Cleanup только при размонтировании — НЕ в эффекте ниже, иначе
+  // consumePendingScore() (set pendingScoreDelta=0 → ререндер → cleanup)
+  // отменял бы только что стартовавший rAF/таймауты.
+  useEffect(() => () => {
+    rewardRunIdRef.current++;
+    if (rewardRafRef.current !== null) cancelAnimationFrame(rewardRafRef.current);
+    rewardTimersRef.current.forEach(clearTimeout);
+    rewardTimersRef.current = [];
+  }, []);
+
+  useEffect(() => {
+    if (pendingScoreDelta <= 0) return;
+    const delta = useAppStore.getState().consumePendingScore();
+    if (delta <= 0) return;
+    console.log("[XP Plaque] Starting animation with delta:", delta);
+    const runId = ++rewardRunIdRef.current;
+    const finalValue = useAppStore.getState().globalProgress;
+    const startValue = Math.max(0, finalValue - delta);
+
+    if (rewardRafRef.current !== null) cancelAnimationFrame(rewardRafRef.current);
+    rewardTimersRef.current.forEach(clearTimeout);
+    rewardTimersRef.current = [];
+
+    setRewardDelta(delta);
+    setShowFloater(true);
+    console.log("[XP Plaque] Showing floater with delta:", delta);
+    setDisplayedProgress(startValue);
+    setPlaquePulse(false);
+    setIconBounce(false);
+
+    // Счётчик-одометр: добегание за ~700мс с ease-out
+    const durationMs = 700;
+    const t0 = performance.now();
+    const tick = (now: number) => {
+      if (rewardRunIdRef.current !== runId) return; // вытеснен новым запуском
+      const t = Math.min(1, (now - t0) / durationMs);
+      const eased = 1 - Math.pow(1 - t, 3);
+      setDisplayedProgress(Math.round(startValue + (finalValue - startValue) * eased));
+      if (t < 1) {
+        rewardRafRef.current = requestAnimationFrame(tick);
+      } else {
+        setDisplayedProgress(null);
+        // Микро-отклик в момент финиша цифр
+        setPlaquePulse(true);
+        setIconBounce(true);
+        rewardTimersRef.current.push(setTimeout(() => {
+          if (rewardRunIdRef.current !== runId) return;
+          setPlaquePulse(false); setIconBounce(false);
+        }, 400));
+      }
+    };
+    rewardRafRef.current = requestAnimationFrame(tick);
+    // Удаление флоатера после 2.8с (задержка на месте ~2с + высокий улет)
+    rewardTimersRef.current.push(setTimeout(() => {
+      if (rewardRunIdRef.current !== runId) return;
+      setShowFloater(false); setRewardDelta(0);
+    }, 2800));
+  }, [pendingScoreDelta]);
+
   // Check for pending achievements when MyDay is active
   useEffect(() => {
     if (screen === "my-day") {
@@ -1248,6 +1322,9 @@ export default function MyDayScreen({
       pointsEarned: pts
     });
 
+    // Этап 2: движение +10 XP за остановку таймера
+    useAppStore.getState().addProgressXp(10);
+
     // Reset session
     setMovementSession(null);
     setActivityElapsedTime(0);
@@ -1329,6 +1406,9 @@ export default function MyDayScreen({
       durationSeconds: durationSeconds,
       pointsEarned: pts
     });
+
+    // Этап 2: движение +10 XP за ручной ввод
+    useAppStore.getState().addProgressXp(10);
 
     setShowFastMovement(false);
   };
@@ -1511,6 +1591,9 @@ export default function MyDayScreen({
 
     // Reward points for daily reflection
     recordClick(15); 
+    // Этап 2: замеры +10 XP
+    console.log("[XP] Triggered from handler:", 10);
+    useAppStore.getState().addProgressXp(10);
 
     // Dismiss sheet
     setShowFastMeasurements(false);
@@ -1614,6 +1697,8 @@ export default function MyDayScreen({
     setBedTimeRecorded("");
 
     recordClick(20);
+    // Этап 2: сон +10 XP за ночную сессию
+    useAppStore.getState().addProgressXp(10);
     setActiveNotification({
       text: `Сон записан: ${Math.floor(durationMin / 60)} ч ${durationMin % 60} мин. Так держать! ☀️`,
       type: "success"
@@ -1635,6 +1720,8 @@ export default function MyDayScreen({
         sleepLogs: daySleepEntries,
       },
     }).catch(() => {});
+    // Этап 2: сон +10 XP за ручной ввод
+    useAppStore.getState().addProgressXp(10);
     setActiveNotification({
       text: `Сон записан: ${Math.floor(entry.duration / 60)} ч ${entry.duration % 60} мин. День ${entry.dayIndex}.`,
       type: "success"
@@ -1860,6 +1947,10 @@ export default function MyDayScreen({
         waterEntries: [newEntry],
       },
     }).catch(() => {});
+
+    // Этап 2: вода +5 XP за порцию
+    console.log("[XP] Triggered from handler:", 5);
+    useAppStore.getState().addProgressXp(5);
 
     // Provide a 90 second breathing space of absolute silence after logging water so Anna doesn't bug the user immediately
     nextAllowedNotificationTimeRef.current = Date.now() + 90000;
@@ -2368,7 +2459,7 @@ export default function MyDayScreen({
           </div>
 
           {/* Right Cards Stack: Unified Progress + Calendar Widget */}
-          <div className="col-span-5 flex flex-col gap-1.5 items-end mt-[14px]">
+          <div className="col-span-5 flex flex-col gap-1.5 items-end mt-[14px] overflow-visible">
             
             {/* 1. Кнопка Календаря (День цикла) */}
             <motion.button
@@ -2398,23 +2489,62 @@ export default function MyDayScreen({
             </motion.button>
 
             {/* 2. Блок Прогресса */}
-            <div className="w-full flex items-center justify-between bg-slate-50/50 backdrop-blur-md border border-slate-200/50 shadow-sm rounded-2xl px-3 py-1.5">
-              <div className="flex items-center gap-2.5">
-                <img
+            <style>{`
+              @keyframes floatUpFadeXP {
+                0% {
+                  opacity: 0;
+                  transform: translateY(6px) scale(0.8);
+                }
+                8% {
+                  opacity: 1;
+                  transform: translateY(0px) scale(1);
+                }
+                75% {
+                  /* Задержка на месте ~2 секунды */
+                  opacity: 1;
+                  transform: translateY(-4px) scale(1);
+                }
+                100% {
+                  /* Высокий улет поверх календаря с растворением */
+                  opacity: 0;
+                  transform: translateY(-52px) scale(0.9);
+                }
+              }
+            `}</style>
+            <motion.div
+              animate={plaquePulse ? { scale: [1, 1.03, 1] } : { scale: 1 }}
+              transition={{ duration: 0.35, ease: "easeOut" }}
+              className="w-full flex items-center justify-between bg-slate-50/50 backdrop-blur-md border border-slate-200/50 shadow-sm rounded-2xl px-3 py-1.5 relative overflow-visible"
+            >
+              <div className="flex items-center gap-2.5 relative overflow-visible">
+                <motion.img
                   src={progressIcon}
                   alt="Прогресс"
+                  animate={iconBounce ? { y: [0, -6, 0], rotate: [0, -8, 8, 0] } : { y: 0, rotate: 0 }}
+                  transition={{ duration: 0.4, ease: "easeOut" }}
                   className="w-9 h-9 object-contain shrink-0 drop-shadow-sm pointer-events-none"
                 />
-                <div className="flex flex-col text-left">
+                <div className="flex flex-col text-left relative overflow-visible">
                   <span className="text-[15px] sm:text-[16px] font-bold text-slate-800 leading-tight">
-                    {globalProgress}
+                    {displayedProgress ?? globalProgress}
                   </span>
+                  {showFloater && rewardDelta > 0 && (
+                    <span
+                      key={rewardRunIdRef.current}
+                      className="absolute -top-3 left-full ml-1 z-[60] inline-flex items-center px-3 py-1 rounded-full text-[16px] font-black text-white bg-emerald-600 shadow-xl shadow-emerald-600/30 pointer-events-none select-none whitespace-nowrap"
+                      style={{
+                        animation: "floatUpFadeXP 2.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards",
+                      }}
+                    >
+                      +{rewardDelta}
+                    </span>
+                  )}
                   <span className="text-[11px] font-medium text-slate-400 lowercase leading-tight">
                     прогресс
                   </span>
                 </div>
               </div>
-            </div>
+            </motion.div>
 
             {/* Card 3: Привычки (Ключи системы — новый дизайн с картинкой) */}
             <button
