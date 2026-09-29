@@ -1,9 +1,11 @@
 /* Диалог одного калькулятора: заголовок над прокручиваемой формой, ловушка фокуса из общего хука. */
 
-import { useRef, type CSSProperties } from "react";
-import { X } from "lucide-react";
+import { useRef, useState, type CSSProperties } from "react";
+import { Info, X } from "lucide-react";
 import { useDialogBehavior } from "../hooks/useDialogBehavior";
 import { CalculatorForm } from "./CalculatorForm";
+import { CalculatorHelpModal } from "./CalculatorHelpModal";
+import { calculatorHelpTexts } from "../lib/calculatorHelpTexts";
 import type { CalculatorDefinition } from "../lib/calculatorCatalog";
 
 export function CalculatorModal({ calculator, onClose, onOpenProfile, returnFocusElement }: {
@@ -14,6 +16,9 @@ export function CalculatorModal({ calculator, onClose, onOpenProfile, returnFocu
   returnFocusElement?: HTMLElement | null;
 }) {
   const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const infoButtonRef = useRef<HTMLButtonElement>(null);
+  const help = calculatorHelpTexts[calculator.id];
+  const [helpOpen, setHelpOpen] = useState(false);
   const dialogRef = useDialogBehavior<HTMLDivElement>({ onClose, returnFocusElement, initialFocus: closeButtonRef });
 
   return (
@@ -36,8 +41,13 @@ export function CalculatorModal({ calculator, onClose, onOpenProfile, returnFocu
           <img src={calculator.thumbnail} alt="" width={36} height={36} className="size-9 shrink-0 object-contain" draggable={false} />
           <div className="min-w-0 flex-1">
             <h2 id="calculator-dialog-title" className="truncate text-base font-semibold leading-tight text-[#1E293B]">{calculator.title}</h2>
-            <p className="truncate text-xs leading-4 text-[#64748B]">{calculator.description}</p>
+            <p className="text-xs leading-[1.45] text-[#64748B]">{calculator.description}</p>
           </div>
+          {help && (
+            <button ref={infoButtonRef} type="button" onClick={() => setHelpOpen(true)} className="flex size-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[#64748B] transition hover:bg-slate-200 hover:text-[#1E293B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--calc-accent)]" aria-label="Пояснение к расчёту">
+              <Info size={18} strokeWidth={2.2} aria-hidden="true" />
+            </button>
+          )}
           <button ref={closeButtonRef} type="button" onClick={onClose} className="flex size-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[#64748B] transition hover:bg-slate-200 hover:text-[#1E293B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--calc-accent)]" aria-label="Закрыть калькулятор">
             <X size={18} aria-hidden="true" />
           </button>
@@ -47,6 +57,15 @@ export function CalculatorModal({ calculator, onClose, onOpenProfile, returnFocu
           <CalculatorForm calculatorId={calculator.id} onOpenProfile={onOpenProfile} onDone={onClose} />
         </div>
       </div>
+
+      {help && helpOpen && (
+        <CalculatorHelpModal
+          calculator={calculator}
+          help={help}
+          onClose={() => setHelpOpen(false)}
+          returnFocusElement={infoButtonRef.current}
+        />
+      )}
     </div>
   );
 }
