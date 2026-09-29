@@ -101,6 +101,31 @@
       0 -1px 0 rgba(8, 91, 36, 0.3) inset;
   }
 
+  /* Мятная кнопка на светлом фотофоне: насыщенный `volumetric-btn` на фотографии
+     «Всё дело в еде!» тонет, поэтому заливка светлая, а текст — тёмно-зелёный. */
+  .mint-btn {
+    background: linear-gradient(180deg, #C8ECB8 0%, #ABDE97 100%);
+    color: var(--color-brand-green-deep);
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.6) inset,
+      0 6px 16px rgba(12, 126, 53, 0.14);
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .mint-btn:hover {
+    transform: translateY(-1px);
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.7) inset,
+      0 9px 22px rgba(12, 126, 53, 0.18);
+  }
+
+  .mint-btn:active {
+    transform: translateY(1px);
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.35) inset,
+      0 2px 8px rgba(12, 126, 53, 0.16);
+  }
+
   /* Navigation tab glass buttons */
   .nav-btn-green {
     background: linear-gradient(135deg, #22C55E 0%, #109F44 100%);
