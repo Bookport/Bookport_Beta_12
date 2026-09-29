@@ -19,7 +19,7 @@ export interface FoodCacheItem {
 }
 
 export type Screen =
-  | "welcome" | "my-page"
+  | "welcome"
   | "digestion" | "my-day" | "habits-twenty" | "what-i-eat"
   | "check-composition" | "dish-analysis" | "my-dishes"
   | "from-what-is" | "book-recipes" | "purchases" | "diary"

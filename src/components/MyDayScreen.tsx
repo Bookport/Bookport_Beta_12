@@ -282,6 +282,24 @@ export default function MyDayScreen({
     setSelectedGraphDay(currentDayIndex);
   }, [currentDayIndex, setSelectedGraphDay]);
 
+  // Кнопка «Главная» в BottomBar шлёт window CustomEvent('scroll-to-top'):
+  // плавно скроллим внутренний контейнер экрана наверх к шапке.
+  React.useEffect(() => {
+    const handler = () => {
+      try {
+        const root = document.getElementById("my-day-screen");
+        const inner = root?.querySelector(".overflow-y-auto") as HTMLElement | null;
+        if (inner) inner.scrollTo({ top: 0, behavior: "smooth" });
+      } catch {}
+      try {
+        const marked = document.querySelector("[data-scroll-container]");
+        if (marked) (marked as HTMLElement).scrollTo({ top: 0, behavior: "smooth" });
+      } catch {}
+    };
+    window.addEventListener("scroll-to-top", handler);
+    return () => window.removeEventListener("scroll-to-top", handler);
+  }, []);
+
   // Механизм сброса нового дня (New Day Reset)
   React.useEffect(() => {
     const checkAndResetNewDay = () => {
@@ -514,7 +532,6 @@ export default function MyDayScreen({
   const setDiastolic = (val: number | ((prev: number) => number)) => {};
 
   // Navigation helpers
-  const onBack = () => setScreen("my-page");
   const onOpenHabitsTwenty = () => setScreen("habits-twenty");
   const onOpenWhatIEat = () => setScreen("what-i-eat");
   const onOpenRecipes = () => setScreen("my-dishes");
@@ -2765,8 +2782,7 @@ export default function MyDayScreen({
 
       {/* Builtin Premium Bottom navigation layout matching the active "Мой день" view */}
       <div className="w-full">
-        <BottomBar 
-          onHomeClick={onBack}
+        <BottomBar
           onRecipesClick={onOpenRecipes}
           onDiaryClick={onOpenWhatIEat}
           onAnalyticsClick={onOpenHabitsTwenty}

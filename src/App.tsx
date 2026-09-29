@@ -16,7 +16,6 @@ import GlassRing from "./components/GlassRing";
 import StartButton from "./components/StartButton";
 import BottomBar from "./components/BottomBar";
 
-import MyPageScreen from "./components/MyPageScreen";
 import DigestionScreen from "./components/DigestionScreen";
 import DigestionModal from "./components/DigestionModal";
 import MyDayScreen from "./components/MyDayScreen";
@@ -141,15 +140,6 @@ function getAnnaBubbleStyle(currentScreen: string) {
         title: "Цели здоровья",
         iconColor: "text-emerald-650",
         badgeBg: "bg-emerald-100 text-emerald-800 border-emerald-200"
-      };
-    case "my-page":
-      return {
-        bg: "bg-slate-50/95 backdrop-blur-md",
-        border: "border-slate-300/40 shadow-[0_4px_16px_rgba(100,116,139,0.06)]",
-        text: "text-slate-800",
-        title: "Мой аккаунт",
-        iconColor: "text-slate-500",
-        badgeBg: "bg-slate-100 text-slate-600 border-slate-200"
       };
     case "digestion":
       return {
@@ -1246,24 +1236,6 @@ export default function App() {
               >
                 <BottomBar />
               </motion.div>
-            </motion.div>
-          ) : screen === "my-page" ? (
-            <motion.div
-              key="my-page-view"
-              initial={{ opacity: 0, x: 10 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -10 }}
-              transition={{ duration: 0.4 }}
-              className="flex-1 flex flex-col"
-            >
-              <MyPageScreen 
-                onBack={() => setScreen("settings")} 
-                onOpenMyDay={() => { setScreen("my-day"); setTimeout(() => ingestAchievementEvent({ type: 'course:started' }), 5000); }}
-                dayNotes={dayNotes}
-                currentDayIndex={currentDayIndex}
-                screen={screen}
-                onOpenCalendar={() => setCalendarOpen(true)}
-              />
             </motion.div>
           ) : screen === "digestion" ? (
             <motion.div
