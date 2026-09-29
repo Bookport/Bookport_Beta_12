@@ -15,6 +15,7 @@ import { useTelegramBackButton } from "./hooks/useTelegramBackButton";
 import GlassRing from "./components/GlassRing";
 import StartButton from "./components/StartButton";
 import BottomBar from "./components/BottomBar";
+import welcomeBg from "./assets/images/visit/back.webp";
 
 import DigestionScreen from "./components/DigestionScreen";
 import DigestionModal from "./components/DigestionModal";
@@ -548,6 +549,14 @@ export default function App() {
   // за рабочим экраном с правдоподобными цифрами — за него показывает AccessDeniedScreen.
   const [accessDenied, setAccessDenied] = useState<{ text: string; hint: string; siteUrl?: string } | null>(null);
 
+  // Гейт первой отрисовки против Stale Frame/FOUC: пока initApp + /init + /data
+  // не завершились и не выставили целевой screen, боевые экраны не показываем —
+  // возвратный пользователь не видит welcome ни одного кадра.
+  const [isBooted, setIsBooted] = useState(false);
+  // Прелоад welcomeBg: греем кэш bundled-URL до первого рендера welcome,
+  // чтобы не было визуального «поп» при появлении фона.
+  const [welcomeBgReady, setWelcomeBgReady] = useState(false);
+
   // Dynamic state container for HabitsTwenty screen checked circles data
   const [habitsTwentyData, setHabitsTwentyData] = useState<HabitsState | undefined>(undefined);
 
@@ -578,9 +587,33 @@ export default function App() {
     }
   }, [isTelegram]);
 
-  // Init achievement subsystem + App store (device ID, profile sync)
+  // Прелоад фона welcome до завершения boot-запросов: к моменту первого
+  // рендера welcome картинка уже в кэше. Статический <link rel="preload">
+  // в index.html здесь не подходит — Vite хеширует имя бандла back.webp,
+  // поэтому греем именно резолвленный import-URL.
   useEffect(() => {
+    // Фолбэк: даже если onLoad кэшированной картинки не fired —
+    // фон принудительно показываем, тексты/кнопка от этого флага не зависят.
+    const bgFallback = setTimeout(() => setWelcomeBgReady(true), 1500);
+    const img = new Image();
+    const done = () => {
+      clearTimeout(bgFallback);
+      setWelcomeBgReady(true);
+    };
+    img.onload = done;
+    img.onerror = done;
+    img.src = welcomeBg;
+    if (img.complete && img.naturalWidth > 0) done();
+    return () => clearTimeout(bgFallback);
+  }, []);
+
+  // Init achievement subsystem + App store (device ID, profile sync)
+  // isBooted ГАРАНТИРОВАННО становится true: outer try/finally + fallback-таймер
+  // 1.5с на случай зависшего fetch (TWA WebView, не сработавший abort).
+  useEffect(() => {
+    const bootTimer = setTimeout(() => setIsBooted(true), 1500);
     (async () => {
+    try {
       await useAppStore.getState().initApp();
 
       try {
@@ -720,11 +753,18 @@ export default function App() {
         }
         console.warn("[Init] server data load failed:", err);
       }
+    } catch (err) {
+      console.error("Boot initialization error:", err);
+    } finally {
+      clearTimeout(bootTimer);
+      setIsBooted(true);
+    }
     })();
 
     if (typeof window !== 'undefined') {
       initializeAchievementSystem()
     }
+    return () => clearTimeout(bootTimer);
   }, [])
 
   // Global click tracker — increments progress counter, ships to backend in batches
@@ -1129,7 +1169,7 @@ export default function App() {
             высота 100dvh без собственного скролла body. Единственная зона
             вертикальной прокрутки — внутренний контейнер ниже. */}
         <motion.div 
-          className="w-full max-w-[440px] h-[100dvh] overflow-hidden relative mx-auto bg-white flex flex-col shadow-[0_0_40px_rgba(15,23,42,0.06)] sm:border-x sm:border-slate-200/70"
+          className="w-full max-w-[440px] h-[100dvh] overflow-hidden relative mx-auto bg-[#F8F9FA] flex flex-col shadow-[0_0_40px_rgba(15,23,42,0.06)] sm:border-x sm:border-slate-200/70"
           /* env(...) здесь нули, пока вьюпорт не растянут на всю область экрана —
              для этого в index.html стоит viewport-fit=cover. */
           style={{
@@ -1138,6 +1178,18 @@ export default function App() {
           }}
         >
         
+        {/* Фон приветственного экрана — на всю высоту капсулы от верхнего края.
+            Плавный fade-in по onLoad + прелоад выше: до отрисовки картинки
+            видна теплая подложка капсулы, а не слепящая белизна. */}
+        {isBooted && screen === "welcome" && (
+          <img
+            src={welcomeBg}
+            alt=""
+            onLoad={() => setWelcomeBgReady(true)}
+            className={`absolute top-0 left-0 w-full h-full object-cover object-top pointer-events-none z-0 select-none transition-opacity duration-300 ${welcomeBgReady ? "opacity-100" : "opacity-0"}`}
+          />
+        )}
+
         {/* Top Spacer element representing the status bar region - completely clean empty area of the interface itself */}
         <div className="h-4 w-full shrink-0" />
 
@@ -1146,7 +1198,14 @@ export default function App() {
             (motion-обертки flex-1 flex flex-col), своих окон скролла
             на уровне App не заводят. */}
         <div className="flex-1 w-full min-h-0 overflow-y-auto overflow-x-hidden no-scrollbar flex flex-col">
-        <AnimatePresence mode="wait">
+        {!isBooted ? (
+          /* Нейтральный сплэш на время initApp/init/data: статичное кольцо
+             в тонах подложки, без welcome-текстов и каскадных анимаций. */
+          <div className="flex-1 flex flex-col items-center justify-center" aria-hidden="true">
+            <GlassRing />
+          </div>
+        ) : (
+        <AnimatePresence mode="wait" initial={false}>
           {screen === "welcome" ? (
             <motion.div 
               key="welcome-view"
@@ -1154,52 +1213,55 @@ export default function App() {
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: 10 }}
               transition={{ duration: 0.4 }}
-              className="flex-1 flex flex-col justify-between"
+              className="flex-1 flex flex-col justify-between relative overflow-hidden"
             >
-              {/* Scrollable / Flexible content view of the single screen */}
-              <div className="flex-1 flex flex-col items-center justify-start px-6 pt-4 pb-2">
+              {/* Контент поверх фона */}
+              <div className="relative z-10 flex-1 flex flex-col items-center justify-between h-full px-5 pb-5 pt-1 overflow-hidden select-none">
                 
-                {/* Section 1: Glass Progress tube with logo inside */}
+                {/* Шапка: Glass Progress tube with logo inside */}
                 <motion.div 
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: 0.1, duration: 0.8 }}
-                  className="w-full flex justify-center mb-6"
+                  className="flex justify-center items-center mt-1 shrink-0"
                 >
                   <GlassRing />
                 </motion.div>
 
-                {/* Section 2: Header Typography */}
-                <div className="text-center w-full max-w-[340px] flex flex-col gap-3 mb-6">
-                  <motion.h1 
+                {/* Блок текстов */}
+                <div className="flex flex-col items-center text-center max-w-[340px] px-3 mt-[95px] sm:mt-[105px] shrink-0">
+                  <motion.p 
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.2, duration: 0.6 }}
-                    className="text-[30px] sm:text-[32px] font-bold text-text-dark leading-[1.1] tracking-tight"
-                    style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}
+                    className="text-[11px] sm:text-[12px] font-bold tracking-widest text-[#15803D] uppercase mb-1"
+                  >
+                    СИСТЕМА «ВСЁ ДЕЛО В ЕДЕ!»
+                  </motion.p>
+
+                  <motion.h1 
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.25, duration: 0.6 }}
+                    className="text-[23px] sm:text-[25px] font-black text-[#1E293B] leading-tight tracking-tight mb-1"
                   >
                     Добро пожаловать
                   </motion.h1>
 
-                  <motion.p 
+                  <motion.h2 
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.3, duration: 0.6 }}
-                    className="text-[18px] sm:text-[20px] font-bold text-brand-green-dark leading-snug tracking-wide"
-                    style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}
+                    className="text-[14px] sm:text-[15px] font-bold text-[#16A34A] leading-snug mb-2.5"
                   >
                     Ваш 28-дневный путь к лучшему самочувствию
-                  </motion.p>
-                </div>
+                  </motion.h2>
 
-                {/* Section 3: Descriptive Copy Paragraphs */}
-                <div className="w-full max-w-[340px] flex flex-col gap-4 text-left px-1 mb-8">
                   <motion.p 
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.4, duration: 0.6 }}
-                    className="text-[16px] sm:text-[18px] text-text-sec leading-[1.35] font-normal"
-                    style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}
+                    className="text-[12.5px] text-[#475569] leading-relaxed mb-1.5 font-normal"
                   >
                     Это приложение поможет вам пройти курс шаг за шагом: отслеживать питание, привычки, сон, пищеварение и личный прогресс.
                   </motion.p>
@@ -1208,37 +1270,23 @@ export default function App() {
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.5, duration: 0.6 }}
-                    className="text-[16px] sm:text-[18px] text-text-sec leading-[1.35] font-normal"
-                    style={{ fontFamily: '"Calibri", "Candara", sans-serif' }}
+                    className="text-[12.5px] text-[#475569] leading-relaxed mb-1.5 font-normal"
                   >
-                    Анна будет рядом, чтобы подсказывать, поддерживать и помогать видеть изменения.
+                    Питание, движение, сон — вместе они работают на ваше здоровье, энергию и качество жизни.
                   </motion.p>
-                  <p className="text-[10px] text-gray-400 text-center mt-2 font-medium tracking-wide">
-                    v{buildVersion}
-                  </p>
                 </div>
 
-                {/* Section 4: Premium Start Button */}
+                {/* Блок кнопки входа */}
                 <motion.div 
                   initial={{ opacity: 0, y: 15 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.6, duration: 0.7 }}
-                  className="w-full mt-auto"
+                  className="w-full mt-auto mb-[38px] shrink-0 flex justify-center"
                 >
                   <StartButton onClick={() => setScreen("settings")} />
                 </motion.div>
 
               </div>
-
-              {/* Section 5: Customized bottom menu panel (firmware layout) */}
-              <motion.div 
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.7, duration: 0.7 }}
-                className="w-full mt-4"
-              >
-                <BottomBar />
-              </motion.div>
             </motion.div>
           ) : screen === "digestion" ? (
             <motion.div
@@ -1673,6 +1721,7 @@ export default function App() {
             </motion.div>
           )}
         </AnimatePresence>
+        )}
         </div>
 
         {/* Global Achievement Overlay */}

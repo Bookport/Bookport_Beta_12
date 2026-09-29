@@ -35,7 +35,7 @@ export default function GlassRing() {
   }, []);
 
   return (
-    <div className="relative w-72 h-72 sm:w-80 sm:h-80 mx-auto flex items-center justify-center select-none" id="glass-ring">
+    <div className="relative w-64 h-64 sm:w-72 sm:h-72 mx-auto flex items-center justify-center select-none" id="glass-ring">
       {/* Background radial glow */}
       <div className="absolute inset-0 bg-radial from-brand-green-pure/10 to-transparent blur-[40px] pointer-events-none rounded-full" />
       
@@ -226,7 +226,7 @@ export default function GlassRing() {
           <img
             src={logoSprout}
             alt="лого"
-            className="w-[115px] h-[115px] sm:w-[134px] sm:h-[134px] object-contain drop-shadow-[0_12px_24px_rgba(16,181,81,0.2)]"
+            className="w-[102px] h-[102px] sm:w-[112px] sm:h-[112px] object-contain drop-shadow-[0_12px_24px_rgba(16,181,81,0.2)]"
           />
         </div>
       </div>
